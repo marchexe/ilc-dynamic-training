@@ -1,0 +1,11 @@
+type: linucb_lr
+interval_steps: 100
+warmup_steps: 200
+actions: [0.8, 1.0, 1.2]
+min_lr: 1.0e-6
+max_lr: 3.0e-3
+ema_beta: 0.95
+alpha: 0.5
+ridge: 1.0
+seed: 12345
+observe_only: true
