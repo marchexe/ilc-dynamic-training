@@ -1,0 +1,2 @@
+-e ./weaver-core
+tabulate>=0.9

@@ -1,0 +1,671 @@
+treename: null
+branch_magic: null
+file_magic: null
+selection: null
+test_time_selection: null
+preprocess:
+  method: auto
+  data_fraction: 0.1
+  params:
+    pfcand_erel_log:
+      length: 75
+      pad_mode: wrap
+      center: -1.5416029691696167
+      scale: 1.8369709883462537
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_thetarel:
+      length: 75
+      pad_mode: wrap
+      center: 0.23195043206214905
+      scale: 2.112011420672109
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_phirel:
+      length: 75
+      pad_mode: wrap
+      center: -0.0026953788474202156
+      scale: 0.4808187845363021
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_dptdpt:
+      length: 75
+      pad_mode: wrap
+      center: 3.7085330466257727e-13
+      scale: 59526345667.391525
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_detadeta:
+      length: 75
+      pad_mode: wrap
+      center: 3.9192630651996296e-07
+      scale: 169526.91701926934
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_dphidphi:
+      length: 75
+      pad_mode: wrap
+      center: 2.699304673114966e-07
+      scale: 322752.8410268993
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_dxydxy:
+      length: 75
+      pad_mode: wrap
+      center: 9.143821080215275e-05
+      scale: 745.8063346020031
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_dzdz:
+      length: 75
+      pad_mode: wrap
+      center: 0.00012753075861837715
+      scale: 357.75649024240244
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_dxydz:
+      length: 75
+      pad_mode: wrap
+      center: -4.283448595820971e-10
+      scale: 175304.2747081509
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_dphidxy:
+      length: 75
+      pad_mode: wrap
+      center: 4.652810730476631e-06
+      scale: 17637.926210360853
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_dlambdadz:
+      length: 75
+      pad_mode: wrap
+      center: -7.353462933679111e-06
+      scale: 7528.618375609853
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_dxyc:
+      length: 75
+      pad_mode: wrap
+      center: 1.6439696826076045e-10
+      scale: 117756563.82266822
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_dxyctgtheta:
+      length: 75
+      pad_mode: wrap
+      center: 3.309482896063365e-12
+      scale: 46917311.21567124
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_phic:
+      length: 75
+      pad_mode: wrap
+      center: 1.1894422946578942e-11
+      scale: 2130719916.558386
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_phidz:
+      length: 75
+      pad_mode: wrap
+      center: 1.0764735457191588e-11
+      scale: 3253001.941313697
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_phictgtheta:
+      length: 75
+      pad_mode: wrap
+      center: -4.267652261446967e-15
+      scale: 1535733510.7323294
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_cdz:
+      length: 75
+      pad_mode: wrap
+      center: -2.2471333045612175e-15
+      scale: 60891971097.49308
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_cctgtheta:
+      length: 75
+      pad_mode: wrap
+      center: 8.669879350695908e-18
+      scale: 17046831287015.312
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_charge:
+      length: 75
+      pad_mode: wrap
+      center: 1.0
+      scale: 0.5
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_dxy:
+      length: 75
+      pad_mode: wrap
+      center: 2.6013212846009992e-05
+      scale: 29.464483373867616
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_dz:
+      length: 75
+      pad_mode: wrap
+      center: 6.112793471402256e-06
+      scale: 22.01393187028952
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_btagSip2dVal:
+      length: 75
+      pad_mode: wrap
+      center: 0.0022186501882970333
+      scale: 9.784776292934367
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_btagSip2dSig:
+      length: 75
+      pad_mode: wrap
+      center: 0.26614153385162354
+      scale: 0.09342092035817057
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_btagSip3dVal:
+      length: 75
+      pad_mode: wrap
+      center: 0.0032316052820533514
+      scale: 8.596399105446366
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_btagSip3dSig:
+      length: 75
+      pad_mode: wrap
+      center: 0.30712515115737915
+      scale: 0.2154559028455661
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_btagJetDistVal:
+      length: 75
+      pad_mode: wrap
+      center: -2.4552557533752406e-06
+      scale: 35.006725831183
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_btagJetDistSig:
+      length: 75
+      pad_mode: wrap
+      center: -0.0001780149614205584
+      scale: 0.944121909212029
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_px:
+      length: 75
+      pad_mode: wrap
+      center: null
+      scale: 1
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_py:
+      length: 75
+      pad_mode: wrap
+      center: null
+      scale: 1
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_pz:
+      length: 75
+      pad_mode: wrap
+      center: null
+      scale: 1
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_e:
+      length: 75
+      pad_mode: wrap
+      center: null
+      scale: 1
+      min: -5
+      max: 5
+      pad_value: 0
+    pfcand_mask:
+      length: 75
+      pad_mode: constant
+      center: null
+      scale: 1
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_btagSip2dVal:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_erel_log:
+      length: 75
+      pad_mode: wrap
+      center: -2.0960195064544678
+      scale: 1.4493894276190615
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_thetarel:
+      length: 75
+      pad_mode: wrap
+      center: 0.32572486996650696
+      scale: 1.7497114661046915
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_phirel:
+      length: 75
+      pad_mode: wrap
+      center: -0.0008092293282970786
+      scale: 0.4931572423333337
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_dptdpt:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_detadeta:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_dphidphi:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_dxydxy:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_dzdz:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_dxydz:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_dphidxy:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_dlambdadz:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_dxyc:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_dxyctgtheta:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_phic:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_phidz:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_phictgtheta:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_cdz:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_cctgtheta:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_charge:
+      length: 75
+      pad_mode: wrap
+      center: 0.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_dxy:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_dz:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_btagSip2dSig:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_btagSip3dVal:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_btagSip3dSig:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_btagJetDistVal:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_btagJetDistSig:
+      length: 75
+      pad_mode: wrap
+      center: -9.0
+      scale: 1.0
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_px:
+      length: 75
+      pad_mode: wrap
+      center: null
+      scale: 1
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_py:
+      length: 75
+      pad_mode: wrap
+      center: null
+      scale: 1
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_pz:
+      length: 75
+      pad_mode: wrap
+      center: null
+      scale: 1
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_e:
+      length: 75
+      pad_mode: wrap
+      center: null
+      scale: 1
+      min: -5
+      max: 5
+      pad_value: 0
+    neu_pfcand_mask:
+      length: 75
+      pad_mode: constant
+      center: null
+      scale: 1
+      min: -5
+      max: 5
+      pad_value: 0
+new_variables:
+  pfcand_mask: ak.ones_like(pfcand_e)
+  pfcand_p: np.sqrt(pfcand_px*pfcand_px + pfcand_py*pfcand_py + pfcand_pz*pfcand_pz)
+  neu_pfcand_mask: ak.ones_like(neu_pfcand_e)
+  neu_pfcand_p: np.sqrt(neu_pfcand_px*neu_pfcand_px + neu_pfcand_py*neu_pfcand_py
+    + neu_pfcand_pz*neu_pfcand_pz)
+  mc_b: 1*(label==5)
+  mc_bbar: 1*(label==-5)
+  mc_c: 1*(label==4)
+  mc_cbar: 1*(label==-4)
+  mc_s: 1*(label==3)
+  mc_sbar: 1*(label==-3)
+  mc_d: 1*(label==2)
+  mc_dbar: 1*(label==-2)
+  mc_u: 1*(label==1)
+  mc_ubar: 1*(label==-1)
+  mc_g: 1*(label==21)
+inputs:
+  pf_features:
+    pad_mode: wrap
+    length: 75
+    vars:
+    - pfcand_erel_log
+    - pfcand_thetarel
+    - pfcand_phirel
+    - pfcand_dptdpt
+    - pfcand_detadeta
+    - pfcand_dphidphi
+    - pfcand_dxydxy
+    - pfcand_dzdz
+    - pfcand_dxydz
+    - pfcand_dphidxy
+    - pfcand_dlambdadz
+    - pfcand_dxyc
+    - pfcand_dxyctgtheta
+    - pfcand_phic
+    - pfcand_phidz
+    - pfcand_phictgtheta
+    - pfcand_cdz
+    - pfcand_cctgtheta
+    - pfcand_charge
+    - pfcand_dxy
+    - pfcand_dz
+    - pfcand_btagSip2dVal
+    - pfcand_btagSip2dSig
+    - pfcand_btagSip3dVal
+    - pfcand_btagSip3dSig
+    - pfcand_btagJetDistVal
+    - pfcand_btagJetDistSig
+  pf_vectors:
+    length: 75
+    pad_mode: wrap
+    vars:
+    - - pfcand_px
+      - null
+    - - pfcand_py
+      - null
+    - - pfcand_pz
+      - null
+    - - pfcand_e
+      - null
+  pf_mask:
+    length: 75
+    pad_mode: constant
+    vars:
+    - - pfcand_mask
+      - null
+  neu_features:
+    pad_mode: wrap
+    length: 75
+    vars:
+    - neu_pfcand_btagSip2dVal
+    - neu_pfcand_erel_log
+    - neu_pfcand_thetarel
+    - neu_pfcand_phirel
+    - neu_pfcand_dptdpt
+    - neu_pfcand_detadeta
+    - neu_pfcand_dphidphi
+    - neu_pfcand_dxydxy
+    - neu_pfcand_dzdz
+    - neu_pfcand_dxydz
+    - neu_pfcand_dphidxy
+    - neu_pfcand_dlambdadz
+    - neu_pfcand_dxyc
+    - neu_pfcand_dxyctgtheta
+    - neu_pfcand_phic
+    - neu_pfcand_phidz
+    - neu_pfcand_phictgtheta
+    - neu_pfcand_cdz
+    - neu_pfcand_cctgtheta
+    - neu_pfcand_charge
+    - neu_pfcand_dxy
+    - neu_pfcand_dz
+    - neu_pfcand_btagSip2dVal
+    - neu_pfcand_btagSip2dSig
+    - neu_pfcand_btagSip3dVal
+    - neu_pfcand_btagSip3dSig
+    - neu_pfcand_btagJetDistVal
+    - neu_pfcand_btagJetDistSig
+  neu_vectors:
+    length: 75
+    pad_mode: wrap
+    vars:
+    - - neu_pfcand_px
+      - null
+    - - neu_pfcand_py
+      - null
+    - - neu_pfcand_pz
+      - null
+    - - neu_pfcand_e
+      - null
+  neu_mask:
+    length: 75
+    pad_mode: constant
+    vars:
+    - - neu_pfcand_mask
+      - null
+labels:
+  type: simple
+  value:
+  - mc_b
+  - mc_c
+  - mc_d
+observers: []
+monitor_variables: []
+weights:
+  use_precomputed_weights: false
+  reweight_method: flat
+  reweight_vars:
+    jet_phi:
+    - -10.0
+    - 10.0
+    jet_theta:
+    - -10.0
+    - 10.0
+  reweight_classes:
+  - mc_b
+  - mc_c
+  - mc_d
+  class_weights:
+  - 1
+  - 1
+  - 1
+  reweight_hists:
+    mc_b:
+    - - 0.8987608551979065
+    mc_c:
+    - - 0.8991746306419373
+    mc_d:
+    - - 0.8999999761581421

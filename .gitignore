@@ -1,0 +1,11 @@
+.venv/
+*.auto.yaml
+*.log
+__pycache__/
+runs/
+.agents/
+.codex/
+*.pyc
+*.pt
+*.root
+*.onnx
