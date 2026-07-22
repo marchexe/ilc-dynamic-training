@@ -20,7 +20,22 @@ BASELINE_DIR = args.baseline_dir
 OUTPUT = args.output
 
 
-def read_metrics(path):
+def read_metrics(run_dir):
+    metrics_path = run_dir / "metrics.json"
+    if metrics_path.exists():
+        payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+        return {
+            "loss": float(payload["validation_loss"]),
+            "accuracy": float(payload["validation_accuracy"]),
+            "auc": float(payload["validation_auc"]),
+            "seed": payload.get("seed"),
+            "train_worker_seed": payload.get("train_worker_seed"),
+            "val_worker_seed": payload.get("val_worker_seed"),
+            "train_examples": payload.get("train_examples"),
+            "validation_examples": payload.get("validation_examples"),
+        }
+
+    path = run_dir / "train.log"
     text = path.read_text(encoding="utf-8", errors="replace")
     loss_acc = re.search(r"Eval AvgLoss: ([0-9.]+), AvgAcc: ([0-9.]+)", text)
     auc = re.search(r"roc_auc_score:\s*\n([0-9.]+)", text)
@@ -29,6 +44,7 @@ def read_metrics(path):
     seed = re.search(r"Using random seed (\d+)", text)
     train_worker_seed = re.search(r"DataIter train_worker0, seed=(\d+)", text)
     val_worker_seed = re.search(r"DataIter val_worker0, seed=(\d+)", text)
+    processed = [int(value) for value in re.findall(r"Processed (\d+) entries", text)]
     return {
         "loss": float(loss_acc.group(1)),
         "accuracy": float(loss_acc.group(2)),
@@ -36,6 +52,8 @@ def read_metrics(path):
         "seed": None if seed is None else int(seed.group(1)),
         "train_worker_seed": None if train_worker_seed is None else int(train_worker_seed.group(1)),
         "val_worker_seed": None if val_worker_seed is None else int(val_worker_seed.group(1)),
+        "train_examples": processed[-2] if len(processed) >= 2 else None,
+        "validation_examples": processed[-1] if processed else None,
     }
 
 
@@ -44,8 +62,8 @@ events = [
     for line in (ACTIVE_DIR / "net_controller.jsonl").read_text().splitlines()
     if line.strip()
 ]
-baseline = read_metrics(BASELINE_DIR / "train.log")
-active = read_metrics(ACTIVE_DIR / "train.log")
+baseline = read_metrics(BASELINE_DIR)
+active = read_metrics(ACTIVE_DIR)
 
 steps = [0] + [event["global_step"] for event in events]
 active_lr = [events[0]["old_lr"]] + [event["new_lr"] for event in events]
@@ -143,11 +161,12 @@ matched_random_streams = (
 )
 if matched_random_streams and baseline["seed"] is not None:
     comparison_note = (
-        f"Ntrain=153,600; Nval=14,848; matched seed={baseline['seed']}\n"
+        f"Ntrain={baseline['train_examples']:,}; Nval={baseline['validation_examples']:,}; "
+        f"matched seed={baseline['seed']}\n"
         f"matched train/val worker seeds={baseline['train_worker_seed']}/{baseline['val_worker_seed']}"
     )
 else:
-    comparison_note = "Ntrain=153,600; Nval=14,848\nsingle run; random streams not verified as matched"
+    comparison_note = "single run; random streams not verified as matched"
 ax_metric.text(
     0.0,
     -0.18,

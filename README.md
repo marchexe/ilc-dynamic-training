@@ -59,6 +59,9 @@ integration milestone, not evidence of an overall performance gain: AUC rose
 while accuracy fell, and only one seed has been tested.
 
 Committed figure: [`results/training_control_comparison_seed12345.png`](results/training_control_comparison_seed12345.png).
+Its compact metrics and all 19 controller decisions are stored in
+[`results/matched_seed_12345/`](results/matched_seed_12345/), so the figure can
+be reproduced without committing full logs or checkpoints.
 
 ## What happens during training
 
