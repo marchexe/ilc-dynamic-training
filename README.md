@@ -214,8 +214,9 @@ Relevant implementation files:
 ## Current status and limitation
 
 - Weaver base: official commit `154db693565c69fabbc3fd80923fb8c2724fbf7b`.
-- Controller integration: commits `bb7dbeb` and `02d9ae6` on branch
-  `feature/ml-training-controller`.
+- Controller integration source: commits `bb7dbeb`, `02d9ae6`, and `ca30c63`
+  on branch `feature/ml-training-controller`, imported here as `weaver-core/`
+  with Git subtree.
 - The controller currently learns from training-loss improvement only.
 - It is therefore loss-aware, not yet physics-aware.
 
