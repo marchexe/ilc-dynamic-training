@@ -148,6 +148,9 @@ parser.add_argument('--warmup-steps', type=float, default=0.25,
                     help='number of warm-up steps (or fraction of the total steps if <1), only valid for `flat+linear` and `flat+cos` lr schedulers')
 parser.add_argument('--load-epoch', type=int, default=None,
                     help='used to resume interrupted training, load model and optimizer state saved in the `epoch-%%d_state.pt` and `epoch-%%d_optimizer.pt` files')
+parser.add_argument('--override-load-lr', action='store_true', default=False,
+                    help='after loading optimizer state with `--load-epoch`, rescale all optimizer parameter-group '
+                         'learning rates so the first group uses `--start-lr`; intended for outer-loop methods such as PBT')
 parser.add_argument('--start-lr', type=float, default=5e-3,
                     help='start learning rate')
 parser.add_argument('--batch-size', type=int, default=128,
@@ -786,6 +789,32 @@ def load_checkpoint(args, model, opt):
     if os.path.exists(opt_state_file):
         opt_state = torch.load(opt_state_file, map_location="cpu")
         opt.load_state_dict(opt_state)
+        if args.override_load_lr:
+            reference_lr = opt.param_groups[0]["lr"]
+            reference_lr = (
+                float(reference_lr.detach().item())
+                if hasattr(reference_lr, "detach")
+                else float(reference_lr)
+            )
+            if reference_lr <= 0:
+                raise ValueError("Cannot override loaded learning rate from a non-positive reference")
+            factor = args.start_lr / reference_lr
+            for group in opt.param_groups:
+                current_lr = group["lr"]
+                new_lr = (
+                    float(current_lr.detach().item())
+                    if hasattr(current_lr, "detach")
+                    else float(current_lr)
+                ) * factor
+                if hasattr(current_lr, "fill_"):
+                    current_lr.fill_(new_lr)
+                else:
+                    group["lr"] = new_lr
+            _logger.info(
+                "Overrode loaded optimizer learning rate: %.6g -> %.6g",
+                reference_lr,
+                args.start_lr,
+            )
     else:
         _logger.warning("Optimizer state file %s NOT found!" % opt_state_file)
 

@@ -144,23 +144,56 @@ With FP16, PyTorch can reject an optimizer step while adjusting dynamic loss
 scaling. Such steps are counted in the log as `AMP skipped optimizer steps`;
 the per-step scheduler and training controller also skip them.
 
-## Path toward PBT
+## Population Based Training
 
-The implemented launcher solves the first required layer: multiple independent,
-reproducible trainings running concurrently on assigned GPUs.
+The PBT coordinator is configured in:
 
-The next PBT layer should:
+```text
+configs/experiments/pp_pbt.yaml
+```
 
-1. define a population of workers and an evaluation interval;
-2. rank workers using a chosen validation objective;
-3. copy model and optimizer state from stronger to weaker workers;
-4. mutate selected hyperparameters;
-5. persist lineage and mutations in the experiment manifest;
-6. resume the whole population after interruption.
+The default population contains four fixed-LR members. Two GPU slots execute
+the population in parallel waves. After every generation the coordinator:
 
-That coordinator should reuse this launcher/manifest contract. It should be
-implemented before drawing performance conclusions from LinUCB or revisiting
-`ee` pairwise variables.
+1. ranks members by the configured validation metric;
+2. replaces the bottom fraction with model and optimizer state from the top;
+3. mutates the donors' learning rates within configured bounds;
+4. resumes every member from the resulting epoch checkpoint;
+5. records ranking, metrics, parentage, mutations and exact commands.
+
+Run a two-member, two-generation integration test:
+
+```bash
+.venv/bin/python scripts/run_pbt.py \
+  --smoke \
+  --gpus 0,2 \
+  --experiment-name pp_pbt_smoke_01
+```
+
+Inspect the full four-member commands without training:
+
+```bash
+.venv/bin/python scripts/run_pbt.py --dry-run
+```
+
+Run the configured population:
+
+```bash
+.venv/bin/python scripts/run_pbt.py \
+  --gpus 0,2 \
+  --experiment-name pp_pbt_01
+```
+
+Use the same options plus `--resume` after an interruption. Exploit copying is
+atomic and idempotent, so resume can safely finish a partially applied
+generation. On resume, Weaver restores model and optimizer state and then
+rescales optimizer parameter-group learning rates to the PBT-selected value.
+
+The default ranking objective is validation accuracy, matching the historical
+`0.88992` reference. It can be changed to validation AUC or loss in the YAML.
+The current minimal implementation mutates only learning rate; additional
+hyperparameters can be added after this execution path is accepted.
+Smoke-test metrics are not evidence of PBT performance.
 
 ## Previous ee prototype
 
@@ -182,8 +215,10 @@ pretrained `pp` continuation.
 │   └── particle_transformer_ee.py
 ├── scripts/
 │   ├── run_parallel_training.py
+│   ├── run_pbt.py
 │   ├── validate_pretrained_sgv_3cat.sh
 │   └── train_sgv_3cat.sh
+├── tests/                    coordinator unit tests
 ├── weaver-core/              Weaver and controller integration
 ├── checkpoints/              local artifacts, ignored by Git
 ├── datasets/                 local data, ignored by Git

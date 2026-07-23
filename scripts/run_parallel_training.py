@@ -246,7 +246,15 @@ def latest_resumable_epoch(worker_dir, controller_enabled):
     return max(candidates, default=None)
 
 
-def build_command(resolved, worker, worker_dir, resume_epoch):
+def build_command(
+    resolved,
+    worker,
+    worker_dir,
+    resume_epoch,
+    *,
+    log_path=None,
+    override_load_lr=False,
+):
     shared = resolved["shared"]
     data = Path(shared["dataset"])
     command = [
@@ -268,7 +276,7 @@ def build_command(resolved, worker, worker_dir, resume_epoch):
         "--model-prefix",
         str(worker_dir / "net"),
         "--log-file",
-        str(worker_dir / "train.log"),
+        str(log_path or worker_dir / "train.log"),
         "--lr-scheduler",
         str(shared["lr_scheduler"]),
         "--seed",
@@ -296,6 +304,8 @@ def build_command(resolved, worker, worker_dir, resume_epoch):
         command.extend(["--load-model-weights", shared["checkpoint"]])
     else:
         command.extend(["--load-epoch", str(resume_epoch)])
+        if override_load_lr:
+            command.append("--override-load-lr")
     if worker["controller"]:
         command.extend(["--training-controller", worker["controller"]])
     if shared["no_remake_weights"]:
@@ -305,8 +315,8 @@ def build_command(resolved, worker, worker_dir, resume_epoch):
     return command
 
 
-def read_metrics(worker_dir):
-    log_path = worker_dir / "train.log"
+def read_metrics(path):
+    log_path = path / "train.log" if path.is_dir() else path
     if not log_path.is_file():
         return None
     text = log_path.read_text(errors="replace")
