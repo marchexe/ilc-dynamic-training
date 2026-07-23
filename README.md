@@ -1,124 +1,168 @@
 # ILC Dynamic Training
 
-This repository continues training a checkpoint-compatible ParticleTransformer
-on ILC SGV data and provides the parallel execution layer needed for population
-experiments.
+Internal training infrastructure for ILC SGV flavour tagging.
 
-## Current objective
+## Status
 
-The current comparison starts from one pretrained `pp` checkpoint:
+| Component | State |
+|---|---|
+| Pretrained `pp` validation | Passed |
+| Charged/neutral split | Verified |
+| Two-GPU matched launcher | Passed smoke-test |
+| LinUCB integration | Trial only |
+| Epoch-level PBT | Passed 2-generation smoke-test |
+| Full continuation | Not run |
+| Full PBT benchmark | Not run |
 
-```text
-checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
-```
+Reference metrics:
 
-The checkpoint is the best state from the completed 20-epoch training (epoch
-17). On the project-local validation data it gives:
+| Source | Accuracy | ROC AUC |
+|---|---:|---:|
+| Historical best | `0.88992` | `0.97364` |
+| Local checkpoint validation | `0.88936` | `0.97336` |
 
-```text
-accuracy: 0.88936
-ROC AUC:  0.97336
-```
-
-The historical training report lists `0.88992` accuracy and `0.97364` AUC. This
-small difference is the reference tolerance; continuation experiments should
-be compared with the historical best, not with a model trained from scratch.
-
-Two matched workers are currently defined:
-
-- `baseline`: fixed learning rate;
-- `linucb`: the same continuation with the experimental LinUCB controller.
-
-LinUCB is an integration trial, not the assumed final optimization algorithm.
-The parallel launcher is intentionally controller-agnostic so it can serve as
-the execution layer for a later PBT coordinator.
-
-## Data and model contract
-
-The local dataset is expected at:
-
-```text
-datasets/20250218_ilc_nnqq_sgvnew
-```
-
-The data configuration contains separate charged and neutral inputs:
-`pf_features/pf_vectors/pf_mask` and
-`neu_features/neu_vectors/neu_mask`. The checkpoint-compatible network consumes
-both groups separately and uses the original `pair_input_type="pp"` path.
-
-The model is self-contained in:
-
-```text
-networks/particle_transformer_pp_pretrained.py
-```
-
-It does not import code from another checkout under `/data/suehara/weaver`.
-Do not substitute `particle_transformer_ee.py`: the modern `ee` implementation
-is not numerically compatible with this checkpoint even where parameter shapes
-match.
-
-Validate the untouched checkpoint on one GPU:
+## Quick commands
 
 ```bash
+# Validate untouched pretrained weights
 ./scripts/validate_pretrained_sgv_3cat.sh 0
+
+# Inspect matched baseline/LinUCB commands
+.venv/bin/python scripts/run_parallel_training.py --dry-run
+
+# Matched two-GPU smoke-test
+.venv/bin/python scripts/run_parallel_training.py \
+  --smoke --gpus 0,2 --experiment-name pp_matched_smoke
+
+# Inspect four-member PBT commands
+.venv/bin/python scripts/run_pbt.py --dry-run
+
+# Two-member, two-generation PBT smoke-test
+.venv/bin/python scripts/run_pbt.py \
+  --smoke --gpus 0,2 --experiment-name pp_pbt_smoke
+
+# Unit tests
+.venv/bin/python -m unittest discover -s tests -v
 ```
 
-## Parallel matched training
+No full-budget command should be started before reviewing:
 
-The reproducible experiment contract is:
+- optimizer initialization;
+- ranking metric;
+- population size;
+- LR range;
+- compute budget.
+
+## Required local artifacts
+
+Ignored by Git:
+
+| Artifact | Path |
+|---|---|
+| Dataset | `datasets/20250218_ilc_nnqq_sgvnew/` |
+| Pretrained weights | `checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt` |
+| Virtual environment | `.venv/` |
+| Run outputs | `runs/` |
+
+Checkpoint:
+
+- source run: 20 epochs;
+- selected best state: epoch 17;
+- SHA-256: `ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501`;
+- initial continuation: model weights + fresh optimizer;
+- original epoch-17 optimizer: available externally, not wired into current contract.
+
+## Model/data contract
+
+| Item | Value |
+|---|---|
+| Task | `nnbb` / `nncc` / `nndd` |
+| Network | `networks/particle_transformer_pp_pretrained.py` |
+| Pair input | `pp` |
+| Data config | `configs/data/ilc_nnqq_sgvnew_3cat.yaml` |
+| Optimizer | Ranger |
+| AMP | FP16 |
+
+Particle inputs:
+
+```text
+charged → pf_features  + pf_vectors  + pf_mask
+neutral → neu_features + neu_vectors + neu_mask
+```
+
+Model flow:
+
+```text
+charged embedding ─┐
+                   ├→ checkpoint-compatible ParticleTransformer → 3 classes
+neutral embedding ─┘
+```
+
+Constraints:
+
+- charged and neutral inputs remain separate;
+- pretrained weights require the checkpoint-compatible `pp` implementation;
+- `particle_transformer_ee.py` is not checkpoint-equivalent;
+- no runtime import from `/data/suehara/weaver`.
+
+## Matched parallel training
+
+Config:
 
 ```text
 configs/experiments/pp_matched.yaml
 ```
 
-It defines the shared checkpoint, dataset, seed, optimizer, learning rate,
-batch size, epoch/sample budgets, network, and workers. Shared values are
-constructed once and passed to every worker; only the worker GPU and optional
-controller differ.
+Workers:
 
-Inspect commands without starting training:
+| Worker | Controller |
+|---|---|
+| `baseline` | none |
+| `linucb` | `configs/controllers/linucb_lr_pp_active.yaml` |
 
-```bash
-.venv/bin/python scripts/run_parallel_training.py --dry-run
+Matched fields:
+
+```text
+checkpoint
+dataset
+data/network config
+seed
+optimizer
+start LR
+batch size
+epoch/sample budget
+AMP settings
 ```
 
-Run the required two-GPU smoke test:
+Per-worker fields:
 
-```bash
-.venv/bin/python scripts/run_parallel_training.py \
-  --smoke \
-  --gpus 0,2 \
-  --experiment-name pp_smoke_01
+```text
+name
+GPU
+controller
+output directory
 ```
 
-`--smoke` overrides the budget to one epoch, 7680 training samples, and 3000
-validation samples. Its metrics only verify integration; short training changes
-BatchNorm statistics and is not a performance measurement.
+Execution:
 
-After the smoke test is accepted, run the configured two-epoch continuation:
-
-```bash
-.venv/bin/python scripts/run_parallel_training.py \
-  --gpus 0,2 \
-  --experiment-name pp_continuation_01
+```text
+resolve YAML
+  → validate paths and samples
+  → compute contract fingerprint
+  → launch workers
+  → monitor exit codes
+  → parse validation metrics
+  → write manifest
 ```
 
-Resume an interrupted run with the same config and overrides:
+Failure policy:
 
-```bash
-.venv/bin/python scripts/run_parallel_training.py \
-  --gpus 0,2 \
-  --experiment-name pp_continuation_01 \
-  --resume
-```
+- one worker fails → terminate remaining workers;
+- experiment status → `failed`;
+- incompatible resume contract → reject;
+- resume checkpoint → model + optimizer + optional controller state.
 
-Resume is rejected if the saved experiment fingerprint differs from the
-resolved training contract. A worker resumes only from an epoch that has model
-and optimizer state, plus controller state where applicable.
-
-## Outputs and failure behavior
-
-Each experiment is isolated under:
+Output:
 
 ```text
 runs/parallel/<experiment>/
@@ -135,100 +179,182 @@ runs/parallel/<experiment>/
     └── net_*.pt
 ```
 
-The manifest records the exact commands, checkpoint path/target/SHA-256, Git
-revision and dirty state, worker status, timestamps, and final validation
-metrics. If one worker fails, the launcher terminates the other workers and
-marks the experiment failed instead of leaving a partial comparison running.
-
-With FP16, PyTorch can reject an optimizer step while adjusting dynamic loss
-scaling. Such steps are counted in the log as `AMP skipped optimizer steps`;
-the per-step scheduler and training controller also skip them.
-
 ## Population Based Training
 
-The PBT coordinator is configured in:
+Config:
 
 ```text
 configs/experiments/pp_pbt.yaml
 ```
 
-The default population contains four fixed-LR members. Two GPU slots execute
-the population in parallel waves. After every generation the coordinator:
+Default population:
 
-1. ranks members by the configured validation metric;
-2. replaces the bottom fraction with model and optimizer state from the top;
-3. mutates the donors' learning rates within configured bounds;
-4. resumes every member from the resulting epoch checkpoint;
-5. records ranking, metrics, parentage, mutations and exact commands.
+| Member | Initial LR |
+|---|---:|
+| `member_00` | `7.5e-5` |
+| `member_01` | `1.0e-4` |
+| `member_02` | `1.25e-4` |
+| `member_03` | `1.5e-4` |
 
-Run a two-member, two-generation integration test:
+Default policy:
 
-```bash
-.venv/bin/python scripts/run_pbt.py \
-  --smoke \
-  --gpus 0,2 \
-  --experiment-name pp_pbt_smoke_01
-```
+| Field | Value |
+|---|---|
+| GPU slots | `0,2` |
+| Generations | `2` |
+| Epochs/generation | `1` |
+| Ranking metric | `validation_accuracy` |
+| Ranking mode | `max` |
+| Exploit fraction | `0.5` |
+| LR mutations | `×0.8`, `×1.2` |
+| LR bounds | `5e-5 ... 2e-4` |
 
-Inspect the full four-member commands without training:
-
-```bash
-.venv/bin/python scripts/run_pbt.py --dry-run
-```
-
-Run the configured population:
-
-```bash
-.venv/bin/python scripts/run_pbt.py \
-  --gpus 0,2 \
-  --experiment-name pp_pbt_01
-```
-
-Use the same options plus `--resume` after an interruption. Exploit copying is
-atomic and idempotent, so resume can safely finish a partially applied
-generation. On resume, Weaver restores model and optimizer state and then
-rescales optimizer parameter-group learning rates to the PBT-selected value.
-
-The default ranking objective is validation accuracy, matching the historical
-`0.88992` reference. It can be changed to validation AUC or loss in the YAML.
-The current minimal implementation mutates only learning rate; additional
-hyperparameters can be added after this execution path is accepted.
-Smoke-test metrics are not evidence of PBT performance.
-
-## Previous ee prototype
-
-`networks/particle_transformer_ee.py`, `scripts/train_sgv_3cat.sh`, and the
-matched-seed results under `results/` belong to the earlier LinUCB integration
-prototype. They are retained for provenance but are not used by the current
-pretrained `pp` continuation.
-
-## Project layout
+Generation loop:
 
 ```text
-.
-├── configs/
-│   ├── controllers/          LinUCB settings
-│   ├── data/                 charged/neutral SGV preprocessing
-│   └── experiments/          reproducible parallel run contracts
-├── networks/
-│   ├── particle_transformer_pp_pretrained.py
-│   └── particle_transformer_ee.py
-├── scripts/
-│   ├── run_parallel_training.py
-│   ├── run_pbt.py
-│   ├── validate_pretrained_sgv_3cat.sh
-│   └── train_sgv_3cat.sh
-├── tests/                    coordinator unit tests
-├── weaver-core/              Weaver and controller integration
-├── checkpoints/              local artifacts, ignored by Git
-├── datasets/                 local data, ignored by Git
-└── runs/                     generated experiments, ignored by Git
+train population
+  → validate population
+  → rank members
+  → bottom 50% copy model + optimizer from top 50%
+  → mutate copied LR
+  → persist lineage
+  → resume next generation
 ```
 
-## Environment
+GPU scheduling with four members/two slots:
 
-The prepared environment is `.venv`. To recreate it on a compatible CUDA
-machine:
+```text
+wave 1: member_00@GPU0 + member_01@GPU2
+wave 2: member_02@GPU0 + member_03@GPU2
+```
+
+Exploit state:
+
+```text
+donor net_epoch-N_state.pt     → recipient
+donor net_epoch-N_optimizer.pt → recipient
+mutated LR                     → applied after optimizer load
+```
+
+Safety:
+
+- atomic checkpoint replacement;
+- exploit plan persisted before copy;
+- idempotent partial-exploit resume;
+- config fingerprint validation;
+- generation/member status in manifest;
+- exact commands and lineage recorded.
+
+Supported ranking fields:
+
+```text
+validation_accuracy
+validation_auc
+validation_loss
+```
+
+Current mutation space:
+
+```text
+learning rate only
+```
+
+Output:
+
+```text
+runs/pbt/<experiment>/
+├── manifest.json
+├── resolved_config.yaml
+├── member_00/
+│   ├── generation-000.log
+│   ├── generation-000.console.log
+│   └── net_epoch-*.pt
+└── member_*/
+```
+
+## AMP/controller behavior
+
+FP16 non-finite gradient:
+
+```text
+GradScaler rejects optimizer step
+  → scheduler step skipped
+  → training-controller observation skipped
+  → counter logged as "AMP skipped optimizer steps"
+```
+
+LinUCB fallback:
+
+- non-finite context values sanitized;
+- no NaN/Inf propagation into LinUCB matrices;
+- still experimental;
+- not part of current PBT.
+
+## Reproducibility manifest
+
+Recorded fields:
+
+```text
+resolved config
+contract fingerprint
+checkpoint path + SHA-256
+Git commit/branch/dirty state
+exact worker commands
+seeds and GPU assignment
+timestamps and return codes
+validation loss/accuracy/AUC
+PBT ranking
+donor/recipient lineage
+LR mutations
+resume state
+```
+
+## Known limitations
+
+- Full-budget results unavailable.
+- PBT performance improvement unproven.
+- Smoke metrics not comparable with `0.88992`.
+- Initial population uses fresh optimizers.
+- PBT mutates LR only.
+- Default ranking metric not yet physics-approved.
+- Multi-seed statistical comparison not run.
+- `ee` pairwise path retained only as an earlier prototype.
+
+## Repository map
+
+```text
+configs/
+├── controllers/linucb_lr_pp_active.yaml
+├── data/ilc_nnqq_sgvnew_3cat.yaml
+└── experiments/
+    ├── pp_matched.yaml
+    └── pp_pbt.yaml
+
+networks/
+├── particle_transformer_pp_pretrained.py   # active pretrained path
+└── particle_transformer_ee.py              # previous prototype
+
+scripts/
+├── run_parallel_training.py
+├── run_pbt.py
+├── validate_pretrained_sgv_3cat.sh
+└── train_sgv_3cat.sh                       # previous ee prototype
+
+tests/
+└── test_pbt.py
+
+weaver-core/
+├── weaver/train.py                         # checkpoint/LR resume
+└── weaver/utils/
+    ├── nn/tools.py                         # AMP/controller hook
+    └── training_control/                   # controller implementation
+```
+
+## Internal documentation
+
+- Weaver controller internals: [`weaver-core/docs/training-controller.md`](weaver-core/docs/training-controller.md)
+
+## Environment bootstrap
 
 ```bash
 python3 -m venv .venv
