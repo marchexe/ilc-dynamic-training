@@ -9,3 +9,5 @@ runs/
 *.pt
 *.root
 *.onnx
+checkpoints/
+datasets/

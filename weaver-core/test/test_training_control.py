@@ -7,14 +7,14 @@ from weaver.utils.training_control.factory import build_training_controller
 from weaver.utils.training_control.linucb import LinUCBLearningRateController
 
 
-def _observation(batch, loss):
+def _observation(batch, loss, grad_norm=1.0):
     return BatchObservation(
         epoch=0,
         batch=batch,
         steps_per_epoch=10,
         loss=loss,
         accuracy=0.5,
-        grad_norm=1.0,
+        grad_norm=grad_norm,
     )
 
 
@@ -69,6 +69,26 @@ def test_linucb_preserves_parameter_group_lr_ratio():
 
     assert np.isclose(optimizer.param_groups[0]["lr"], 5e-4)
     assert np.isclose(optimizer.param_groups[1]["lr"], 1e-3)
+
+
+def test_linucb_handles_nonfinite_gradient_norm():
+    optimizer = SimpleNamespace(param_groups=[{"lr": 1e-3}])
+    controller = LinUCBLearningRateController(
+        optimizer,
+        interval_steps=1,
+        warmup_steps=1,
+        actions=(0.9, 1.0, 1.1),
+        min_lr=1e-5,
+        max_lr=1e-2,
+    )
+
+    for batch in range(1, 8):
+        decision = controller.on_batch_end(_observation(batch, 1.0, grad_norm=float("inf")))
+        assert decision is not None
+
+    state = controller.state_dict()
+    assert np.isfinite(state["a"]).all()
+    assert np.isfinite(state["b"]).all()
 
 
 def test_observe_only_does_not_attribute_reward_to_unapplied_action():

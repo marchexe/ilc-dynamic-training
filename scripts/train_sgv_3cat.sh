@@ -18,7 +18,7 @@ esac
 source "${project_dir}/.venv/bin/activate"
 cd "${project_dir}"
 
-data_dir="${ILC_FASTSIM_DIR:-/data/suehara/mldata/flavortag/20250218_ilc_nnqq_sgvnew}"
+data_dir="${ILC_FASTSIM_DIR:-${project_dir}/datasets/20250218_ilc_nnqq_sgvnew}"
 epochs="${EPOCHS:-20}"
 samples_per_epoch="${SAMPLES_PER_EPOCH:-2400000}"
 samples_per_epoch_val="${SAMPLES_PER_EPOCH_VAL:-150000}"

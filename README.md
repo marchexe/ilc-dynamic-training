@@ -1,236 +1,199 @@
 # ILC Dynamic Training
 
-This project trains an ee-specific ParticleTransformer on ILC SGV fast-simulation
-data and experiments with ML-based learning-rate control inside an epoch.
+This repository continues training a checkpoint-compatible ParticleTransformer
+on ILC SGV data and provides the parallel execution layer needed for population
+experiments.
 
-Start with `observe` mode. It runs normal training and records the actions that
-the controller would propose, but does not change the learning rate.
+## Current objective
 
-## Quick start
-
-The environment is already prepared in `.venv` on `iutgpu05`.
-
-Run a short one-epoch check on GPU 2:
-
-```bash
-cd /data/suehara/part/march
-
-EPOCHS=1 \
-SAMPLES_PER_EPOCH=76800 \
-SAMPLES_PER_EPOCH_VAL=15000 \
-./scripts/train_sgv_3cat.sh 2 observe
-```
-
-Follow the training log:
-
-```bash
-tail -f runs/sgv_3cat/observe/train.log
-```
-
-After the run, inspect the controller decisions:
-
-```bash
-sed -n '1,10p' runs/sgv_3cat/observe/net_controller.jsonl
-```
-
-The short run contains 300 training batches. The controller warms up for 10%
-of the epoch and then produces a decision every 5% of the epoch.
-
-To show only the useful controller and metric lines:
-
-```bash
-rg '\[training-control\]|Train AvgLoss|Eval AvgLoss|Current validation metric' \
-  runs/sgv_3cat/active/train.log
-```
-
-## Verified matched-seed demo
-
-A fixed-LR run and an active run were completed with the same seed, training
-budget, and train/validation worker seeds:
+The current comparison starts from one pretrained `pp` checkpoint:
 
 ```text
-                         fixed LR   LinUCB
-validation accuracy      0.81964    0.81782
-validation ROC AUC       0.93598    0.93886
+checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
 ```
 
-The controller made 19 decisions without producing NaN. The mixed result is an
-integration milestone, not evidence of an overall performance gain: AUC rose
-while accuracy fell, and only one seed has been tested.
-
-Committed figure: [`results/training_control_comparison_seed12345.png`](results/training_control_comparison_seed12345.png).
-Its compact metrics and all 19 controller decisions are stored in
-[`results/matched_seed_12345/`](results/matched_seed_12345/), so the figure can
-be reproduced without committing full logs or checkpoints.
-
-## What happens during training
+The checkpoint is the best state from the completed 20-epoch training (epoch
+17). On the project-local validation data it gives:
 
 ```text
-ROOT files
-    ↓
-fixed Weaver preprocessing
-    ↓
-ee-specific ParticleTransformer
-    ↓
-cross-entropy loss
-    ↓
-AdamW optimizer updates the model
-    ↓
-LinUCB observes the training state
-    ↓
-logs or applies a learning-rate action
+accuracy: 0.88936
+ROC AUC:  0.97336
 ```
 
-The classification task has three classes:
+The historical training report lists `0.88992` accuracy and `0.97364` AUC. This
+small difference is the reference tolerance; continuation experiments should
+be compared with the historical best, not with a model trained from scratch.
 
-- `nnbb` — b jets
-- `nncc` — c jets
-- `nndd` — d jets
+Two matched workers are currently defined:
 
-The model uses the current official ParticleTransformer implementation with
-`pair_input_type="ee"`. It does not use the old local
-`ParticleTransformer_test.py` implementation.
+- `baseline`: fixed learning rate;
+- `linucb`: the same continuation with the experimental LinUCB controller.
 
-## ML-based learning-rate controller
+LinUCB is an integration trial, not the assumed final optimization algorithm.
+The parallel launcher is intentionally controller-agnostic so it can serve as
+the execution layer for a later PBT coordinator.
 
-AdamW remains the optimizer that updates the network weights. LinUCB is a
-separate controller that changes one AdamW hyperparameter: the learning rate.
+## Data and model contract
 
-The controller observes:
-
-- exponentially smoothed training loss;
-- loss change over the previous decision window;
-- gradient norm;
-- progress through the epoch;
-- current learning rate.
-
-After a warmup covering 10% of an epoch, it makes a decision every 5%:
+The local dataset is expected at:
 
 ```text
-LR × 0.9
-LR × 1.0
-LR × 1.1
+datasets/20250218_ilc_nnqq_sgvnew
 ```
 
-The learning rate is restricted to `5e-4 ... 2e-3` for the current `1e-3`
-baseline.
+The data configuration contains separate charged and neutral inputs:
+`pf_features/pf_vectors/pf_mask` and
+`neu_features/neu_vectors/neu_mask`. The checkpoint-compatible network consumes
+both groups separately and uses the original `pair_input_type="pp"` path.
 
-### Observe mode
-
-```bash
-./scripts/train_sgv_3cat.sh 2 observe
-```
-
-The proposed actions are logged, but the learning rate is unchanged. No reward
-is attributed to an action that was not actually applied. Use this mode first
-to validate the training and logging pipeline.
-
-### Active mode
-
-```bash
-./scripts/train_sgv_3cat.sh 2 active
-```
-
-The selected action changes the learning rate for the next training window.
-At the following decision point, LinUCB receives a reward based on the relative
-improvement of the smoothed loss and updates its internal model.
-
-Do not use `active` mode for the first check.
-
-### Fixed-LR baseline and comparison plot
-
-```bash
-SEED=12345 RUN_NAME=baseline_seed12345_v2 \
-  EPOCHS=1 SAMPLES_PER_EPOCH=153600 SAMPLES_PER_EPOCH_VAL=15000 \
-  ./scripts/train_sgv_3cat.sh 2 baseline
-
-SEED=12345 RUN_NAME=active_seed12345_v2 \
-  EPOCHS=1 SAMPLES_PER_EPOCH=153600 SAMPLES_PER_EPOCH_VAL=15000 \
-  ./scripts/train_sgv_3cat.sh 2 active
-
-python scripts/plot_training_control.py \
-  --baseline-dir runs/sgv_3cat/baseline_seed12345_v2 \
-  --active-dir runs/sgv_3cat/active_seed12345_v2 \
-  --output runs/sgv_3cat/training_control_comparison_seed12345.png
-```
-
-The figure shows the controller's LR decisions and a matched-seed validation
-comparison with fixed LR.
-
-## Data
-
-The default dataset is:
+The model is self-contained in:
 
 ```text
-/data/suehara/mldata/flavortag/20250218_ilc_nnqq_sgvnew
+networks/particle_transformer_pp_pretrained.py
 ```
 
-To use another copy of the same dataset layout:
+It does not import code from another checkout under `/data/suehara/weaver`.
+Do not substitute `particle_transformer_ee.py`: the modern `ee` implementation
+is not numerically compatible with this checkpoint even where parameter shapes
+match.
+
+Validate the untouched checkpoint on one GPU:
 
 ```bash
-ILC_FASTSIM_DIR=/path/to/dataset ./scripts/train_sgv_3cat.sh 2 observe
+./scripts/validate_pretrained_sgv_3cat.sh 0
 ```
 
-The committed data configuration already contains preprocessing and reweighting
-statistics. They are not recalculated for every checkout.
+## Parallel matched training
 
-## Output files
-
-An observe run writes to `runs/sgv_3cat/observe/`; an active run writes to
-`runs/sgv_3cat/active/`.
+The reproducible experiment contract is:
 
 ```text
-train.log                         training log
-net_controller.jsonl             controller observations and decisions
-net_epoch-N_state.pt             ParticleTransformer weights
-net_epoch-N_optimizer.pt         AdamW state
-net_epoch-N_controller.pt        LinUCB state
+configs/experiments/pp_matched.yaml
 ```
 
-The model, optimizer, and controller states are saved separately so an
-interrupted experiment can later resume consistently.
+It defines the shared checkpoint, dataset, seed, optimizer, learning rate,
+batch size, epoch/sample budgets, network, and workers. Shared values are
+constructed once and passed to every worker; only the worker GPU and optional
+controller differ.
+
+Inspect commands without starting training:
+
+```bash
+.venv/bin/python scripts/run_parallel_training.py --dry-run
+```
+
+Run the required two-GPU smoke test:
+
+```bash
+.venv/bin/python scripts/run_parallel_training.py \
+  --smoke \
+  --gpus 0,2 \
+  --experiment-name pp_smoke_01
+```
+
+`--smoke` overrides the budget to one epoch, 7680 training samples, and 3000
+validation samples. Its metrics only verify integration; short training changes
+BatchNorm statistics and is not a performance measurement.
+
+After the smoke test is accepted, run the configured two-epoch continuation:
+
+```bash
+.venv/bin/python scripts/run_parallel_training.py \
+  --gpus 0,2 \
+  --experiment-name pp_continuation_01
+```
+
+Resume an interrupted run with the same config and overrides:
+
+```bash
+.venv/bin/python scripts/run_parallel_training.py \
+  --gpus 0,2 \
+  --experiment-name pp_continuation_01 \
+  --resume
+```
+
+Resume is rejected if the saved experiment fingerprint differs from the
+resolved training contract. A worker resumes only from an epoch that has model
+and optimizer state, plus controller state where applicable.
+
+## Outputs and failure behavior
+
+Each experiment is isolated under:
+
+```text
+runs/parallel/<experiment>/
+├── manifest.json
+├── resolved_config.yaml
+├── baseline/
+│   ├── console.log
+│   ├── train.log
+│   └── net_*.pt
+└── linucb/
+    ├── console.log
+    ├── train.log
+    ├── net_controller.jsonl
+    └── net_*.pt
+```
+
+The manifest records the exact commands, checkpoint path/target/SHA-256, Git
+revision and dirty state, worker status, timestamps, and final validation
+metrics. If one worker fails, the launcher terminates the other workers and
+marks the experiment failed instead of leaving a partial comparison running.
+
+With FP16, PyTorch can reject an optimizer step while adjusting dynamic loss
+scaling. Such steps are counted in the log as `AMP skipped optimizer steps`;
+the per-step scheduler and training controller also skip them.
+
+## Path toward PBT
+
+The implemented launcher solves the first required layer: multiple independent,
+reproducible trainings running concurrently on assigned GPUs.
+
+The next PBT layer should:
+
+1. define a population of workers and an evaluation interval;
+2. rank workers using a chosen validation objective;
+3. copy model and optimizer state from stronger to weaker workers;
+4. mutate selected hyperparameters;
+5. persist lineage and mutations in the experiment manifest;
+6. resume the whole population after interruption.
+
+That coordinator should reuse this launcher/manifest contract. It should be
+implemented before drawing performance conclusions from LinUCB or revisiting
+`ee` pairwise variables.
+
+## Previous ee prototype
+
+`networks/particle_transformer_ee.py`, `scripts/train_sgv_3cat.sh`, and the
+matched-seed results under `results/` belong to the earlier LinUCB integration
+prototype. They are retained for provenance but are not used by the current
+pretrained `pp` continuation.
 
 ## Project layout
 
 ```text
 .
 ├── configs/
-│   ├── controllers/              observe and active LinUCB settings
-│   └── data/                     fixed SGV preprocessing configuration
+│   ├── controllers/          LinUCB settings
+│   ├── data/                 charged/neutral SGV preprocessing
+│   └── experiments/          reproducible parallel run contracts
 ├── networks/
+│   ├── particle_transformer_pp_pretrained.py
 │   └── particle_transformer_ee.py
 ├── scripts/
-│   └── train_sgv_3cat.sh         main entry point
-├── weaver-core/                  Weaver plus the controller integration
-├── .venv/
-├── requirements.txt
-└── README.md
+│   ├── run_parallel_training.py
+│   ├── validate_pretrained_sgv_3cat.sh
+│   └── train_sgv_3cat.sh
+├── weaver-core/              Weaver and controller integration
+├── checkpoints/              local artifacts, ignored by Git
+├── datasets/                 local data, ignored by Git
+└── runs/                     generated experiments, ignored by Git
 ```
 
-Relevant implementation files:
+## Environment
 
-- `weaver-core/weaver/utils/training_control/` — controller API and LinUCB;
-- `weaver-core/weaver/utils/nn/tools.py` — per-batch controller hook;
-- `weaver-core/weaver/train.py` — CLI setup and controller checkpoints;
-- `weaver-core/docs/training-controller.md` — lower-level Weaver documentation.
-
-## Current status and limitation
-
-- Weaver base: official commit `154db693565c69fabbc3fd80923fb8c2724fbf7b`.
-- Controller integration source: commits `bb7dbeb`, `02d9ae6`, and `ca30c63`
-  on branch `feature/ml-training-controller`, imported here as `weaver-core/`
-  with Git subtree.
-- The controller currently learns from training-loss improvement only.
-- It is therefore loss-aware, not yet physics-aware.
-
-The next development step is a fixed proxy-validation set whose AUC or partial
-AUC becomes the controller reward. That must be validated against full
-validation before making physics-performance claims.
-
-## Environment setup on another machine
-
-Install a CUDA-compatible PyTorch build first. Then create the environment and
-install the local Weaver checkout:
+The prepared environment is `.venv`. To recreate it on a compatible CUDA
+machine:
 
 ```bash
 python3 -m venv .venv

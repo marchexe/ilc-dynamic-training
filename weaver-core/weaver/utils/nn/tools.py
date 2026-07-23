@@ -133,6 +133,7 @@ def train_classification(
     entry_count = 0
     count = 0
     grad_norm_max_val = 0
+    amp_skipped_steps = 0
 
     enable_autocast, autocast_dtype = get_autocast_config(extra_args['args'])
     training_controller = extra_args.get('training_controller')
@@ -160,15 +161,25 @@ def train_classification(
                 loss.backward()
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=clip_grad_norm).item()
                 opt.step()
+                optimizer_step_applied = True
             else:
                 grad_scaler.scale(loss).backward()
                 # unscale the gradients, then clipping
                 grad_scaler.unscale_(opt)
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=clip_grad_norm).item()
+                scale_before_update = grad_scaler.get_scale()
                 grad_scaler.step(opt)
                 grad_scaler.update()
+                optimizer_step_applied = grad_scaler.get_scale() >= scale_before_update
+                if not optimizer_step_applied:
+                    amp_skipped_steps += 1
+                    if amp_skipped_steps == 1:
+                        _logger.warning(
+                            'AMP skipped an optimizer step after detecting non-finite gradients. '
+                            'The scheduler and training controller will skip it as well.'
+                        )
 
-            if scheduler and getattr(scheduler, '_update_per_step', False):
+            if optimizer_step_applied and scheduler and getattr(scheduler, '_update_per_step', False):
                 scheduler.step()
 
             _, preds = logits.max(1)
@@ -183,7 +194,7 @@ def train_classification(
             total_loss += loss
             total_correct += correct
 
-            if training_controller is not None:
+            if training_controller is not None and optimizer_step_applied:
                 training_controller.on_batch_end(BatchObservation(
                     epoch=epoch,
                     batch=num_batches,
@@ -222,6 +233,8 @@ def train_classification(
     _logger.info('Train AvgLoss: %.5f, AvgAcc: %.5f' % (total_loss / num_batches, total_correct / count))
     _logger.info('Train class distribution: \n    %s', str(sorted(label_counter.items())))
     _logger.info('Max Grad Norm: %.5f' % (grad_norm_max_val, ))
+    if grad_scaler is not None:
+        _logger.info('AMP skipped optimizer steps: %d', amp_skipped_steps)
     _logger.info('Max CUDA memory: %.1f MB' % (torch.cuda.max_memory_allocated(dev) / 1024.**2,))
 
     if tb_helper:

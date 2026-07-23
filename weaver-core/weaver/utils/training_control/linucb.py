@@ -110,7 +110,7 @@ class LinUCBLearningRateController(TrainingController):
         previous = self._previous_decision_loss
         slope = 0.0 if previous is None else (previous - self._loss_ema) / max(abs(previous), 1e-12)
         lr_position = math.log(self._current_lr() / self.min_lr) / math.log(self.max_lr / self.min_lr)
-        return np.asarray(
+        context = np.asarray(
             [
                 1.0,
                 float(np.clip(progress, 0.0, 1.0)),
@@ -121,6 +121,9 @@ class LinUCBLearningRateController(TrainingController):
             ],
             dtype=np.float64,
         )
+        # AMP can report an infinite gradient norm on a skipped optimizer step.
+        # A non-finite observation must not poison the LinUCB matrices.
+        return np.nan_to_num(context, nan=0.0, posinf=20.0, neginf=-20.0)
 
     def _update_previous_action(self):
         if self._previous_action is None:
