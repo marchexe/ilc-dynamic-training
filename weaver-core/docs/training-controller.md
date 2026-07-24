@@ -8,11 +8,10 @@ change only explicitly supported optimizer settings.
 The first implementation is `linucb_lr`, a contextual bandit that chooses a
 multiplicative learning-rate action.  Its context contains training progress,
 exponentially-smoothed loss, loss slope, gradient norm, and the current learning
-rate.  The next window's relative loss improvement is used as its online
-reward.
-
-This is an experimental foundation for proxy-validation rewards, not evidence
-that training-loss reward is already superior to a conventional scheduler.
+rate.  The online reward can come either from the next window's relative
+training-loss improvement or from a high-frequency proxy-validation metric.
+For the ILC flavour-tagging continuation, the active `pp` controller uses proxy
+validation with the `bkg_rejection_score` metric.
 Use `observe_only: true` first: decisions and proposed learning rates are logged
 without changing training. Rewards are not attributed to hypothetical actions,
 so the bandit starts learning only after `observe_only` is disabled.
@@ -45,11 +44,16 @@ Events are written as JSON Lines next to the model checkpoint by default.  Each
 epoch checkpoint also stores the controller state, so `--load-epoch` resumes
 the learned bandit state together with model and optimizer states.
 
+For proxy validation, the training loop runs a small number of validation
+batches only when the controller is about to make a decision.  This is intended
+to provide a physics-aligned signal more frequently than full validation,
+without replacing the full validation pass at the end of the epoch.
+
 ## Boundaries
 
 - The controller and a Weaver learning-rate scheduler cannot be enabled at the
   same time.
 - Only learning rate is mutable in the initial implementation.
 - `min_lr` and `max_lr` are hard safety bounds.
-- A fixed proxy-validation metric should replace training-loss reward before
-  physics-performance claims are made.
+- Proxy validation is a high-frequency approximation; final claims still need
+  full validation and multi-seed comparisons.

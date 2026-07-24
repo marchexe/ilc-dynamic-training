@@ -316,10 +316,11 @@ Before a full run:
 1. Initial optimizer:
    - fresh Ranger optimizer per member; or
    - original epoch-17 optimizer state.
-2. PBT ranking metric:
-   - validation accuracy;
-   - ROC AUC;
-   - validation loss.
+2. Final PBT ranking target:
+   - combined `validation_bkg_rejection_score`;
+   - b-tag focused `validation_b_tag_rejection_score`;
+   - c-tag focused `validation_c_tag_rejection_score`;
+   - individual `bc` / `bd` / `cb` / `cd` rejection scores.
 3. Population size and number of generations.
 4. Learning-rate range and mutation factors.
 5. Final comparison protocol and number of seeds.
@@ -327,6 +328,12 @@ Before a full run:
 The current implementation starts every initial member from pretrained model
 weights with a fresh optimizer. After the first PBT generation, model and
 optimizer states are transferred together.
+
+The active LinUCB controller can also use high-frequency proxy validation:
+every configured interval it evaluates a small validation subset, computes the
+physics-aligned `bkg_rejection_score`, and uses that signal as its online
+reward for learning-rate actions. Full validation is still kept as the end-of-
+epoch reference.
 
 ## Main files
 

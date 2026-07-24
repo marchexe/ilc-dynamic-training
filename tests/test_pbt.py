@@ -39,6 +39,11 @@ class PBTTest(unittest.TestCase):
         self.assertEqual(target_epoch, 1)
         self.assertEqual(command[command.index("--load-epoch") + 1], "0")
         self.assertIn("--override-load-lr", command)
+        self.assertIn("--training-controller", command)
+        self.assertEqual(
+            command[command.index("--training-controller") + 1],
+            config["shared"]["training_controller"],
+        )
         self.assertEqual(command[command.index("--start-lr") + 1], "9e-05")
         self.assertEqual(command[command.index("--seed") + 1], "12346")
         self.assertEqual(log_path.name, "generation-001.log")
@@ -76,8 +81,13 @@ class PBTTest(unittest.TestCase):
             strong_optimizer.write_bytes(b"strong-optimizer")
             weak_state.write_bytes(b"weak-state")
             weak_optimizer.write_bytes(b"weak-optimizer")
+            strong_controller = run_pbt.controller_checkpoint_path(root / "strong", 0)
+            weak_controller = run_pbt.controller_checkpoint_path(root / "weak", 0)
+            strong_controller.write_bytes(b"strong-controller")
+            weak_controller.write_bytes(b"weak-controller")
             manifest_path = root / "manifest.json"
             manifest = {
+                "config": {"shared": {"training_controller": "controller.yaml"}},
                 "members": {
                     "strong": {"lr": 1.0e-4, "parent": None},
                     "weak": {"lr": 1.5e-4, "parent": None},
@@ -100,6 +110,7 @@ class PBTTest(unittest.TestCase):
 
             self.assertEqual(weak_state.read_bytes(), b"strong-state")
             self.assertEqual(weak_optimizer.read_bytes(), b"strong-optimizer")
+            self.assertEqual(weak_controller.read_bytes(), b"strong-controller")
             self.assertTrue(generation["exploit"][0]["applied"])
             self.assertEqual(manifest["members"]["weak"]["parent"], "strong")
             self.assertEqual(manifest["members"]["weak"]["lr"], 8.0e-5)

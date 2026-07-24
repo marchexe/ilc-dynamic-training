@@ -16,6 +16,7 @@ from pathlib import Path
 
 import yaml
 
+from plot_pbt_summary import plot_manifest
 from run_parallel_training import (
     PROJECT_DIR,
     atomic_json,
@@ -32,6 +33,25 @@ from run_parallel_training import (
 DEFAULT_CONFIG = PROJECT_DIR / "configs/experiments/pp_pbt.yaml"
 MANIFEST_NAME = "manifest.json"
 MEMBER_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
+
+
+def format_duration(seconds):
+    seconds = max(0, int(round(seconds)))
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours:
+        return f"{hours:d}h {minutes:02d}m {seconds:02d}s"
+    if minutes:
+        return f"{minutes:d}m {seconds:02d}s"
+    return f"{seconds:d}s"
+
+
+def log_event(log_path, message):
+    line = f"{utc_now()} {message}"
+    print(line, flush=True)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as stream:
+        stream.write(line + "\n")
 
 
 def parse_args():
@@ -97,6 +117,8 @@ def load_config(args):
 
     for key in ("dataset", "data_config", "network_config"):
         shared[key] = absolute_project_path(shared[key])
+    if shared.get("training_controller"):
+        shared["training_controller"] = absolute_project_path(shared["training_controller"])
     shared["checkpoint"] = absolute_project_path(shared["checkpoint"], resolve=False)
 
     gpus = args.gpus.split(",") if args.gpus else [str(gpu) for gpu in resources.get("gpus", [])]
@@ -202,6 +224,10 @@ def validate_inputs(config):
     for key in files:
         if not Path(shared[key]).is_file():
             raise FileNotFoundError(f"{key} not found: {shared[key]}")
+    if shared.get("training_controller") and not Path(shared["training_controller"]).is_file():
+        raise FileNotFoundError(
+            f"training_controller not found: {shared['training_controller']}"
+        )
     dataset = Path(shared["dataset"])
     if not dataset.is_dir():
         raise FileNotFoundError(f"dataset not found: {dataset}")
@@ -250,7 +276,11 @@ def make_command(config, member, gpu, member_dir, generation):
         start_lr=member["lr"],
     )
     resolved = {"shared": shared}
-    worker = {"name": member["name"], "gpu": gpu, "controller": None}
+    worker = {
+        "name": member["name"],
+        "gpu": gpu,
+        "controller": shared.get("training_controller"),
+    }
     log_path = member_dir / f"generation-{generation:03d}.log"
     command = build_command(
         resolved,
@@ -272,6 +302,10 @@ def atomic_copy(source, destination):
 def checkpoint_paths(member_dir, epoch):
     prefix = member_dir / f"net_epoch-{epoch}"
     return Path(f"{prefix}_state.pt"), Path(f"{prefix}_optimizer.pt")
+
+
+def controller_checkpoint_path(member_dir, epoch):
+    return member_dir / f"net_epoch-{epoch}_controller.pt"
 
 
 def ranking_and_plan(config, generation_record, members):
@@ -324,6 +358,15 @@ def apply_exploit(experiment_dir, manifest, generation_record, manifest_path):
             raise FileNotFoundError(f"Donor checkpoint is incomplete: {event['donor']}")
         atomic_copy(donor_state, recipient_state)
         atomic_copy(donor_optimizer, recipient_optimizer)
+        shared_config = manifest.get("config", {}).get("shared", {})
+        if shared_config.get("training_controller"):
+            donor_controller = controller_checkpoint_path(donor_dir, epoch)
+            recipient_controller = controller_checkpoint_path(recipient_dir, epoch)
+            if not donor_controller.is_file():
+                raise FileNotFoundError(
+                    f"Donor controller checkpoint is incomplete: {event['donor']}"
+                )
+            atomic_copy(donor_controller, recipient_controller)
         member = manifest["members"][event["recipient"]]
         member["lr"] = event["new_lr"]
         member["parent"] = event["donor"]
@@ -336,6 +379,8 @@ def apply_exploit(experiment_dir, manifest, generation_record, manifest_path):
 def launch_chunk(config, experiment_dir, manifest, generation_record, names, manifest_path):
     processes = {}
     streams = {}
+    started_monotonic = {}
+    pbt_log_path = manifest_path.with_name("pbt.log")
     for name, gpu in zip(names, config["gpus"]):
         member = manifest["members"][name]
         member_dir = experiment_dir / name
@@ -367,6 +412,7 @@ def launch_chunk(config, experiment_dir, manifest, generation_record, names, man
             raise
         processes[name] = process
         streams[name] = stream
+        started_monotonic[name] = time.monotonic()
         generation_record["workers"][name].update(
             status="running",
             gpu=gpu,
@@ -377,7 +423,10 @@ def launch_chunk(config, experiment_dir, manifest, generation_record, names, man
             target_epoch=target_epoch,
             started_at=utc_now(),
         )
-        print(f"started generation={generation_record['index']} {name} gpu={gpu} pid={process.pid}")
+        log_event(
+            pbt_log_path,
+            f"started generation={generation_record['index']} worker={name} gpu={gpu} pid={process.pid}",
+        )
     manifest["updated_at"] = utc_now()
     atomic_json(manifest_path, manifest)
 
@@ -390,6 +439,7 @@ def launch_chunk(config, experiment_dir, manifest, generation_record, names, man
                     continue
                 streams.pop(name).close()
                 processes.pop(name)
+                elapsed = format_duration(time.monotonic() - started_monotonic.pop(name))
                 record = generation_record["workers"][name]
                 metrics = read_metrics(Path(record["log"]))
                 metric_name = config["pbt"]["metric"]
@@ -401,9 +451,10 @@ def launch_chunk(config, experiment_dir, manifest, generation_record, names, man
                     metrics=metrics,
                     finished_at=utc_now(),
                 )
-                print(
+                log_event(
+                    pbt_log_path,
                     f"finished generation={generation_record['index']} "
-                    f"{name} returncode={returncode}"
+                    f"worker={name} returncode={returncode} elapsed={elapsed}",
                 )
                 manifest["updated_at"] = utc_now()
                 atomic_json(manifest_path, manifest)
@@ -417,10 +468,16 @@ def launch_chunk(config, experiment_dir, manifest, generation_record, names, man
         terminate(processes)
         for name, process in processes.items():
             streams[name].close()
+            elapsed = format_duration(time.monotonic() - started_monotonic.get(name, time.monotonic()))
             generation_record["workers"][name].update(
                 status="terminated",
                 returncode=process.poll(),
                 finished_at=utc_now(),
+            )
+            log_event(
+                pbt_log_path,
+                f"terminated generation={generation_record['index']} "
+                f"worker={name} returncode={process.poll()} elapsed={elapsed}",
             )
         manifest["updated_at"] = utc_now()
         atomic_json(manifest_path, manifest)
@@ -430,10 +487,16 @@ def launch_chunk(config, experiment_dir, manifest, generation_record, names, man
         terminate(processes)
         for name, process in processes.items():
             streams[name].close()
+            elapsed = format_duration(time.monotonic() - started_monotonic.get(name, time.monotonic()))
             generation_record["workers"][name].update(
                 status="terminated",
                 returncode=process.poll(),
                 finished_at=utc_now(),
+            )
+            log_event(
+                pbt_log_path,
+                f"terminated generation={generation_record['index']} "
+                f"worker={name} returncode={process.poll()} elapsed={elapsed}",
             )
         raise RuntimeError(f"PBT worker failed: {failure}")
 
@@ -473,6 +536,7 @@ def run(args):
     fingerprint = contract_fingerprint(config)
     experiment_dir = Path(config["output_root"]) / config["experiment_name"]
     manifest_path = experiment_dir / MANIFEST_NAME
+    pbt_log_path = manifest_path.with_name("pbt.log")
 
     if args.dry_run:
         print(yaml.safe_dump(config, sort_keys=False).rstrip())
@@ -505,6 +569,7 @@ def run(args):
             raise FileExistsError(f"Experiment already exists: {experiment_dir}")
         experiment_dir.mkdir(parents=True)
         manifest = initial_manifest(config, fingerprint)
+    run_started_monotonic = time.monotonic()
 
     for name in manifest["members"]:
         (experiment_dir / name).mkdir(parents=True, exist_ok=True)
@@ -512,6 +577,12 @@ def run(args):
         yaml.safe_dump(config, sort_keys=False)
     )
     atomic_json(manifest_path, manifest)
+    log_event(
+        pbt_log_path,
+        f"run started experiment={config['experiment_name']} "
+        f"gpus={','.join(config['gpus'])} members={len(manifest['members'])} "
+        f"batch_size={config['shared']['batch_size']} metric={config['pbt']['metric']}",
+    )
 
     try:
         for generation in range(
@@ -575,13 +646,32 @@ def run(args):
         manifest["finished_at"] = utc_now()
         manifest["updated_at"] = utc_now()
         atomic_json(manifest_path, manifest)
-        print(f"completed: {experiment_dir}")
+        try:
+            plot_path = plot_manifest(manifest_path)
+            manifest["summary_plot"] = str(plot_path)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+            log_event(pbt_log_path, f"summary plot: {plot_path}")
+        except Exception as plot_error:
+            log_event(pbt_log_path, f"warning: failed to create PBT summary plot: {plot_error}")
+        log_event(
+            pbt_log_path,
+            f"run completed experiment={config['experiment_name']} "
+            f"elapsed={format_duration(time.monotonic() - run_started_monotonic)} "
+            f"directory={experiment_dir}",
+        )
         return 0
     except BaseException as error:
         manifest["status"] = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
         manifest["failure"] = f"{type(error).__name__}: {error}"
         manifest["updated_at"] = utc_now()
         atomic_json(manifest_path, manifest)
+        log_event(
+            pbt_log_path,
+            f"run {manifest['status']} experiment={config['experiment_name']} "
+            f"elapsed={format_duration(time.monotonic() - run_started_monotonic)} "
+            f"error={type(error).__name__}: {error}",
+        )
         raise
 
 

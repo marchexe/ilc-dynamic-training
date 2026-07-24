@@ -12,6 +12,7 @@ class BatchObservation:
     loss: float
     accuracy: float
     grad_norm: float
+    proxy_metric: Optional[float] = None
 
 
 @dataclass(frozen=True)

@@ -56,6 +56,53 @@ def _flatten_preds(model_output, label=None, mask=None, label_axis=1):
     return preds, label, mask
 
 
+def _evaluate_classification_proxy(model, proxy_loader, data_config, dev, *, max_batches, metric_name, extra_args):
+    was_training = model.training
+    scores = []
+    labels = defaultdict(list)
+    enable_autocast, autocast_dtype = get_autocast_config(extra_args['args'])
+
+    model.eval()
+    try:
+        with torch.no_grad():
+            for batch_index, (X, y, _) in enumerate(proxy_loader):
+                if batch_index >= max_batches:
+                    break
+                inputs = [X[k].to(dev) for k in data_config.input_names]
+                y = {k: AllGather.apply(v.to(dev)) for k, v in y.items()}
+                label = y[data_config.label_names[0]].long().to(dev)
+                try:
+                    mask = y[data_config.label_names[0] + '_mask'].bool().to(dev)
+                except KeyError:
+                    mask = None
+                with torch.autocast('cuda', enabled=enable_autocast, dtype=autocast_dtype):
+                    model_output = AllGather.apply(model(*inputs))
+                logits, _, mask = _flatten_preds(model_output, label=label, mask=mask)
+                scores.append(torch.softmax(logits.float(), dim=1).numpy(force=True))
+                if mask is not None:
+                    mask = mask.cpu()
+                for k, v in y.items():
+                    labels[k].append(_flatten_label(v, mask).numpy(force=True))
+    finally:
+        if was_training:
+            model.train()
+
+    if not scores:
+        return None
+
+    scores = np.concatenate(scores)
+    labels = {k: _concat(v) for k, v in labels.items()}
+    metric_results = evaluate_metrics(
+        labels[data_config.label_names[0]],
+        scores,
+        eval_metrics=[metric_name],
+    )
+    value = metric_results.get(metric_name)
+    if value is None:
+        return None
+    return float(value)
+
+
 class AllGather(torch.autograd.Function):
 
     @staticmethod
@@ -195,6 +242,34 @@ def train_classification(
             total_correct += correct
 
             if training_controller is not None and optimizer_step_applied:
+                proxy_metric = None
+                needs_proxy = getattr(
+                    training_controller,
+                    'needs_proxy_metric_on_next_observation',
+                    lambda: False,
+                )
+                if needs_proxy():
+                    proxy_loader = extra_args.get('val_loader')
+                    if proxy_loader is None:
+                        _logger.warning('Training controller requested proxy validation, but val_loader is unavailable.')
+                    else:
+                        proxy_metric = _evaluate_classification_proxy(
+                            model,
+                            proxy_loader,
+                            data_config,
+                            dev,
+                            max_batches=training_controller.proxy_batches,
+                            metric_name=training_controller.proxy_metric,
+                            extra_args=extra_args,
+                        )
+                        _logger.info(
+                            '[training-control] proxy validation: epoch=%d batch=%d metric=%s value=%s batches=%d',
+                            epoch,
+                            num_batches,
+                            training_controller.proxy_metric,
+                            'n/a' if proxy_metric is None else f'{proxy_metric:.6f}',
+                            training_controller.proxy_batches,
+                        )
                 training_controller.on_batch_end(BatchObservation(
                     epoch=epoch,
                     batch=num_batches,
@@ -202,6 +277,7 @@ def train_classification(
                     loss=loss,
                     accuracy=correct / num_examples,
                     grad_norm=grad_norm,
+                    proxy_metric=proxy_metric,
                 ))
 
             current_lr = opt.param_groups[0]['lr']

@@ -106,6 +106,46 @@ def test_observe_only_does_not_attribute_reward_to_unapplied_action():
     assert np.all(controller.state_dict()["b"] == 0)
 
 
+def test_linucb_can_use_proxy_metric_reward():
+    optimizer = SimpleNamespace(param_groups=[{"lr": 1e-3}])
+    controller = LinUCBLearningRateController(
+        optimizer,
+        interval_steps=1,
+        warmup_steps=1,
+        actions=(1.0,),
+        ema_beta=0,
+        reward_source="proxy_metric",
+    )
+
+    first = controller.on_batch_end(_observation(1, 1.0))
+    second = controller.on_batch_end(
+        BatchObservation(
+            epoch=0,
+            batch=2,
+            steps_per_epoch=10,
+            loss=1.0,
+            accuracy=0.5,
+            grad_norm=1.0,
+            proxy_metric=1.2,
+        )
+    )
+    third = controller.on_batch_end(
+        BatchObservation(
+            epoch=0,
+            batch=3,
+            steps_per_epoch=10,
+            loss=1.0,
+            accuracy=0.5,
+            grad_norm=1.0,
+            proxy_metric=1.5,
+        )
+    )
+
+    assert first.reward is None
+    assert second.reward is None
+    assert np.isclose(third.reward, 0.25)
+
+
 def test_controller_intervals_can_be_epoch_fractions(tmp_path):
     config = tmp_path / "controller.yaml"
     config.write_text(

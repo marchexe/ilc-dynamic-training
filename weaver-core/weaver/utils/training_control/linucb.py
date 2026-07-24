@@ -34,6 +34,9 @@ class LinUCBLearningRateController(TrainingController):
         seed=12345,
         log_path=None,
         observe_only=False,
+        reward_source="training_loss",
+        proxy_metric="bkg_rejection_score",
+        proxy_batches=20,
     ):
         if interval_steps < 1:
             raise ValueError("interval_steps must be positive")
@@ -45,6 +48,10 @@ class LinUCBLearningRateController(TrainingController):
             raise ValueError("expected 0 < min_lr < max_lr")
         if ridge <= 0:
             raise ValueError("ridge must be positive")
+        if reward_source not in {"training_loss", "proxy_metric"}:
+            raise ValueError("reward_source must be 'training_loss' or 'proxy_metric'")
+        if proxy_batches < 1:
+            raise ValueError("proxy_batches must be positive")
 
         actions = tuple(float(value) for value in actions)
         if not actions or any(value <= 0 for value in actions):
@@ -60,6 +67,9 @@ class LinUCBLearningRateController(TrainingController):
         self.alpha = float(alpha)
         self.ridge = float(ridge)
         self.observe_only = bool(observe_only)
+        self.reward_source = reward_source
+        self.proxy_metric = proxy_metric
+        self.proxy_batches = int(proxy_batches)
         self.log_path = None if log_path is None else Path(log_path)
         self.rng = np.random.default_rng(seed)
 
@@ -70,19 +80,22 @@ class LinUCBLearningRateController(TrainingController):
         self._action_counts = np.zeros(n_actions, dtype=np.int64)
         self._global_step = 0
         self._loss_ema = None
+        self._proxy_metric_ema = None
         self._previous_decision_loss = None
+        self._previous_decision_proxy_metric = None
         self._previous_context = None
         self._previous_action = None
 
         _logger.info(
             "[training-control] initialized: controller=linucb_lr mode=%s "
-            "warmup_steps=%d interval_steps=%d actions=%s lr_bounds=[%.2e, %.2e]",
+            "warmup_steps=%d interval_steps=%d actions=%s lr_bounds=[%.2e, %.2e] reward_source=%s",
             "observe" if self.observe_only else "active",
             self.warmup_steps,
             self.interval_steps,
             self.actions,
             self.min_lr,
             self.max_lr,
+            self.reward_source,
         )
 
     @staticmethod
@@ -128,15 +141,31 @@ class LinUCBLearningRateController(TrainingController):
     def _update_previous_action(self):
         if self._previous_action is None:
             return None
-        reward = (self._previous_decision_loss - self._loss_ema) / max(
-            abs(self._previous_decision_loss), 1e-12
-        )
+        if self.reward_source == "proxy_metric":
+            if self._previous_decision_proxy_metric is None or self._proxy_metric_ema is None:
+                return None
+            reward = (self._proxy_metric_ema - self._previous_decision_proxy_metric) / max(
+                abs(self._previous_decision_proxy_metric), 1e-12
+            )
+        else:
+            reward = (self._previous_decision_loss - self._loss_ema) / max(
+                abs(self._previous_decision_loss), 1e-12
+            )
         reward = float(np.clip(reward, -1.0, 1.0))
         idx = self._previous_action
         context = self._previous_context
         self._a[idx] += np.outer(context, context)
         self._b[idx] += reward * context
         return reward
+
+    def will_decide_on_next_observation(self):
+        next_step = self._global_step + 1
+        if next_step < self.warmup_steps:
+            return False
+        return (next_step - self.warmup_steps) % self.interval_steps == 0
+
+    def needs_proxy_metric_on_next_observation(self):
+        return self.reward_source == "proxy_metric" and self.will_decide_on_next_observation()
 
     def _select_action(self, context):
         unseen = np.flatnonzero(self._action_counts == 0)
@@ -165,6 +194,14 @@ class LinUCBLearningRateController(TrainingController):
             self._loss_ema = float(observation.loss)
         else:
             self._loss_ema = self.ema_beta * self._loss_ema + (1 - self.ema_beta) * observation.loss
+        if observation.proxy_metric is not None:
+            proxy_metric = float(observation.proxy_metric)
+            if self._proxy_metric_ema is None:
+                self._proxy_metric_ema = proxy_metric
+            else:
+                self._proxy_metric_ema = (
+                    self.ema_beta * self._proxy_metric_ema + (1 - self.ema_beta) * proxy_metric
+                )
 
         if self._global_step < self.warmup_steps:
             return None
@@ -185,6 +222,7 @@ class LinUCBLearningRateController(TrainingController):
         self._previous_action = None if self.observe_only else action_idx
         self._previous_context = None if self.observe_only else context
         self._previous_decision_loss = self._loss_ema
+        self._previous_decision_proxy_metric = self._proxy_metric_ema
 
         action = f"observe_lr_x{factor:g}" if self.observe_only else f"lr_x{factor:g}"
         self._write_event(
@@ -204,7 +242,11 @@ class LinUCBLearningRateController(TrainingController):
                 "new_lr": new_lr,
                 "old_lr": old_lr,
                 "proposed_lr": proposed_lr,
+                "proxy_metric": observation.proxy_metric,
+                "proxy_metric_ema": self._proxy_metric_ema,
+                "proxy_metric_name": self.proxy_metric,
                 "reward": reward,
+                "reward_source": self.reward_source,
                 "schema_version": 1,
                 "steps_per_epoch": observation.steps_per_epoch,
             }
@@ -213,7 +255,7 @@ class LinUCBLearningRateController(TrainingController):
         _logger.info(
             "[training-control] decision: step=%d epoch=%d batch=%d mode=%s "
             "action=%s old_lr=%.3e proposed_lr=%.3e applied_lr=%.3e "
-            "reward=%s loss_ema=%.6f",
+            "reward=%s reward_source=%s loss_ema=%.6f proxy_metric=%s",
             self._global_step,
             observation.epoch,
             observation.batch,
@@ -223,7 +265,9 @@ class LinUCBLearningRateController(TrainingController):
             proposed_lr,
             new_lr,
             reward_text,
+            self.reward_source,
             self._loss_ema,
+            "n/a" if observation.proxy_metric is None else f"{observation.proxy_metric:.6f}",
         )
         return ControllerDecision(action=action, old_value=old_lr, new_value=new_lr, reward=reward)
 
@@ -234,7 +278,9 @@ class LinUCBLearningRateController(TrainingController):
             "action_counts": self._action_counts,
             "global_step": self._global_step,
             "loss_ema": self._loss_ema,
+            "proxy_metric_ema": self._proxy_metric_ema,
             "previous_decision_loss": self._previous_decision_loss,
+            "previous_decision_proxy_metric": self._previous_decision_proxy_metric,
             "previous_context": self._previous_context,
             "previous_action": self._previous_action,
             "rng_state": self.rng.bit_generator.state,
@@ -246,7 +292,9 @@ class LinUCBLearningRateController(TrainingController):
         self._action_counts = np.asarray(state["action_counts"], dtype=np.int64)
         self._global_step = int(state["global_step"])
         self._loss_ema = state["loss_ema"]
+        self._proxy_metric_ema = state.get("proxy_metric_ema")
         self._previous_decision_loss = state["previous_decision_loss"]
+        self._previous_decision_proxy_metric = state.get("previous_decision_proxy_metric")
         self._previous_context = state["previous_context"]
         self._previous_action = state["previous_action"]
         self.rng.bit_generator.state = state["rng_state"]

@@ -1,6 +1,9 @@
 type: linucb_lr
-interval_fraction: 0.05
+interval_fraction: 0.15
 warmup_fraction: 0.10
+reward_source: proxy_metric
+proxy_metric: bkg_rejection_score
+proxy_batches: 20
 actions: [0.9, 1.0, 1.1]
 min_lr: 5.0e-5
 max_lr: 2.0e-4
