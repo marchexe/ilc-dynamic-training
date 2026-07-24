@@ -48,8 +48,8 @@ class PBTTest(unittest.TestCase):
         generation = {
             "index": 0,
             "workers": {
-                "member_00": {"metrics": {"validation_accuracy": 0.8}},
-                "member_01": {"metrics": {"validation_accuracy": 0.7}},
+                "member_00": {"metrics": {"validation_bkg_rejection_score": 2.0}},
+                "member_01": {"metrics": {"validation_bkg_rejection_score": 1.0}},
             },
         }
         members = {

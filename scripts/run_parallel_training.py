@@ -325,11 +325,23 @@ def read_metrics(path):
     if not loss_accuracy:
         return None
     loss, accuracy = loss_accuracy[-1]
-    return {
+    metrics = {
         "validation_loss": float(loss),
         "validation_accuracy": float(accuracy),
         "validation_auc": float(auc[-1]) if auc else None,
     }
+    for name in (
+        "bkg_rejection_bc_score",
+        "bkg_rejection_bd_score",
+        "bkg_rejection_cb_score",
+        "bkg_rejection_cd_score",
+        "b_tag_rejection_score",
+        "c_tag_rejection_score",
+        "bkg_rejection_score",
+    ):
+        values = re.findall(rf"{name}:\s*\n([0-9.eE+-]+)", text)
+        metrics[f"validation_{name}"] = float(values[-1]) if values else None
+    return metrics
 
 
 def terminate(processes):

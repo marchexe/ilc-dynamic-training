@@ -137,7 +137,18 @@ def load_config(args):
     missing = sorted(required_pbt - pbt.keys())
     if missing:
         raise ValueError(f"Missing PBT options: {', '.join(missing)}")
-    if pbt["metric"] not in {"validation_accuracy", "validation_auc", "validation_loss"}:
+    if pbt["metric"] not in {
+        "validation_accuracy",
+        "validation_auc",
+        "validation_loss",
+        "validation_bkg_rejection_bc_score",
+        "validation_bkg_rejection_bd_score",
+        "validation_bkg_rejection_cb_score",
+        "validation_bkg_rejection_cd_score",
+        "validation_b_tag_rejection_score",
+        "validation_c_tag_rejection_score",
+        "validation_bkg_rejection_score",
+    }:
         raise ValueError("Unsupported PBT metric")
     if pbt["mode"] not in {"max", "min"}:
         raise ValueError("PBT mode must be 'max' or 'min'")

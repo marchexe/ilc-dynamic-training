@@ -253,7 +253,11 @@ def train_classification(
 
 
 def evaluate_classification(model, test_loader, dev, epoch, for_training=True, loss_func=None, steps_per_epoch=None,
-                            eval_metrics=['roc_auc_score', 'roc_auc_score_matrix', 'confusion_matrix'],
+                            eval_metrics=['roc_auc_score', 'roc_auc_score_matrix', 'bkg_rejection_at_eff',
+                                          'bkg_rejection_bc_score', 'bkg_rejection_bd_score',
+                                          'bkg_rejection_cb_score', 'bkg_rejection_cd_score',
+                                          'b_tag_rejection_score', 'c_tag_rejection_score',
+                                          'bkg_rejection_score', 'confusion_matrix'],
                             tb_helper=None, extra_args=None):
     model.eval()
 
@@ -367,7 +371,13 @@ def evaluate_classification(model, test_loader, dev, epoch, for_training=True, l
         return total_correct / count, scores, labels, observers
 
 
-def evaluate_onnx(model_path, test_loader, eval_metrics=['roc_auc_score', 'roc_auc_score_matrix', 'confusion_matrix']):
+def evaluate_onnx(model_path, test_loader, eval_metrics=['roc_auc_score', 'roc_auc_score_matrix',
+                                                        'bkg_rejection_at_eff',
+                                                        'bkg_rejection_bc_score', 'bkg_rejection_bd_score',
+                                                        'bkg_rejection_cb_score', 'bkg_rejection_cd_score',
+                                                        'b_tag_rejection_score', 'c_tag_rejection_score',
+                                                        'bkg_rejection_score',
+                                                        'confusion_matrix']):
     import onnxruntime
     sess = onnxruntime.InferenceSession(model_path)
 

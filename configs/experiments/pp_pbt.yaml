@@ -37,7 +37,7 @@ population:
     start_lr: 1.5e-4
 
 pbt:
-  metric: validation_accuracy
+  metric: validation_bkg_rejection_score
   mode: max
   exploit_fraction: 0.5
   mutation_factors: [0.8, 1.2]
