@@ -1,0 +1,14 @@
+type: linucb_lr
+interval_fraction: 0.15
+warmup_fraction: 0.10
+reward_source: proxy_metric
+proxy_metric: bkg_rejection_score
+proxy_batches: 50
+actions: [0.9, 1.0, 1.1]
+min_lr: 6.0e-5
+max_lr: 1.4e-4
+ema_beta: 0.98
+alpha: 0.5
+ridge: 1.0
+seed: 12345
+observe_only: true

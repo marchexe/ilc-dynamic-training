@@ -32,6 +32,13 @@ def _set_random_seed(seed, local_rank=None):
         torch.cuda.manual_seed_all(effective_seed)
     return effective_seed
 
+
+def _torch_load_trusted(path, **kwargs):
+    try:
+        return torch.load(path, weights_only=False, **kwargs)
+    except TypeError:
+        return torch.load(path, **kwargs)
+
 # fmt: off
 parser = argparse.ArgumentParser()
 parser.add_argument('--run-mode', type=functools.partial(str.split, sep=','), default='train,val,test',
@@ -1063,6 +1070,7 @@ def _main(args):
             _logger.info(f"Using distributed PyTorch with {args.backend} backend")
         else:
             gpus = [int(i) for i in args.gpus.split(",")]
+            torch.cuda.set_device(gpus[0])
             dev = torch.device(gpus[0])
     else:
         gpus = None
@@ -1132,7 +1140,7 @@ def _main(args):
             if args.load_epoch is not None:
                 controller_state_path = args.model_prefix + "_epoch-%d_controller.pt" % args.load_epoch
                 if os.path.exists(controller_state_path):
-                    training_controller.load_state_dict(torch.load(controller_state_path, map_location="cpu"))
+                    training_controller.load_state_dict(_torch_load_trusted(controller_state_path, map_location="cpu"))
                 else:
                     _logger.warning("Controller state file %s NOT found!", controller_state_path)
 

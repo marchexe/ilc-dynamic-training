@@ -131,6 +131,31 @@ def plot_manifest(manifest_path, output=None):
     generation = final_generation(generations)
     if generation is None:
         raise RuntimeError("manifest has no final metrics to plot")
+    best = manifest.get("best") or {}
+    if best:
+        ax_score.axvline(
+            best["generation"],
+            color="0.20",
+            linestyle="--",
+            linewidth=1.0,
+        )
+        ax_score.scatter(
+            [best["generation"]],
+            [best["metric_value"]],
+            marker="*",
+            s=100,
+            color="0.05",
+            zorder=5,
+            label="global best",
+        )
+        ax_score.annotate(
+            "best",
+            (best["generation"], best["metric_value"]),
+            xytext=(7, 8),
+            textcoords="offset points",
+            fontsize=8,
+            fontweight="bold",
+        )
 
     width = 0.8 / max(1, len(members))
     base_x = list(range(len(PAIR_METRICS)))
@@ -174,12 +199,30 @@ def plot_manifest(manifest_path, output=None):
         table = ax_summary.table(
             cellText=rows,
             colLabels=["id", "b tag", "c tag", "all", "acc"],
-            loc="center",
+            loc="upper center" if best else "center",
             cellLoc="center",
         )
         table.auto_set_font_size(False)
         table.set_fontsize(8)
         table.scale(1.0, 1.35)
+    if best:
+        best_lines = [
+            "global best",
+            f"gen {best['generation']} / {compact_member_name(best['member'])}",
+            f"{best['metric'].replace('validation_', '')}: {float(best['metric_value']):.4f}",
+            f"epoch {best['epoch']}",
+            Path(best["state_path"]).name,
+        ]
+        ax_summary.text(
+            0.0,
+            0.16,
+            "\n".join(best_lines),
+            transform=ax_summary.transAxes,
+            fontsize=8,
+            va="top",
+            ha="left",
+            family="monospace",
+        )
 
     fig.suptitle(experiment, x=0.02, ha="left", fontsize=12, fontweight="bold")
     fig.tight_layout()

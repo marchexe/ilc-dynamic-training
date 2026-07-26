@@ -1,4 +1,5 @@
 .venv/
+.venv-*/
 *.auto.yaml
 *.log
 __pycache__/

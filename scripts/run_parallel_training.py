@@ -150,6 +150,10 @@ def load_and_resolve(args):
         resolved["controller"] = (
             None if controller is None else str(project_path(controller).resolve())
         )
+        if "start_lr" in worker:
+            resolved["start_lr"] = float(worker["start_lr"])
+        if "seed" in worker:
+            resolved["seed"] = int(worker["seed"])
         resolved_workers.append(resolved)
 
     names = [worker["name"] for worker in resolved_workers]
@@ -224,7 +228,12 @@ def fingerprint(resolved):
         "schema_version": resolved["schema_version"],
         "shared": resolved["shared"],
         "workers": [
-            {"name": worker["name"], "controller": worker["controller"]}
+            {
+                "name": worker["name"],
+                "controller": worker["controller"],
+                "start_lr": worker.get("start_lr"),
+                "seed": worker.get("seed"),
+            }
             for worker in resolved["workers"]
         ],
     }
@@ -255,7 +264,11 @@ def build_command(
     log_path=None,
     override_load_lr=False,
 ):
-    shared = resolved["shared"]
+    shared = dict(resolved["shared"])
+    if worker.get("start_lr") is not None:
+        shared["start_lr"] = worker["start_lr"]
+    if worker.get("seed") is not None:
+        shared["seed"] = worker["seed"]
     data = Path(shared["dataset"])
     command = [
         str(PROJECT_DIR / ".venv/bin/weaver"),
@@ -329,6 +342,7 @@ def read_metrics(path):
         "validation_loss": float(loss),
         "validation_accuracy": float(accuracy),
         "validation_auc": float(auc[-1]) if auc else None,
+        "validation_shutdown_warning": "cannot schedule new futures after shutdown" in text,
     }
     for name in (
         "bkg_rejection_bc_score",

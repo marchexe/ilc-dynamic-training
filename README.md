@@ -182,7 +182,15 @@ Configuration:
 configs/experiments/pp_pbt.yaml
 ```
 
-Default population:
+Recommended long-run diagnostics:
+
+```text
+configs/experiments/pp_pbt_12h_4gpu_clean.yaml    # A: PBT only, no controller
+configs/experiments/pp_pbt_12h_4gpu_observe.yaml  # B: PBT + LinUCB observe_only
+configs/experiments/pp_fixed_lr_12h.yaml          # fixed LR sweep control
+```
+
+Default short smoke population:
 
 | Member | Initial LR |
 |---|---:|
@@ -200,12 +208,27 @@ evaluate validation metric
         ↓
 rank population
         ↓
-bottom 50% copy model + optimizer from top 50%
+bottom fraction copies model + optimizer from the strongest members
         ↓
-mutate copied learning rate by ×0.8 or ×1.2
+mutate copied learning rate within configured bounds
         ↓
 resume next generation
 ```
+
+Long PBT runs track a global best checkpoint independently of the final
+generation. The recommended model is recorded in `manifest.json` under `best`
+and copied to:
+
+```text
+global_best_state.pt
+global_best_optimizer.pt
+global_best_controller.pt
+global_best_metadata.json
+```
+
+The generation health report records current best, global best, relative
+degradation, per-member LR values, and whether rollback from global best was
+activated.
 
 The population may be larger than the available GPU count. With four members
 and GPU slots `0,2`, execution happens in two parallel waves.
@@ -214,6 +237,20 @@ Inspect the full PBT commands:
 
 ```bash
 .venv/bin/python scripts/run_pbt.py --dry-run
+```
+
+Inspect the clean 12-hour diagnostic:
+
+```bash
+.venv/bin/python scripts/run_pbt.py \
+  --config configs/experiments/pp_pbt_12h_4gpu_clean.yaml \
+  --dry-run
+```
+
+Check validation stability for a checkpoint before spending a long run:
+
+```bash
+scripts/check_validation_stability.sh 0 3
 ```
 
 Run the integration smoke-test:
