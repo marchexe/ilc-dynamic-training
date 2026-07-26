@@ -23,6 +23,7 @@ from run_parallel_training import (
     atomic_json,
     build_command,
     git_metadata,
+    normalize_data_extension,
     project_path,
     read_metrics,
     sha256,
@@ -176,6 +177,7 @@ def load_config(args):
     if shared.get("training_controller"):
         shared["training_controller"] = absolute_project_path(shared["training_controller"])
     shared["checkpoint"] = absolute_project_path(shared["checkpoint"], resolve=False)
+    shared["data_extension"] = normalize_data_extension(shared.get("data_extension", "root"))
 
     slots = parse_slots(args, resources)
 
@@ -295,13 +297,14 @@ def validate_inputs(config):
     dataset = Path(shared["dataset"])
     if not dataset.is_dir():
         raise FileNotFoundError(f"dataset not found: {dataset}")
+    data_extension = normalize_data_extension(shared.get("data_extension", "root"))
     patterns = (
-        "*_bb_train800k.root",
-        "*_cc_train800k.root",
-        "*_dd_train800k.root",
-        "*_bb_val50k.root",
-        "*_cc_val50k.root",
-        "*_dd_val50k.root",
+        f"*_bb_train800k.{data_extension}",
+        f"*_cc_train800k.{data_extension}",
+        f"*_dd_train800k.{data_extension}",
+        f"*_bb_val50k.{data_extension}",
+        f"*_cc_val50k.{data_extension}",
+        f"*_dd_val50k.{data_extension}",
     )
     missing = [pattern for pattern in patterns if not any(dataset.glob(pattern))]
     if missing:

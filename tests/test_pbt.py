@@ -28,6 +28,7 @@ class PBTTest(unittest.TestCase):
         config = self.smoke_config()
         self.assertEqual(config["shared"]["generations"], 2)
         self.assertEqual(len(config["population"]), 2)
+        self.assertEqual(config["shared"]["data_extension"], "root")
 
         member = {"name": "member_00", "lr": 9.0e-5}
         command, log_path, target_epoch = run_pbt.make_command(
@@ -49,6 +50,24 @@ class PBTTest(unittest.TestCase):
         self.assertEqual(command[command.index("--start-lr") + 1], "9e-05")
         self.assertEqual(command[command.index("--seed") + 1], "12346")
         self.assertEqual(log_path.name, "generation-001.log")
+
+    def test_pbt_command_can_use_parquet_data(self):
+        config = self.smoke_config()
+        config["shared"]["dataset"] = "/tmp/sgv_parquet"
+        config["shared"]["data_extension"] = "parquet"
+
+        command, _, _ = run_pbt.make_command(
+            config,
+            {"name": "member_00", "lr": 9.0e-5},
+            "0",
+            PROJECT_DIR / "runs/pbt/unit_test/member_00",
+            generation=0,
+        )
+
+        joined = " ".join(command)
+        self.assertIn("nnbb:/tmp/sgv_parquet/*_bb_train800k.parquet", joined)
+        self.assertIn("nncc:/tmp/sgv_parquet/*_cc_val50k.parquet", joined)
+        self.assertNotIn(".root", joined)
 
     def test_ranking_and_exploit_plan_are_deterministic(self):
         config = self.smoke_config()
@@ -288,6 +307,32 @@ class PBTTest(unittest.TestCase):
 
         self.assertEqual(command[command.index("--start-lr") + 1], "0.000125")
         self.assertEqual(command[command.index("--seed") + 1], "12347")
+
+    def test_parallel_command_can_use_parquet_data_and_prefetch(self):
+        resolved = run_parallel_training.load_and_resolve(
+            SimpleNamespace(
+                config=PROJECT_DIR / "configs/experiments/pp_fixed_lr_12h.yaml",
+                experiment_name="unit_fixed_sweep",
+                gpus=None,
+                smoke=True,
+            )
+        )
+        resolved["shared"]["dataset"] = "/tmp/sgv_parquet"
+        resolved["shared"]["data_extension"] = "parquet"
+        resolved["shared"]["prefetch_factor"] = 4
+        worker = resolved["workers"][0]
+
+        command = run_parallel_training.build_command(
+            resolved,
+            worker,
+            PROJECT_DIR / "runs/parallel/unit_fixed_sweep/fixed_lr_100e-4",
+            resume_epoch=None,
+        )
+
+        joined = " ".join(command)
+        self.assertIn("nnbb:/tmp/sgv_parquet/*_bb_train800k.parquet", joined)
+        self.assertIn("--prefetch-factor", command)
+        self.assertEqual(command[command.index("--prefetch-factor") + 1], "4")
 
 
 if __name__ == "__main__":

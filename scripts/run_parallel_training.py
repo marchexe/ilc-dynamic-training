@@ -21,6 +21,7 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = PROJECT_DIR / "configs/experiments/pp_matched.yaml"
 MANIFEST_NAME = "manifest.json"
 EPOCH_RE = re.compile(r"net_epoch-(\d+)_state\.pt$")
+SUPPORTED_DATA_EXTENSIONS = {"root", "parquet", "h5", "awkd"}
 
 
 def utc_now():
@@ -44,6 +45,14 @@ def sha256(path):
 def project_path(value):
     path = Path(value)
     return path if path.is_absolute() else PROJECT_DIR / path
+
+
+def normalize_data_extension(value):
+    extension = str(value or "root").strip().lstrip(".").lower()
+    if extension not in SUPPORTED_DATA_EXTENSIONS:
+        supported = ", ".join(sorted(SUPPORTED_DATA_EXTENSIONS))
+        raise ValueError(f"Unsupported data_extension: {extension}. Expected one of: {supported}")
+    return extension
 
 
 def git_metadata():
@@ -135,6 +144,9 @@ def load_and_resolve(args):
         resolved_shared["epochs"] = 1
         resolved_shared["samples_per_epoch"] = 7680
         resolved_shared["samples_per_epoch_val"] = 3000
+    resolved_shared["data_extension"] = normalize_data_extension(
+        resolved_shared.get("data_extension", "root")
+    )
 
     resolved_workers = []
     override_gpus = args.gpus.split(",") if args.gpus else None
@@ -197,13 +209,14 @@ def validate_files(resolved):
     dataset = Path(shared["dataset"])
     if not dataset.is_dir():
         raise FileNotFoundError(f"dataset not found: {dataset}")
+    data_extension = normalize_data_extension(shared.get("data_extension", "root"))
     required_samples = (
-        "*_bb_train800k.root",
-        "*_cc_train800k.root",
-        "*_dd_train800k.root",
-        "*_bb_val50k.root",
-        "*_cc_val50k.root",
-        "*_dd_val50k.root",
+        f"*_bb_train800k.{data_extension}",
+        f"*_cc_train800k.{data_extension}",
+        f"*_dd_train800k.{data_extension}",
+        f"*_bb_val50k.{data_extension}",
+        f"*_cc_val50k.{data_extension}",
+        f"*_dd_val50k.{data_extension}",
     )
     missing_samples = [
         pattern for pattern in required_samples if not any(dataset.glob(pattern))
@@ -270,18 +283,19 @@ def build_command(
     if worker.get("seed") is not None:
         shared["seed"] = worker["seed"]
     data = Path(shared["dataset"])
+    data_extension = normalize_data_extension(shared.get("data_extension", "root"))
     command = [
         str(PROJECT_DIR / ".venv/bin/weaver"),
         "--run-mode",
         "train,val",
         "--data-train",
-        f"nnbb:{data}/*_bb_train800k.root",
-        f"nncc:{data}/*_cc_train800k.root",
-        f"nndd:{data}/*_dd_train800k.root",
+        f"nnbb:{data}/*_bb_train800k.{data_extension}",
+        f"nncc:{data}/*_cc_train800k.{data_extension}",
+        f"nndd:{data}/*_dd_train800k.{data_extension}",
         "--data-val",
-        f"nnbb:{data}/*_bb_val50k.root",
-        f"nncc:{data}/*_cc_val50k.root",
-        f"nndd:{data}/*_dd_val50k.root",
+        f"nnbb:{data}/*_bb_val50k.{data_extension}",
+        f"nncc:{data}/*_cc_val50k.{data_extension}",
+        f"nndd:{data}/*_dd_val50k.{data_extension}",
         "--data-config",
         shared["data_config"],
         "--network-config",
