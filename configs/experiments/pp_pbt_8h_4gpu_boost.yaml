@@ -18,7 +18,7 @@ shared:
   batch_size: 1024
   optimizer: ranger
   lr_scheduler: none
-  num_workers: 2
+  num_workers: 1
   fetch_step: 0.02
   prefetch_factor: 4
   use_amp: true
