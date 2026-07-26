@@ -21,7 +21,6 @@ python -m weaver.utils.convert_to_parquet \
   "${input_dir}"/*_cc_val50k.root \
   "${input_dir}"/*_dd_val50k.root \
   --output-dir "${output_dir}" \
-  --data-config configs/data/ilc_nnqq_sgvnew_3cat.yaml \
   --compression "${compression}" \
   --row-group-size "${row_group_size}" \
   --workers "${workers}"

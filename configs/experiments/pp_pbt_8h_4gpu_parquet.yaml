@@ -7,7 +7,7 @@ experiment:
 shared:
   dataset: datasets/20250218_ilc_nnqq_sgvnew_parquet
   data_extension: parquet
-  checkpoint: runs/pbt/pp_pbt_8h_4gpu_clean_v1/global_best_state.pt
+  checkpoint: runs/pbt/pp_pbt_8h_4gpu_boost_v2/global_best_state.pt
   data_config: configs/data/ilc_nnqq_sgvnew_3cat.yaml
   network_config: networks/particle_transformer_pp_pretrained.py
   training_controller: null
