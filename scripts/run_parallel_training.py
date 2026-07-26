@@ -325,6 +325,8 @@ def build_command(
         command.append("--no-remake-weights")
     if shared["use_amp"]:
         command.extend(["--use-amp", "--amp-dtype", str(shared["amp_dtype"])])
+    if shared.get("prefetch_factor") is not None:
+        command.extend(["--prefetch-factor", str(shared["prefetch_factor"])])
     return command
 
 
