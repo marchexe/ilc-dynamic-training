@@ -721,6 +721,9 @@ def launch_workers(config, experiment_dir, manifest, generation_record, names, m
             console_log=str(console_path),
             target_epoch=target_epoch,
             started_at=utc_now(),
+            finished_at=None,
+            returncode=None,
+            metrics=None,
         )
         log_event(
             pbt_log_path,
