@@ -4,6 +4,7 @@
 import argparse
 import ast
 import json
+import math
 import re
 from pathlib import Path
 
@@ -121,11 +122,21 @@ def efficiency_points_for_curves(curves):
     return EFFICIENCY_POINTS[:point_count]
 
 
+def log_tick_label(value, _position):
+    if value <= 0:
+        return ""
+    exponent = round(math.log10(value))
+    if not math.isclose(value, 10**exponent, rel_tol=1e-8, abs_tol=1e-12):
+        return ""
+    return "1" if exponent == 0 else rf"$10^{{{exponent}}}$"
+
+
 def plot_curves(curves, output, title):
     import os
 
     os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
     import matplotlib.pyplot as plt
+    from matplotlib.ticker import FuncFormatter
 
     plt.rcParams.update(
         {
@@ -156,6 +167,7 @@ def plot_curves(curves, output, title):
     ax.set_xlabel("signal efficiency")
     ax.set_ylabel("background rejection")
     ax.set_yscale("log")
+    ax.yaxis.set_major_formatter(FuncFormatter(log_tick_label))
     ax.set_xticks(efficiency_points)
     ax.grid(axis="both", color="0.88", linewidth=0.6)
     ax.legend(frameon=False)
