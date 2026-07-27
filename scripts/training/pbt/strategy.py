@@ -200,9 +200,29 @@ def ranking_and_plan(config, generation_record, members):
     return ranking, plan
 
 
+def factors_from_radius(radius, count):
+    radius = float(radius)
+    if count < 2:
+        raise ValueError("anchored_lr_sweep requires at least two members")
+    if radius < 0:
+        raise ValueError("LR radius must be non-negative")
+    if count == 2:
+        offsets = (radius, -radius)
+    elif count == 4:
+        offsets = (radius, radius / 2, -radius / 2, -radius)
+    else:
+        step = 2 * radius / (count - 1)
+        offsets = [radius - index * step for index in range(count)]
+    return [1.0 + offset for offset in offsets]
+
+
 def lr_factors_for_population(config, member_names):
-    factors = [float(value) for value in config["pbt"]["lr_factors"]]
     count = len(member_names)
+    radius_config = config["pbt"].get("lr_radius")
+    if radius_config:
+        return factors_from_radius(radius_config["initial"], count)
+
+    factors = [float(value) for value in config["pbt"]["lr_factors"]]
     if len(factors) == count:
         return factors
     if count == 2 and len(factors) >= 2:
@@ -212,7 +232,66 @@ def lr_factors_for_population(config, member_names):
     return factors[:count]
 
 
-def anchored_lr_sweep_plan(config, generation_record, members):
+def previous_lr_radius_record(manifest, generation_index):
+    if not manifest:
+        return None
+    previous = [
+        item
+        for item in manifest.get("generations", [])
+        if item.get("index", -1) < generation_index and item.get("lr_radius")
+    ]
+    return previous[-1].get("lr_radius") if previous else None
+
+
+def adaptive_lr_radius_state(config, generation_record, ranking, member_names, manifest=None):
+    radius_config = config["pbt"].get("lr_radius")
+    if not radius_config:
+        return None
+
+    previous = previous_lr_radius_record(manifest, generation_record["index"])
+    radius = float(previous.get("next_radius", radius_config["initial"])) if previous else float(radius_config["initial"])
+    minimum = float(radius_config["minimum"])
+    shrink_factor = float(radius_config["shrink_factor"])
+    shrink_after = int(radius_config["shrink_after_inner_wins"])
+    keep_if_edge_wins = bool(radius_config.get("keep_if_edge_wins", True))
+
+    anchor = ranking[0]
+    anchor_position = member_names.index(anchor)
+    edge_winner = anchor_position in {0, len(member_names) - 1}
+    inner_winner = not edge_winner
+
+    inner_win_generations = 1 if inner_winner else 0
+    if previous and inner_winner:
+        inner_win_generations += int(previous.get("inner_win_generations", 0))
+
+    action = "keep"
+    next_radius = radius
+    if edge_winner and keep_if_edge_wins:
+        inner_win_generations = 0
+        action = "keep_edge_winner"
+    elif inner_win_generations >= shrink_after and radius > minimum:
+        next_radius = max(minimum, radius * shrink_factor)
+        inner_win_generations = 0
+        action = "shrink_inner_winners"
+
+    factors = factors_from_radius(radius, len(member_names))
+    return {
+        "mode": "adaptive",
+        "radius": radius,
+        "next_radius": next_radius,
+        "minimum": minimum,
+        "shrink_factor": shrink_factor,
+        "shrink_after_inner_wins": shrink_after,
+        "inner_win_generations": inner_win_generations,
+        "inner_winner": inner_winner,
+        "edge_winner": edge_winner,
+        "anchor_position": anchor_position,
+        "action": action,
+        "factors": factors,
+    }
+
+
+def anchored_lr_sweep_plan(config, generation_record, members, manifest=None):
     metric_name = config["pbt"]["metric"]
     reverse = config["pbt"]["mode"] == "max"
     member_names = list(members)
@@ -224,7 +303,10 @@ def anchored_lr_sweep_plan(config, generation_record, members):
     anchor = ranking[0]
     anchor_lr = float(members[anchor]["lr"])
     anchor_metric = generation_record["workers"][anchor]["metrics"][metric_name]
-    factors = lr_factors_for_population(config, member_names)
+    radius_state = adaptive_lr_radius_state(config, generation_record, ranking, member_names, manifest)
+    factors = radius_state["factors"] if radius_state else lr_factors_for_population(config, member_names)
+    if radius_state:
+        generation_record["lr_radius"] = radius_state
     plan = []
     for index, recipient in enumerate(member_names):
         factor = factors[index]
@@ -242,6 +324,7 @@ def anchored_lr_sweep_plan(config, generation_record, members):
                 "recipient_lr": float(members[recipient]["lr"]),
                 "donor_lr": anchor_lr,
                 "lr_factor": factor,
+                "lr_radius": None if radius_state is None else radius_state["radius"],
                 "new_lr": new_lr,
                 "applied": False,
             }

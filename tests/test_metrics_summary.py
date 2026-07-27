@@ -69,6 +69,11 @@ class MetricsSummaryTest(unittest.TestCase):
 
             self.assertEqual(output.name, "metrics_summary.json")
             self.assertEqual(summary["global_best"]["member"], "member_00")
+            self.assertEqual(
+                summary["metric"]["definition"]["display_name"],
+                "PBT objective: mean ln(BGrej), all pairs",
+            )
+            self.assertIn("mean(log(BGrej_pair(eff)))", summary["metric"]["definition"]["formula"])
             self.assertEqual(summary["generations"][0]["training_events"], 100000)
             c_table = next(item for item in summary["mistag_percentages"] if item["tag"] == "c")
             b_table = next(item for item in summary["mistag_percentages"] if item["tag"] == "b")

@@ -45,7 +45,7 @@ def parse_args():
 
 
 def default_output(manifest_path):
-    return Path(manifest_path).with_name("fixed_b_efficiency_root.pdf")
+    return Path(manifest_path).parent / "plots" / "working_point_mistag_history_root.pdf"
 
 
 def make_graph(root, xs, ys, background, b_eff):
@@ -116,7 +116,7 @@ def plot_manifest(manifest_path, output=None, member="best", b_efficiencies=DEFA
                 continue
             graph = make_graph(ROOT, values["x"], values["y"], background, b_eff)
             graph.Draw("LP SAME")
-            legend.AddEntry(graph, f"{BACKGROUND_LABELS[background]} @ b-eff={b_eff:.2f}", "lp")
+            legend.AddEntry(graph, f"{BACKGROUND_LABELS[background]} / b-eff={b_eff:.2f}", "lp")
             graphs.append(graph)
 
     labels = []

@@ -188,7 +188,7 @@ def run(args):
             if existing["exploit"] is None:
                 if config["pbt"].get("strategy") == "anchored_lr_sweep":
                     ranking, plan = anchored_lr_sweep_plan(
-                        config, existing, manifest["members"]
+                        config, existing, manifest["members"], manifest
                     )
                 else:
                     ranking, plan = ranking_and_plan(
@@ -260,20 +260,20 @@ def run(args):
             from reports.plot_pbt_summary import plot_manifest
 
             plot_path = plot_manifest(manifest_path)
-            manifest["summary_plot"] = str(plot_path)
+            manifest["pbt_objective_diagnostics_plot"] = str(plot_path)
             manifest["updated_at"] = utc_now()
             atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"summary plot: {plot_path}")
+            log_event(pbt_log_path, f"PBT objective diagnostics plot: {plot_path}")
         except Exception as plot_error:
             log_event(pbt_log_path, f"warning: failed to create PBT summary plot: {plot_error}")
         try:
             from reports.plot_fixed_b_efficiency import plot_manifest
 
             plot_path = plot_manifest(manifest_path)
-            manifest["fixed_b_efficiency_plot"] = str(plot_path)
+            manifest["working_point_mistag_history_plot"] = str(plot_path)
             manifest["updated_at"] = utc_now()
             atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"fixed b-efficiency plot: {plot_path}")
+            log_event(pbt_log_path, f"working-point mistag history plot: {plot_path}")
         except Exception as plot_error:
             log_event(
                 pbt_log_path,
@@ -298,15 +298,54 @@ def run(args):
                 default_output(manifest_path, resolved_manifest_path),
                 f"{manifest['experiment']}: {member}, generation {generation}",
             )
-            manifest["bgrej_curves_plot"] = str(plot_path)
+            manifest["global_best_all_pair_rejection_curves_plot"] = str(plot_path)
             manifest["updated_at"] = utc_now()
             atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"bgrej curves plot: {plot_path}")
+            log_event(pbt_log_path, f"global-best all-pair rejection curves plot: {plot_path}")
         except Exception as plot_error:
             log_event(
                 pbt_log_path,
                 f"warning: failed to create BGrej curves plot: {plot_error}",
             )
+        try:
+            from reports.plot_pbt_bgrej_evolution import plot_manifest
+
+            rejection_plot_path = plot_manifest(manifest_path, quantity="rejection")
+            mistag_plot_path = plot_manifest(manifest_path, quantity="mistag")
+            manifest["btag_rejection_evolution_plot"] = str(rejection_plot_path)
+            manifest["btag_mistag_evolution_plot"] = str(mistag_plot_path)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+            log_event(pbt_log_path, f"BGrej evolution plot: {rejection_plot_path}")
+            log_event(pbt_log_path, f"mistag evolution plot: {mistag_plot_path}")
+        except Exception as plot_error:
+            log_event(
+                pbt_log_path,
+                f"warning: failed to create BGrej/mistag evolution plots: {plot_error}",
+            )
+        try:
+            from reports.plot_pbt_lr_response import plot_manifest
+
+            plot_path = plot_manifest(manifest_path)
+            manifest["pbt_lr_response_plot"] = str(plot_path)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+            log_event(pbt_log_path, f"PBT LR response plot: {plot_path}")
+        except Exception as plot_error:
+            log_event(
+                pbt_log_path,
+                f"warning: failed to create PBT LR response plot: {plot_error}",
+            )
+        try:
+            from reports.write_metrics_summary import write_summary
+
+            summary_path = write_summary(manifest_path)
+            manifest["metrics_summary"] = str(summary_path)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+            log_event(pbt_log_path, f"metrics summary updated with plots: {summary_path}")
+        except Exception as summary_error:
+            log_event(pbt_log_path, f"warning: failed to refresh metrics summary: {summary_error}")
         log_event(
             pbt_log_path,
             f"run completed experiment={config['experiment_name']} "

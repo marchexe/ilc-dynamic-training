@@ -1,7 +1,7 @@
 schema_version: 1
 
 experiment:
-  name: pbt_anchored_lr_sweep_ray_trial
+  name: pbt_anchored_lr_sweep_ray_epochwise
   output_root: runs/pbt
 
 shared:
@@ -12,12 +12,12 @@ shared:
   network_config: networks/pretrained_sgv_particle_transformer.py
   training_controller: null
   seed: 12345
-  generations: 6
-  epochs_per_generation: 2
+  generations: 24
+  epochs_per_generation: 1
   samples_per_epoch: 2400000
   samples_per_epoch_val: 150000
   batch_size: 1024
-  optimizer: ranger
+  optimizer: adamw
   lr_scheduler: none
   num_workers: 1
   fetch_step: 0.01
@@ -40,7 +40,12 @@ pbt:
   metric: validation_bkg_rejection_score
   mode: max
   base_start_lr: 1.05e-4
-  lr_factors: [1.05, 1.025, 0.975, 0.95]
+  lr_radius:
+    initial: 0.05
+    minimum: 0.015
+    shrink_factor: 0.7
+    shrink_after_inner_wins: 3
+    keep_if_edge_wins: true
   exploit_fraction: 0.25
   mutation_factors: [0.9, 1.1]
   min_lr: 6.0e-5

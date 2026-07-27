@@ -26,7 +26,7 @@ configs/experiments/parallel_baseline_vs_controller.yaml
 configs/experiments/pbt_smoke.yaml
 configs/experiments/pbt_anchored_lr_sweep.yaml
 configs/experiments/pbt_anchored_lr_sweep_ray.yaml        # full Ray executor sweep
-configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml  # shorter Ray trial preset
+configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml  # epoch-wise Ray LR sweep preset
 configs/experiments/pbt_ray_smoke.yaml                    # Ray executor smoke preset
 configs/experiments/pbt_no_controller.yaml
 configs/experiments/pbt_observe_controller.yaml
@@ -60,7 +60,7 @@ Inspect commands without launching training:
 
 ```bash
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_comparison.py --dry-run'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml --gpus 0,1,2,3 --experiment-name ray_anchored_lr_sweep --dry-run'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml --gpus 0,1,2,3 --experiment-name ray_anchored_lr_sweep_epochwise --dry-run'
 ```
 
 Run the current Ray PBT trial:
@@ -73,7 +73,7 @@ source .venv/bin/activate
 .venv/bin/python scripts/training/run_pbt.py \
   --config configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml \
   --gpus 0,1,2,3 \
-  --experiment-name ray_anchored_lr_sweep
+  --experiment-name ray_anchored_lr_sweep_epochwise
 ```
 
 Run smoke checks on a GPU node:
@@ -89,7 +89,14 @@ Validate the pretrained checkpoint:
 scripts/validation/validate_pretrained_sgv_3cat.sh 0
 ```
 
-PBT runs write `metrics_summary.json`, `summary.png`, `fixed_b_efficiency.png`, and `bgrej_curves.png` automatically after completion.
+PBT runs write `metrics_summary.json` and plot PNGs under `plots/` automatically after completion. The main physics plots are:
+
+- `plots/btag_mistag_evolution.png`: c/d mistag [%] vs b-tag efficiency across generation winners.
+- `plots/btag_rejection_evolution.png`: c/d background rejection vs b-tag efficiency across generation winners.
+- `plots/pbt_lr_response.png`: learning-rate response at b-tag working points.
+- `plots/working_point_mistag_history.png`: mistag history at fixed b/c efficiencies.
+- `plots/global_best_all_pair_rejection_curves.png`: all-pair rejection curves for the global-best checkpoint.
+- `plots/pbt_objective_diagnostics.png`: internal PBT objective used only for worker ranking.
 
 Plot reports from an existing PBT run:
 
@@ -97,6 +104,8 @@ Plot reports from an existing PBT run:
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_bgrej_curves.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_summary.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_fixed_b_efficiency.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_bgrej_evolution.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --quantity mistag'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_lr_response.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_mistag_tables.py run=runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --tag c --eff 0.5,0.8'
 # Optional ROOT style, after loading ROOT/PyROOT on the host:
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_fixed_b_efficiency_root.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'

@@ -73,6 +73,95 @@ class PBTAlgorithmTest(unittest.TestCase):
 
         self.assertEqual(factors, [1.05, 0.95])
 
+    def test_anchored_lr_radius_generates_symmetric_factors(self):
+        self.assertEqual(
+            strategy.factors_from_radius(0.05, 4),
+            [1.05, 1.025, 0.975, 0.95],
+        )
+        self.assertEqual(strategy.factors_from_radius(0.05, 2), [1.05, 0.95])
+
+    def test_anchored_lr_radius_shrinks_after_inner_wins(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            strategy="anchored_lr_sweep",
+            lr_radius={
+                "initial": 0.05,
+                "minimum": 0.015,
+                "shrink_factor": 0.7,
+                "shrink_after_inner_wins": 3,
+                "keep_if_edge_wins": True,
+            },
+        )
+        members = {
+            "member_00": {"lr": 1.10e-4},
+            "member_01": {"lr": 1.05e-4},
+            "member_02": {"lr": 0.95e-4},
+            "member_03": {"lr": 0.90e-4},
+        }
+        manifest = {
+            "best": {"metric_value": 10.0},
+            "generations": [
+                {"index": 0, "lr_radius": {"next_radius": 0.05, "inner_win_generations": 2}}
+            ],
+        }
+        generation = {
+            "index": 1,
+            "workers": {
+                "member_00": {"metrics": {"validation_bkg_rejection_score": 9.8}},
+                "member_01": {"metrics": {"validation_bkg_rejection_score": 9.9}},
+                "member_02": {"metrics": {"validation_bkg_rejection_score": 9.7}},
+                "member_03": {"metrics": {"validation_bkg_rejection_score": 9.6}},
+            },
+        }
+
+        ranking, plan = strategy.anchored_lr_sweep_plan(config, generation, members, manifest)
+
+        self.assertEqual(ranking[0], "member_01")
+        self.assertEqual(generation["lr_radius"]["action"], "shrink_inner_winners")
+        self.assertAlmostEqual(generation["lr_radius"]["radius"], 0.05)
+        self.assertAlmostEqual(generation["lr_radius"]["next_radius"], 0.035)
+        self.assertAlmostEqual(plan[0]["lr_radius"], 0.05)
+
+    def test_anchored_lr_radius_keeps_radius_when_edge_wins(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            strategy="anchored_lr_sweep",
+            lr_radius={
+                "initial": 0.05,
+                "minimum": 0.015,
+                "shrink_factor": 0.7,
+                "shrink_after_inner_wins": 3,
+                "keep_if_edge_wins": True,
+            },
+        )
+        members = {
+            "member_00": {"lr": 1.10e-4},
+            "member_01": {"lr": 1.05e-4},
+            "member_02": {"lr": 0.95e-4},
+            "member_03": {"lr": 0.90e-4},
+        }
+        manifest = {
+            "best": {"metric_value": 10.0},
+            "generations": [
+                {"index": 0, "lr_radius": {"next_radius": 0.05, "inner_win_generations": 2}}
+            ],
+        }
+        generation = {
+            "index": 1,
+            "workers": {
+                "member_00": {"metrics": {"validation_bkg_rejection_score": 9.9}},
+                "member_01": {"metrics": {"validation_bkg_rejection_score": 9.8}},
+                "member_02": {"metrics": {"validation_bkg_rejection_score": 9.7}},
+                "member_03": {"metrics": {"validation_bkg_rejection_score": 9.6}},
+            },
+        }
+
+        strategy.anchored_lr_sweep_plan(config, generation, members, manifest)
+
+        self.assertEqual(generation["lr_radius"]["action"], "keep_edge_winner")
+        self.assertAlmostEqual(generation["lr_radius"]["next_radius"], 0.05)
+        self.assertEqual(generation["lr_radius"]["inner_win_generations"], 0)
+
     def test_exploit_copies_both_states_and_updates_lineage(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

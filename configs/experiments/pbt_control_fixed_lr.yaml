@@ -15,7 +15,7 @@ shared:
   samples_per_epoch_val: 150000
   batch_size: 1024
   start_lr: 1.0e-4
-  optimizer: ranger
+  optimizer: adamw
   lr_scheduler: none
   num_workers: 1
   fetch_step: 0.01

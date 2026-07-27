@@ -145,7 +145,7 @@ def event_label(events):
 
 
 def default_output(manifest_path):
-    return Path(manifest_path).with_name("fixed_b_efficiency.png")
+    return Path(manifest_path).parent / "plots" / "working_point_mistag_history.png"
 
 
 def log_tick_label(value, _position):
@@ -193,7 +193,7 @@ def plot_manifest(manifest_path, output=None, member="best", b_efficiencies=DEFA
                 linewidth=1.6,
                 color=BACKGROUND_COLORS.get((background, b_eff)),
                 markerfacecolor="none" if b_eff >= 0.9 else None,
-                label=f"{BACKGROUND_LABELS[background]} @ b-eff={b_eff:.2f}",
+                label=f"{BACKGROUND_LABELS[background]} / b-eff={b_eff:.2f}",
             )
     if annotate:
         seen = set()

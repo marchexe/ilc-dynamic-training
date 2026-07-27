@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument(
         "--output",
         type=Path,
-        help="Output image path. Defaults to <run>/bgrej_curves.png for manifests.",
+        help="Output image path. Defaults to <run>/plots/global_best_all_pair_rejection_curves.png for manifests.",
     )
     parser.add_argument(
         "--generation",
@@ -112,9 +112,9 @@ def log_from_manifest(manifest, manifest_path, generation_index=None, member_nam
 
 def default_output(input_path, manifest_path=None):
     if manifest_path is not None:
-        return manifest_path.with_name("bgrej_curves.png")
+        return manifest_path.parent / "plots" / "global_best_all_pair_rejection_curves.png"
     input_path = Path(input_path)
-    return input_path.with_suffix(".bgrej_curves.png")
+    return input_path.with_suffix(".global_best_all_pair_rejection_curves.png")
 
 
 def efficiency_points_for_curves(curves):

@@ -120,6 +120,7 @@ class PBTLauncherTest(unittest.TestCase):
             command[command.index("--training-controller") + 1],
             config["shared"]["training_controller"],
         )
+        self.assertEqual(command[command.index("--optimizer") + 1], "adamw")
         self.assertEqual(command[command.index("--start-lr") + 1], "9e-05")
         self.assertEqual(command[command.index("--seed") + 1], "12346")
         self.assertEqual(log_path.name, "generation-001.log")

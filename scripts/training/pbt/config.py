@@ -175,7 +175,16 @@ def load_config(args):
     pbt["strategy"] = pbt.get("strategy", "exploit_mutate")
     if pbt["strategy"] == "anchored_lr_sweep":
         pbt["base_start_lr"] = float(pbt["base_start_lr"])
-        pbt["lr_factors"] = [float(value) for value in pbt["lr_factors"]]
+        if pbt.get("lr_radius"):
+            radius = dict(pbt["lr_radius"])
+            radius["initial"] = float(radius["initial"])
+            radius["minimum"] = float(radius["minimum"])
+            radius["shrink_factor"] = float(radius["shrink_factor"])
+            radius["shrink_after_inner_wins"] = int(radius["shrink_after_inner_wins"])
+            radius["keep_if_edge_wins"] = bool(radius.get("keep_if_edge_wins", True))
+            pbt["lr_radius"] = radius
+        else:
+            pbt["lr_factors"] = [float(value) for value in pbt["lr_factors"]]
     if not 0 < pbt["min_lr"] < pbt["max_lr"]:
         raise ValueError("Expected 0 < min_lr < max_lr")
     if not 0 <= pbt["degradation_tolerance"] < 1:
@@ -191,15 +200,34 @@ def load_config(args):
     if pbt["strategy"] not in {"exploit_mutate", "anchored_lr_sweep"}:
         raise ValueError("pbt.strategy must be 'exploit_mutate' or 'anchored_lr_sweep'")
     if pbt["strategy"] == "anchored_lr_sweep":
-        factors = pbt["lr_factors"]
-        if len(factors) < len(population):
-            raise ValueError("anchored_lr_sweep requires at least one lr_factor per member")
-        if any(value <= 0 for value in factors):
-            raise ValueError("anchored_lr_sweep lr_factors must be positive")
-        if len(population) == 2 and len(factors) >= 2:
-            active_factors = [factors[0], factors[-1]]
+        if pbt.get("lr_radius"):
+            radius = pbt["lr_radius"]
+            if radius["initial"] < 0 or radius["minimum"] < 0:
+                raise ValueError("anchored_lr_sweep lr_radius values must be non-negative")
+            if radius["minimum"] > radius["initial"]:
+                raise ValueError("anchored_lr_sweep lr_radius.minimum must be <= initial")
+            if not 0 < radius["shrink_factor"] <= 1:
+                raise ValueError("anchored_lr_sweep lr_radius.shrink_factor must be in (0, 1]")
+            if radius["shrink_after_inner_wins"] < 1:
+                raise ValueError("anchored_lr_sweep lr_radius.shrink_after_inner_wins must be positive")
+            if len(population) == 2:
+                offsets = (radius["initial"], -radius["initial"])
+            elif len(population) == 4:
+                offsets = (radius["initial"], radius["initial"] / 2, -radius["initial"] / 2, -radius["initial"])
+            else:
+                step = 2 * radius["initial"] / (len(population) - 1)
+                offsets = [radius["initial"] - index * step for index in range(len(population))]
+            active_factors = [1.0 + offset for offset in offsets]
         else:
-            active_factors = factors[:len(population)]
+            factors = pbt["lr_factors"]
+            if len(factors) < len(population):
+                raise ValueError("anchored_lr_sweep requires at least one lr_factor per member")
+            if any(value <= 0 for value in factors):
+                raise ValueError("anchored_lr_sweep lr_factors must be positive")
+            if len(population) == 2 and len(factors) >= 2:
+                active_factors = [factors[0], factors[-1]]
+            else:
+                active_factors = factors[:len(population)]
         for member, factor in zip(population, active_factors):
             member["start_lr"] = pbt["base_start_lr"] * factor
     if any(float(member.get("start_lr", 0)) <= 0 for member in population):
