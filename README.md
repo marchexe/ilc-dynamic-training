@@ -10,7 +10,8 @@ and Population Based Training experiments.
 model:      networks/pretrained_sgv_particle_transformer.py
 checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
 data cfg:   /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
-dataset:    datasets/20250218_ilc_nnqq_sgvnew
+dataset:    datasets/20250218_ilc_nnqq_sgvnew_parquet
+format:     parquet
 ```
 
 `checkpoints/.../source.txt` records where the local checkpoint symlinks came from.
