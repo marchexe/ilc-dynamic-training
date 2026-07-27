@@ -230,6 +230,16 @@ The generation health report records current best, global best, relative
 degradation, per-member LR values, and whether rollback from global best was
 activated.
 
+Plot physics-style background rejection curves from an existing PBT run:
+
+```bash
+.venv/bin/python scripts/plot_bgrej_curves.py \
+  runs/pbt/pp_pbt_8h_4gpu_parquet_v2/manifest.json
+```
+
+The plot uses the recorded `bkg_rejection_at_eff` validation block from the
+global-best member and writes `bgrej_curves.png` next to the manifest.
+
 The population may be larger than the available GPU count. With four members
 and GPU slots `0,2`, execution happens in two parallel waves.
 
