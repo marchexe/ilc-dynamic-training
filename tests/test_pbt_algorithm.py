@@ -29,6 +29,50 @@ class PBTAlgorithmTest(unittest.TestCase):
         self.assertGreaterEqual(plan[0]["new_lr"], config["pbt"]["min_lr"])
         self.assertLessEqual(plan[0]["new_lr"], config["pbt"]["max_lr"])
 
+
+    def test_anchored_lr_sweep_uses_fixed_worker_positions(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            strategy="anchored_lr_sweep",
+            lr_factors=[1.05, 1.025, 0.975, 0.95],
+        )
+        generation = {
+            "index": 0,
+            "workers": {
+                "member_00": {"metrics": {"validation_bkg_rejection_score": 7.0}},
+                "member_01": {"metrics": {"validation_bkg_rejection_score": 7.5}},
+                "member_02": {"metrics": {"validation_bkg_rejection_score": 8.0}},
+                "member_03": {"metrics": {"validation_bkg_rejection_score": 7.2}},
+            },
+        }
+        members = {
+            "member_00": {"lr": 1.10e-4},
+            "member_01": {"lr": 1.05e-4},
+            "member_02": {"lr": 0.95e-4},
+            "member_03": {"lr": 0.90e-4},
+        }
+
+        ranking, plan = strategy.anchored_lr_sweep_plan(config, generation, members)
+
+        self.assertEqual(ranking[0], "member_02")
+        self.assertEqual([event["recipient"] for event in plan], list(members))
+        self.assertTrue(all(event["donor"] == "member_02" for event in plan))
+        self.assertAlmostEqual(plan[0]["new_lr"], 0.95e-4 * 1.05)
+        self.assertAlmostEqual(plan[1]["new_lr"], 0.95e-4 * 1.025)
+        self.assertAlmostEqual(plan[2]["new_lr"], 0.95e-4 * 0.975)
+        self.assertAlmostEqual(plan[3]["new_lr"], 0.95e-4 * 0.95)
+
+    def test_anchored_lr_sweep_smoke_uses_outer_lr_factors(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            strategy="anchored_lr_sweep",
+            lr_factors=[1.05, 1.025, 0.975, 0.95],
+        )
+
+        factors = strategy.lr_factors_for_population(config, ["member_00", "member_01"])
+
+        self.assertEqual(factors, [1.05, 0.95])
+
     def test_exploit_copies_both_states_and_updates_lineage(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

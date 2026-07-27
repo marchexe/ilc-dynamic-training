@@ -129,8 +129,6 @@ def load_config(args):
         raise ValueError("Every population member requires a filesystem-safe name")
     if len(set(names)) != len(names):
         raise ValueError("Population member names must be unique")
-    if any(float(member.get("start_lr", 0)) <= 0 for member in population):
-        raise ValueError("Every population member requires a positive start_lr")
 
     required_pbt = {
         "metric",
@@ -173,6 +171,11 @@ def load_config(args):
     pbt["degradation_window"] = int(pbt.get("degradation_window", 3))
     pbt["rollback_fraction"] = float(pbt.get("rollback_fraction", 0.0))
     pbt["controller_state_on_exploit"] = pbt.get("controller_state_on_exploit", "copy")
+    pbt["backend"] = pbt.get("backend", "local_weaver")
+    pbt["strategy"] = pbt.get("strategy", "exploit_mutate")
+    if pbt["strategy"] == "anchored_lr_sweep":
+        pbt["base_start_lr"] = float(pbt["base_start_lr"])
+        pbt["lr_factors"] = [float(value) for value in pbt["lr_factors"]]
     if not 0 < pbt["min_lr"] < pbt["max_lr"]:
         raise ValueError("Expected 0 < min_lr < max_lr")
     if not 0 <= pbt["degradation_tolerance"] < 1:
@@ -183,6 +186,24 @@ def load_config(args):
         raise ValueError("rollback_fraction must be in [0, 0.5]")
     if pbt["controller_state_on_exploit"] not in {"copy", "reset"}:
         raise ValueError("controller_state_on_exploit must be 'copy' or 'reset'")
+    if pbt["backend"] not in {"local_weaver", "ray_weaver", "ray_tune"}:
+        raise ValueError("pbt.backend must be 'local_weaver', 'ray_weaver', or legacy 'ray_tune'")
+    if pbt["strategy"] not in {"exploit_mutate", "anchored_lr_sweep"}:
+        raise ValueError("pbt.strategy must be 'exploit_mutate' or 'anchored_lr_sweep'")
+    if pbt["strategy"] == "anchored_lr_sweep":
+        factors = pbt["lr_factors"]
+        if len(factors) < len(population):
+            raise ValueError("anchored_lr_sweep requires at least one lr_factor per member")
+        if any(value <= 0 for value in factors):
+            raise ValueError("anchored_lr_sweep lr_factors must be positive")
+        if len(population) == 2 and len(factors) >= 2:
+            active_factors = [factors[0], factors[-1]]
+        else:
+            active_factors = factors[:len(population)]
+        for member, factor in zip(population, active_factors):
+            member["start_lr"] = pbt["base_start_lr"] * factor
+    if any(float(member.get("start_lr", 0)) <= 0 for member in population):
+        raise ValueError("Every population member requires a positive start_lr")
     if any(
         not pbt["min_lr"] <= float(member["start_lr"]) <= pbt["max_lr"]
         for member in population

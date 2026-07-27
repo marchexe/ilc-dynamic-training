@@ -73,7 +73,7 @@ def bkg_rejection_at_eff(y_true, y_score):
     if y_score.ndim == 1 or y_score.shape[1] < 3:
         raise ValueError('bkg_rejection_at_eff requires b/c/d multiclass scores')
 
-    eff_points = np.asarray([0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8], dtype='float32')
+    eff_points = np.asarray([0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], dtype='float32')
     pairs = {
         'bc': (0, 1),
         'bd': (0, 2),

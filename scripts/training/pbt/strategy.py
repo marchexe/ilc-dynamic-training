@@ -200,6 +200,55 @@ def ranking_and_plan(config, generation_record, members):
     return ranking, plan
 
 
+def lr_factors_for_population(config, member_names):
+    factors = [float(value) for value in config["pbt"]["lr_factors"]]
+    count = len(member_names)
+    if len(factors) == count:
+        return factors
+    if count == 2 and len(factors) >= 2:
+        return [factors[0], factors[-1]]
+    if len(factors) < count:
+        raise ValueError("anchored_lr_sweep requires at least one lr_factor per member")
+    return factors[:count]
+
+
+def anchored_lr_sweep_plan(config, generation_record, members):
+    metric_name = config["pbt"]["metric"]
+    reverse = config["pbt"]["mode"] == "max"
+    member_names = list(members)
+    ranking = sorted(
+        member_names,
+        key=lambda name: generation_record["workers"][name]["metrics"][metric_name],
+        reverse=reverse,
+    )
+    anchor = ranking[0]
+    anchor_lr = float(members[anchor]["lr"])
+    anchor_metric = generation_record["workers"][anchor]["metrics"][metric_name]
+    factors = lr_factors_for_population(config, member_names)
+    plan = []
+    for index, recipient in enumerate(member_names):
+        factor = factors[index]
+        new_lr = min(
+            config["pbt"]["max_lr"],
+            max(config["pbt"]["min_lr"], anchor_lr * factor),
+        )
+        plan.append(
+            {
+                "source": "anchored_lr_sweep",
+                "recipient": recipient,
+                "donor": anchor,
+                "anchor_member": anchor,
+                "anchor_metric": anchor_metric,
+                "recipient_lr": float(members[recipient]["lr"]),
+                "donor_lr": anchor_lr,
+                "lr_factor": factor,
+                "new_lr": new_lr,
+                "applied": False,
+            }
+        )
+    return ranking, plan
+
+
 def add_global_best_rollbacks(config, manifest, generation_record, members, plan):
     best = manifest.get("best")
     if not best or generation_record["index"] == int(config["shared"]["generations"]) - 1:
@@ -250,8 +299,10 @@ def apply_exploit(experiment_dir, manifest, generation_record, manifest_path):
         recipient_state, recipient_optimizer = checkpoint_paths(recipient_dir, epoch)
         if not donor_state.is_file() or not donor_optimizer.is_file():
             raise FileNotFoundError(f"Donor checkpoint is incomplete: {event['donor']}")
-        atomic_copy(donor_state, recipient_state)
-        atomic_copy(donor_optimizer, recipient_optimizer)
+        if donor_state.resolve() != recipient_state.resolve():
+            atomic_copy(donor_state, recipient_state)
+        if donor_optimizer.resolve() != recipient_optimizer.resolve():
+            atomic_copy(donor_optimizer, recipient_optimizer)
         shared_config = manifest.get("config", {}).get("shared", {})
         config_payload = manifest.get("config", {}).get("pbt", {})
         if shared_config.get("training_controller"):
@@ -264,7 +315,8 @@ def apply_exploit(experiment_dir, manifest, generation_record, manifest_path):
                     raise FileNotFoundError(
                         f"Donor controller checkpoint is incomplete: {event['donor']}"
                     )
-                atomic_copy(donor_controller, recipient_controller)
+                if donor_controller.resolve() != recipient_controller.resolve():
+                    atomic_copy(donor_controller, recipient_controller)
         member = manifest["members"][event["recipient"]]
         member["lr"] = event["new_lr"]
         member["parent"] = event["donor"]

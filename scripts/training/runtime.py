@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Shared training launcher utilities."""
 
+import ast
 import hashlib
 import json
 import os
@@ -17,6 +18,7 @@ SUPPORTED_DATA_EXTENSIONS = {"root", "parquet", "h5", "awkd"}
 # (Weaver input name, jet-flavor file stem)
 FLAVOR_SAMPLE_GROUPS = (("nnbb", "bb"), ("nncc", "cc"), ("nndd", "dd"))
 DATA_SPLITS = (("train", "train800k"), ("val", "val50k"))
+BKG_REJECTION_EFFICIENCY_POINTS = (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
 
 
 def weaver_executable():
@@ -115,6 +117,50 @@ def git_metadata():
     }
 
 
+def _parse_bkg_rejection_at_eff(text):
+    pattern = re.compile(
+        r"- bkg_rejection_at_eff:\s*\n(?P<payload>\{.*?\})(?=\n\s+- |\n\[|\Z)",
+        re.DOTALL,
+    )
+    matches = list(pattern.finditer(text))
+    if not matches:
+        return None
+    curves = ast.literal_eval(matches[-1].group("payload"))
+    parsed = {pair: [float(value) for value in values] for pair, values in curves.items()}
+    point_count = max((len(values) for values in parsed.values()), default=0)
+    efficiencies = list(BKG_REJECTION_EFFICIENCY_POINTS[:point_count])
+    return {
+        "efficiencies": efficiencies,
+        "pairs": parsed,
+    }
+
+
+def _curve_value(pairs, pair, index):
+    values = pairs.get(pair) or []
+    return values[index] if index < len(values) else None
+
+
+def _bkg_rejection_lookup(curves):
+    if not curves:
+        return None
+    pairs = curves["pairs"]
+    efficiencies = curves["efficiencies"]
+    lookup = {}
+    for target_eff in (0.5, 0.8, 0.9, 1.0):
+        if target_eff not in efficiencies:
+            continue
+        index = efficiencies.index(target_eff)
+        lookup[f"b_tag_eff_{target_eff:.2f}"] = {
+            "c_bkg_rejection": _curve_value(pairs, "bc", index),
+            "d_bkg_rejection": _curve_value(pairs, "bd", index),
+        }
+        lookup[f"c_tag_eff_{target_eff:.2f}"] = {
+            "b_bkg_rejection": _curve_value(pairs, "cb", index),
+            "d_bkg_rejection": _curve_value(pairs, "cd", index),
+        }
+    return lookup or None
+
+
 def read_metrics(path):
     log_path = path / "train.log" if path.is_dir() else path
     if not log_path.is_file():
@@ -142,6 +188,10 @@ def read_metrics(path):
     ):
         values = re.findall(rf"{name}:\s*\n([0-9.eE+-]+)", text)
         metrics[f"validation_{name}"] = float(values[-1]) if values else None
+    curves = _parse_bkg_rejection_at_eff(text)
+    if curves:
+        metrics["validation_bkg_rejection_at_eff"] = curves
+        metrics["validation_bkg_rejection_at_eff_lookup"] = _bkg_rejection_lookup(curves)
     return metrics
 
 

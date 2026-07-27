@@ -23,6 +23,10 @@ Active presets:
 ```text
 configs/experiments/parallel_baseline_vs_controller.yaml
 configs/experiments/pbt_smoke.yaml
+configs/experiments/pbt_anchored_lr_sweep.yaml
+configs/experiments/pbt_anchored_lr_sweep_ray.yaml        # full Ray executor sweep
+configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml  # shorter Ray trial preset
+configs/experiments/pbt_ray_smoke.yaml                    # Ray executor smoke preset
 configs/experiments/pbt_no_controller.yaml
 configs/experiments/pbt_observe_controller.yaml
 configs/experiments/pbt_control_fixed_lr.yaml
@@ -43,27 +47,39 @@ configs/controllers/linucb_lr_pp_observe.yaml
 
 ## Commands
 
-Install/update the local environment:
+Install/update the Python 3.10 GPU-node environment:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt -c requirements-lock.txt
+ssh iutgpu02 'cd /data/suehara/part/march && python3 -m venv .venv'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python -m pip install --upgrade pip'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python -m pip install -r requirements.txt -c requirements-lock.txt'
 ```
 
 Inspect commands without launching training:
 
 ```bash
-.venv/bin/python scripts/training/run_comparison.py --dry-run
-.venv/bin/python scripts/training/run_pbt.py --dry-run
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_comparison.py --dry-run'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml --gpus 0,1,2,3 --experiment-name ray_anchored_lr_sweep --dry-run'
 ```
 
-Run smoke checks:
+Run the current Ray PBT trial:
 
 ```bash
-.venv/bin/python scripts/training/run_comparison.py --smoke --gpus 0,2
-.venv/bin/python scripts/training/run_pbt.py --smoke --gpus 0,2
+ssh iutgpu02
+cd /data/suehara/part/march
+tmux new -s ray_pbt
+source .venv/bin/activate
+.venv/bin/python scripts/training/run_pbt.py \
+  --config configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml \
+  --gpus 0,1,2,3 \
+  --experiment-name ray_anchored_lr_sweep
+```
+
+Run smoke checks on a GPU node:
+
+```bash
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_comparison.py --smoke --gpus 0,2'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --smoke --gpus 0,2'
 ```
 
 Validate the pretrained checkpoint:
@@ -72,17 +88,23 @@ Validate the pretrained checkpoint:
 scripts/validation/validate_pretrained_sgv_3cat.sh 0
 ```
 
+PBT runs write `metrics_summary.json`, `summary.png`, `fixed_b_efficiency.png`, and `bgrej_curves.png` automatically after completion.
+
 Plot reports from an existing PBT run:
 
 ```bash
-.venv/bin/python scripts/reports/plot_bgrej_curves.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json
-.venv/bin/python scripts/reports/plot_pbt_summary.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_bgrej_curves.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_summary.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_fixed_b_efficiency.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_mistag_tables.py run=runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --tag c --eff 0.5,0.8'
+# Optional ROOT style, after loading ROOT/PyROOT on the host:
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_fixed_b_efficiency_root.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
 ```
 
 Run tests:
 
 ```bash
-.venv/bin/python -m unittest discover -v
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python -m unittest discover -v'
 ```
 
 ## Project Layout
@@ -90,7 +112,7 @@ Run tests:
 ```text
 configs/       experiment and controller presets
 networks/      checkpoint-compatible pretrained SGV model
-scripts/       launchers, reports, validation, cluster helpers
+scripts/       launchers, PBT backend, reports, validation, cluster helpers
 tests/         unit and compatibility tests
 weaver-core/   editable local Weaver checkout
 ```

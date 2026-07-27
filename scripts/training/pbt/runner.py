@@ -4,31 +4,26 @@
 import argparse
 import json
 import shlex
-import subprocess
 import sys
 import time
 from pathlib import Path
 
 import yaml
 
-from training.pbt.weaver import make_command, slot_label
+from training.pbt.backend import backend_from_config, format_duration, log_event
 from training.pbt.config import contract_fingerprint, load_config, validate_inputs
 from training.runtime import (
     PROJECT_DIR,
     atomic_json,
     git_metadata,
-    read_metrics,
     sha256,
-    terminate,
     utc_now,
 )
 from training.pbt.strategy import (
     add_global_best_rollbacks,
     apply_exploit,
-    checkpoint_paths,
-    controller_checkpoint_path,
     epoch_for_generation,
-    global_best_paths,
+    anchored_lr_sweep_plan,
     ranking_and_plan,
     update_generation_health,
     update_global_best,
@@ -37,23 +32,6 @@ from training.pbt.strategy import (
 
 DEFAULT_CONFIG = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
 MANIFEST_NAME = "manifest.json"
-def format_duration(seconds):
-    seconds = max(0, int(round(seconds)))
-    hours, remainder = divmod(seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    if hours:
-        return f"{hours:d}h {minutes:02d}m {seconds:02d}s"
-    if minutes:
-        return f"{minutes:d}m {seconds:02d}s"
-    return f"{seconds:d}s"
-
-
-def log_event(log_path, message):
-    line = f"{utc_now()} {message}"
-    print(line, flush=True)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with log_path.open("a", encoding="utf-8") as stream:
-        stream.write(line + "\n")
 
 
 def parse_args():
@@ -77,152 +55,6 @@ def parse_args():
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
-
-
-def launch_workers(config, experiment_dir, manifest, generation_record, names, manifest_path):
-    processes = {}
-    streams = {}
-    started_monotonic = {}
-    process_slots = {}
-    pbt_log_path = manifest_path.with_name("pbt.log")
-    pending_names = list(names)
-    free_slots = list(config["slots"])
-
-    def start_worker(name, slot):
-        member = manifest["members"][name]
-        member_dir = experiment_dir / name
-        command, log_path, target_epoch = make_command(
-            config, member, slot, member_dir, generation_record["index"]
-        )
-        console_path = member_dir / f"generation-{generation_record['index']:03d}.console.log"
-        stream = console_path.open("w")
-        try:
-            process = subprocess.Popen(
-                command,
-                cwd=PROJECT_DIR,
-                stdout=stream,
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-            )
-        except Exception:
-            stream.close()
-            terminate(processes)
-            for running_name, running_process in processes.items():
-                streams[running_name].close()
-                generation_record["workers"][running_name].update(
-                    status="terminated",
-                    returncode=running_process.poll(),
-                    finished_at=utc_now(),
-                )
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            raise
-        processes[name] = process
-        streams[name] = stream
-        process_slots[name] = slot
-        started_monotonic[name] = time.monotonic()
-        generation_record["workers"][name].update(
-            status="running",
-            gpu=slot["gpu"],
-            host=slot.get("host") if isinstance(slot, dict) else None,
-            slot=slot_label(slot),
-            pid=process.pid,
-            command=command,
-            log=str(log_path),
-            console_log=str(console_path),
-            target_epoch=target_epoch,
-            started_at=utc_now(),
-            finished_at=None,
-            returncode=None,
-            metrics=None,
-        )
-        log_event(
-            pbt_log_path,
-            f"started generation={generation_record['index']} worker={name} "
-            f"slot={slot_label(slot)} pid={process.pid}",
-        )
-
-    while pending_names and free_slots:
-        start_worker(pending_names.pop(0), free_slots.pop(0))
-        manifest["updated_at"] = utc_now()
-        atomic_json(manifest_path, manifest)
-
-    failure = None
-    try:
-        while processes or pending_names:
-            for name, process in list(processes.items()):
-                returncode = process.poll()
-                if returncode is None:
-                    continue
-                streams.pop(name).close()
-                processes.pop(name)
-                finished_slot = process_slots.pop(name)
-                elapsed = format_duration(time.monotonic() - started_monotonic.pop(name))
-                record = generation_record["workers"][name]
-                metrics = read_metrics(Path(record["log"]))
-                metric_name = config["pbt"]["metric"]
-                metric_ok = metrics is not None and metrics.get(metric_name) is not None
-                status = "completed" if returncode == 0 and metric_ok else "failed"
-                record.update(
-                    status=status,
-                    returncode=returncode,
-                    metrics=metrics,
-                    finished_at=utc_now(),
-                )
-                log_event(
-                    pbt_log_path,
-                    f"finished generation={generation_record['index']} "
-                    f"worker={name} returncode={returncode} elapsed={elapsed}",
-                )
-                manifest["updated_at"] = utc_now()
-                atomic_json(manifest_path, manifest)
-                if status == "failed":
-                    failure = name
-                    break
-                if pending_names:
-                    start_worker(pending_names.pop(0), finished_slot)
-                    manifest["updated_at"] = utc_now()
-                    atomic_json(manifest_path, manifest)
-                else:
-                    free_slots.append(finished_slot)
-            if failure:
-                break
-            time.sleep(0.5)
-    except BaseException:
-        terminate(processes)
-        for name, process in processes.items():
-            streams[name].close()
-            elapsed = format_duration(time.monotonic() - started_monotonic.get(name, time.monotonic()))
-            generation_record["workers"][name].update(
-                status="terminated",
-                returncode=process.poll(),
-                finished_at=utc_now(),
-            )
-            log_event(
-                pbt_log_path,
-                f"terminated generation={generation_record['index']} "
-                f"worker={name} returncode={process.poll()} elapsed={elapsed}",
-            )
-        manifest["updated_at"] = utc_now()
-        atomic_json(manifest_path, manifest)
-        raise
-
-    if failure:
-        terminate(processes)
-        for name, process in processes.items():
-            streams[name].close()
-            elapsed = format_duration(time.monotonic() - started_monotonic.get(name, time.monotonic()))
-            generation_record["workers"][name].update(
-                status="terminated",
-                returncode=process.poll(),
-                finished_at=utc_now(),
-            )
-            log_event(
-                pbt_log_path,
-                f"terminated generation={generation_record['index']} "
-                f"worker={name} returncode={process.poll()} elapsed={elapsed}",
-            )
-        raise RuntimeError(f"PBT worker failed: {failure}")
 
 
 def initial_manifest(config, fingerprint):
@@ -263,11 +95,16 @@ def run(args):
     manifest_path = experiment_dir / MANIFEST_NAME
     pbt_log_path = manifest_path.with_name("pbt.log")
 
+    backend = backend_from_config(config)
+
+    if getattr(backend, "handles_run", False):
+        return backend.run(config, experiment_dir, dry_run=args.dry_run)
+
     if args.dry_run:
         print(yaml.safe_dump(config, sort_keys=False).rstrip())
         for index, member_config in enumerate(config["population"]):
             member = {"name": member_config["name"], "lr": float(member_config["start_lr"])}
-            command, _, _ = make_command(
+            command, _, _ = backend.command_for(
                 config,
                 member,
                 config["slots"][index % len(config["slots"])],
@@ -305,7 +142,7 @@ def run(args):
     log_event(
         pbt_log_path,
         f"run started experiment={config['experiment_name']} "
-        f"slots={','.join(slot_label(slot) for slot in config['slots'])} "
+        f"backend={backend.name} slots={','.join(backend.slot_label(slot) for slot in config['slots'])} "
         f"members={len(manifest['members'])} "
         f"batch_size={config['shared']['batch_size']} metric={config['pbt']['metric']}",
     )
@@ -339,7 +176,7 @@ def run(args):
                 for name, record in existing["workers"].items()
                 if record["status"] != "completed"
             ]
-            launch_workers(
+            backend.run_generation(
                 config,
                 experiment_dir,
                 manifest,
@@ -349,17 +186,23 @@ def run(args):
             )
 
             if existing["exploit"] is None:
-                ranking, plan = ranking_and_plan(
-                    config, existing, manifest["members"]
-                )
+                if config["pbt"].get("strategy") == "anchored_lr_sweep":
+                    ranking, plan = anchored_lr_sweep_plan(
+                        config, existing, manifest["members"]
+                    )
+                else:
+                    ranking, plan = ranking_and_plan(
+                        config, existing, manifest["members"]
+                    )
                 existing["ranking"] = ranking
                 improved = update_global_best(
                     experiment_dir, manifest, existing, manifest_path
                 )
                 health = update_generation_health(config, manifest, existing)
-                plan = add_global_best_rollbacks(
-                    config, manifest, existing, manifest["members"], plan
-                )
+                if config["pbt"].get("strategy") != "anchored_lr_sweep":
+                    plan = add_global_best_rollbacks(
+                        config, manifest, existing, manifest["members"], plan
+                    )
                 existing["exploit"] = (
                     [] if generation == int(config["shared"]["generations"]) - 1 else plan
                 )
@@ -404,6 +247,16 @@ def run(args):
         manifest["updated_at"] = utc_now()
         atomic_json(manifest_path, manifest)
         try:
+            from reports.write_metrics_summary import write_summary
+
+            summary_path = write_summary(manifest_path)
+            manifest["metrics_summary"] = str(summary_path)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+            log_event(pbt_log_path, f"metrics summary: {summary_path}")
+        except Exception as summary_error:
+            log_event(pbt_log_path, f"warning: failed to write metrics summary: {summary_error}")
+        try:
             from reports.plot_pbt_summary import plot_manifest
 
             plot_path = plot_manifest(manifest_path)
@@ -413,6 +266,47 @@ def run(args):
             log_event(pbt_log_path, f"summary plot: {plot_path}")
         except Exception as plot_error:
             log_event(pbt_log_path, f"warning: failed to create PBT summary plot: {plot_error}")
+        try:
+            from reports.plot_fixed_b_efficiency import plot_manifest
+
+            plot_path = plot_manifest(manifest_path)
+            manifest["fixed_b_efficiency_plot"] = str(plot_path)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+            log_event(pbt_log_path, f"fixed b-efficiency plot: {plot_path}")
+        except Exception as plot_error:
+            log_event(
+                pbt_log_path,
+                f"warning: failed to create fixed b-efficiency plot: {plot_error}",
+            )
+        try:
+            from reports.plot_bgrej_curves import (
+                default_output,
+                load_manifest,
+                log_from_manifest,
+                parse_bgrej_curves,
+                plot_curves,
+            )
+
+            loaded_manifest, resolved_manifest_path = load_manifest(manifest_path)
+            log_path, generation, member = log_from_manifest(
+                loaded_manifest, resolved_manifest_path
+            )
+            curves = parse_bgrej_curves(log_path)
+            plot_path = plot_curves(
+                curves,
+                default_output(manifest_path, resolved_manifest_path),
+                f"{manifest['experiment']}: {member}, generation {generation}",
+            )
+            manifest["bgrej_curves_plot"] = str(plot_path)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+            log_event(pbt_log_path, f"bgrej curves plot: {plot_path}")
+        except Exception as plot_error:
+            log_event(
+                pbt_log_path,
+                f"warning: failed to create BGrej curves plot: {plot_error}",
+            )
         log_event(
             pbt_log_path,
             f"run completed experiment={config['experiment_name']} "

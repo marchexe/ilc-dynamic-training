@@ -3,6 +3,7 @@
 
 import shlex
 import socket
+import re
 from pathlib import Path
 
 from training.pbt.strategy import epoch_for_generation
@@ -32,6 +33,14 @@ def remote_host(slot):
     return host
 
 
+def venv_python_version():
+    config_path = project_path(".venv/pyvenv.cfg")
+    if not config_path.exists():
+        return "3.10"
+    match = re.search(r"^version\s*=\s*(\d+\.\d+)", config_path.read_text(), re.MULTILINE)
+    return match.group(1) if match else "3.10"
+
+
 def wrap_remote_command(command, slot):
     host = remote_host(slot)
     if not host:
@@ -40,27 +49,34 @@ def wrap_remote_command(command, slot):
         venv_root = project_path(".venv")
         venv_python = venv_root / "bin/python"
         venv_weaver = venv_root / "bin/weaver"
-        py310_site = venv_root / "lib/python3.10/site-packages"
-        py312_site = venv_root / "lib/python3.12/site-packages"
+        python_version = venv_python_version()
+        expected_major, expected_minor = (int(part) for part in python_version.split(".", 1))
+        site_packages = venv_root / f"lib/python{python_version}/site-packages"
+        python_cmd = f"python{python_version}"
         args = shlex.join(command[1:])
+        remote_pythonpath = (
+            f"{shlex.quote(str(site_packages))}:"
+            f"{shlex.quote(str(PROJECT_DIR / 'weaver-core'))}:"
+            f"${{PYTHONPATH:-}}"
+        )
+        version_check = (
+            f"{shlex.quote(str(venv_python))} -c "
+            f"'import sys; raise SystemExit(sys.version_info[:2] != ({expected_major}, {expected_minor}))'"
+        )
         remote = (
             f"cd {shlex.quote(str(PROJECT_DIR))} && "
-            f"if [ -x {shlex.quote(str(venv_python))} ]; then "
+            f"if [ -x {shlex.quote(str(venv_python))} ] && {version_check}; then "
+            f"export PYTHONPATH={remote_pythonpath}; "
             f"exec {shlex.quote(str(venv_python))} {shlex.quote(str(venv_weaver))} {args}; "
-            f"elif command -v python3.10 >/dev/null 2>&1; then "
-            f"export PYTHONPATH={shlex.quote(str(py310_site))}:"
-            f"{shlex.quote(str(PROJECT_DIR / 'weaver-core'))}:"
-            f"${{PYTHONPATH:-}}; "
-            f"exec python3.10 {shlex.quote(str(venv_weaver))} {args}; "
-            f"elif command -v python3.12 >/dev/null 2>&1 && [ -d {shlex.quote(str(py312_site))} ]; then "
-            f"export PYTHONPATH={shlex.quote(str(py312_site))}:"
-            f"{shlex.quote(str(PROJECT_DIR / 'weaver-core'))}:"
-            f"${{PYTHONPATH:-}}; "
-            f"exec python3.12 {shlex.quote(str(venv_weaver))} {args}; "
+            f"elif command -v {python_cmd} >/dev/null 2>&1 && [ -d {shlex.quote(str(site_packages))} ]; then "
+            f"export PYTHONPATH={remote_pythonpath}; "
+            f"exec {python_cmd} {shlex.quote(str(venv_weaver))} {args}; "
             f"else "
-            f"echo 'remote venv python is not executable on this host: "
-            f"{shlex.quote(str(venv_python))}' >&2; "
-            f"echo 'Make the project .venv available on this host at the same path.' >&2; "
+            f"actual=$({shlex.quote(str(venv_python))} --version 2>&1 || true); "
+            f"echo \"found .venv/bin/python: $actual\" >&2; "
+            f"echo 'remote Python {python_version} environment is not available for: "
+            f"{shlex.quote(str(venv_weaver))}' >&2; "
+            f"echo 'Expected Python {python_version} with packages in {shlex.quote(str(site_packages))}.' >&2; "
             f"exit 127; "
             f"fi"
         )

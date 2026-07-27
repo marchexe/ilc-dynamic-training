@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 
-EFFICIENCY_POINTS = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+EFFICIENCY_POINTS = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 PAIR_LABELS = {
     "bc": "b tag / c bkg",
     "bd": "b tag / d bkg",
@@ -60,12 +60,15 @@ def parse_bgrej_curves(log_path):
     missing = set(PAIR_LABELS) - set(curves)
     if missing:
         raise ValueError(f"Missing pair curves in {log_path}: {sorted(missing)}")
-    for pair, values in curves.items():
-        if len(values) != len(EFFICIENCY_POINTS):
-            raise ValueError(
-                f"Pair {pair} in {log_path} has {len(values)} points, "
-                f"expected {len(EFFICIENCY_POINTS)}"
-            )
+    lengths = {len(values) for values in curves.values()}
+    if len(lengths) != 1:
+        raise ValueError(f"Pair curves in {log_path} have inconsistent lengths: {sorted(lengths)}")
+    point_count = lengths.pop()
+    if point_count > len(EFFICIENCY_POINTS):
+        raise ValueError(
+            f"Pair curves in {log_path} have {point_count} points, "
+            f"expected at most {len(EFFICIENCY_POINTS)}"
+        )
     return curves
 
 
@@ -113,6 +116,11 @@ def default_output(input_path, manifest_path=None):
     return input_path.with_suffix(".bgrej_curves.png")
 
 
+def efficiency_points_for_curves(curves):
+    point_count = len(next(iter(curves.values())))
+    return EFFICIENCY_POINTS[:point_count]
+
+
 def plot_curves(curves, output, title):
     import os
 
@@ -133,9 +141,10 @@ def plot_curves(curves, output, title):
     )
     fig, ax = plt.subplots(figsize=(6.8, 4.7))
     colors = plt.get_cmap("tab10")
+    efficiency_points = efficiency_points_for_curves(curves)
     for index, pair in enumerate(PAIR_LABELS):
         ax.plot(
-            EFFICIENCY_POINTS,
+            efficiency_points,
             curves[pair],
             marker="o",
             linewidth=1.7,
@@ -147,7 +156,7 @@ def plot_curves(curves, output, title):
     ax.set_xlabel("signal efficiency")
     ax.set_ylabel("background rejection")
     ax.set_yscale("log")
-    ax.set_xticks(EFFICIENCY_POINTS)
+    ax.set_xticks(efficiency_points)
     ax.grid(axis="both", color="0.88", linewidth=0.6)
     ax.legend(frameon=False)
     fig.tight_layout()

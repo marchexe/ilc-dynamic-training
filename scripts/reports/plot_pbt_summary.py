@@ -77,6 +77,16 @@ def compact_member_name(name):
     return name.replace("member_", "m")
 
 
+def rejection_lookup(metrics, tag, eff, background):
+    lookup = metrics.get("validation_bkg_rejection_at_eff_lookup") or {}
+    row = lookup.get(f"{tag}_tag_eff_{eff:.2f}") or {}
+    return row.get(f"{background}_bkg_rejection")
+
+
+def format_rejection(value):
+    return f"{float(value):.1f}" if value is not None else "-"
+
+
 def plot_manifest(manifest_path, output=None):
     manifest_path = Path(manifest_path)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -187,10 +197,14 @@ def plot_manifest(manifest_path, output=None):
             rows.append(
                 [
                     compact_member_name(member),
-                    *(f"{float(metrics[key]):.3f}" if metrics.get(key) is not None else "-"
-                      for _, key in SUMMARY_METRICS),
                     f"{float(metrics['validation_accuracy']):.4f}"
                     if metrics.get("validation_accuracy") is not None else "-",
+                    f"{float(metrics['validation_bkg_rejection_score']):.3f}"
+                    if metrics.get("validation_bkg_rejection_score") is not None else "-",
+                    format_rejection(rejection_lookup(metrics, "b", 0.8, "c")),
+                    format_rejection(rejection_lookup(metrics, "b", 0.8, "d")),
+                    format_rejection(rejection_lookup(metrics, "b", 0.9, "c")),
+                    format_rejection(rejection_lookup(metrics, "b", 0.9, "d")),
                 ]
             )
     ax_summary.axis("off")
@@ -198,13 +212,13 @@ def plot_manifest(manifest_path, output=None):
     if rows:
         table = ax_summary.table(
             cellText=rows,
-            colLabels=["id", "b tag", "c tag", "all", "acc"],
+            colLabels=["id", "acc", "log", "c@b80", "d@b80", "c@b90", "d@b90"],
             loc="upper center" if best else "center",
             cellLoc="center",
         )
         table.auto_set_font_size(False)
-        table.set_fontsize(8)
-        table.scale(1.0, 1.35)
+        table.set_fontsize(7)
+        table.scale(1.05, 1.28)
     if best:
         best_lines = [
             "global best",

@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 from tests.helpers import PROJECT_DIR, namespace
 
@@ -64,6 +66,30 @@ class ParallelTrainingTest(unittest.TestCase):
         self.assertIn("nnbb:/tmp/sgv_parquet/*_bb_train800k.parquet", joined)
         self.assertIn("--prefetch-factor", command)
         self.assertEqual(command[command.index("--prefetch-factor") + 1], "4")
+
+    def test_read_metrics_keeps_bgrej_curves_and_lookup(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            log_path = Path(temporary) / "train.log"
+            log_path.write_text(
+                """
+Eval AvgLoss: 0.5, AvgAcc: 0.75
+INFO: Evaluation metrics:
+    - bkg_rejection_at_eff:
+{'bc': [1, 2, 3, 4, 5, 6, 80, 90, 100], 'bd': [2, 3, 4, 5, 6, 7, 81, 91, 101], 'cb': [3, 4, 5, 6, 7, 8, 82, 92, 102], 'cd': [4, 5, 6, 7, 8, 9, 83, 93, 103]}
+    - bkg_rejection_score:
+2.0
+""",
+                encoding="utf-8",
+            )
+
+            metrics = runtime.read_metrics(log_path)
+
+            self.assertEqual(metrics["validation_bkg_rejection_at_eff"]["efficiencies"][-1], 1.0)
+            lookup = metrics["validation_bkg_rejection_at_eff_lookup"]
+            self.assertEqual(lookup["c_tag_eff_0.50"]["b_bkg_rejection"], 6)
+            self.assertEqual(lookup["b_tag_eff_0.80"]["c_bkg_rejection"], 80)
+            self.assertEqual(lookup["b_tag_eff_0.90"]["d_bkg_rejection"], 91)
+            self.assertEqual(lookup["c_tag_eff_1.00"]["d_bkg_rejection"], 103)
 
 
 if __name__ == "__main__":
