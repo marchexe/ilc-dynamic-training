@@ -1,0 +1,46 @@
+schema_version: 1
+
+experiment:
+  name: pbt_control_fixed_lr
+  output_root: runs/parallel
+
+shared:
+  dataset: datasets/20250218_ilc_nnqq_sgvnew
+  checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+  data_config: /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
+  network_config: networks/pretrained_sgv_particle_transformer.py
+  seed: 12345
+  epochs: 64
+  samples_per_epoch: 2400000
+  samples_per_epoch_val: 150000
+  batch_size: 1024
+  start_lr: 1.0e-4
+  optimizer: ranger
+  lr_scheduler: none
+  num_workers: 1
+  fetch_step: 0.01
+  use_amp: true
+  amp_dtype: fp16
+  no_remake_weights: true
+
+workers:
+  - name: fixed_lr_075e-4
+    gpu: 0
+    start_lr: 7.5e-5
+    seed: 12345
+    controller: null
+  - name: fixed_lr_100e-4
+    gpu: 1
+    start_lr: 1.0e-4
+    seed: 12346
+    controller: null
+  - name: fixed_lr_125e-4
+    gpu: 2
+    start_lr: 1.25e-4
+    seed: 12347
+    controller: null
+  - name: fixed_lr_140e-4
+    gpu: 3
+    start_lr: 1.4e-4
+    seed: 12348
+    controller: null

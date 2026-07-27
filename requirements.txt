@@ -1,2 +1,7 @@
+# Local Weaver checkout. Editable mode keeps changes under weaver-core/ live without reinstalling.
 -e ./weaver-core
-tabulate>=0.9
+
+# Weaver imports PyTorch at CLI startup, but weaver-core/requirements.txt does not declare it.
+torch==2.13.0
+torchvision==0.28.0
+torchaudio==2.11.0

@@ -1,0 +1,198 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+from tests.helpers import pbt_smoke_config
+from training.pbt import strategy
+
+
+class PBTAlgorithmTest(unittest.TestCase):
+    def test_ranking_and_exploit_plan_are_deterministic(self):
+        config = pbt_smoke_config()
+        generation = {
+            "index": 0,
+            "workers": {
+                "member_00": {"metrics": {"validation_bkg_rejection_score": 2.0}},
+                "member_01": {"metrics": {"validation_bkg_rejection_score": 1.0}},
+            },
+        }
+        members = {
+            "member_00": {"lr": 7.5e-5},
+            "member_01": {"lr": 1.0e-4},
+        }
+
+        ranking, plan = strategy.ranking_and_plan(config, generation, members)
+
+        self.assertEqual(ranking, ["member_00", "member_01"])
+        self.assertEqual(plan[0]["donor"], "member_00")
+        self.assertEqual(plan[0]["recipient"], "member_01")
+        self.assertGreaterEqual(plan[0]["new_lr"], config["pbt"]["min_lr"])
+        self.assertLessEqual(plan[0]["new_lr"], config["pbt"]["max_lr"])
+
+    def test_exploit_copies_both_states_and_updates_lineage(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ("strong", "weak"):
+                (root / name).mkdir()
+            strong_state, strong_optimizer = strategy.checkpoint_paths(root / "strong", 0)
+            weak_state, weak_optimizer = strategy.checkpoint_paths(root / "weak", 0)
+            strong_state.write_bytes(b"strong-state")
+            strong_optimizer.write_bytes(b"strong-optimizer")
+            weak_state.write_bytes(b"weak-state")
+            weak_optimizer.write_bytes(b"weak-optimizer")
+            strong_controller = strategy.controller_checkpoint_path(root / "strong", 0)
+            weak_controller = strategy.controller_checkpoint_path(root / "weak", 0)
+            strong_controller.write_bytes(b"strong-controller")
+            weak_controller.write_bytes(b"weak-controller")
+            manifest_path = root / "manifest.json"
+            manifest = {
+                "config": {"shared": {"training_controller": "controller.yaml"}},
+                "members": {
+                    "strong": {"lr": 1.0e-4, "parent": None},
+                    "weak": {"lr": 1.5e-4, "parent": None},
+                },
+            }
+            generation = {
+                "index": 0,
+                "epoch": 0,
+                "exploit": [
+                    {
+                        "donor": "strong",
+                        "recipient": "weak",
+                        "new_lr": 8.0e-5,
+                        "applied": False,
+                    }
+                ],
+            }
+
+            strategy.apply_exploit(root, manifest, generation, manifest_path)
+
+            self.assertEqual(weak_state.read_bytes(), b"strong-state")
+            self.assertEqual(weak_optimizer.read_bytes(), b"strong-optimizer")
+            self.assertEqual(weak_controller.read_bytes(), b"strong-controller")
+            self.assertTrue(generation["exploit"][0]["applied"])
+            self.assertEqual(manifest["members"]["weak"]["parent"], "strong")
+            self.assertEqual(manifest["members"]["weak"]["lr"], 8.0e-5)
+
+    def test_exploit_can_reset_controller_state(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ("strong", "weak"):
+                (root / name).mkdir()
+            strong_state, strong_optimizer = strategy.checkpoint_paths(root / "strong", 0)
+            weak_state, weak_optimizer = strategy.checkpoint_paths(root / "weak", 0)
+            strong_state.write_bytes(b"strong-state")
+            strong_optimizer.write_bytes(b"strong-optimizer")
+            weak_state.write_bytes(b"weak-state")
+            weak_optimizer.write_bytes(b"weak-optimizer")
+            strong_controller = strategy.controller_checkpoint_path(root / "strong", 0)
+            weak_controller = strategy.controller_checkpoint_path(root / "weak", 0)
+            strong_controller.write_bytes(b"strong-controller")
+            weak_controller.write_bytes(b"weak-controller")
+            manifest_path = root / "manifest.json"
+            manifest = {
+                "config": {
+                    "shared": {"training_controller": "controller.yaml"},
+                    "pbt": {"controller_state_on_exploit": "reset"},
+                },
+                "members": {
+                    "strong": {"lr": 1.0e-4, "parent": None},
+                    "weak": {"lr": 1.5e-4, "parent": None},
+                },
+            }
+            generation = {
+                "index": 0,
+                "epoch": 0,
+                "exploit": [
+                    {
+                        "donor": "strong",
+                        "recipient": "weak",
+                        "new_lr": 8.0e-5,
+                        "applied": False,
+                    }
+                ],
+            }
+
+            strategy.apply_exploit(root, manifest, generation, manifest_path)
+
+            self.assertEqual(weak_state.read_bytes(), b"strong-state")
+            self.assertEqual(weak_optimizer.read_bytes(), b"strong-optimizer")
+            self.assertFalse(weak_controller.exists())
+
+    def test_global_best_is_copied_and_recorded(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            member_dir = root / "member_00"
+            member_dir.mkdir()
+            state, optimizer = strategy.checkpoint_paths(member_dir, 3)
+            state.write_bytes(b"best-state")
+            optimizer.write_bytes(b"best-optimizer")
+            manifest_path = root / "manifest.json"
+            config = pbt_smoke_config()
+            manifest = {
+                "config": config,
+                "members": {"member_00": {"lr": 9.0e-5}},
+                "generations": [],
+                "best": None,
+            }
+            generation = {
+                "index": 1,
+                "epoch": 3,
+                "ranking": ["member_00"],
+                "workers": {
+                    "member_00": {
+                        "metrics": {
+                            "validation_bkg_rejection_score": 7.5,
+                            "validation_accuracy": 0.88,
+                        }
+                    }
+                },
+            }
+
+            improved = strategy.update_global_best(root, manifest, generation, manifest_path)
+
+            self.assertTrue(improved)
+            self.assertEqual(manifest["best"]["member"], "member_00")
+            self.assertEqual(manifest["best"]["generation"], 1)
+            self.assertEqual((root / "global_best_state.pt").read_bytes(), b"best-state")
+            self.assertEqual((root / "global_best_optimizer.pt").read_bytes(), b"best-optimizer")
+            self.assertTrue((root / "global_best_metadata.json").is_file())
+
+    def test_degraded_generation_rolls_back_worst_member_from_global_best(self):
+        config = pbt_smoke_config()
+        config["pbt"]["rollback_fraction"] = 0.5
+        config["pbt"]["degradation_tolerance"] = 0.02
+        config["pbt"]["degradation_window"] = 1
+        manifest = {
+            "best": {
+                "member": "member_00",
+                "generation": 0,
+                "metric_value": 10.0,
+                "lr": 9.0e-5,
+            },
+            "generations": [],
+        }
+        generation = {
+            "index": 0,
+            "ranking": ["member_00", "member_01"],
+            "workers": {
+                "member_00": {"metrics": {"validation_bkg_rejection_score": 9.0}},
+                "member_01": {"metrics": {"validation_bkg_rejection_score": 8.0}},
+            },
+        }
+        members = {
+            "member_00": {"lr": 9.0e-5},
+            "member_01": {"lr": 1.2e-4},
+        }
+
+        health = strategy.update_generation_health(config, manifest, generation)
+        plan = strategy.add_global_best_rollbacks(config, manifest, generation, members, [])
+
+        self.assertEqual(health["status"], "degraded")
+        self.assertEqual(plan[0]["source"], "global_best")
+        self.assertEqual(plan[0]["recipient"], "member_01")
+        self.assertEqual(plan[0]["new_lr"], 9.0e-5)
+
+
+if __name__ == "__main__":
+    unittest.main()

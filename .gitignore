@@ -1,14 +1,24 @@
+# Python environments and caches
 .venv/
 .venv-*/
-*.auto.yaml
-*.log
 __pycache__/
-runs/
+*.py[cod]
+
 .agents/
 .codex/
-*.pyc
+
+# Training outputs and generated data
+runs/
+results/
+datasets/
+*.auto.yaml
+*.log
+*.onnx
 *.pt
 *.root
-*.onnx
-checkpoints/
-datasets/
+
+# Keep only checkpoint provenance in Git
+checkpoints/**
+!checkpoints/pretrained/
+!checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/
+!checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/source.txt

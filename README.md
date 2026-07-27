@@ -1,459 +1,119 @@
 # ILC Dynamic Training
 
-This project studies whether adaptive training strategies can improve an
-existing ParticleTransformer for ILC flavour tagging.
+Continuation experiments for a pretrained SGV `pp` ParticleTransformer using Weaver.
+The repo is organized around one active pretrained checkpoint, parallel training runs,
+and Population Based Training experiments.
 
-The starting point is not a randomly initialized model. It is the best `pp`
-checkpoint from a completed 20-epoch training run. The current work builds a
-reproducible continuation pipeline around that checkpoint:
-
-```text
-pretrained pp model
-        ↓
-parallel independent training
-        ↓
-matched baseline/controller comparison
-        ↓
-Population Based Training
-        ↓
-full-budget performance evaluation
-```
-
-The immediate goal is infrastructure and experiment correctness. No PBT
-performance improvement is claimed yet.
-
-## Why this direction
-
-The project originally focused on an `ee` ParticleTransformer and a LinUCB
-learning-rate controller. The current direction follows these observations:
-
-- the supervisor requested improvement from the best existing model, rather
-  than another from-scratch result;
-- previous work did not show a clear advantage from the `ee` pairwise
-  variables;
-- LinUCB is useful as an integration trial, but should not be assumed to be the
-  final algorithm;
-- parallel multiple training is required before meaningful PBT experiments.
-
-Therefore:
-
-- current pretrained path: `pp`;
-- current optimization direction: PBT;
-- LinUCB: optional comparison worker;
-- old `ee` path: retained for provenance, not used by PBT.
-
-## Current state
-
-Implemented and verified:
-
-- checkpoint-compatible `pp` model;
-- local copy of the original dataset;
-- separate charged and neutral particle inputs;
-- pretrained checkpoint validation;
-- parallel multi-GPU launcher;
-- isolated logs, checkpoints and experiment manifests;
-- failure handling and resume;
-- epoch-level PBT with ranking, exploit, LR mutation and lineage;
-- two-worker/two-generation PBT smoke-test.
-
-Not completed:
-
-- full-budget continuation;
-- full four-member PBT run;
-- multi-seed performance comparison;
-- final choice of ranking metric;
-- decision on initial optimizer state.
-
-## Pretrained reference
-
-Checkpoint:
+## Active Inputs
 
 ```text
-checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+model:      networks/pretrained_sgv_particle_transformer.py
+checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+data cfg:   /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
+dataset:    datasets/20250218_ilc_nnqq_sgvnew
 ```
 
-Model:
+`checkpoints/.../source.txt` records where the local checkpoint symlinks came from.
+Large checkpoint/data/run artifacts are not tracked by Git.
+
+## Experiments
+
+Active presets:
 
 ```text
-networks/particle_transformer_pp_pretrained.py
+configs/experiments/parallel_baseline_vs_controller.yaml
+configs/experiments/pbt_smoke.yaml
+configs/experiments/pbt_no_controller.yaml
+configs/experiments/pbt_observe_controller.yaml
+configs/experiments/pbt_control_fixed_lr.yaml
 ```
 
-The checkpoint is the best state, epoch 17, from the original 20-epoch run.
-
-| Evaluation | Accuracy | ROC AUC |
-|---|---:|---:|
-| Historical report | `0.88992` | `0.97364` |
-| Local reproduction | `0.88936` | `0.97336` |
-
-Validation command:
-
-```bash
-./scripts/validate_pretrained_sgv_3cat.sh 0
-```
-
-The small difference from the historical result is treated as the baseline
-reproduction tolerance.
-
-## Charged and neutral particles
-
-Data configuration:
+Archived old presets live in:
 
 ```text
-configs/data/ilc_nnqq_sgvnew_3cat.yaml
+configs/experiments/archive/
 ```
 
-The two particle types are represented separately:
+Controller presets:
 
 ```text
-charged → pf_features  + pf_vectors  + pf_mask
-neutral → neu_features + neu_vectors + neu_mask
+configs/controllers/linucb_lr_pp_active.yaml
+configs/controllers/linucb_lr_pp_observe.yaml
 ```
 
-The model applies separate embeddings before the common transformer:
+## Commands
 
-```text
-charged embedding ─┐
-                   ├→ ParticleTransformer → nnbb / nncc / nndd
-neutral embedding ─┘
-```
-
-The active model uses `pair_input_type="pp"`. The modern `ee` implementation is
-not numerically compatible with the pretrained checkpoint, even where tensor
-shapes match.
-
-## Parallel matched training
-
-Purpose: compare two continuations under the same experimental conditions.
-
-Configuration:
-
-```text
-configs/experiments/pp_matched.yaml
-```
-
-Workers:
-
-```text
-baseline → fixed learning rate
-linucb   → experimental LinUCB learning-rate controller
-```
-
-Both workers receive the same:
-
-- pretrained weights;
-- dataset and preprocessing;
-- random seed;
-- optimizer and initial LR;
-- batch size;
-- epoch and sample budgets;
-- AMP settings.
-
-Only the GPU, output directory and optional controller differ.
-
-Inspect the resolved commands:
-
-```bash
-.venv/bin/python scripts/run_parallel_training.py --dry-run
-```
-
-Run a short integration test:
-
-```bash
-.venv/bin/python scripts/run_parallel_training.py \
-  --smoke \
-  --gpus 0,2 \
-  --experiment-name pp_matched_smoke
-```
-
-Resume with the same options plus:
-
-```bash
---resume
-```
-
-## Population Based Training
-
-Purpose: train a population, keep useful states from stronger members, and
-explore learning-rate variants without restarting models from scratch.
-
-Configuration:
-
-```text
-configs/experiments/pp_pbt.yaml
-```
-
-Recommended long-run diagnostics:
-
-```text
-configs/experiments/pp_pbt_12h_4gpu_clean.yaml    # A: PBT only, no controller
-configs/experiments/pp_pbt_12h_4gpu_observe.yaml  # B: PBT + LinUCB observe_only
-configs/experiments/pp_fixed_lr_12h.yaml          # fixed LR sweep control
-```
-
-Default short smoke population:
-
-| Member | Initial LR |
-|---|---:|
-| `member_00` | `7.5e-5` |
-| `member_01` | `1.0e-4` |
-| `member_02` | `1.25e-4` |
-| `member_03` | `1.5e-4` |
-
-One PBT generation:
-
-```text
-train every member
-        ↓
-evaluate validation metric
-        ↓
-rank population
-        ↓
-bottom fraction copies model + optimizer from the strongest members
-        ↓
-mutate copied learning rate within configured bounds
-        ↓
-resume next generation
-```
-
-Long PBT runs track a global best checkpoint independently of the final
-generation. The recommended model is recorded in `manifest.json` under `best`
-and copied to:
-
-```text
-global_best_state.pt
-global_best_optimizer.pt
-global_best_controller.pt
-global_best_metadata.json
-```
-
-The generation health report records current best, global best, relative
-degradation, per-member LR values, and whether rollback from global best was
-activated.
-
-Plot physics-style background rejection curves from an existing PBT run:
-
-```bash
-.venv/bin/python scripts/plot_bgrej_curves.py \
-  runs/pbt/pp_pbt_8h_4gpu_parquet_v2/manifest.json
-```
-
-The plot uses the recorded `bkg_rejection_at_eff` validation block from the
-global-best member and writes `bgrej_curves.png` next to the manifest.
-
-The population may be larger than the available GPU count. With four members
-and GPU slots `0,2`, execution happens in two parallel waves.
-
-Inspect the full PBT commands:
-
-```bash
-.venv/bin/python scripts/run_pbt.py --dry-run
-```
-
-Inspect the clean 12-hour diagnostic:
-
-```bash
-.venv/bin/python scripts/run_pbt.py \
-  --config configs/experiments/pp_pbt_12h_4gpu_clean.yaml \
-  --dry-run
-```
-
-Check validation stability for a checkpoint before spending a long run:
-
-```bash
-scripts/check_validation_stability.sh 0 3
-```
-
-Run the integration smoke-test:
-
-```bash
-.venv/bin/python scripts/run_pbt.py \
-  --smoke \
-  --gpus 0,2 \
-  --experiment-name pp_pbt_smoke
-```
-
-The smoke-test uses two members, two generations, 7680 training samples and
-3000 validation samples per generation.
-
-## What the smoke-test proves
-
-Verified control flow:
-
-```text
-parallel training
-→ validation
-→ ranking
-→ model copy
-→ optimizer copy
-→ LR mutation
-→ epoch resume
-```
-
-Example:
-
-```text
-generation 0:
-member_01 outperformed member_00
-
-exploit:
-member_00 model     ← member_01 model
-member_00 optimizer ← member_01 optimizer
-member_00 LR        ← 1e-4 × 0.8 = 8e-5
-
-generation 1:
-both members resumed from epoch 0
-```
-
-Smoke-test metrics are not performance results. The short run changes
-BatchNorm statistics and uses only a small validation subset; it must not be
-compared directly with `0.88992`.
-
-## Reproducibility and recovery
-
-Each experiment writes:
-
-```text
-manifest.json
-resolved_config.yaml
-per-worker training logs
-per-worker console logs
-model checkpoints
-optimizer checkpoints
-optional controller state
-```
-
-The manifest records:
-
-- resolved experiment configuration;
-- checkpoint path and SHA-256;
-- Git revision and dirty state;
-- exact commands;
-- seeds and GPU assignments;
-- worker exit status;
-- validation loss, accuracy and AUC;
-- PBT ranking, mutations and parentage.
-
-Resume is rejected if the resolved experiment contract differs from the saved
-fingerprint.
-
-PBT exploit copying is atomic and idempotent. A partially completed exploit can
-be safely applied again after resume.
-
-## AMP behavior
-
-FP16 can produce non-finite gradients while dynamic loss scaling is being
-adjusted.
-
-On a rejected AMP step:
-
-```text
-optimizer step skipped
-scheduler step skipped
-training-controller observation skipped
-event counted in the training log
-```
-
-LinUCB additionally sanitizes non-finite context values so they cannot corrupt
-its internal matrices.
-
-## Important open decisions
-
-Before a full run:
-
-1. Initial optimizer:
-   - fresh Ranger optimizer per member; or
-   - original epoch-17 optimizer state.
-2. Final PBT ranking target:
-   - combined `validation_bkg_rejection_score`;
-   - b-tag focused `validation_b_tag_rejection_score`;
-   - c-tag focused `validation_c_tag_rejection_score`;
-   - individual `bc` / `bd` / `cb` / `cd` rejection scores.
-3. Population size and number of generations.
-4. Learning-rate range and mutation factors.
-5. Final comparison protocol and number of seeds.
-
-The current implementation starts every initial member from pretrained model
-weights with a fresh optimizer. After the first PBT generation, model and
-optimizer states are transferred together.
-
-The active LinUCB controller can also use high-frequency proxy validation:
-every configured interval it evaluates a small validation subset, computes the
-physics-aligned `bkg_rejection_score`, and uses that signal as its online
-reward for learning-rate actions. Full validation is still kept as the end-of-
-epoch reference.
-
-## Main files
-
-```text
-configs/
-├── data/ilc_nnqq_sgvnew_3cat.yaml
-├── experiments/pp_matched.yaml
-├── experiments/pp_pbt.yaml
-└── controllers/linucb_lr_pp_active.yaml
-
-networks/
-├── particle_transformer_pp_pretrained.py   # active path
-└── particle_transformer_ee.py              # previous prototype
-
-scripts/
-├── validate_pretrained_sgv_3cat.sh
-├── run_parallel_training.py
-└── run_pbt.py
-
-tests/
-└── test_pbt.py
-
-weaver-core/weaver/
-├── train.py                                # checkpoint/resume logic
-└── utils/
-    ├── nn/tools.py                         # training and AMP handling
-    └── training_control/                   # LinUCB integration
-```
-
-## Local artifacts
-
-Ignored by Git:
-
-```text
-.venv/
-datasets/
-checkpoints/
-runs/
-```
-
-## Tests
-
-```bash
-.venv/bin/python -m unittest discover -s tests -v
-```
-
-Covered:
-
-- PBT generation resume command;
-- deterministic ranking and exploit planning;
-- model and optimizer copying;
-- lineage updates;
-- LinUCB protection from non-finite gradient norms.
-
-## Environment
+Install/update the local environment:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt -c requirements-lock.txt
 ```
 
-## Previous prototype
+Inspect commands without launching training:
 
-The following files belong to the earlier `ee`/LinUCB prototype:
+```bash
+.venv/bin/python scripts/training/run_comparison.py --dry-run
+.venv/bin/python scripts/training/run_pbt.py --dry-run
+```
+
+Run smoke checks:
+
+```bash
+.venv/bin/python scripts/training/run_comparison.py --smoke --gpus 0,2
+.venv/bin/python scripts/training/run_pbt.py --smoke --gpus 0,2
+```
+
+Validate the pretrained checkpoint:
+
+```bash
+scripts/validation/validate_pretrained_sgv_3cat.sh 0
+```
+
+Plot reports from an existing PBT run:
+
+```bash
+.venv/bin/python scripts/reports/plot_bgrej_curves.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json
+.venv/bin/python scripts/reports/plot_pbt_summary.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json
+```
+
+Run tests:
+
+```bash
+.venv/bin/python -m unittest discover -v
+```
+
+## Project Layout
 
 ```text
-networks/particle_transformer_ee.py
-scripts/train_sgv_3cat.sh
-scripts/plot_training_control.py
-results/
+configs/       experiment and controller presets
+networks/      checkpoint-compatible pretrained SGV model
+scripts/       launchers, reports, validation, cluster helpers
+tests/         unit and compatibility tests
+weaver-core/   editable local Weaver checkout
 ```
 
-They remain in the repository for provenance and are not used by the current
-pretrained `pp` PBT pipeline.
+## Git Policy
+
+Tracked:
+
+```text
+source code
+experiment/controller configs
+requirements.txt
+requirements-lock.txt
+checkpoint provenance text
+```
+
+Ignored:
+
+```text
+.venv/
+datasets/
+checkpoints/* except source.txt
+runs/
+results/
+*.pt, *.root, *.onnx, *.log, *.auto.yaml
+```

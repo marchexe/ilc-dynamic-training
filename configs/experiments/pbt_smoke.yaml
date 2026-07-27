@@ -1,0 +1,47 @@
+schema_version: 1
+
+experiment:
+  name: pbt_smoke
+  output_root: runs/pbt
+
+shared:
+  dataset: datasets/20250218_ilc_nnqq_sgvnew
+  checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+  data_config: /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
+  network_config: networks/pretrained_sgv_particle_transformer.py
+  training_controller: configs/controllers/linucb_lr_pp_active.yaml
+  seed: 12345
+  generations: 2
+  epochs_per_generation: 1
+  samples_per_epoch: 2400000
+  samples_per_epoch_val: 150000
+  batch_size: 1024
+  optimizer: ranger
+  lr_scheduler: none
+  num_workers: 1
+  fetch_step: 0.01
+  use_amp: true
+  amp_dtype: fp16
+  no_remake_weights: true
+
+resources:
+  gpus: [0, 1, 2, 3]
+
+population:
+  - name: member_00
+    start_lr: 7.5e-5
+  - name: member_01
+    start_lr: 1.0e-4
+  - name: member_02
+    start_lr: 1.25e-4
+  - name: member_03
+    start_lr: 1.5e-4
+
+pbt:
+  metric: validation_bkg_rejection_score
+  mode: max
+  exploit_fraction: 0.5
+  mutation_factors: [0.8, 1.2]
+  min_lr: 5.0e-5
+  max_lr: 2.0e-4
+  seed: 2026

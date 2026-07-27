@@ -1,0 +1,15 @@
+Local links:
+  net_best_epoch_state.pt -> /data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+  data_config.auto.yaml -> /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
+  base_config.yaml -> /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.yaml
+  ilc_nnqq_sgvnew_3cat_cut.log -> /data/suehara/part/suehara/logs/unprocessed/ilc_nnqq_sgvnew_3cat_cut/ilc_nnqq_sgvnew_3cat_cut.log
+
+Data config provenance:
+  base_config.yaml is the config passed to Weaver.
+  data_config.auto.yaml is the preprocessed config used by Weaver and by this project runtime.
+
+Local validation (pretrained_sgv_3cat, legacy_takahiro_test.log):
+  2026-07-24 legacy Weaver test on bb/cc/dd val50k files:
+    Test metric 0.88936
+    ROC AUC 0.9733589198284708
+    Entries 149833
