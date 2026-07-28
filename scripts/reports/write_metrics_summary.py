@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -162,6 +163,35 @@ def rejection_value(metrics, tag, eff, background):
     return float(values[index]) if index < len(values) else None
 
 
+def _pair_counts(metrics, tag, eff, background):
+    rows = (metrics.get("validation_bkg_rejection_at_eff_counts") or {}).get(f"{tag}{background}") or []
+    for row in rows:
+        if abs(float(row.get("signal_efficiency", -1.0)) - eff) < 1e-6:
+            total = row.get("background_total")
+            passed = row.get("background_passed")
+            if total is None or passed is None:
+                return None
+            total = int(total)
+            passed = int(passed)
+            if total <= 0:
+                return None
+            bkg_eff = passed / total
+            stat_uncertainty = math.sqrt(max(bkg_eff * (1.0 - bkg_eff), 0.0) / total)
+            return {
+                "background_passed": passed,
+                "background_total": total,
+                "background_efficiency": bkg_eff,
+                "mistag_percent_stat_uncertainty": 100.0 * stat_uncertainty,
+            }
+    return None
+
+
+def _mistag_from_rejection(rejection):
+    if rejection is None or rejection <= 0 or not math.isfinite(rejection):
+        return None
+    return 100.0 / rejection
+
+
 def fixed_efficiency_rows(metrics, tag, efficiencies):
     rows = []
     for eff in efficiencies:
@@ -170,8 +200,11 @@ def fixed_efficiency_rows(metrics, tag, efficiencies):
             rejection = rejection_value(metrics, tag, eff, background)
             backgrounds[background] = {
                 "background_rejection": rejection,
-                "mistag_percent": None if rejection is None or rejection <= 0 else 100.0 / rejection,
+                "mistag_percent": _mistag_from_rejection(rejection),
             }
+            counts = _pair_counts(metrics, tag, eff, background)
+            if counts:
+                backgrounds[background].update(counts)
         rows.append({"tag_efficiency": eff, "backgrounds": backgrounds})
     return rows
 
@@ -180,16 +213,17 @@ def showcase_metrics(metrics):
     points = []
     for tag, eff, background in SHOWCASE_WORKING_POINTS:
         rejection = rejection_value(metrics, tag, eff, background)
-        mistag = None if rejection is None or rejection <= 0 else 100.0 / rejection
-        points.append(
-            {
-                "tag": tag,
-                "tag_efficiency": eff,
-                "background": background,
-                "background_rejection": rejection,
-                "mistag_percent": mistag,
-            }
-        )
+        point = {
+            "tag": tag,
+            "tag_efficiency": eff,
+            "background": background,
+            "background_rejection": rejection,
+            "mistag_percent": _mistag_from_rejection(rejection),
+        }
+        counts = _pair_counts(metrics, tag, eff, background)
+        if counts:
+            point.update(counts)
+        points.append(point)
     values = [point["mistag_percent"] for point in points if point["mistag_percent"] is not None]
     return {
         "average_mistag_percent": sum(values) / len(values) if values else None,

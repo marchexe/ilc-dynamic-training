@@ -135,15 +135,25 @@ def git_metadata():
     }
 
 
-def _parse_bkg_rejection_at_eff(text):
+def _parse_metric_payload(text, name):
     pattern = re.compile(
-        r"- bkg_rejection_at_eff:\s*\n(?P<payload>\{.*?\})(?=\n\s+- |\n\[|\Z)",
+        rf"- {name}:\s*\n(?P<payload>\{{.*?\}})(?=\n\s+- |\n\[|\Z)",
         re.DOTALL,
     )
     matches = list(pattern.finditer(text))
     if not matches:
         return None
-    curves = ast.literal_eval(matches[-1].group("payload"))
+    payload = matches[-1].group("payload")
+    try:
+        return ast.literal_eval(payload)
+    except ValueError:
+        return eval(payload, {"__builtins__": {}}, {"nan": float("nan")})
+
+
+def _parse_bkg_rejection_at_eff(text):
+    curves = _parse_metric_payload(text, "bkg_rejection_at_eff")
+    if not curves:
+        return None
     parsed = {pair: [float(value) for value in values] for pair, values in curves.items()}
     point_count = max((len(values) for values in parsed.values()), default=0)
     efficiencies = list(BKG_REJECTION_EFFICIENCY_POINTS[:point_count])
@@ -151,6 +161,25 @@ def _parse_bkg_rejection_at_eff(text):
         "efficiencies": efficiencies,
         "pairs": parsed,
     }
+
+
+def _parse_bkg_rejection_at_eff_counts(text):
+    counts = _parse_metric_payload(text, "bkg_rejection_at_eff_counts")
+    if not counts:
+        return None
+    parsed = {}
+    for pair, rows in counts.items():
+        parsed[pair] = []
+        for row in rows:
+            parsed[pair].append(
+                {
+                    "signal_efficiency": float(row["signal_efficiency"]),
+                    "background_passed": None if row["background_passed"] is None else int(row["background_passed"]),
+                    "background_total": int(row["background_total"]),
+                    "background_efficiency": None if row["background_efficiency"] is None else float(row["background_efficiency"]),
+                }
+            )
+    return parsed
 
 
 def _curve_value(pairs, pair, index):
@@ -245,6 +274,9 @@ def read_metrics(path):
         metrics["validation_bkg_rejection_at_eff"] = curves
         metrics["validation_bkg_rejection_at_eff_lookup"] = _bkg_rejection_lookup(curves)
         metrics.update(_working_point_metrics(curves))
+    counts = _parse_bkg_rejection_at_eff_counts(text)
+    if counts:
+        metrics["validation_bkg_rejection_at_eff_counts"] = counts
     return metrics
 
 

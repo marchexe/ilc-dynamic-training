@@ -37,19 +37,28 @@ def roc_auc_score_ovo(y_true, y_score):
     return result
 
 
-def _bkg_rejection_for_pair(y_true, y_score, tag_idx, bkg_idx, eff_points):
+def _roc_for_pair(y_true, y_score, tag_idx, bkg_idx):
     selected = np.logical_or(y_true == tag_idx, y_true == bkg_idx)
     if not np.any(selected):
-        return np.full(len(eff_points), np.nan, dtype='float32')
+        return None
 
     truth = y_true[selected] == tag_idx
     if not np.any(truth) or np.all(truth):
-        return np.full(len(eff_points), np.nan, dtype='float32')
+        return None
 
     scores = y_score[selected, tag_idx] / np.maximum(
         y_score[selected, tag_idx] + y_score[selected, bkg_idx], 1e-6
     )
-    fpr, tpr, _ = _m.roc_curve(truth, scores)
+    fpr, tpr, _thresholds = _m.roc_curve(truth, scores)
+    return truth, fpr, tpr
+
+
+def _bkg_rejection_for_pair(y_true, y_score, tag_idx, bkg_idx, eff_points):
+    roc = _roc_for_pair(y_true, y_score, tag_idx, bkg_idx)
+    if roc is None:
+        return np.full(len(eff_points), np.nan, dtype='float32')
+
+    truth, fpr, tpr = roc
     min_bkg_eff = 1.0 / (np.count_nonzero(~truth) + 1.0)
     rejection = []
     for eff in eff_points:
@@ -60,6 +69,43 @@ def _bkg_rejection_for_pair(y_true, y_score, tag_idx, bkg_idx, eff_points):
         bkg_eff = max(fpr[passing[0]], min_bkg_eff)
         rejection.append(1.0 / bkg_eff)
     return np.asarray(rejection, dtype='float32')
+
+
+def _bkg_counts_for_pair(y_true, y_score, tag_idx, bkg_idx, eff_points):
+    roc = _roc_for_pair(y_true, y_score, tag_idx, bkg_idx)
+    if roc is None:
+        return []
+
+    truth, fpr, tpr = roc
+    background_total = int(np.count_nonzero(~truth))
+    rows = []
+    for eff in eff_points:
+        passing = np.flatnonzero(tpr >= eff)
+        if not passing.size:
+            rows.append({
+                'signal_efficiency': float(eff),
+                'background_passed': None,
+                'background_total': background_total,
+                'background_efficiency': None,
+            })
+            continue
+        bkg_eff = float(fpr[passing[0]])
+        rows.append({
+            'signal_efficiency': float(eff),
+            'background_passed': int(round(bkg_eff * background_total)),
+            'background_total': background_total,
+            'background_efficiency': bkg_eff,
+        })
+    return rows
+
+
+BKG_REJECTION_EFF_POINTS = np.asarray([0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], dtype='float32')
+BKG_REJECTION_PAIRS = {
+    'bc': (0, 1),
+    'bd': (0, 2),
+    'cb': (1, 0),
+    'cd': (1, 2),
+}
 
 
 def bkg_rejection_at_eff(y_true, y_score):
@@ -73,16 +119,25 @@ def bkg_rejection_at_eff(y_true, y_score):
     if y_score.ndim == 1 or y_score.shape[1] < 3:
         raise ValueError('bkg_rejection_at_eff requires b/c/d multiclass scores')
 
-    eff_points = np.asarray([0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], dtype='float32')
-    pairs = {
-        'bc': (0, 1),
-        'bd': (0, 2),
-        'cb': (1, 0),
-        'cd': (1, 2),
-    }
     return {
-        pair: _bkg_rejection_for_pair(y_true, y_score, tag_idx, bkg_idx, eff_points).tolist()
-        for pair, (tag_idx, bkg_idx) in pairs.items()
+        pair: _bkg_rejection_for_pair(y_true, y_score, tag_idx, bkg_idx, BKG_REJECTION_EFF_POINTS).tolist()
+        for pair, (tag_idx, bkg_idx) in BKG_REJECTION_PAIRS.items()
+    }
+
+
+def bkg_rejection_at_eff_counts(y_true, y_score):
+    """Background pass/total counters at the same fixed efficiency points.
+
+    These counters are intended for downstream binomial/bootstrap uncertainty
+    estimates of background efficiency and mistag percentages.
+    """
+
+    if y_score.ndim == 1 or y_score.shape[1] < 3:
+        raise ValueError('bkg_rejection_at_eff_counts requires b/c/d multiclass scores')
+
+    return {
+        pair: _bkg_counts_for_pair(y_true, y_score, tag_idx, bkg_idx, BKG_REJECTION_EFF_POINTS)
+        for pair, (tag_idx, bkg_idx) in BKG_REJECTION_PAIRS.items()
     }
 
 
@@ -144,6 +199,7 @@ _metric_dict = {
     'roc_auc_score': partial(_m.roc_auc_score, multi_class='ovo'),
     'roc_auc_score_matrix': roc_auc_score_ovo,
     'bkg_rejection_at_eff': bkg_rejection_at_eff,
+    'bkg_rejection_at_eff_counts': bkg_rejection_at_eff_counts,
     'bkg_rejection_bc_score': bkg_rejection_bc_score,
     'bkg_rejection_bd_score': bkg_rejection_bd_score,
     'bkg_rejection_cb_score': bkg_rejection_cb_score,

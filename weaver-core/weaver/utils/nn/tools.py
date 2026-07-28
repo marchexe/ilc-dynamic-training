@@ -330,6 +330,7 @@ def train_classification(
 
 def evaluate_classification(model, test_loader, dev, epoch, for_training=True, loss_func=None, steps_per_epoch=None,
                             eval_metrics=['roc_auc_score', 'roc_auc_score_matrix', 'bkg_rejection_at_eff',
+                                          'bkg_rejection_at_eff_counts',
                                           'bkg_rejection_bc_score', 'bkg_rejection_bd_score',
                                           'bkg_rejection_cb_score', 'bkg_rejection_cd_score',
                                           'b_tag_rejection_score', 'c_tag_rejection_score',
@@ -449,6 +450,7 @@ def evaluate_classification(model, test_loader, dev, epoch, for_training=True, l
 
 def evaluate_onnx(model_path, test_loader, eval_metrics=['roc_auc_score', 'roc_auc_score_matrix',
                                                         'bkg_rejection_at_eff',
+                                                        'bkg_rejection_at_eff_counts',
                                                         'bkg_rejection_bc_score', 'bkg_rejection_bd_score',
                                                         'bkg_rejection_cb_score', 'bkg_rejection_cd_score',
                                                         'b_tag_rejection_score', 'c_tag_rejection_score',

@@ -100,6 +100,48 @@ INFO: Evaluation metrics:
             )
             self.assertAlmostEqual(metrics["validation_bc_mistag_eff_0.80_percent"], 100.0 / 80)
 
+    def test_read_metrics_accepts_nan_in_bgrej_curves(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            log_path = Path(temporary) / "train.log"
+            log_path.write_text(
+                """
+Eval AvgLoss: 0.50000, AvgAcc: 0.80000
+INFO: Evaluation metrics:
+    - bkg_rejection_at_eff:
+{'bc': [nan, 2.0], 'bd': [3.0, 4.0]}
+    - bkg_rejection_score:
+1.0
+""",
+                encoding="utf-8",
+            )
+
+            metrics = runtime.read_metrics(log_path)
+
+            value = metrics["validation_bkg_rejection_at_eff"]["pairs"]["bc"][0]
+            self.assertNotEqual(value, value)
+
+    def test_read_metrics_keeps_bgrej_counts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            log_path = Path(temporary) / "train.log"
+            log_path.write_text(
+                """
+Eval AvgLoss: 0.50000, AvgAcc: 0.80000
+INFO: Evaluation metrics:
+    - bkg_rejection_at_eff_counts:
+{'bc': [{'signal_efficiency': 0.8, 'background_passed': 12, 'background_total': 1000, 'background_efficiency': 0.012}], 'bd': []}
+    - bkg_rejection_score:
+1.0
+""",
+                encoding="utf-8",
+            )
+
+            metrics = runtime.read_metrics(log_path)
+
+            counts = metrics["validation_bkg_rejection_at_eff_counts"]
+            self.assertEqual(counts["bc"][0]["background_passed"], 12)
+            self.assertEqual(counts["bc"][0]["background_total"], 1000)
+            self.assertEqual(counts["bc"][0]["background_efficiency"], 0.012)
+
 
 if __name__ == "__main__":
     unittest.main()
