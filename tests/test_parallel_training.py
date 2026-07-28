@@ -90,6 +90,15 @@ INFO: Evaluation metrics:
             self.assertEqual(lookup["b_tag_eff_0.80"]["c_bkg_rejection"], 80)
             self.assertEqual(lookup["b_tag_eff_0.90"]["d_bkg_rejection"], 91)
             self.assertEqual(lookup["c_tag_eff_1.00"]["d_bkg_rejection"], 103)
+            self.assertAlmostEqual(
+                metrics["validation_working_point_mistag_percent"],
+                sum(100.0 / value for value in (80, 81, 90, 91, 6, 7, 82, 83)) / 8,
+            )
+            self.assertAlmostEqual(
+                metrics["validation_ctag_reference_mistag_percent"],
+                sum(100.0 / value for value in (6, 7, 82, 83)) / 4,
+            )
+            self.assertAlmostEqual(metrics["validation_bc_mistag_eff_0.80_percent"], 100.0 / 80)
 
 
 if __name__ == "__main__":

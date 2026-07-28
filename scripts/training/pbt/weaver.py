@@ -96,6 +96,9 @@ def make_command(config, member, slot, member_dir, generation):
         seed=int(config["shared"]["seed"]) + generation,
         start_lr=member["lr"],
     )
+    freeze_generations = int(shared.get("freeze_model_weights_generations", 0) or 0)
+    if freeze_generations and generation >= freeze_generations:
+        shared.pop("freeze_model_weights", None)
     resolved = {"shared": shared}
     worker = {
         "name": member["name"],

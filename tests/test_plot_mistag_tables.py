@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from tests.helpers import SCRIPTS_DIR  # noqa: F401
 
@@ -6,6 +7,11 @@ from reports import plot_mistag_tables
 
 
 class PlotMistagTablesTest(unittest.TestCase):
+
+    def test_default_output_for_manifest_goes_under_plots(self):
+        output = plot_mistag_tables.default_output_path(("run", Path("/tmp/run/manifest.json")), "c")
+        self.assertEqual(output, Path("/tmp/run/plots/diagnostics/ctag_mistag_tables.png"))
+
     def test_collect_tables_uses_c_tag_efficiencies_as_percent_mistag(self):
         manifest = {
             "best": {"generation": 0, "member": "member_00"},

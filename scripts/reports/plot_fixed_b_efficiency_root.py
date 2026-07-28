@@ -45,7 +45,7 @@ def parse_args():
 
 
 def default_output(manifest_path):
-    return Path(manifest_path).parent / "plots" / "working_point_mistag_history_root.pdf"
+    return Path(manifest_path).parent / "plots" / "diagnostics" / "working_point_mistag_history_root.pdf"
 
 
 def make_graph(root, xs, ys, background, b_eff):

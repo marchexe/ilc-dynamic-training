@@ -89,24 +89,52 @@ Validate the pretrained checkpoint:
 scripts/validation/validate_pretrained_sgv_3cat.sh 0
 ```
 
-PBT runs write `metrics_summary.json` and plot PNGs under `plots/` automatically after completion. The main physics plots are:
+Fine-tuning architecture for the pretrained best checkpoint:
 
-- `plots/btag_mistag_evolution.png`: c/d mistag [%] vs b-tag efficiency across generation winners.
-- `plots/btag_rejection_evolution.png`: c/d background rejection vs b-tag efficiency across generation winners.
-- `plots/pbt_lr_response.png`: learning-rate response at b-tag working points.
-- `plots/working_point_mistag_history.png`: mistag history at fixed b/c efficiencies.
-- `plots/global_best_all_pair_rejection_curves.png`: all-pair rejection curves for the global-best checkpoint.
-- `plots/pbt_objective_diagnostics.png`: internal PBT objective used only for worker ranking.
+```bash
+# 1. Low-LR fixed grid, AdamW: tests whether smaller LR alone prevents drift.
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_fixed_lr_grid_adamw.yaml --gpus 0,1,2,3'
+
+# 1a. Weaker low-LR grid, AdamW: isolates whether full fine-tuning needs much smaller steps.
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_weak_lr_grid_adamw.yaml --gpus 0,1,2,3'
+
+# 1b. Weaker low-LR grid, Ranger: same weak LR range with the historically steadier optimizer.
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_weak_lr_grid_ranger.yaml --gpus 0,1,2,3'
+
+# 2. Same fixed grid, Ranger: optimizer comparison against the historically stronger setup.
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_fixed_lr_grid_ranger.yaml --gpus 0,1,2,3'
+
+# 3. Adaptive rescue: anchored LR sweep with global-best rollback and early stop.
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_adaptive_lr_rescue.yaml --gpus 0,1,2,3'
+
+# 3a. Weaker adaptive rescue: smart LR around 1.5e-5 with radius shrink, rollback, and early stop.
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_weak_adaptive_lr_rescue.yaml --gpus 0,1,2,3'
+
+# 4. Head warmup: freeze backbone for two generations, then unfreeze for the same low-LR grid.
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_head_warmup_fixed_lr_grid.yaml --gpus 0,1,2,3'
+```
+
+All four start from `runs/pbt/parquet_pbt_bkg_rejection_best/global_best_state.pt`. They rank workers by `validation_working_point_mistag_percent`, the average mistag at b-tag 80/90% and c-tag 50/80% reference working points. The fixed-grid runs keep each LR fixed; the adaptive rescue run is the only one that mutates/rolls back workers.
+
+PBT runs write `metrics_summary.json` and plot PNGs under `plots/` automatically after completion. The clean showcase set is intentionally small:
+
+- `plots/report/physics_performance.png`: the main HEP-style result, combining fixed working-point mistag tables with compact mistag [%] bar charts.
+- `plots/report/training_diagnostics.png`: compact training/PBT diagnostic for understanding whether the run improved or drifted.
+
+Machine-readable fixed working-point tables are also written as `plots/report/ctag_mistag_tables.csv` and `plots/report/btag_mistag_tables.csv`. Default diagnostic PNGs are `plots/diagnostics/background_rejection_curves.png`, `plots/diagnostics/btag_background_efficiency_vs_training_size.png`, and `plots/diagnostics/selection_timeline.png`; other report scripts are available for manual debugging but are not generated as part of the standard report.
 
 Plot reports from an existing PBT run:
 
 ```bash
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_bgrej_curves.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_summary.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_physics_performance.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_fixed_b_efficiency.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_bgrej_evolution.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --quantity mistag'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_bgrej_evolution.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --tag b --quantity mistag'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_bgrej_evolution.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --tag c --quantity mistag'
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_lr_response.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_mistag_tables.py run=runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --tag c --eff 0.5,0.8'
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_mistag_tables.py run=runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --tag b --eff 0.8,0.9'
 # Optional ROOT style, after loading ROOT/PyROOT on the host:
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_fixed_b_efficiency_root.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
 ```

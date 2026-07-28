@@ -16,6 +16,30 @@ class PlotPBTBgrejEvolutionTest(unittest.TestCase):
             [10.0, 100.0],
         )
 
+    def test_reference_working_points_match_tag_conventions(self):
+        self.assertEqual(plot_pbt_bgrej_evolution.REFERENCE_WORKING_POINTS["b"], (0.8, 0.9))
+        self.assertEqual(plot_pbt_bgrej_evolution.REFERENCE_WORKING_POINTS["c"], (0.5, 0.8))
+
+
+    def test_select_display_rows_keeps_first_best_and_last(self):
+        rows = [
+            {"generation": index, "member": "member_00"}
+            for index in range(12)
+        ]
+        rows[5]["member"] = "member_02"
+
+        selected = plot_pbt_bgrej_evolution.select_display_rows(
+            rows,
+            best={"generation": 5, "member": "member_02"},
+            max_curves=5,
+        )
+
+        selected_generations = [row["generation"] for row in selected]
+        self.assertIn(0, selected_generations)
+        self.assertIn(5, selected_generations)
+        self.assertIn(11, selected_generations)
+        self.assertLessEqual(len(selected), 5)
+
     def test_collect_curves_uses_generation_winners_and_lrs(self):
         manifest = {
             "config": {"pbt": {"metric": "validation_bkg_rejection_score", "mode": "max"}},

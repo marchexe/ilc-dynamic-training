@@ -19,6 +19,24 @@ SUPPORTED_DATA_EXTENSIONS = {"root", "parquet", "h5", "awkd"}
 FLAVOR_SAMPLE_GROUPS = (("nnbb", "bb"), ("nncc", "cc"), ("nndd", "dd"))
 DATA_SPLITS = (("train", "train800k"), ("val", "val50k"))
 BKG_REJECTION_EFFICIENCY_POINTS = (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+# Fine-tuning selection points: b-tag is judged at 80/90%, c-tag at the
+# reference table working points 50/80%. Pair names are <tag><background>.
+WORKING_POINT_DEFINITION = (
+    ("bc", 0.8),
+    ("bd", 0.8),
+    ("bc", 0.9),
+    ("bd", 0.9),
+    ("cb", 0.5),
+    ("cd", 0.5),
+    ("cb", 0.8),
+    ("cd", 0.8),
+)
+CTAG_REFERENCE_WORKING_POINTS = (
+    ("cb", 0.5),
+    ("cd", 0.5),
+    ("cb", 0.8),
+    ("cd", 0.8),
+)
 
 
 def weaver_executable():
@@ -161,6 +179,40 @@ def _bkg_rejection_lookup(curves):
     return lookup or None
 
 
+def _mistags_for_working_points(curves, working_points):
+    pairs = curves["pairs"]
+    efficiencies = curves["efficiencies"]
+    mistags = []
+    out = {}
+    for pair, eff in working_points:
+        if eff not in efficiencies:
+            continue
+        index = efficiencies.index(eff)
+        rejection = _curve_value(pairs, pair, index)
+        key = f"validation_{pair}_mistag_eff_{eff:.2f}_percent"
+        if rejection is None or rejection <= 0:
+            out[key] = None
+            continue
+        mistag = 100.0 / rejection
+        out[key] = mistag
+        mistags.append(mistag)
+    return out, mistags
+
+
+def _working_point_metrics(curves):
+    if not curves:
+        return {}
+    out, mistags = _mistags_for_working_points(curves, WORKING_POINT_DEFINITION)
+    _, ctag_mistags = _mistags_for_working_points(curves, CTAG_REFERENCE_WORKING_POINTS)
+    out["validation_working_point_mistag_percent"] = (
+        sum(mistags) / len(mistags) if mistags else None
+    )
+    out["validation_ctag_reference_mistag_percent"] = (
+        sum(ctag_mistags) / len(ctag_mistags) if ctag_mistags else None
+    )
+    return out
+
+
 def read_metrics(path):
     log_path = path / "train.log" if path.is_dir() else path
     if not log_path.is_file():
@@ -192,6 +244,7 @@ def read_metrics(path):
     if curves:
         metrics["validation_bkg_rejection_at_eff"] = curves
         metrics["validation_bkg_rejection_at_eff_lookup"] = _bkg_rejection_lookup(curves)
+        metrics.update(_working_point_metrics(curves))
     return metrics
 
 

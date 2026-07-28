@@ -30,6 +30,7 @@ def parse_args():
         default=",".join(str(value) for value in DEFAULT_B_EFFICIENCIES),
         help="Comma-separated b-tag efficiencies, e.g. 0.8,0.9.",
     )
+    parser.add_argument("--member", choices=("winner", "all"), default="winner")
     return parser.parse_args()
 
 
@@ -84,11 +85,33 @@ def mistag_percent(metrics, b_eff, background):
     return 100.0 / rejection
 
 
-def collect_points(manifest, b_efficiencies=DEFAULT_B_EFFICIENCIES):
+def metric_value(worker, metric):
+    value = (worker.get("metrics") or {}).get(metric)
+    return float(value) if value is not None else None
+
+
+def generation_winner(manifest, generation):
+    metric = manifest.get("config", {}).get("pbt", {}).get("metric", "validation_bkg_rejection_score")
+    mode = manifest.get("config", {}).get("pbt", {}).get("mode", "max")
+    candidates = []
+    for name, worker in generation.get("workers", {}).items():
+        value = metric_value(worker, metric)
+        if value is not None:
+            candidates.append((name, value))
+    if not candidates:
+        return None
+    return (max if mode == "max" else min)(candidates, key=lambda item: item[1])[0]
+
+
+def collect_points(manifest, b_efficiencies=DEFAULT_B_EFFICIENCIES, member="all"):
     best = manifest.get("best") or {}
     points = []
     for generation in completed_generations(manifest):
-        for member, worker in sorted(generation.get("workers", {}).items()):
+        workers = sorted(generation.get("workers", {}).items())
+        if member == "winner":
+            winner = generation_winner(manifest, generation)
+            workers = [(name, worker) for name, worker in workers if name == winner]
+        for member_name, worker in workers:
             lr = worker_lr(worker)
             metrics = worker.get("metrics") or {}
             if lr is None or not metrics:
@@ -96,9 +119,9 @@ def collect_points(manifest, b_efficiencies=DEFAULT_B_EFFICIENCIES):
             point = {
                 "generation": generation["index"],
                 "epoch": generation.get("epoch"),
-                "member": member,
+                "member": member_name,
                 "lr": lr,
-                "is_global_best": generation.get("index") == best.get("generation") and member == best.get("member"),
+                "is_global_best": generation.get("index") == best.get("generation") and member_name == best.get("member"),
                 "mistag_percent": {},
             }
             for b_eff in b_efficiencies:
@@ -111,17 +134,17 @@ def collect_points(manifest, b_efficiencies=DEFAULT_B_EFFICIENCIES):
 
 
 def default_output(manifest_path):
-    return Path(manifest_path).parent / "plots" / "pbt_lr_response.png"
+    return Path(manifest_path).parent / "plots" / "diagnostics" / "pbt_lr_response.png"
 
 
 def compact_member(member):
     return member.replace("member_", "m")
 
 
-def plot_manifest(manifest_path, output=None, b_efficiencies=DEFAULT_B_EFFICIENCIES):
+def plot_manifest(manifest_path, output=None, b_efficiencies=DEFAULT_B_EFFICIENCIES, member="winner"):
     manifest, resolved_manifest_path = load_manifest(manifest_path)
     output = Path(output) if output is not None else default_output(resolved_manifest_path)
-    points = collect_points(manifest, b_efficiencies=b_efficiencies)
+    points = collect_points(manifest, b_efficiencies=b_efficiencies, member=member)
     if not points:
         raise RuntimeError("manifest has no worker LR/mistag points to plot")
 
@@ -184,7 +207,7 @@ def plot_manifest(manifest_path, output=None, b_efficiencies=DEFAULT_B_EFFICIENC
     colorbar = fig.colorbar(scalar, ax=[axis for row in axes for axis in row], shrink=0.82, pad=0.02)
     colorbar.set_label("generation")
     fig.suptitle(
-        f"{manifest.get('experiment', resolved_manifest_path.parent.name)}: LR response at b-tag working points",
+        f"{manifest.get('experiment', resolved_manifest_path.parent.name)}: LR response at b-tag working points ({member})",
         x=0.02,
         ha="left",
         fontsize=12,
@@ -199,7 +222,7 @@ def plot_manifest(manifest_path, output=None, b_efficiencies=DEFAULT_B_EFFICIENC
 def main():
     args = parse_args()
     b_efficiencies = tuple(float(value.strip()) for value in args.b_eff.split(",") if value.strip())
-    output = plot_manifest(args.manifest, output=args.output, b_efficiencies=b_efficiencies)
+    output = plot_manifest(args.manifest, output=args.output, b_efficiencies=b_efficiencies, member=args.member)
     print(output)
 
 

@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument("--csv", type=Path, help="CSV output path")
     parser.add_argument("--tag", choices=sorted(TAG_BACKGROUNDS), default="c")
     parser.add_argument("--eff", default="0.5,0.8", help="Comma-separated fixed tag efficiencies")
-    parser.add_argument("--member", default="global_best", help="global_best, best_final, or a member name")
+    parser.add_argument("--member", default="global_best", help="best_physics, global_best, best_final, or a member name")
     parser.add_argument("--title")
     return parser.parse_args()
 
@@ -68,6 +68,17 @@ def worker_for_row(manifest, member):
     generations = completed_generations(manifest)
     if not generations:
         raise RuntimeError("manifest has no completed generations")
+    if member == "best_physics":
+        candidates = []
+        for generation in generations:
+            for member_name, worker in generation.get("workers", {}).items():
+                score = physics_mistag_score(worker.get("metrics") or {})
+                if score is not None:
+                    candidates.append((score, worker, generation, member_name))
+        if not candidates:
+            raise RuntimeError("manifest has no fixed working-point mistag metrics")
+        _score, worker, generation, member_name = min(candidates, key=lambda item: item[0])
+        return worker, generation, member_name
     if member == "global_best":
         best = manifest.get("best") or {}
         generation_index = best.get("generation")
@@ -78,16 +89,14 @@ def worker_for_row(manifest, member):
         return generation.get("workers", {})[member_name], generation, member_name
     if member == "best_final":
         generation = generations[-1]
-        metric = manifest.get("config", {}).get("pbt", {}).get("metric", "validation_bkg_rejection_score")
-        mode = manifest.get("config", {}).get("pbt", {}).get("mode", "max")
-        candidates = [
-            (name, float((worker.get("metrics") or {}).get(metric)))
-            for name, worker in generation.get("workers", {}).items()
-            if (worker.get("metrics") or {}).get(metric) is not None
-        ]
+        candidates = []
+        for name, worker in generation.get("workers", {}).items():
+            score = physics_mistag_score(worker.get("metrics") or {})
+            if score is not None:
+                candidates.append((name, score))
         if not candidates:
-            raise RuntimeError("final generation has no ranking metrics")
-        member_name = (max if mode == "max" else min)(candidates, key=lambda item: item[1])[0]
+            raise RuntimeError("final generation has no fixed working-point mistag metrics")
+        member_name = min(candidates, key=lambda item: item[1])[0]
         return generation["workers"][member_name], generation, member_name
     for generation in reversed(generations):
         worker = generation.get("workers", {}).get(member)
@@ -118,6 +127,17 @@ def mistag_percent(metrics, tag, eff, background):
     if rejection is None or rejection <= 0 or not math.isfinite(rejection):
         return None
     return 100.0 / rejection
+
+
+def physics_mistag_score(metrics):
+    points = (("b", 0.8), ("b", 0.9), ("c", 0.5), ("c", 0.8))
+    values = []
+    for tag, eff in points:
+        for background in TAG_BACKGROUNDS[tag]:
+            value = mistag_percent(metrics, tag, eff, background)
+            if value is not None:
+                values.append(value)
+    return sum(values) / len(values) if values else None
 
 
 def collect_tables(inputs, tag, efficiencies, member, manifests=None):
@@ -166,9 +186,9 @@ def plot_tables(tables, tag, output, title=None):
     fig_height = max(2.0, 1.0 + 1.0 * len(tables) + 0.32 * max(len(rows) for rows in tables.values()))
     fig, axes = plt.subplots(len(tables), 1, figsize=(6.3, fig_height), squeeze=False)
     axes = axes[:, 0]
-    header_color = "#178f78"
-    row_color = "#e9f3ef"
-    alt_row_color = "#d8ebe4"
+    header_color = "#1f5aa6"
+    row_color = "#eef4fb"
+    alt_row_color = "#dbe8f7"
 
     for ax, (eff, rows) in zip(axes, tables.items()):
         ax.axis("off")
@@ -176,11 +196,11 @@ def plot_tables(tables, tag, output, title=None):
         for row in rows:
             cell_text.append(
                 [
-                    row["label"],
+                    f"{tag}-tag {int(round(eff * 100))}% eff.",
                     *[format_percent(row[f"{background}_bkg_percent"]) for background in backgrounds],
                 ]
             )
-        col_labels = [f"{tag}-tag {int(round(eff * 100))}% eff.", *[f"{background} bkg." for background in backgrounds]]
+        col_labels = ["working point", *[f"{background} bkg. mistag" for background in backgrounds]]
         table = ax.table(
             cellText=cell_text,
             colLabels=col_labels,
@@ -213,8 +233,10 @@ def default_output_path(first_input, tag):
     _, path = first_input
     path = Path(path)
     if path.is_dir():
-        return path / f"{tag}_mistag_tables.png"
-    return path.with_name(f"{tag}_mistag_tables.png")
+        return path / "plots" / "diagnostics" / f"{tag}tag_mistag_tables.png"
+    if path.name == "manifest.json":
+        return path.parent / "plots" / "diagnostics" / f"{tag}tag_mistag_tables.png"
+    return path.with_name(f"{tag}tag_mistag_tables.png")
 
 
 def main():

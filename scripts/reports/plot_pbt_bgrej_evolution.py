@@ -19,6 +19,10 @@ PAIR_LABELS = {
     "cb": "c tag / b bkg",
     "cd": "c tag / d bkg",
 }
+REFERENCE_WORKING_POINTS = {
+    "b": (0.8, 0.9),
+    "c": (0.5, 0.8),
+}
 
 
 def parse_args():
@@ -30,6 +34,7 @@ def parse_args():
     parser.add_argument("--tag", choices=sorted(TAG_PAIRS), default="b")
     parser.add_argument("--quantity", choices=("rejection", "mistag"), default="rejection")
     parser.add_argument("--member", default="winner", help="'winner' or a fixed member name")
+    parser.add_argument("--max-curves", type=int, default=8, help="Maximum generation curves shown in the plot.")
     parser.add_argument("--title")
     return parser.parse_args()
 
@@ -109,9 +114,27 @@ def collect_curves(manifest, tag="b", member="winner"):
     return rows
 
 
+def select_display_rows(rows, best=None, max_curves=8):
+    if max_curves <= 0 or len(rows) <= max_curves:
+        return rows
+    keep_indices = {0, len(rows) - 1}
+    best = best or {}
+    for index, row in enumerate(rows):
+        if row["generation"] == best.get("generation") and row["member"] == best.get("member"):
+            keep_indices.add(index)
+            break
+    slots = max(0, max_curves - len(keep_indices))
+    if slots:
+        step = (len(rows) - 1) / float(slots + 1)
+        for slot in range(1, slots + 1):
+            keep_indices.add(round(step * slot))
+    return [rows[index] for index in sorted(keep_indices)[:max_curves]]
+
+
 def default_output(manifest_path, tag="b", quantity="rejection"):
     filename = f"{tag}tag_rejection_evolution.png" if quantity == "rejection" else f"{tag}tag_mistag_evolution.png"
-    return Path(manifest_path).parent / "plots" / filename
+    subdir = "diagnostics"
+    return Path(manifest_path).parent / "plots" / subdir / filename
 
 
 def log_tick_label(value, _position):
@@ -149,12 +172,14 @@ def label_for_row(row):
     return f"gen {row['generation']} / {row['member'].replace('member_', 'm')} / lr {lr}"
 
 
-def plot_manifest(manifest_path, output=None, tag="b", quantity="rejection", member="winner", title=None):
+def plot_manifest(manifest_path, output=None, tag="b", quantity="rejection", member="winner", title=None, max_curves=8):
     manifest, resolved_manifest_path = load_manifest(manifest_path)
     output = Path(output) if output is not None else default_output(resolved_manifest_path, tag, quantity)
     rows = collect_curves(manifest, tag=tag, member=member)
     if not rows:
         raise RuntimeError("manifest has no completed BGrej curves to plot")
+    best = manifest.get("best") or {}
+    rows = select_display_rows(rows, best=best, max_curves=max_curves)
 
     import matplotlib.pyplot as plt
     from matplotlib.ticker import FuncFormatter
@@ -177,7 +202,6 @@ def plot_manifest(manifest_path, output=None, tag="b", quantity="rejection", mem
         axes = [axes]
     colors = plt.get_cmap("viridis")
     denominator = max(1, len(rows) - 1)
-    best = manifest.get("best") or {}
 
     for pair_index, pair in enumerate(pairs):
         ax = axes[pair_index]
@@ -197,7 +221,7 @@ def plot_manifest(manifest_path, output=None, tag="b", quantity="rejection", mem
                 label=("global best: " if is_global_best else "") + label_for_row(row),
             )
         ax.set_title(PAIR_LABELS[pair], loc="left")
-        for working_point in (0.8, 0.9):
+        for working_point in REFERENCE_WORKING_POINTS[tag]:
             ax.axvline(working_point, color="0.72", linestyle=":", linewidth=0.9)
         ax.set_xlabel(f"{tag}-tag efficiency")
         ax.set_yscale("log")
@@ -229,6 +253,7 @@ def main():
         quantity=args.quantity,
         member=args.member,
         title=args.title,
+        max_curves=args.max_curves,
     )
     print(output)
 

@@ -175,6 +175,73 @@ class PBTLauncherTest(unittest.TestCase):
         self.assertIn("remote Python", command[2])
         self.assertIn("--gpus 6", command[2])
 
+    def test_fixed_lr_grid_config_preserves_low_lr_grid(self):
+        config = config_module.load_config(
+            namespace(
+                config=PROJECT_DIR / "configs/experiments/finetune_fixed_lr_grid_adamw.yaml",
+                experiment_name="unit_fixed_grid",
+                gpus="0,1,2,3",
+                slots=None,
+                smoke=False,
+            )
+        )
+
+        self.assertEqual(config["pbt"]["strategy"], "fixed_lr_grid")
+        self.assertEqual(config["pbt"]["metric"], "validation_working_point_mistag_percent")
+        self.assertEqual(config["pbt"]["mode"], "min")
+        self.assertEqual(config["pbt"]["early_stop_degraded_generations"], 4)
+        self.assertEqual(
+            [member["start_lr"] for member in config["population"]],
+            [1.0e-5, 2.0e-5, 3.0e-5, 5.0e-5],
+        )
+
+    def test_head_warmup_freezes_backbone_only_for_configured_generations(self):
+        config = config_module.load_config(
+            namespace(
+                config=PROJECT_DIR / "configs/experiments/finetune_head_warmup_fixed_lr_grid.yaml",
+                experiment_name="unit_head_warmup",
+                gpus="0,1,2,3",
+                slots=None,
+                smoke=False,
+            )
+        )
+        member = {"name": "lr_1e_5", "lr": 1.0e-5}
+
+        command_gen0, _, _ = self.backend.command_for(
+            config,
+            member,
+            "0",
+            PROJECT_DIR / "runs/pbt/unit_head_warmup/lr_1e_5",
+            generation=0,
+        )
+        command_gen2, _, _ = self.backend.command_for(
+            config,
+            member,
+            "0",
+            PROJECT_DIR / "runs/pbt/unit_head_warmup/lr_1e_5",
+            generation=2,
+        )
+
+        self.assertIn("--freeze-model-weights", command_gen0)
+        self.assertIn("part\\.blocks", command_gen0[command_gen0.index("--freeze-model-weights") + 1])
+        self.assertNotIn("--freeze-model-weights", command_gen2)
+
+    def test_optimizer_options_are_forwarded_to_weaver(self):
+        config = pbt_smoke_config()
+        config["shared"]["optimizer_options"] = {"weight_decay": "1e-4"}
+
+        command, _, _ = self.backend.command_for(
+            config,
+            {"name": "member_00", "lr": 9.0e-5},
+            "0",
+            PROJECT_DIR / "runs/pbt/unit_optimizer_options/member_00",
+            generation=0,
+        )
+
+        self.assertIn("--optimizer-option", command)
+        index = command.index("--optimizer-option")
+        self.assertEqual(command[index + 1:index + 3], ["weight_decay", "1e-4"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,55 @@
+schema_version: 1
+
+experiment:
+  name: finetune_weak_lr_grid_adamw
+  output_root: runs/pbt
+
+shared:
+  dataset: datasets/20250218_ilc_nnqq_sgvnew_parquet
+  data_extension: parquet
+  checkpoint: runs/pbt/parquet_pbt_bkg_rejection_best/global_best_state.pt
+  data_config: /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
+  network_config: networks/pretrained_sgv_particle_transformer.py
+  training_controller: null
+  seed: 12345
+  generations: 8
+  epochs_per_generation: 1
+  samples_per_epoch: 2400000
+  samples_per_epoch_val: 150000
+  batch_size: 1024
+  optimizer: adamw
+  lr_scheduler: none
+  num_workers: 1
+  fetch_step: 0.01
+  use_amp: true
+  amp_dtype: fp16
+  no_remake_weights: true
+
+resources:
+  gpus: [0, 1, 2, 3]
+
+population:
+  - name: lr_3e_6
+    start_lr: 3.0e-6
+  - name: lr_7e_6
+    start_lr: 7.0e-6
+  - name: lr_1p5e_5
+    start_lr: 1.5e-5
+  - name: lr_3e_5
+    start_lr: 3.0e-5
+
+pbt:
+  backend: ray_weaver
+  strategy: fixed_lr_grid
+  metric: validation_working_point_mistag_percent
+  mode: min
+  exploit_fraction: 0.25
+  mutation_factors: [0.9, 1.1]
+  min_lr: 1.0e-6
+  max_lr: 4.0e-5
+  degradation_tolerance: 0.01
+  degradation_window: 2
+  rollback_fraction: 0.0
+  early_stop_degraded_generations: 3
+  controller_state_on_exploit: reset
+  seed: 2026

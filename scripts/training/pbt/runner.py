@@ -190,6 +190,11 @@ def run(args):
                     ranking, plan = anchored_lr_sweep_plan(
                         config, existing, manifest["members"], manifest
                     )
+                elif config["pbt"].get("strategy") == "fixed_lr_grid":
+                    ranking, _ = ranking_and_plan(
+                        config, existing, manifest["members"]
+                    )
+                    plan = []
                 else:
                     ranking, plan = ranking_and_plan(
                         config, existing, manifest["members"]
@@ -199,12 +204,20 @@ def run(args):
                     experiment_dir, manifest, existing, manifest_path
                 )
                 health = update_generation_health(config, manifest, existing)
-                if config["pbt"].get("strategy") != "anchored_lr_sweep":
+                if config["pbt"].get("strategy") != "fixed_lr_grid":
                     plan = add_global_best_rollbacks(
                         config, manifest, existing, manifest["members"], plan
                     )
+                early_stop_after = int(config["pbt"].get("early_stop_degraded_generations", 0))
+                early_stop_triggered = (
+                    early_stop_after > 0
+                    and health["consecutive_degraded_generations"] >= early_stop_after
+                )
+                existing["early_stop_triggered"] = early_stop_triggered
                 existing["exploit"] = (
-                    [] if generation == int(config["shared"]["generations"]) - 1 else plan
+                    []
+                    if generation == int(config["shared"]["generations"]) - 1 or early_stop_triggered
+                    else plan
                 )
                 existing["status"] = "exploiting"
                 best = manifest.get("best") or {}
@@ -239,6 +252,24 @@ def run(args):
             existing["finished_at"] = utc_now()
             manifest["next_generation"] = generation + 1
             manifest["updated_at"] = utc_now()
+            if existing.get("early_stop_triggered"):
+                manifest["early_stop"] = {
+                    "generation": generation,
+                    "reason": "consecutive_degraded_generations",
+                    "consecutive_degraded_generations": existing["health"]["consecutive_degraded_generations"],
+                    "threshold": int(config["pbt"].get("early_stop_degraded_generations", 0)),
+                }
+                atomic_json(manifest_path, manifest)
+                log_event(
+                    pbt_log_path,
+                    "early stop generation=%d reason=consecutive_degraded_generations consecutive=%d threshold=%d"
+                    % (
+                        generation,
+                        existing["health"]["consecutive_degraded_generations"],
+                        int(config["pbt"].get("early_stop_degraded_generations", 0)),
+                    ),
+                )
+                break
             atomic_json(manifest_path, manifest)
 
         manifest["status"] = "completed"
@@ -260,81 +291,109 @@ def run(args):
             from reports.plot_pbt_summary import plot_manifest
 
             plot_path = plot_manifest(manifest_path)
-            manifest["pbt_objective_diagnostics_plot"] = str(plot_path)
+            manifest["training_diagnostics_plot"] = str(plot_path)
+            manifest.pop("pbt_objective_diagnostics_plot", None)
             manifest["updated_at"] = utc_now()
             atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"PBT objective diagnostics plot: {plot_path}")
+            log_event(pbt_log_path, f"training diagnostics plot: {plot_path}")
         except Exception as plot_error:
-            log_event(pbt_log_path, f"warning: failed to create PBT summary plot: {plot_error}")
+            log_event(pbt_log_path, f"warning: failed to create training diagnostics plot: {plot_error}")
+        try:
+            from reports.plot_physics_performance import plot_manifest
+
+            plot_path = plot_manifest(manifest_path)
+            manifest["physics_performance_plot"] = str(plot_path)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+            log_event(pbt_log_path, f"physics performance plot: {plot_path}")
+        except Exception as plot_error:
+            log_event(pbt_log_path, f"warning: failed to create physics performance plot: {plot_error}")
+        try:
+            from reports.plot_background_rejection_curves import plot_manifest
+
+            plot_path = plot_manifest(manifest_path)
+            manifest["background_rejection_curves_plot"] = str(plot_path)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+            log_event(pbt_log_path, f"background rejection curves plot: {plot_path}")
+        except Exception as plot_error:
+            log_event(
+                pbt_log_path,
+                f"warning: failed to create background rejection curves plot: {plot_error}",
+            )
+        try:
+            from reports.plot_background_efficiency_curves import plot_manifest
+
+            plot_path = plot_manifest(manifest_path)
+            manifest["background_efficiency_curves_plot"] = str(plot_path)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+            log_event(pbt_log_path, f"background efficiency curves plot: {plot_path}")
+        except Exception as plot_error:
+            log_event(
+                pbt_log_path,
+                f"warning: failed to create background efficiency curves plot: {plot_error}",
+            )
         try:
             from reports.plot_fixed_b_efficiency import plot_manifest
 
             plot_path = plot_manifest(manifest_path)
-            manifest["working_point_mistag_history_plot"] = str(plot_path)
+            manifest["btag_background_efficiency_plot"] = str(plot_path)
+            manifest.pop("working_point_mistag_history_plot", None)
             manifest["updated_at"] = utc_now()
             atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"working-point mistag history plot: {plot_path}")
+            log_event(pbt_log_path, f"b-tag background efficiency plot: {plot_path}")
         except Exception as plot_error:
             log_event(
                 pbt_log_path,
-                f"warning: failed to create fixed b-efficiency plot: {plot_error}",
+                f"warning: failed to create b-tag background efficiency plot: {plot_error}",
             )
         try:
-            from reports.plot_bgrej_curves import (
-                default_output,
-                load_manifest,
-                log_from_manifest,
-                parse_bgrej_curves,
-                plot_curves,
-            )
-
-            loaded_manifest, resolved_manifest_path = load_manifest(manifest_path)
-            log_path, generation, member = log_from_manifest(
-                loaded_manifest, resolved_manifest_path
-            )
-            curves = parse_bgrej_curves(log_path)
-            plot_path = plot_curves(
-                curves,
-                default_output(manifest_path, resolved_manifest_path),
-                f"{manifest['experiment']}: {member}, generation {generation}",
-            )
-            manifest["global_best_all_pair_rejection_curves_plot"] = str(plot_path)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"global-best all-pair rejection curves plot: {plot_path}")
-        except Exception as plot_error:
-            log_event(
-                pbt_log_path,
-                f"warning: failed to create BGrej curves plot: {plot_error}",
-            )
-        try:
-            from reports.plot_pbt_bgrej_evolution import plot_manifest
-
-            rejection_plot_path = plot_manifest(manifest_path, quantity="rejection")
-            mistag_plot_path = plot_manifest(manifest_path, quantity="mistag")
-            manifest["btag_rejection_evolution_plot"] = str(rejection_plot_path)
-            manifest["btag_mistag_evolution_plot"] = str(mistag_plot_path)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"BGrej evolution plot: {rejection_plot_path}")
-            log_event(pbt_log_path, f"mistag evolution plot: {mistag_plot_path}")
-        except Exception as plot_error:
-            log_event(
-                pbt_log_path,
-                f"warning: failed to create BGrej/mistag evolution plots: {plot_error}",
-            )
-        try:
-            from reports.plot_pbt_lr_response import plot_manifest
+            from reports.plot_selection_timeline import plot_manifest
 
             plot_path = plot_manifest(manifest_path)
-            manifest["pbt_lr_response_plot"] = str(plot_path)
+            manifest["selection_timeline_plot"] = str(plot_path)
             manifest["updated_at"] = utc_now()
             atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"PBT LR response plot: {plot_path}")
+            log_event(pbt_log_path, f"selection timeline plot: {plot_path}")
         except Exception as plot_error:
             log_event(
                 pbt_log_path,
-                f"warning: failed to create PBT LR response plot: {plot_error}",
+                f"warning: failed to create selection timeline plot: {plot_error}",
+            )
+        try:
+            from reports.plot_mistag_tables import collect_tables, write_csv
+
+            table_specs = {"c": (0.5, 0.8), "b": (0.8, 0.9)}
+            for tag, efficiencies in table_specs.items():
+                tables = collect_tables(
+                    [(manifest.get("experiment", experiment_dir.name), manifest_path)],
+                    tag=tag,
+                    efficiencies=efficiencies,
+                    member="best_physics",
+                    manifests={manifest_path: manifest},
+                )
+                csv_path = experiment_dir / "plots" / "report" / f"{tag}tag_mistag_tables.csv"
+                write_csv(csv_path, tables, tag)
+                manifest.pop(f"{tag}tag_mistag_table_plot", None)
+                manifest[f"{tag}tag_mistag_table_csv"] = str(csv_path)
+                log_event(pbt_log_path, f"{tag}-tag mistag CSV: {csv_path}")
+            for key in (
+                "btag_rejection_evolution_plot",
+                "ctag_rejection_evolution_plot",
+                "btag_mistag_evolution_plot",
+                "ctag_mistag_evolution_plot",
+                "working_point_mistag_history_plot",
+                "global_best_all_pair_rejection_curves_plot",
+                "pbt_lr_response_plot",
+            ):
+                manifest.pop(key, None)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+        except Exception as plot_error:
+            log_event(
+                pbt_log_path,
+                f"warning: failed to create fixed-efficiency mistag CSV tables: {plot_error}",
             )
         try:
             from reports.write_metrics_summary import write_summary

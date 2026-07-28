@@ -10,7 +10,7 @@ from pathlib import Path
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
 
-DEFAULT_B_EFFICIENCIES = (0.8, 0.9, 1.0)
+DEFAULT_B_EFFICIENCIES = (0.8, 0.9)
 BACKGROUND_LABELS = {
     "c": "c mistag",
     "d": "d mistag",
@@ -36,7 +36,7 @@ BACKGROUND_MARKERS = {
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Plot background efficiency/mistag versus training events at fixed b-tag efficiency."
+            "Plot background efficiency versus training events at fixed b-tag efficiency."
         )
     )
     parser.add_argument("manifest", type=Path, help="PBT manifest.json or run directory")
@@ -52,7 +52,7 @@ def parse_args():
         help="Comma-separated fixed b-tag efficiencies, e.g. 0.8,0.9,1.0.",
     )
     parser.add_argument("--title")
-    parser.add_argument("--no-labels", action="store_true", help="Do not annotate x points.")
+    parser.add_argument("--labels", action="store_true", help="Annotate training-size labels on points.")
     return parser.parse_args()
 
 
@@ -145,7 +145,7 @@ def event_label(events):
 
 
 def default_output(manifest_path):
-    return Path(manifest_path).parent / "plots" / "working_point_mistag_history.png"
+    return Path(manifest_path).parent / "plots" / "diagnostics" / "btag_background_efficiency_vs_training_size.png"
 
 
 def log_tick_label(value, _position):
@@ -172,58 +172,76 @@ def plot_manifest(manifest_path, output=None, member="best", b_efficiencies=DEFA
             "font.size": 10,
             "axes.labelsize": 11,
             "axes.titlesize": 13,
-            "legend.fontsize": 10,
+            "legend.fontsize": 9.5,
             "xtick.labelsize": 10,
             "ytick.labelsize": 10,
             "axes.spines.top": True,
             "axes.spines.right": True,
         }
     )
-    fig, ax = plt.subplots(figsize=(7.4, 5.0))
+    fig, ax = plt.subplots(figsize=(7.8, 5.5), constrained_layout=True)
+    line_styles = {
+        0.8: "-",
+        0.9: "-",
+        1.0: "--",
+    }
+
     for b_eff in b_efficiencies:
         for background in ("c", "d"):
             values = series[(background, b_eff)]
             if not values["x"]:
                 continue
+            label_background = background
+            marker = BACKGROUND_MARKERS.get((background, b_eff), "o")
+            markerface = "white" if b_eff >= 0.9 else BACKGROUND_COLORS.get((background, b_eff))
             ax.plot(
                 values["x"],
                 values["y"],
-                marker=BACKGROUND_MARKERS.get((background, b_eff), "o"),
-                markersize=4.5,
-                linewidth=1.6,
+                marker=marker,
+                markersize=4.8,
+                markerfacecolor=markerface,
+                markeredgewidth=1.0,
+                linewidth=2.0,
+                linestyle=line_styles.get(b_eff, "-"),
                 color=BACKGROUND_COLORS.get((background, b_eff)),
-                markerfacecolor="none" if b_eff >= 0.9 else None,
-                label=f"{BACKGROUND_LABELS[background]} / b-eff={b_eff:.2f}",
+                label=f"{label_background} bkg, b-eff {b_eff:.2f}",
             )
+
     if annotate:
         seen = set()
         for events, _, _ in point_labels:
             if events in seen:
                 continue
             seen.add(events)
-            ax.annotate(
-                event_label(events),
-                (events, max(y for values in series.values() for x, y in zip(values["x"], values["y"]) if x == events)),
-                xytext=(4, 4),
-                textcoords="offset points",
-                fontsize=9,
-            )
-    ax.set_title(title or "Background efficiency at fixed b-tag efficiency", loc="left")
+            local_values = [
+                y
+                for values in series.values()
+                for x, y in zip(values["x"], values["y"])
+                if x == events
+            ]
+            if local_values:
+                ax.annotate(
+                    event_label(events),
+                    (events, max(local_values)),
+                    xytext=(4, -2),
+                    textcoords="offset points",
+                    fontsize=9,
+                    color="0.15",
+                )
+
+    ax.set_title(title or "Background efficiency at fixed b-tag efficiency", loc="left", pad=8)
     ax.set_xlabel("Training size [events]")
     ax.set_ylabel("Background efficiency")
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_ylim(bottom=1e-4, top=1.0)
     ax.yaxis.set_major_locator(LogLocator(base=10))
     ax.yaxis.set_major_formatter(FuncFormatter(log_tick_label))
     ax.grid(axis="both", color="0.88", linewidth=0.6)
-    ax.legend(frameon=False)
-    fig.tight_layout()
+    ax.legend(frameon=False, loc="upper right")
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=180, bbox_inches="tight")
     plt.close(fig)
     return output
-
 
 def main():
     args = parse_args()
@@ -234,7 +252,7 @@ def main():
         member=args.member,
         b_efficiencies=b_efficiencies,
         title=args.title,
-        annotate=not args.no_labels,
+        annotate=args.labels,
     )
     print(output)
 

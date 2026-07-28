@@ -27,6 +27,23 @@ FIXED_EFFICIENCY_POINTS = {
     "b": (0.5, 0.8, 0.9),
     "c": (0.5, 0.8, 0.9),
 }
+SHOWCASE_WORKING_POINTS = (
+    ("b", 0.80, "c"),
+    ("b", 0.80, "d"),
+    ("b", 0.90, "c"),
+    ("b", 0.90, "d"),
+    ("c", 0.50, "b"),
+    ("c", 0.50, "d"),
+    ("c", 0.80, "b"),
+    ("c", 0.80, "d"),
+)
+SHOWCASE_METRIC_DEFINITION = {
+    "display_name": "Average mistag at fixed working points",
+    "formula": "arithmetic mean of mistag percentages at b-tag efficiencies 0.80/0.90 and c-tag efficiencies 0.50/0.80",
+    "mode": "min",
+    "unit": "percent",
+    "note": "Lower is better. This is intended for presentation plots; the PBT ranking score is kept separately for reproducibility.",
+}
 PAIR_SCORE_METRICS = {
     "bc": "validation_bkg_rejection_bc_score",
     "bd": "validation_bkg_rejection_bd_score",
@@ -40,6 +57,8 @@ CORE_METRICS = (
     "validation_bkg_rejection_score",
     "validation_b_tag_rejection_score",
     "validation_c_tag_rejection_score",
+    "validation_working_point_mistag_percent",
+    "validation_ctag_reference_mistag_percent",
 )
 
 
@@ -64,6 +83,20 @@ METRIC_DEFINITIONS = {
         "pair_definition": "cb means c-tag efficiency with b-background rejection; cd means c-tag efficiency with d-background rejection",
         "bgrej_definition": "BGrej = 1 / background_efficiency at a fixed signal/tag efficiency",
         "note": "Better aligned with c-tag optimization than the all-pair objective.",
+    },
+    "validation_working_point_mistag_percent": {
+        "display_name": "Selection metric: average mistag at reference working points",
+        "formula": "arithmetic mean of mistag percentages for b-tag 0.80/0.90 and c-tag 0.50/0.80 working points",
+        "pair_definition": "xy means x-tag signal efficiency with y-flavour background rejection",
+        "bgrej_definition": "mistag [%] = 100 / BGrej at a fixed signal/tag efficiency",
+        "note": "Lower is better. This is the recommended fine-tuning selection metric for the current study.",
+    },
+    "validation_ctag_reference_mistag_percent": {
+        "display_name": "C-tag reference metric: average mistag at 50/80% efficiency",
+        "formula": "arithmetic mean of b-background and d-background mistag percentages at c-tag efficiencies 0.50 and 0.80",
+        "pair_definition": "cb/cd mean c-tag signal efficiency with b/d-flavour background rejection",
+        "bgrej_definition": "mistag [%] = 100 / BGrej at a fixed c-tag efficiency",
+        "note": "Lower is better. This matches the c-tag 50% and 80% reference tables.",
     },
 }
 
@@ -115,7 +148,18 @@ def rejection_value(metrics, tag, eff, background):
     lookup = metrics.get("validation_bkg_rejection_at_eff_lookup") or {}
     row = lookup.get(f"{tag}_tag_eff_{eff:.2f}") or {}
     value = row.get(f"{background}_bkg_rejection")
-    return float(value) if value is not None else None
+    if value is not None:
+        return float(value)
+
+    curves = metrics.get("validation_bkg_rejection_at_eff") or {}
+    efficiencies = curves.get("efficiencies") or []
+    pairs = curves.get("pairs") or {}
+    if eff not in efficiencies:
+        return None
+    index = efficiencies.index(eff)
+    pair = f"{tag}{background}"
+    values = pairs.get(pair) or []
+    return float(values[index]) if index < len(values) else None
 
 
 def fixed_efficiency_rows(metrics, tag, efficiencies):
@@ -130,6 +174,27 @@ def fixed_efficiency_rows(metrics, tag, efficiencies):
             }
         rows.append({"tag_efficiency": eff, "backgrounds": backgrounds})
     return rows
+
+
+def showcase_metrics(metrics):
+    points = []
+    for tag, eff, background in SHOWCASE_WORKING_POINTS:
+        rejection = rejection_value(metrics, tag, eff, background)
+        mistag = None if rejection is None or rejection <= 0 else 100.0 / rejection
+        points.append(
+            {
+                "tag": tag,
+                "tag_efficiency": eff,
+                "background": background,
+                "background_rejection": rejection,
+                "mistag_percent": mistag,
+            }
+        )
+    values = [point["mistag_percent"] for point in points if point["mistag_percent"] is not None]
+    return {
+        "average_mistag_percent": sum(values) / len(values) if values else None,
+        "working_points": points,
+    }
 
 
 def pair_objective_components(metrics):
@@ -152,6 +217,7 @@ def worker_summary(name, worker, metric, fallback_lr=None):
         "objective_value": metric_value(worker, metric),
         "core_metrics": compact_metrics(metrics),
         "pair_objective_components": pair_objective_components(metrics),
+        "showcase_metrics": showcase_metrics(metrics),
         "fixed_efficiency_metrics": {
             tag: fixed_efficiency_rows(metrics, tag, efficiencies)
             for tag, efficiencies in FIXED_EFFICIENCY_POINTS.items()
@@ -162,6 +228,47 @@ def worker_summary(name, worker, metric, fallback_lr=None):
 def final_completed_generation(manifest):
     generations = completed_generations(manifest)
     return generations[-1] if generations else None
+
+
+def best_physics_for_generation(generation):
+    candidates = []
+    for member_name, worker in generation.get("workers", {}).items():
+        metrics = worker.get("metrics") or {}
+        score = showcase_metrics(metrics)["average_mistag_percent"]
+        if score is not None:
+            candidates.append((score, member_name, worker))
+    if not candidates:
+        return None
+    score, member_name, worker = min(candidates, key=lambda item: item[0])
+    return {
+        "generation": generation.get("index"),
+        "member": member_name,
+        "avg_mistag_percent": score,
+        "lr": worker_lr(worker),
+        "exact_stat_uncertainty_available": bool((worker.get("metrics") or {}).get("validation_bkg_rejection_at_eff_counts")),
+    }
+
+
+def build_training_logic_summary(manifest):
+    rows = [row for generation in completed_generations(manifest) for row in [best_physics_for_generation(generation)] if row]
+    if not rows:
+        return None
+    start = rows[0]
+    best = min(rows, key=lambda row: row["avg_mistag_percent"])
+    final = rows[-1]
+    return {
+        "metric": SHOWCASE_METRIC_DEFINITION,
+        "start": start,
+        "best": best,
+        "final": final,
+        "delta_start_to_best_percent": best["avg_mistag_percent"] - start["avg_mistag_percent"],
+        "delta_best_to_final_percent": final["avg_mistag_percent"] - best["avg_mistag_percent"],
+        "exact_stat_uncertainty_available": all(row["exact_stat_uncertainty_available"] for row in (start, best, final)),
+        "uncertainty_note": "Exact binomial/bootstrap uncertainty needs background pass/total counters; current manifests store only rejection values."
+        if not all(row["exact_stat_uncertainty_available"] for row in (start, best, final))
+        else "Exact uncertainty counters are available in the selected checkpoints.",
+    }
+
 
 def build_mistag_table(manifest, tag, efficiencies, member="global_best"):
     worker, generation, member_name = worker_for_row(manifest, member)
@@ -266,17 +373,39 @@ def build_summary(manifest, manifest_path):
             ],
         }
 
+    plot_layout = {
+        "report_plots": {
+            "physics_performance_plot": "report/physics_performance.png",
+            "training_diagnostics_plot": "report/training_diagnostics.png",
+            "btag_mistag_table_csv": "report/btag_mistag_tables.csv",
+            "ctag_mistag_table_csv": "report/ctag_mistag_tables.csv",
+        },
+        "diagnostic_plots": {
+            "background_rejection_curves_plot": "diagnostics/background_rejection_curves.png",
+            "background_efficiency_curves_plot": "diagnostics/background_efficiency_curves.png",
+            "btag_background_efficiency_plot": "diagnostics/btag_background_efficiency_vs_training_size.png",
+            "selection_timeline_plot": "diagnostics/selection_timeline.png",
+        },
+    }
+    grouped_plots = {group: {} for group in plot_layout}
+    for group, filenames in plot_layout.items():
+        for key, filename in filenames.items():
+            value = manifest.get(key)
+            if value:
+                candidate = Path(value)
+                relative_candidate = manifest_path.parent / candidate
+                if candidate.exists() or (not candidate.is_absolute() and relative_candidate.exists()):
+                    grouped_plots[group][key] = value
+                    continue
+            path = manifest_path.parent / "plots" / filename
+            if not path.exists():
+                path = manifest_path.parent / "plots" / Path(filename).name
+            if path.exists():
+                grouped_plots[group][key] = str(path)
     plots = {
-        key: manifest.get(key)
-        for key in (
-            "btag_mistag_evolution_plot",
-            "btag_rejection_evolution_plot",
-            "working_point_mistag_history_plot",
-            "global_best_all_pair_rejection_curves_plot",
-            "pbt_objective_diagnostics_plot",
-            "pbt_lr_response_plot",
-        )
-        if manifest.get(key)
+        key: value
+        for group_plots in grouped_plots.values()
+        for key, value in group_plots.items()
     }
 
     return {
@@ -288,6 +417,7 @@ def build_summary(manifest, manifest_path):
             "mode": pbt.get("mode", "max"),
             "definition": METRIC_DEFINITIONS.get(metric),
         },
+        "showcase_metric": SHOWCASE_METRIC_DEFINITION,
         "strategy": pbt.get("strategy"),
         "inputs": {
             "dataset": shared.get("dataset"),
@@ -296,7 +426,10 @@ def build_summary(manifest, manifest_path):
             "network_config": shared.get("network_config"),
         },
         "plots": plots,
+        "report_plots": grouped_plots["report_plots"],
+        "diagnostic_plots": grouped_plots["diagnostic_plots"],
         "global_best": global_best,
+        "training_logic": build_training_logic_summary(manifest),
         "generations": generations,
         "final_generation": final_generation,
         "mistag_percentages": mistag_tables,

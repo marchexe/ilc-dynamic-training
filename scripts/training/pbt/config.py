@@ -153,6 +153,8 @@ def load_config(args):
         "validation_b_tag_rejection_score",
         "validation_c_tag_rejection_score",
         "validation_bkg_rejection_score",
+        "validation_working_point_mistag_percent",
+        "validation_ctag_reference_mistag_percent",
     }:
         raise ValueError("Unsupported PBT metric")
     if pbt["mode"] not in {"max", "min"}:
@@ -169,6 +171,7 @@ def load_config(args):
     pbt["max_lr"] = float(pbt["max_lr"])
     pbt["degradation_tolerance"] = float(pbt.get("degradation_tolerance", 0.02))
     pbt["degradation_window"] = int(pbt.get("degradation_window", 3))
+    pbt["early_stop_degraded_generations"] = int(pbt.get("early_stop_degraded_generations", 0))
     pbt["rollback_fraction"] = float(pbt.get("rollback_fraction", 0.0))
     pbt["controller_state_on_exploit"] = pbt.get("controller_state_on_exploit", "copy")
     pbt["backend"] = pbt.get("backend", "local_weaver")
@@ -191,14 +194,16 @@ def load_config(args):
         raise ValueError("degradation_tolerance must be in [0, 1)")
     if pbt["degradation_window"] < 1:
         raise ValueError("degradation_window must be positive")
+    if pbt["early_stop_degraded_generations"] < 0:
+        raise ValueError("early_stop_degraded_generations must be non-negative")
     if not 0 <= pbt["rollback_fraction"] <= 0.5:
         raise ValueError("rollback_fraction must be in [0, 0.5]")
     if pbt["controller_state_on_exploit"] not in {"copy", "reset"}:
         raise ValueError("controller_state_on_exploit must be 'copy' or 'reset'")
     if pbt["backend"] not in {"local_weaver", "ray_weaver", "ray_tune"}:
         raise ValueError("pbt.backend must be 'local_weaver', 'ray_weaver', or legacy 'ray_tune'")
-    if pbt["strategy"] not in {"exploit_mutate", "anchored_lr_sweep"}:
-        raise ValueError("pbt.strategy must be 'exploit_mutate' or 'anchored_lr_sweep'")
+    if pbt["strategy"] not in {"exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid"}:
+        raise ValueError("pbt.strategy must be 'exploit_mutate', 'anchored_lr_sweep' or 'fixed_lr_grid'")
     if pbt["strategy"] == "anchored_lr_sweep":
         if pbt.get("lr_radius"):
             radius = pbt["lr_radius"]

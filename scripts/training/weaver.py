@@ -80,6 +80,10 @@ def build_command(
         command.extend(["--load-epoch", str(resume_epoch)])
         if override_load_lr:
             command.append("--override-load-lr")
+    for key, value in (shared.get("optimizer_options") or {}).items():
+        command.extend(["--optimizer-option", str(key), str(value)])
+    if shared.get("freeze_model_weights"):
+        command.extend(["--freeze-model-weights", str(shared["freeze_model_weights"])])
     if worker["controller"]:
         command.extend(["--training-controller", worker["controller"]])
     if shared["no_remake_weights"]:

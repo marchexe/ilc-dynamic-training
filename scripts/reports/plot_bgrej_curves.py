@@ -16,6 +16,14 @@ PAIR_LABELS = {
     "cb": "c tag / b bkg",
     "cd": "c tag / d bkg",
 }
+TAG_PAIRS = {
+    "b": ("bc", "bd"),
+    "c": ("cb", "cd"),
+}
+REFERENCE_WORKING_POINTS = {
+    "b": (0.8, 0.9),
+    "c": (0.5, 0.8),
+}
 
 
 def parse_args():
@@ -30,7 +38,7 @@ def parse_args():
     parser.add_argument(
         "--output",
         type=Path,
-        help="Output image path. Defaults to <run>/plots/global_best_all_pair_rejection_curves.png for manifests.",
+        help="Output image path. Defaults to <run>/plots/diagnostics/global_best_all_pair_rejection_curves.png for manifests.",
     )
     parser.add_argument(
         "--generation",
@@ -112,7 +120,7 @@ def log_from_manifest(manifest, manifest_path, generation_index=None, member_nam
 
 def default_output(input_path, manifest_path=None):
     if manifest_path is not None:
-        return manifest_path.parent / "plots" / "global_best_all_pair_rejection_curves.png"
+        return manifest_path.parent / "plots" / "diagnostics" / "global_best_all_pair_rejection_curves.png"
     input_path = Path(input_path)
     return input_path.with_suffix(".global_best_all_pair_rejection_curves.png")
 
@@ -140,43 +148,45 @@ def plot_curves(curves, output, title):
 
     plt.rcParams.update(
         {
-            "font.size": 10,
+            "font.size": 9,
             "axes.labelsize": 10,
             "axes.titlesize": 11,
-            "legend.fontsize": 9,
+            "legend.fontsize": 8.5,
             "xtick.labelsize": 9,
             "ytick.labelsize": 9,
             "axes.spines.top": False,
             "axes.spines.right": False,
         }
     )
-    fig, ax = plt.subplots(figsize=(6.8, 4.7))
-    colors = plt.get_cmap("tab10")
+    fig, axes = plt.subplots(1, 2, figsize=(10.4, 4.3), sharey=True, constrained_layout=True)
+    colors = {"bc": "#1f77b4", "bd": "#2ca02c", "cb": "#9467bd", "cd": "#d62728"}
     efficiency_points = efficiency_points_for_curves(curves)
-    for index, pair in enumerate(PAIR_LABELS):
-        ax.plot(
-            efficiency_points,
-            curves[pair],
-            marker="o",
-            linewidth=1.7,
-            markersize=4.5,
-            color=colors(index),
-            label=PAIR_LABELS[pair],
-        )
-    ax.set_title(title, loc="left")
-    ax.set_xlabel("signal efficiency")
-    ax.set_ylabel("background rejection")
-    ax.set_yscale("log")
-    ax.yaxis.set_major_formatter(FuncFormatter(log_tick_label))
-    ax.set_xticks(efficiency_points)
-    ax.grid(axis="both", color="0.88", linewidth=0.6)
-    ax.legend(frameon=False)
-    fig.tight_layout()
+    for ax, tag in zip(axes, ("b", "c")):
+        for pair in TAG_PAIRS[tag]:
+            ax.plot(
+                efficiency_points,
+                curves[pair],
+                marker="o",
+                linewidth=1.9,
+                markersize=4.2,
+                color=colors[pair],
+                label=PAIR_LABELS[pair].split(" / ", 1)[1],
+            )
+        for working_point in REFERENCE_WORKING_POINTS[tag]:
+            ax.axvline(working_point, color="0.70", linestyle=":", linewidth=0.9)
+        ax.set_title(f"{tag}-tag", loc="left")
+        ax.set_xlabel(f"{tag}-tag efficiency")
+        ax.set_yscale("log")
+        ax.yaxis.set_major_formatter(FuncFormatter(log_tick_label))
+        ax.set_xticks(efficiency_points)
+        ax.grid(axis="both", color="0.88", linewidth=0.6)
+        ax.legend(frameon=False, loc="best")
+    axes[0].set_ylabel("background rejection")
+    fig.suptitle(title, x=0.02, ha="left", fontsize=12, fontweight="bold")
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=180, bbox_inches="tight")
     plt.close(fig)
     return output
-
 
 def main():
     args = parse_args()
