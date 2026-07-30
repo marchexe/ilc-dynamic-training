@@ -8,6 +8,15 @@ from training.pbt import config as config_module
 from training.pbt import strategy
 from training.pbt.backend import LocalWeaverBackend, backend_from_config
 from training.pbt.ray_backend import RayWeaverBackend
+from training.pbt.tune_runner import build_trial_specs
+from training.pbt.tune_trainable import (
+    TUNE_CONTROLLER_NAME,
+    TUNE_METADATA_NAME,
+    TUNE_OPTIMIZER_NAME,
+    TUNE_STATE_NAME,
+    config_from_tune_payload,
+    package_tune_checkpoint,
+)
 
 
 class PBTLauncherTest(unittest.TestCase):
@@ -65,6 +74,58 @@ class PBTLauncherTest(unittest.TestCase):
         config["pbt"]["backend"] = "ray_tune"
 
         self.assertIsInstance(backend_from_config(config), RayWeaverBackend)
+
+    def test_ray_tune_trial_specs_use_resolved_population_and_logical_gpu(self):
+        config = pbt_smoke_config()
+
+        trial_specs = build_trial_specs(config, generations=1)
+
+        self.assertEqual([trial["member_name"] for trial in trial_specs], ["member_00", "member_01"])
+        self.assertEqual([trial["lr"] for trial in trial_specs], [7.5e-5, 1.0e-4])
+        self.assertEqual({trial["generations"] for trial in trial_specs}, {1})
+        self.assertEqual({trial["slot"]["gpu"] for trial in trial_specs}, {"0"})
+        self.assertEqual({trial["slot"]["label"] for trial in trial_specs}, {"ray:gpu0"})
+
+    def test_ray_tune_trainable_can_rebuild_config_from_small_payload(self):
+        config = config_from_tune_payload(
+            {
+                "config_path": str(PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"),
+                "experiment_name": "unit_tune_payload",
+                "gpus": "0,2",
+                "smoke": True,
+            }
+        )
+
+        self.assertEqual(config["experiment_name"], "unit_tune_payload")
+        self.assertEqual(config["gpus"], ["0", "2"])
+        self.assertEqual(len(config["population"]), 2)
+
+    def test_ray_tune_checkpoint_package_is_portable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            member_dir = root / "member_00"
+            checkpoint_dir = root / "ray_checkpoint"
+            member_dir.mkdir()
+            state_path, optimizer_path = strategy.checkpoint_paths(member_dir, 3)
+            controller_path = strategy.controller_checkpoint_path(member_dir, 3)
+            state_path.write_bytes(b"state")
+            optimizer_path.write_bytes(b"optimizer")
+            controller_path.write_bytes(b"controller")
+
+            metadata = package_tune_checkpoint(
+                member_dir,
+                3,
+                checkpoint_dir,
+                {"member": "member_00", "generation": 2, "lr": 2.0e-5},
+            )
+
+            self.assertEqual((checkpoint_dir / TUNE_STATE_NAME).read_bytes(), b"state")
+            self.assertEqual((checkpoint_dir / TUNE_OPTIMIZER_NAME).read_bytes(), b"optimizer")
+            self.assertEqual((checkpoint_dir / TUNE_CONTROLLER_NAME).read_bytes(), b"controller")
+            self.assertTrue((checkpoint_dir / TUNE_METADATA_NAME).is_file())
+            self.assertEqual(metadata["epoch"], 3)
+            self.assertEqual(metadata["member"], "member_00")
+            self.assertTrue(metadata["has_controller"])
 
 
     def test_anchored_lr_sweep_config_generates_start_lrs(self):
