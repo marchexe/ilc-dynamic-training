@@ -8,7 +8,7 @@ from training.pbt import config as config_module
 from training.pbt import strategy
 from training.pbt.backend import LocalWeaverBackend, backend_from_config
 from training.pbt.ray_backend import RayWeaverBackend
-from training.pbt.tune_runner import build_trial_specs
+from training.pbt.tune_runner import build_trial_specs, ray_runtime_env, small_tune_payload
 from training.pbt.tune_trainable import (
     TUNE_CONTROLLER_NAME,
     TUNE_METADATA_NAME,
@@ -85,6 +85,20 @@ class PBTLauncherTest(unittest.TestCase):
         self.assertEqual({trial["generations"] for trial in trial_specs}, {1})
         self.assertEqual({trial["slot"]["gpu"] for trial in trial_specs}, {"0"})
         self.assertEqual({trial["slot"]["label"] for trial in trial_specs}, {"ray:gpu0"})
+
+    def test_ray_tune_payload_includes_output_root(self):
+        config = pbt_smoke_config()
+        trial = build_trial_specs(config, generations=1)[0]
+
+        payload = small_tune_payload(config, trial)
+
+        self.assertEqual(payload["output_root"], str(config["output_root"]))
+
+    def test_ray_runtime_env_makes_project_modules_importable(self):
+        pythonpath = ray_runtime_env()["env_vars"]["PYTHONPATH"].split(":")
+
+        self.assertIn(str(PROJECT_DIR / "scripts"), pythonpath)
+        self.assertIn(str(PROJECT_DIR / "weaver-core"), pythonpath)
 
     def test_ray_tune_trainable_can_rebuild_config_from_small_payload(self):
         config = config_from_tune_payload(

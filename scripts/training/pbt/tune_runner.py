@@ -91,6 +91,15 @@ def small_tune_payload(config, trial):
     }
 
 
+def ray_runtime_env():
+    """Make project modules importable inside Ray worker processes."""
+    paths = [str(PROJECT_DIR / "scripts"), str(PROJECT_DIR / "weaver-core")]
+    existing = os.environ.get("PYTHONPATH")
+    if existing:
+        paths.append(existing)
+    return {"env_vars": {"PYTHONPATH": os.pathsep.join(paths)}}
+
+
 def build_scheduler(name, config):
     _, _, ASHAScheduler, FIFOScheduler, MedianStoppingRule = _ray_tune_import()
     metric = config["pbt"]["metric"]
@@ -166,6 +175,7 @@ def run(args):
             include_dashboard=False,
             ignore_reinit_error=True,
             object_store_memory=max(256, args.object_store_memory_mb) * 1024 * 1024,
+            runtime_env=ray_runtime_env(),
         )
     trainable = tune.with_resources(
         run_weaver_trial,
@@ -188,6 +198,7 @@ def run(args):
             "experiment_name": config["experiment_name"],
             "gpus": ",".join(config["gpus"]),
             "smoke": bool(config["smoke"]),
+            "output_root": str(config["output_root"]),
             "trial": tune.grid_search(trial_specs),
         },
     )
