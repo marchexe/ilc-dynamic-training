@@ -1,8 +1,11 @@
 import importlib.util
+import tempfile
 import unittest
+from pathlib import Path
 
 from tests.helpers import PROJECT_DIR, namespace, pbt_smoke_config
 from training.pbt import config as config_module
+from training.pbt import strategy
 from training.pbt.backend import LocalWeaverBackend, backend_from_config
 from training.pbt.ray_backend import RayWeaverBackend
 
@@ -225,6 +228,237 @@ class PBTLauncherTest(unittest.TestCase):
         self.assertIn("--freeze-model-weights", command_gen0)
         self.assertIn("part\\.blocks", command_gen0[command_gen0.index("--freeze-model-weights") + 1])
         self.assertNotIn("--freeze-model-weights", command_gen2)
+
+    def test_initial_epoch_requires_optimizer_resume_files(self):
+        source = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "bad_initial_epoch.yaml"
+            payload = source.read_text().replace(
+                "  checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt\n",
+                "  checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt\n  initial_epoch: 17\n",
+            )
+            config_path.write_text(payload)
+
+            with self.assertRaisesRegex(ValueError, "initial_state and initial_optimizer"):
+                config_module.load_config(
+                    namespace(
+                        config=config_path,
+                        experiment_name="unit_bad_initial_epoch",
+                        gpus="0,1",
+                        slots=None,
+                        smoke=True,
+                    )
+                )
+
+    def test_initial_optimizer_mode_is_validated(self):
+        source = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "bad_initial_optimizer_mode.yaml"
+            payload = source.read_text().replace(
+                "  checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt\n",
+                "  checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt\n  initial_optimizer_mode: chaotic\n",
+            )
+            config_path.write_text(payload)
+
+            with self.assertRaisesRegex(ValueError, "initial_optimizer_mode"):
+                config_module.load_config(
+                    namespace(
+                        config=config_path,
+                        experiment_name="unit_bad_initial_optimizer_mode",
+                        gpus="0,1",
+                        slots=None,
+                        smoke=True,
+                    )
+                )
+
+    def test_pydantic_parses_string_false_without_enabling_guard(self):
+        source = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "string_false_guard.yaml"
+            payload = source.read_text().replace(
+                "  seed: 2026\n",
+                "  baseline_guard_reject_global_best: \"false\"\n  seed: 2026\n",
+            )
+            config_path.write_text(payload)
+
+            config = config_module.load_config(
+                namespace(
+                    config=config_path,
+                    experiment_name="unit_string_false_guard",
+                    gpus="0,1",
+                    slots=None,
+                    smoke=True,
+                )
+            )
+
+            self.assertFalse(config["pbt"]["baseline_guard_reject_global_best"])
+
+    def test_pydantic_rejects_unknown_pbt_field(self):
+        source = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "unknown_pbt_field.yaml"
+            payload = source.read_text().replace(
+                "  seed: 2026\n",
+                "  typo_metric: validation_auc\n  seed: 2026\n",
+            )
+            config_path.write_text(payload)
+
+            with self.assertRaisesRegex(ValueError, "typo_metric"):
+                config_module.load_config(
+                    namespace(
+                        config=config_path,
+                        experiment_name="unit_unknown_pbt_field",
+                        gpus="0,1",
+                        slots=None,
+                        smoke=True,
+                    )
+                )
+
+    def test_baseline_rollback_requires_initial_resume_checkpoint(self):
+        source = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "bad_baseline_guard.yaml"
+            payload = source.read_text().replace(
+                "  seed: 2026\n",
+                "  baseline_metric_value: 1.0\n  baseline_guard_action: rollback_to_initial\n  seed: 2026\n",
+            )
+            config_path.write_text(payload)
+
+            with self.assertRaisesRegex(ValueError, "rollback_to_initial requires initial_state"):
+                config_module.load_config(
+                    namespace(
+                        config=config_path,
+                        experiment_name="unit_bad_baseline_guard",
+                        gpus="0,1",
+                        slots=None,
+                        smoke=True,
+                    )
+                )
+
+    def test_initial_optimizer_resume_bootstraps_generation_zero(self):
+        config = pbt_smoke_config()
+        config["shared"].update(
+            initial_epoch=17,
+            initial_state="/tmp/source_state.pt",
+            initial_optimizer="/tmp/source_optimizer.pt",
+        )
+
+        command, _, target_epoch = self.backend.command_for(
+            config,
+            {"name": "member_00", "lr": 2.1544346900318847e-5},
+            "0",
+            PROJECT_DIR / "runs/pbt/unit_initial_resume/member_00",
+            generation=0,
+        )
+
+        self.assertEqual(target_epoch, 18)
+        self.assertEqual(command[command.index("--load-epoch") + 1], "17")
+        self.assertIn("--override-load-lr", command)
+        self.assertNotIn("--load-model-weights", command)
+
+    def test_initial_optimizer_files_are_copied_to_member_epoch(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = PROJECT_DIR / temporary if not temporary.startswith("/") else Path(temporary)
+            source_state = root / "source_state.pt"
+            source_optimizer = root / "source_optimizer.pt"
+            member_dir = root / "member_00"
+            member_dir.mkdir()
+            source_state.write_bytes(b"state")
+            source_optimizer.write_bytes(b"optimizer")
+            config = pbt_smoke_config()
+            config["shared"].update(
+                initial_epoch=17,
+                initial_state=str(source_state),
+                initial_optimizer=str(source_optimizer),
+            )
+
+            bootstrapped_epoch = strategy.bootstrap_initial_checkpoint(config, member_dir)
+            state_path, optimizer_path = strategy.checkpoint_paths(member_dir, 17)
+
+            self.assertEqual(bootstrapped_epoch, 17)
+            self.assertEqual(state_path.read_bytes(), b"state")
+            self.assertEqual(optimizer_path.read_bytes(), b"optimizer")
+
+    def test_initial_optimizer_can_be_damped_to_reduce_old_momentum(self):
+        import torch
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = PROJECT_DIR / temporary if not temporary.startswith("/") else Path(temporary)
+            source_state = root / "source_state.pt"
+            source_optimizer = root / "source_optimizer.pt"
+            member_dir = root / "member_00"
+            member_dir.mkdir()
+            source_state.write_bytes(b"state")
+            torch.save(
+                {
+                    "state": {
+                        0: {
+                            "step": 17,
+                            "exp_avg": torch.ones(2),
+                            "exp_avg_sq": torch.full((2,), 4.0),
+                        }
+                    },
+                    "param_groups": [{"lr": 2.0e-5, "params": [0]}],
+                },
+                source_optimizer,
+            )
+            config = pbt_smoke_config()
+            config["shared"].update(
+                initial_epoch=17,
+                initial_state=str(source_state),
+                initial_optimizer=str(source_optimizer),
+                initial_optimizer_mode="damped",
+                initial_optimizer_damping=0.25,
+            )
+
+            strategy.bootstrap_initial_checkpoint(config, member_dir)
+            _, optimizer_path = strategy.checkpoint_paths(member_dir, 17)
+            loaded = torch.load(optimizer_path, map_location="cpu")
+            metadata = member_dir / "net_epoch-17_optimizer_resume.json"
+
+            self.assertTrue(torch.equal(loaded["state"][0]["exp_avg"], torch.full((2,), 0.25)))
+            self.assertTrue(torch.equal(loaded["state"][0]["exp_avg_sq"], torch.full((2,), 4.0)))
+            self.assertEqual(loaded["state"][0]["step"], 17)
+            self.assertIn('"mode": "damped"', metadata.read_text())
+
+    def test_initial_optimizer_can_be_reset_for_clean_resume_shell(self):
+        import torch
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = PROJECT_DIR / temporary if not temporary.startswith("/") else Path(temporary)
+            source_state = root / "source_state.pt"
+            source_optimizer = root / "source_optimizer.pt"
+            member_dir = root / "member_00"
+            member_dir.mkdir()
+            source_state.write_bytes(b"state")
+            torch.save(
+                {
+                    "state": {
+                        0: {
+                            "step": torch.tensor(17),
+                            "exp_avg": torch.ones(2),
+                            "exp_avg_sq": torch.full((2,), 4.0),
+                        }
+                    },
+                    "param_groups": [{"lr": 2.0e-5, "params": [0]}],
+                },
+                source_optimizer,
+            )
+            config = pbt_smoke_config()
+            config["shared"].update(
+                initial_epoch=17,
+                initial_state=str(source_state),
+                initial_optimizer=str(source_optimizer),
+                initial_optimizer_mode="reset",
+            )
+
+            strategy.bootstrap_initial_checkpoint(config, member_dir)
+            _, optimizer_path = strategy.checkpoint_paths(member_dir, 17)
+            loaded = torch.load(optimizer_path, map_location="cpu")
+
+            self.assertTrue(torch.equal(loaded["state"][0]["exp_avg"], torch.zeros(2)))
+            self.assertTrue(torch.equal(loaded["state"][0]["exp_avg_sq"], torch.zeros(2)))
+            self.assertTrue(torch.equal(loaded["state"][0]["step"], torch.tensor(0)))
 
     def test_optimizer_options_are_forwarded_to_weaver(self):
         config = pbt_smoke_config()

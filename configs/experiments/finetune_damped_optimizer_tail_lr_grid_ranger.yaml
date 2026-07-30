@@ -1,0 +1,66 @@
+schema_version: 1
+
+experiment:
+  name: finetune_damped_optimizer_tail_lr_grid_ranger
+  output_root: runs/pbt
+
+shared:
+  dataset: datasets/20250218_ilc_nnqq_sgvnew_parquet
+  data_extension: parquet
+  checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+  initial_epoch: 17
+  initial_state: /data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+  initial_optimizer: /data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
+  initial_optimizer_mode: damped
+  initial_optimizer_damping: 0.1
+  data_config: /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
+  network_config: networks/pretrained_sgv_particle_transformer.py
+  training_controller: null
+  seed: 12345
+  generations: 8
+  epochs_per_generation: 1
+  samples_per_epoch: 600000
+  samples_per_epoch_val: 150000
+  batch_size: 1024
+  optimizer: ranger
+  lr_scheduler: none
+  num_workers: 1
+  fetch_step: 0.01
+  prefetch_factor: 4
+  use_amp: true
+  amp_dtype: fp16
+  no_remake_weights: true
+
+resources:
+  gpus: [0, 1, 2, 3]
+
+population:
+  - name: lr_1p5e_5
+    start_lr: 1.5e-5
+  - name: lr_2e_5
+    start_lr: 2.0e-5
+  - name: lr_2p5e_5
+    start_lr: 2.5e-5
+  - name: lr_3e_5
+    start_lr: 3.0e-5
+
+pbt:
+  backend: ray_weaver
+  strategy: fixed_lr_grid
+  metric: validation_working_point_mistag_percent
+  mode: min
+  baseline_metric_value: 1.0426476744821431
+  baseline_guard_tolerance: 0.005
+  baseline_guard_action: rollback_to_initial
+  baseline_guard_lr_factor: 0.7
+  baseline_guard_reject_global_best: true
+  exploit_fraction: 0.25
+  mutation_factors: [0.9, 1.1]
+  min_lr: 1.0e-5
+  max_lr: 3.2e-5
+  degradation_tolerance: 0.01
+  degradation_window: 2
+  rollback_fraction: 0.0
+  early_stop_degraded_generations: 3
+  controller_state_on_exploit: reset
+  seed: 2026

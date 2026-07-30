@@ -112,9 +112,15 @@ ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/r
 
 # 4. Head warmup: freeze backbone for two generations, then unfreeze for the same low-LR grid.
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_head_warmup_fixed_lr_grid.yaml --gpus 0,1,2,3'
+
+# 5. Safe optimizer-resume tail grid: damp epoch-17 Ranger momentum and rollback any baseline-regressing branch.
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_damped_optimizer_tail_lr_grid_ranger.yaml --gpus 0,1,2,3'
+
+# 5-control. Raw optimizer-resume tail grid: keep only as a control for reproducing the unsafe start behavior.
+ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_resume_optimizer_tail_lr_grid_ranger.yaml --gpus 0,1,2,3'
 ```
 
-All four start from `runs/pbt/parquet_pbt_bkg_rejection_best/global_best_state.pt`. They rank workers by `validation_working_point_mistag_percent`, the average mistag at b-tag 80/90% and c-tag 50/80% reference working points. The fixed-grid runs keep each LR fixed; the adaptive rescue run is the only one that mutates/rolls back workers.
+The fine-tuning runs rank workers by `validation_working_point_mistag_percent`, the average mistag at b-tag 80/90% and c-tag 50/80% reference working points. The fixed-grid runs keep each LR fixed; the adaptive rescue run is the one that mutates/rolls back workers.
 
 PBT runs write `metrics_summary.json` and plot PNGs under `plots/` automatically after completion. The clean showcase set is intentionally small:
 

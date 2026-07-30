@@ -6,7 +6,7 @@ import socket
 import re
 from pathlib import Path
 
-from training.pbt.strategy import epoch_for_generation
+from training.pbt.checkpointing import epoch_for_generation
 from training.weaver import build_command
 from training.runtime import PROJECT_DIR, project_path
 
@@ -87,9 +87,9 @@ def wrap_remote_command(command, slot):
 
 def make_command(config, member, slot, member_dir, generation):
     target_epoch = epoch_for_generation(config, generation)
-    resume_epoch = None if generation == 0 else target_epoch - int(
-        config["shared"]["epochs_per_generation"]
-    )
+    resume_epoch = target_epoch - int(config["shared"]["epochs_per_generation"])
+    if generation == 0 and not config["shared"].get("initial_state"):
+        resume_epoch = None
     shared = dict(config["shared"])
     shared.update(
         epochs=target_epoch + 1,

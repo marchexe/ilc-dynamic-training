@@ -1,0 +1,61 @@
+# Legacy unsafe-control preset: raw epoch-17 optimizer resume without damped momentum.
+# Prefer finetune_damped_optimizer_tail_lr_grid_ranger.yaml for normal runs.
+schema_version: 1
+
+experiment:
+  name: finetune_resume_optimizer_tail_lr_grid_ranger
+  output_root: runs/pbt
+
+shared:
+  dataset: datasets/20250218_ilc_nnqq_sgvnew_parquet
+  data_extension: parquet
+  checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+  initial_epoch: 17
+  initial_state: /data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+  initial_optimizer: /data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
+  data_config: /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
+  network_config: networks/pretrained_sgv_particle_transformer.py
+  training_controller: null
+  seed: 12345
+  generations: 8
+  epochs_per_generation: 1
+  samples_per_epoch: 600000
+  samples_per_epoch_val: 150000
+  batch_size: 1024
+  optimizer: ranger
+  lr_scheduler: none
+  num_workers: 1
+  fetch_step: 0.01
+  prefetch_factor: 4
+  use_amp: true
+  amp_dtype: fp16
+  no_remake_weights: true
+
+resources:
+  gpus: [0, 1, 2, 3]
+
+population:
+  - name: lr_2p15e_5
+    start_lr: 2.1544346900318847e-5
+  - name: lr_1e_5
+    start_lr: 1.0e-5
+  - name: lr_4p6e_6
+    start_lr: 4.6415888336127804e-6
+  - name: lr_2e_6
+    start_lr: 2.0e-6
+
+pbt:
+  backend: ray_weaver
+  strategy: fixed_lr_grid
+  metric: validation_working_point_mistag_percent
+  mode: min
+  exploit_fraction: 0.25
+  mutation_factors: [0.9, 1.1]
+  min_lr: 1.0e-6
+  max_lr: 2.2e-5
+  degradation_tolerance: 0.01
+  degradation_window: 2
+  rollback_fraction: 0.0
+  early_stop_degraded_generations: 3
+  controller_state_on_exploit: reset
+  seed: 2026

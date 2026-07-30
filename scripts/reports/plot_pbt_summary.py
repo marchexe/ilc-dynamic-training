@@ -122,18 +122,6 @@ def training_logic_points(best_rows):
     return start, best, final
 
 
-def drift_percent(from_row, to_row):
-    if from_row is None or to_row is None:
-        return None
-    return to_row["mistag_score"] - from_row["mistag_score"]
-
-
-def exact_uncertainty_available(row):
-    if row is None:
-        return False
-    metrics = row.get("worker", {}).get("metrics") or {}
-    return bool(metrics.get("validation_bkg_rejection_at_eff_counts"))
-
 
 def member_lr_rows(manifest, generations):
     rows = []
@@ -149,6 +137,66 @@ def default_output(manifest_path):
     return Path(manifest_path).parent / "plots" / "report" / "training_diagnostics.png"
 
 
+def checkpoint_path(manifest):
+    checkpoint = manifest.get("checkpoint") or {}
+    return checkpoint.get("resolved_path") or checkpoint.get("path")
+
+
+def summary_checkpoint_path(summary):
+    inputs = summary.get("inputs") or {}
+    checkpoint = inputs.get("checkpoint") or summary.get("checkpoint") or {}
+    if isinstance(checkpoint, dict):
+        return checkpoint.get("resolved_path") or checkpoint.get("path")
+    if isinstance(checkpoint, str):
+        return checkpoint
+    return None
+
+
+def summary_fixed_wp_mistag(summary):
+    final_generation = summary.get("final_generation") or {}
+    workers = final_generation.get("workers") or []
+    if workers:
+        core_metrics = workers[0].get("core_metrics") or {}
+        value = core_metrics.get("working_point_mistag_percent")
+        if value is not None:
+            return float(value)
+    global_best = summary.get("global_best") or {}
+    value = global_best.get("metric_value")
+    if value is not None:
+        return float(value)
+    return None
+
+
+def checkpoint_baseline_row(manifest, manifest_path):
+    checkpoint = checkpoint_path(manifest)
+    if not checkpoint:
+        return None
+    checkpoint_resolved = str(Path(checkpoint).resolve())
+    search_root = manifest_path.parents[2] / "eval" if len(manifest_path.parents) >= 3 else None
+    candidates = sorted(search_root.glob("*/metrics_summary.json")) if search_root and search_root.exists() else []
+    for summary_path in candidates:
+        try:
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        summary_checkpoint = summary_checkpoint_path(summary)
+        if not summary_checkpoint:
+            continue
+        if str(Path(summary_checkpoint).resolve()) != checkpoint_resolved:
+            continue
+        mistag = summary_fixed_wp_mistag(summary)
+        if mistag is not None:
+            return {
+                "generation": -1,
+                "member": "checkpoint",
+                "worker": {},
+                "mistag_score": mistag,
+                "lr": None,
+                "label": "checkpoint",
+            }
+    return None
+
+
 def plot_manifest(manifest_path, output=None):
     manifest_path = Path(manifest_path)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -161,10 +209,8 @@ def plot_manifest(manifest_path, output=None):
     start, selected, final = training_logic_points(best_rows)
     if selected is None:
         raise RuntimeError("manifest has no fixed working-point mistag metrics to plot")
-    start_delta = drift_percent(start, selected)
-    final_drift = drift_percent(selected, final)
-    uncertainty_note = "exact stat. uncertainty available" if exact_uncertainty_available(selected) else "exact stat. uncertainty unavailable"
 
+    baseline = checkpoint_baseline_row(manifest, manifest_path)
     lr_rows = member_lr_rows(manifest, generations)
     members = sorted({row["member"] for row in lr_rows})
     experiment = manifest.get("experiment", manifest_path.parent.name)
@@ -192,12 +238,34 @@ def plot_manifest(manifest_path, output=None):
     xs = [row["generation"] for row in best_rows]
     ys = [row["mistag_score"] for row in best_rows]
     ax_mistag.plot(xs, ys, marker="o", linewidth=2.0, markersize=4.5, color="#2f5597")
+    label_box = {"boxstyle": "round,pad=0.18", "facecolor": "white", "edgecolor": "none", "alpha": 0.86}
+    if baseline is not None:
+        ax_mistag.scatter(
+            [baseline["generation"]],
+            [baseline["mistag_score"]],
+            marker="D",
+            s=62,
+            facecolor="#ffffff",
+            edgecolor="#5f6f82",
+            linewidth=1.2,
+            zorder=5,
+        )
+        ax_mistag.annotate(
+            f"checkpoint\n{baseline['mistag_score']:.3f}%",
+            (baseline["generation"], baseline["mistag_score"]),
+            xytext=(-2, 26),
+            textcoords="offset points",
+            fontsize=8.3,
+            ha="left",
+            va="center",
+            bbox=label_box,
+        )
     marker_specs = [
-        (start, "start", "o", "#ffffff", "#2f5597", (-8, -24)),
-        (selected, "best", "*", "#111111", "#111111", (10, 12)),
-        (final, "final", "s", "#7aa6d9", "#255f9f", (-34, 10)),
+        (start, "start", "o", "#ffffff", "#2f5597", (-8, -24), "left"),
+        (selected, "best", "*", "#111111", "#111111", (12, 28), "left"),
+        (final, "final", "s", "#7aa6d9", "#255f9f", (12, 12), "left"),
     ]
-    for row, label, marker, face, edge, offset in marker_specs:
+    for row, label, marker, face, edge, offset, ha in marker_specs:
         if row is None:
             continue
         size = 135 if label == "best" else 70
@@ -218,19 +286,11 @@ def plot_manifest(manifest_path, output=None):
             textcoords="offset points",
             fontsize=8.3,
             fontweight="bold" if label == "best" else "normal",
+            ha=ha,
+            va="center",
+            bbox=label_box,
         )
     ax_mistag.axvline(selected["generation"], color="0.25", linestyle="--", linewidth=1.0)
-    if start_delta is not None and final_drift is not None:
-        ax_mistag.text(
-            0.995,
-            0.06,
-            f"start -> best: {start_delta:+.3f}%   best -> final: {final_drift:+.3f}%\n{uncertainty_note}",
-            transform=ax_mistag.transAxes,
-            ha="right",
-            va="bottom",
-            fontsize=8.2,
-            color="0.25",
-        )
     ax_mistag.set_title("Mistag at target working points", loc="left")
     ax_mistag.set_ylabel("Mistag [%]")
     ax_mistag.grid(axis="both", color="0.88", linewidth=0.6)
@@ -282,7 +342,13 @@ def plot_manifest(manifest_path, output=None):
         frameon=False,
         loc="best",
     )
-    ax_lr.set_xticks([generation["index"] for generation in generations])
+    ticks = [generation["index"] for generation in generations]
+    if baseline is not None:
+        ticks = [baseline["generation"]] + ticks
+    ax_lr.set_xticks(ticks)
+    if baseline is not None:
+        ax_lr.set_xticklabels(["ckpt"] + [str(generation["index"]) for generation in generations])
+    ax_lr.set_xlim(min(ticks) - 0.7, max(ticks) + 2.0)
 
     fig.suptitle(
         experiment,

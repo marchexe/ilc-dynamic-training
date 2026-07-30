@@ -144,6 +144,14 @@ def event_label(events):
     return str(events)
 
 
+def milestone_events(point_labels):
+    events = sorted({events for events, _, _ in point_labels})
+    if len(events) <= 8:
+        return set(events)
+    indices = {0, 1, 2, min(4, len(events) - 1), len(events) // 2, len(events) - 1}
+    return {events[index] for index in indices}
+
+
 def default_output(manifest_path):
     return Path(manifest_path).parent / "plots" / "diagnostics" / "btag_background_efficiency_vs_training_size.png"
 
@@ -179,7 +187,7 @@ def plot_manifest(manifest_path, output=None, member="best", b_efficiencies=DEFA
             "axes.spines.right": True,
         }
     )
-    fig, ax = plt.subplots(figsize=(7.8, 5.5), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(8.8, 5.5), constrained_layout=True)
     line_styles = {
         0.8: "-",
         0.9: "-",
@@ -208,9 +216,10 @@ def plot_manifest(manifest_path, output=None, member="best", b_efficiencies=DEFA
             )
 
     if annotate:
+        labelled_events = milestone_events(point_labels)
         seen = set()
         for events, _, _ in point_labels:
-            if events in seen:
+            if events in seen or events not in labelled_events:
                 continue
             seen.add(events)
             local_values = [
@@ -223,10 +232,13 @@ def plot_manifest(manifest_path, output=None, member="best", b_efficiencies=DEFA
                 ax.annotate(
                     event_label(events),
                     (events, max(local_values)),
-                    xytext=(4, -2),
+                    xytext=(0, 8),
                     textcoords="offset points",
-                    fontsize=9,
+                    fontsize=8.5,
                     color="0.15",
+                    ha="center",
+                    va="bottom",
+                    bbox={"boxstyle": "round,pad=0.12", "facecolor": "white", "edgecolor": "none", "alpha": 0.78},
                 )
 
     ax.set_title(title or "Background efficiency at fixed b-tag efficiency", loc="left", pad=8)
@@ -237,7 +249,7 @@ def plot_manifest(manifest_path, output=None, member="best", b_efficiencies=DEFA
     ax.yaxis.set_major_locator(LogLocator(base=10))
     ax.yaxis.set_major_formatter(FuncFormatter(log_tick_label))
     ax.grid(axis="both", color="0.88", linewidth=0.6)
-    ax.legend(frameon=False, loc="upper right")
+    ax.legend(frameon=False, loc="upper left", bbox_to_anchor=(1.01, 1.0), borderaxespad=0.0)
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=180, bbox_inches="tight")
     plt.close(fig)

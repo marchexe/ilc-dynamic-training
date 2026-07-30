@@ -204,6 +204,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             self.assertEqual(weak_optimizer.read_bytes(), b"strong-optimizer")
             self.assertEqual(weak_controller.read_bytes(), b"strong-controller")
             self.assertTrue(generation["exploit"][0]["applied"])
+            self.assertEqual(generation["exploit"][0]["source"], "population")
             self.assertEqual(manifest["members"]["weak"]["parent"], "strong")
             self.assertEqual(manifest["members"]["weak"]["lr"], 8.0e-5)
 
@@ -325,6 +326,130 @@ class PBTAlgorithmTest(unittest.TestCase):
         self.assertEqual(plan[0]["source"], "global_best")
         self.assertEqual(plan[0]["recipient"], "member_01")
         self.assertEqual(plan[0]["new_lr"], 9.0e-5)
+
+    def test_generation_health_records_baseline_regression(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            metric="validation_working_point_mistag_percent",
+            mode="min",
+            baseline_metric_value=1.04,
+            baseline_guard_tolerance=0.01,
+        )
+        manifest = {"best": None, "generations": []}
+        generation = {
+            "index": 0,
+            "workers": {
+                "member_00": {"metrics": {"validation_working_point_mistag_percent": 1.08}},
+                "member_01": {"metrics": {"validation_working_point_mistag_percent": 1.12}},
+            },
+        }
+
+        health = strategy.update_generation_health(config, manifest, generation)
+
+        self.assertEqual(health["current_best_member"], "member_00")
+        self.assertTrue(health["baseline_degraded"])
+        self.assertLess(health["relative_to_baseline"], 0)
+        self.assertFalse(health["degraded"])
+        self.assertEqual(health["status"], "ok")
+
+    def test_global_best_rejects_baseline_regression_when_guarded(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            member_dir = root / "member_00"
+            member_dir.mkdir()
+            state, optimizer = strategy.checkpoint_paths(member_dir, 18)
+            state.write_bytes(b"bad-state")
+            optimizer.write_bytes(b"bad-optimizer")
+            manifest_path = root / "manifest.json"
+            config = pbt_smoke_config()
+            config["pbt"].update(
+                metric="validation_working_point_mistag_percent",
+                mode="min",
+                baseline_metric_value=1.04,
+                baseline_guard_tolerance=0.0,
+                baseline_guard_reject_global_best=True,
+            )
+            manifest = {
+                "config": config,
+                "members": {"member_00": {"lr": 2.0e-5}},
+                "generations": [],
+                "best": None,
+            }
+            generation = {
+                "index": 0,
+                "epoch": 18,
+                "ranking": ["member_00"],
+                "workers": {
+                    "member_00": {
+                        "metrics": {"validation_working_point_mistag_percent": 1.08}
+                    }
+                },
+            }
+
+            improved = strategy.update_global_best(root, manifest, generation, manifest_path)
+
+            self.assertFalse(improved)
+            self.assertIsNone(manifest["best"])
+            self.assertEqual(generation["baseline_rejected_global_best"]["reason"], "worse_than_baseline")
+
+    def test_baseline_guard_rolls_back_to_initial_checkpoint_and_reduces_lr(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            member_dir = root / "member_00"
+            member_dir.mkdir()
+            initial_state, initial_optimizer = strategy.checkpoint_paths(member_dir, 17)
+            current_state, current_optimizer = strategy.checkpoint_paths(member_dir, 18)
+            initial_state.write_bytes(b"initial-state")
+            initial_optimizer.write_bytes(b"initial-optimizer")
+            current_state.write_bytes(b"bad-state")
+            current_optimizer.write_bytes(b"bad-optimizer")
+            manifest_path = root / "manifest.json"
+            config = pbt_smoke_config()
+            config["shared"].update(
+                generations=3,
+                initial_epoch=17,
+                initial_state="/tmp/initial_state.pt",
+                initial_optimizer="/tmp/initial_optimizer.pt",
+                training_controller=None,
+            )
+            config["pbt"].update(
+                metric="validation_working_point_mistag_percent",
+                mode="min",
+                baseline_metric_value=1.04,
+                baseline_guard_tolerance=0.0,
+                baseline_guard_action="rollback_to_initial",
+                baseline_guard_lr_factor=0.7,
+                min_lr=1.0e-5,
+                max_lr=3.0e-5,
+            )
+            manifest = {
+                "config": config,
+                "members": {"member_00": {"lr": 2.0e-5, "parent": None}},
+            }
+            generation = {
+                "index": 0,
+                "epoch": 18,
+                "workers": {
+                    "member_00": {
+                        "metrics": {"validation_working_point_mistag_percent": 1.08}
+                    }
+                },
+                "exploit": [],
+            }
+
+            plan = strategy.add_baseline_guard_rollbacks(
+                config, manifest, generation, manifest["members"], []
+            )
+            generation["exploit"] = plan
+            strategy.apply_exploit(root, manifest, generation, manifest_path)
+
+            self.assertEqual(current_state.read_bytes(), b"initial-state")
+            self.assertEqual(current_optimizer.read_bytes(), b"initial-optimizer")
+            self.assertAlmostEqual(manifest["members"]["member_00"]["lr"], 1.4e-5)
+            self.assertEqual(manifest["members"]["member_00"]["parent_source"], "initial_resume")
+            self.assertIsNone(manifest["members"]["member_00"]["parent"])
+            self.assertEqual(plan[0]["source"], "initial_resume")
+            self.assertTrue(plan[0]["applied"])
 
 
 if __name__ == "__main__":

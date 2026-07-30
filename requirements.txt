@@ -8,3 +8,6 @@ torchaudio==2.11.0
 
 # Ray provides the optional distributed PBT worker executor.
 ray[tune]==2.56.1
+
+# PBT YAML schemas use Pydantic for typed validation.
+pydantic==2.13.4

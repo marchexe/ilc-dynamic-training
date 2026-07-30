@@ -12,6 +12,7 @@ import yaml
 
 from training.pbt.backend import backend_from_config, format_duration, log_event
 from training.pbt.config import contract_fingerprint, load_config, validate_inputs
+from training.pbt.models.manifest import PBTManifest
 from training.runtime import (
     PROJECT_DIR,
     atomic_json,
@@ -19,15 +20,15 @@ from training.runtime import (
     sha256,
     utc_now,
 )
-from training.pbt.strategy import (
+from training.pbt.checkpointing import bootstrap_initial_checkpoint, epoch_for_generation
+from training.pbt.metrics import update_generation_health, update_global_best
+from training.pbt.planning import (
+    add_baseline_guard_rollbacks,
     add_global_best_rollbacks,
-    apply_exploit,
-    epoch_for_generation,
-    anchored_lr_sweep_plan,
-    ranking_and_plan,
-    update_generation_health,
-    update_global_best,
+    plan_for_strategy,
+    strategy_uses_population_rollbacks,
 )
+from training.pbt.transitions import apply_exploit
 
 
 DEFAULT_CONFIG = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
@@ -58,8 +59,11 @@ def parse_args():
 
 
 def initial_manifest(config, fingerprint):
-    checkpoint = Path(config["shared"]["checkpoint"])
-    return {
+    shared = config["shared"]
+    checkpoint = Path(shared["checkpoint"])
+    initial_state = Path(shared["initial_state"]) if shared.get("initial_state") else None
+    initial_optimizer = Path(shared["initial_optimizer"]) if shared.get("initial_optimizer") else None
+    manifest = {
         "schema_version": 1,
         "experiment": config["experiment_name"],
         "fingerprint": fingerprint,
@@ -73,6 +77,17 @@ def initial_manifest(config, fingerprint):
             "resolved_path": str(checkpoint.resolve()),
             "sha256": sha256(checkpoint),
         },
+        "initial_resume": None if initial_state is None else {
+            "epoch": int(shared["initial_epoch"]),
+            "state_path": str(initial_state),
+            "state_resolved_path": str(initial_state.resolve()),
+            "state_sha256": sha256(initial_state),
+            "optimizer_path": str(initial_optimizer),
+            "optimizer_resolved_path": str(initial_optimizer.resolve()),
+            "optimizer_sha256": sha256(initial_optimizer),
+            "optimizer_mode": shared.get("initial_optimizer_mode", "raw"),
+            "optimizer_damping": shared.get("initial_optimizer_damping", 0.1),
+        },
         "git": git_metadata(),
         "members": {
             member["name"]: {
@@ -85,6 +100,7 @@ def initial_manifest(config, fingerprint):
         "best": None,
         "generations": [],
     }
+    return PBTManifest.parse_payload(manifest).to_runtime_dict()
 
 
 def run(args):
@@ -117,7 +133,7 @@ def run(args):
     if args.resume:
         if not manifest_path.is_file():
             raise FileNotFoundError(f"Cannot resume without {manifest_path}")
-        manifest = json.loads(manifest_path.read_text())
+        manifest = PBTManifest.parse_payload(json.loads(manifest_path.read_text())).to_runtime_dict()
         if manifest.get("fingerprint") != fingerprint:
             raise ValueError("Resolved PBT contract differs from the saved manifest")
         if manifest["status"] == "completed":
@@ -134,7 +150,10 @@ def run(args):
     run_started_monotonic = time.monotonic()
 
     for name in manifest["members"]:
-        (experiment_dir / name).mkdir(parents=True, exist_ok=True)
+        member_dir = experiment_dir / name
+        member_dir.mkdir(parents=True, exist_ok=True)
+        if not args.dry_run:
+            bootstrap_initial_checkpoint(config, member_dir)
     (experiment_dir / "resolved_config.yaml").write_text(
         yaml.safe_dump(config, sort_keys=False)
     )
@@ -186,39 +205,35 @@ def run(args):
             )
 
             if existing["exploit"] is None:
-                if config["pbt"].get("strategy") == "anchored_lr_sweep":
-                    ranking, plan = anchored_lr_sweep_plan(
-                        config, existing, manifest["members"], manifest
-                    )
-                elif config["pbt"].get("strategy") == "fixed_lr_grid":
-                    ranking, _ = ranking_and_plan(
-                        config, existing, manifest["members"]
-                    )
-                    plan = []
-                else:
-                    ranking, plan = ranking_and_plan(
-                        config, existing, manifest["members"]
-                    )
+                ranking, plan = plan_for_strategy(
+                    config, existing, manifest["members"], manifest
+                )
                 existing["ranking"] = ranking
                 improved = update_global_best(
                     experiment_dir, manifest, existing, manifest_path
                 )
                 health = update_generation_health(config, manifest, existing)
-                if config["pbt"].get("strategy") != "fixed_lr_grid":
-                    plan = add_global_best_rollbacks(
-                        config, manifest, existing, manifest["members"], plan
-                    )
                 early_stop_after = int(config["pbt"].get("early_stop_degraded_generations", 0))
                 early_stop_triggered = (
                     early_stop_after > 0
                     and health["consecutive_degraded_generations"] >= early_stop_after
                 )
                 existing["early_stop_triggered"] = early_stop_triggered
-                existing["exploit"] = (
-                    []
-                    if generation == int(config["shared"]["generations"]) - 1 or early_stop_triggered
-                    else plan
+                will_exploit = (
+                    generation != int(config["shared"]["generations"]) - 1
+                    and not early_stop_triggered
                 )
+                if will_exploit:
+                    plan = add_baseline_guard_rollbacks(
+                        config, manifest, existing, manifest["members"], plan
+                    )
+                    if strategy_uses_population_rollbacks(config):
+                        plan = add_global_best_rollbacks(
+                            config, manifest, existing, manifest["members"], plan
+                        )
+                else:
+                    existing.pop("baseline_guard", None)
+                existing["exploit"] = plan if will_exploit else []
                 existing["status"] = "exploiting"
                 best = manifest.get("best") or {}
                 log_event(
@@ -245,6 +260,27 @@ def run(args):
                         ),
                     ),
                 )
+                guard = existing.get("baseline_guard")
+                if guard:
+                    log_event(
+                        pbt_log_path,
+                        "baseline guard generation=%d action=%s rollbacks=%s"
+                        % (
+                            existing["index"],
+                            guard.get("action"),
+                            ",".join(
+                                "%s:%.3g->%.3g metric=%.6g baseline=%.6g"
+                                % (
+                                    event["recipient"],
+                                    event["recipient_lr"],
+                                    event["new_lr"],
+                                    event["metric_value"],
+                                    event["baseline_metric"],
+                                )
+                                for event in guard.get("events", [])
+                            ),
+                        ),
+                    )
                 atomic_json(manifest_path, manifest)
 
             apply_exploit(experiment_dir, manifest, existing, manifest_path)
