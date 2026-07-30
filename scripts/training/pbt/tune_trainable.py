@@ -40,6 +40,24 @@ def atomic_json(path, payload):
     os.replace(temporary, path)
 
 
+def record_entry_event(tune_config, event, **payload):
+    trial = dict((tune_config or {}).get("trial") or {})
+    experiment_name = (tune_config or {}).get("experiment_name") or "ray_tune"
+    output_root = Path((tune_config or {}).get("output_root") or "runs/pbt")
+    entry_dir = output_root / f"{experiment_name}_tune"
+    entry_dir.mkdir(parents=True, exist_ok=True)
+    record = {
+        "time": utc_now(),
+        "event": event,
+        "pid": os.getpid(),
+        "trial": trial.get("member_name"),
+    }
+    record.update(payload)
+    with (entry_dir / "trainable-entry.jsonl").open("a") as stream:
+        stream.write(json.dumps(record, sort_keys=True) + "\n")
+    print(f"[ray-tune-weaver-entry] {event}: {json.dumps(payload, sort_keys=True)}", flush=True)
+
+
 def record_trial_event(member_dir, event, **payload):
     member_dir = Path(member_dir)
     member_dir.mkdir(parents=True, exist_ok=True)
@@ -258,9 +276,14 @@ def run_weaver_trial(tune_config):
     reports scalar validation metrics to Tune, and publishes portable checkpoints.
     """
     member_dir = None
+    record_entry_event(tune_config, "function_entered")
     try:
+        record_entry_event(tune_config, "ray_tune_import_start")
         tune, Checkpoint = _ray_tune_import()
+        record_entry_event(tune_config, "ray_tune_import_done")
+        record_entry_event(tune_config, "config_load_start")
         config = config_from_tune_payload(tune_config)
+        record_entry_event(tune_config, "config_load_done")
         trial = dict(tune_config["trial"])
         member_name = trial["member_name"]
         member = {"name": member_name, "lr": float(trial["lr"])}
@@ -359,6 +382,7 @@ def run_weaver_trial(tune_config):
                 record_trial_event(member_dir, "tune_report", generation=generation, metric_value=metrics[metric_name])
                 tune.report(report, checkpoint=Checkpoint.from_directory(temporary))
     except Exception as error:
+        record_entry_event(tune_config, "function_exception", error=repr(error))
         if member_dir is not None:
             record_trial_event(member_dir, "trial_exception", error=repr(error))
         raise

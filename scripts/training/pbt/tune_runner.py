@@ -86,6 +86,7 @@ def small_tune_payload(config, trial):
         "experiment_name": config["experiment_name"],
         "gpus": ",".join(config["gpus"]),
         "smoke": bool(config["smoke"]),
+        "output_root": str(config["output_root"]),
         "trial": trial,
     }
 
