@@ -20,7 +20,11 @@ from training.runtime import (
     sha256,
     utc_now,
 )
-from training.pbt.checkpointing import bootstrap_initial_checkpoint, epoch_for_generation
+from training.pbt.checkpointing import (
+    bootstrap_initial_checkpoint,
+    epoch_for_generation,
+    seed_initial_global_best,
+)
 from training.pbt.metrics import update_generation_health, update_global_best
 from training.pbt.planning import (
     add_baseline_guard_rollbacks,
@@ -154,6 +158,7 @@ def run(args):
         member_dir.mkdir(parents=True, exist_ok=True)
         if not args.dry_run:
             bootstrap_initial_checkpoint(config, member_dir)
+    seed_initial_global_best(config, experiment_dir, manifest)
     (experiment_dir / "resolved_config.yaml").write_text(
         yaml.safe_dump(config, sort_keys=False)
     )
@@ -344,19 +349,6 @@ def run(args):
             log_event(pbt_log_path, f"physics performance plot: {plot_path}")
         except Exception as plot_error:
             log_event(pbt_log_path, f"warning: failed to create physics performance plot: {plot_error}")
-        try:
-            from reports.plot_background_rejection_curves import plot_manifest
-
-            plot_path = plot_manifest(manifest_path)
-            manifest["background_rejection_curves_plot"] = str(plot_path)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"background rejection curves plot: {plot_path}")
-        except Exception as plot_error:
-            log_event(
-                pbt_log_path,
-                f"warning: failed to create background rejection curves plot: {plot_error}",
-            )
         try:
             from reports.plot_background_efficiency_curves import plot_manifest
 

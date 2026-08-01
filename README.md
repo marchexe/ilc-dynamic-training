@@ -127,7 +127,7 @@ PBT runs write `metrics_summary.json` and plot PNGs under `plots/` automatically
 - `plots/report/physics_performance.png`: the main HEP-style result, combining fixed working-point mistag tables with compact mistag [%] bar charts.
 - `plots/report/training_diagnostics.png`: compact training/PBT diagnostic for understanding whether the run improved or drifted.
 
-Machine-readable fixed working-point tables are also written as `plots/report/ctag_mistag_tables.csv` and `plots/report/btag_mistag_tables.csv`. Default diagnostic PNGs are `plots/diagnostics/background_rejection_curves.png`, `plots/diagnostics/btag_background_efficiency_vs_training_size.png`, and `plots/diagnostics/selection_timeline.png`; other report scripts are available for manual debugging but are not generated as part of the standard report.
+Machine-readable fixed working-point tables are also written as `plots/report/ctag_mistag_tables.csv` and `plots/report/btag_mistag_tables.csv`. Default diagnostic PNGs are `plots/diagnostics/background_efficiency_curves.png`, `plots/diagnostics/btag_background_efficiency_vs_training_size.png`, and `plots/diagnostics/selection_timeline.png`; other report scripts are available for manual debugging but are not generated as part of the standard report.
 
 Plot reports from an existing PBT run:
 

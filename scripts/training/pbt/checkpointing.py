@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 from training.pbt.optimizer_state import prepare_initial_optimizer
-from training.runtime import atomic_json
+from training.runtime import atomic_json, utc_now
 
 
 def epoch_for_generation(config, generation):
@@ -75,3 +75,55 @@ def global_best_paths(experiment_dir):
         "controller_path": str(experiment_dir / "global_best_controller.pt"),
         "metadata_path": str(experiment_dir / "global_best_metadata.json"),
     }
+
+def seed_initial_global_best(config, experiment_dir, manifest):
+    if not config["pbt"].get("baseline_guard_seed_initial_best"):
+        return False
+    if manifest.get("best"):
+        return False
+
+    shared = config["shared"]
+    pbt = config["pbt"]
+    baseline_metric = pbt.get("baseline_metric_value")
+    if baseline_metric is None:
+        raise ValueError("baseline_guard_seed_initial_best requires baseline_metric_value")
+    if not shared.get("initial_state") or not shared.get("initial_optimizer"):
+        raise ValueError("baseline_guard_seed_initial_best requires initial_state/initial_optimizer")
+
+    experiment_dir = Path(experiment_dir)
+    paths = global_best_paths(experiment_dir)
+    atomic_copy(Path(shared["initial_state"]), Path(paths["state_path"]))
+    optimizer_metadata = prepare_initial_optimizer(
+        Path(shared["initial_optimizer"]),
+        Path(paths["optimizer_path"]),
+        mode=shared.get("initial_optimizer_mode", "raw"),
+        damping_factor=shared.get("initial_optimizer_damping", 0.1),
+    )
+
+    controller_path = Path(paths["controller_path"])
+    has_controller = False
+    if shared.get("initial_controller"):
+        atomic_copy(Path(shared["initial_controller"]), controller_path)
+        has_controller = True
+    elif controller_path.exists():
+        controller_path.unlink()
+
+    best_record = {
+        "generation": -1,
+        "epoch": int(shared["initial_epoch"]),
+        "member": "initial_resume",
+        "metric": pbt["metric"],
+        "metric_value": float(baseline_metric),
+        "lr": float(pbt.get("base_start_lr") or config["population"][0]["start_lr"]),
+        "metrics": {pbt["metric"]: float(baseline_metric)},
+        "updated_at": utc_now(),
+        "source_state_path": str(shared["initial_state"]),
+        "source_optimizer_path": str(shared["initial_optimizer"]),
+        "source_controller_path": str(shared.get("initial_controller")) if has_controller else None,
+        "optimizer_resume": optimizer_metadata,
+        **paths,
+    }
+    manifest["best"] = best_record
+    manifest["updated_at"] = utc_now()
+    atomic_json(Path(paths["metadata_path"]), best_record)
+    return True

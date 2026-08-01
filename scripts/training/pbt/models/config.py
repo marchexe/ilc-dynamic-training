@@ -65,6 +65,18 @@ class LrRadiusConfig(StrictSectionModel):
         return self
 
 
+class SmoothLrControllerConfig(StrictSectionModel):
+    """Smooth the anchored LR sweep center so fine-tuning avoids abrupt LR jumps."""
+
+    mode: Literal["smooth"] = "smooth"
+    smoothing: float = Field(default=0.25, gt=0.0, le=1.0)
+    max_center_increase: float = Field(default=1.25, ge=1.0)
+    max_center_decrease: float = Field(default=0.80, gt=0.0, le=1.0)
+    max_member_increase: float = Field(default=1.35, ge=1.0)
+    max_member_decrease: float = Field(default=0.75, gt=0.0, le=1.0)
+    decay_bias: float = Field(default=1.0, gt=0.0, le=1.0)
+
+
 class SharedSection(WeaverSharedSection):
     dataset: str
     checkpoint: str
@@ -133,11 +145,13 @@ class PBTSection(StrictSectionModel):
     base_start_lr: float | None = None
     lr_factors: list[float] | None = None
     lr_radius: LrRadiusConfig | None = None
+    lr_controller: SmoothLrControllerConfig | None = None
     baseline_metric_value: float | None = None
     baseline_guard_tolerance: float | None = Field(default=None, ge=0.0, lt=1.0)
     baseline_guard_action: Literal["observe", "rollback_to_initial"] | None = None
     baseline_guard_lr_factor: float | None = Field(default=None, gt=0.0, le=1.0)
     baseline_guard_reject_global_best: bool | None = None
+    baseline_guard_seed_initial_best: bool | None = None
 
     @field_validator("metric")
     @classmethod
@@ -233,6 +247,8 @@ class ResolvedPBTSection(PBTSection):
 
     @model_validator(mode="after")
     def validate_resolved_strategy_shape(self):
+        if self.lr_controller is not None and self.strategy != "anchored_lr_sweep":
+            raise ValueError("lr_controller is only supported with anchored_lr_sweep")
         if self.strategy == "anchored_lr_sweep" and self.lr_factors is not None and len(self.lr_factors) < 2:
             raise ValueError("anchored_lr_sweep requires at least two lr_factors")
         return self
@@ -351,6 +367,11 @@ class ResolvedPBTConfig(StrictSectionModel):
             and not self.shared.initial_state
         ):
             raise ValueError("baseline_guard_action: rollback_to_initial requires initial_state/initial_optimizer")
+        if self.pbt.baseline_guard_seed_initial_best:
+            if not self.shared.initial_state or not self.shared.initial_optimizer:
+                raise ValueError("baseline_guard_seed_initial_best requires initial_state/initial_optimizer")
+            if self.pbt.baseline_metric_value is None:
+                raise ValueError("baseline_guard_seed_initial_best requires baseline_metric_value")
         return self
 
     def to_runtime_dict(self):

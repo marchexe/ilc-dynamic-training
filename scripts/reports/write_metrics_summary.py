@@ -415,7 +415,6 @@ def build_summary(manifest, manifest_path):
             "ctag_mistag_table_csv": "report/ctag_mistag_tables.csv",
         },
         "diagnostic_plots": {
-            "background_rejection_curves_plot": "diagnostics/background_rejection_curves.png",
             "background_efficiency_curves_plot": "diagnostics/background_efficiency_curves.png",
             "btag_background_efficiency_plot": "diagnostics/btag_background_efficiency_vs_training_size.png",
             "selection_timeline_plot": "diagnostics/selection_timeline.png",

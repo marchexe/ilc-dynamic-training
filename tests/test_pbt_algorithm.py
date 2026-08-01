@@ -162,6 +162,53 @@ class PBTAlgorithmTest(unittest.TestCase):
         self.assertAlmostEqual(generation["lr_radius"]["next_radius"], 0.05)
         self.assertEqual(generation["lr_radius"]["inner_win_generations"], 0)
 
+    def test_smooth_lr_controller_limits_center_and_member_jumps(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            strategy="anchored_lr_sweep",
+            lr_factors=[1.0, 1.0, 1.0, 1.0],
+            min_lr=3.0e-6,
+            max_lr=4.0e-5,
+            lr_controller={
+                "mode": "smooth",
+                "smoothing": 1.0,
+                "max_center_increase": 1.20,
+                "max_center_decrease": 0.85,
+                "max_member_increase": 1.25,
+                "max_member_decrease": 0.80,
+                "decay_bias": 1.0,
+            },
+        )
+        members = {
+            "member_00": {"lr": 4.0e-5},
+            "member_01": {"lr": 3.0e-6},
+            "member_02": {"lr": 1.0e-5},
+            "member_03": {"lr": 1.2e-5},
+        }
+        manifest = {
+            "generations": [
+                {"index": 1, "lr_controller": {"generation": 1, "center_lr": 4.0e-5}}
+            ]
+        }
+        generation = {
+            "index": 2,
+            "workers": {
+                "member_00": {"metrics": {"validation_bkg_rejection_score": 9.0}},
+                "member_01": {"metrics": {"validation_bkg_rejection_score": 10.0}},
+                "member_02": {"metrics": {"validation_bkg_rejection_score": 8.0}},
+                "member_03": {"metrics": {"validation_bkg_rejection_score": 7.0}},
+            },
+        }
+
+        ranking, plan = strategy.anchored_lr_sweep_plan(config, generation, members, manifest)
+
+        self.assertEqual(ranking[0], "member_01")
+        self.assertAlmostEqual(generation["lr_controller"]["target_lr"], 3.0e-6)
+        self.assertAlmostEqual(generation["lr_controller"]["center_lr"], 3.4e-5)
+        self.assertAlmostEqual(plan[0]["new_lr"], 3.4e-5)
+        self.assertAlmostEqual(plan[1]["new_lr"], 3.75e-6)
+        self.assertTrue(plan[1]["member_lr_step_clamped"])
+
     def test_exploit_copies_both_states_and_updates_lineage(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -12,7 +12,6 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from reports.plot_background_efficiency_curves import plot_manifest as plot_background_efficiency
-from reports.plot_background_rejection_curves import plot_manifest as plot_background_rejection
 from reports.plot_mistag_tables import collect_tables, write_csv
 from reports.plot_physics_performance import plot_manifest as plot_physics_performance
 from reports.write_metrics_summary import write_summary
@@ -161,8 +160,6 @@ def write_reports(manifest_path):
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     plot_path = plot_physics_performance(manifest_path)
     manifest["physics_performance_plot"] = str(plot_path)
-    plot_path = plot_background_rejection(manifest_path)
-    manifest["background_rejection_curves_plot"] = str(plot_path)
     plot_path = plot_background_efficiency(manifest_path)
     manifest["background_efficiency_curves_plot"] = str(plot_path)
     for tag, efficiencies in {"c": (0.5, 0.8), "b": (0.8, 0.9)}.items():

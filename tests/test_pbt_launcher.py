@@ -273,6 +273,44 @@ class PBTLauncherTest(unittest.TestCase):
             [1.0e-5, 2.0e-5, 3.0e-5, 5.0e-5],
         )
 
+    def test_finetune_config_enables_smooth_lr_controller(self):
+        config = config_module.load_config(
+            namespace(
+                config=PROJECT_DIR / "configs/experiments/finetune_4h_default_weak_adaptive_ranger.yaml",
+                experiment_name="unit_smooth_lr",
+                gpus="0,1,2,3",
+                slots=None,
+                smoke=False,
+            )
+        )
+
+        controller = config["pbt"]["lr_controller"]
+        self.assertEqual(config["pbt"]["strategy"], "anchored_lr_sweep")
+        self.assertEqual(controller["mode"], "smooth")
+        self.assertAlmostEqual(controller["smoothing"], 0.25)
+        self.assertAlmostEqual(controller["max_member_decrease"], 0.80)
+
+    def test_lr_controller_is_rejected_outside_anchored_sweep(self):
+        source = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "bad_lr_controller.yaml"
+            payload = source.read_text().replace(
+                "  seed: 2026\n",
+                "  seed: 2026\n  lr_controller:\n    mode: smooth\n",
+            )
+            config_path.write_text(payload)
+
+            with self.assertRaisesRegex(ValueError, "lr_controller is only supported"):
+                config_module.load_config(
+                    namespace(
+                        config=config_path,
+                        experiment_name="unit_bad_lr_controller",
+                        gpus="0,1",
+                        slots=None,
+                        smoke=True,
+                    )
+                )
+
     def test_head_warmup_freezes_backbone_only_for_configured_generations(self):
         config = config_module.load_config(
             namespace(
@@ -534,6 +572,54 @@ class PBTLauncherTest(unittest.TestCase):
             self.assertTrue(torch.equal(loaded["state"][0]["exp_avg"], torch.zeros(2)))
             self.assertTrue(torch.equal(loaded["state"][0]["exp_avg_sq"], torch.zeros(2)))
             self.assertTrue(torch.equal(loaded["state"][0]["step"], torch.tensor(0)))
+
+    def test_baseline_seed_initial_best_creates_safe_recommended_checkpoint(self):
+        import torch
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = PROJECT_DIR / temporary if not temporary.startswith("/") else Path(temporary)
+            source_state = root / "source_state.pt"
+            source_optimizer = root / "source_optimizer.pt"
+            experiment_dir = root / "run"
+            experiment_dir.mkdir()
+            source_state.write_bytes(b"state")
+            torch.save(
+                {
+                    "state": {
+                        0: {
+                            "step": 17,
+                            "exp_avg": torch.ones(2),
+                            "exp_avg_sq": torch.full((2,), 4.0),
+                        }
+                    },
+                    "param_groups": [{"lr": 2.0e-5, "params": [0]}],
+                },
+                source_optimizer,
+            )
+            config = pbt_smoke_config()
+            config["shared"].update(
+                initial_epoch=17,
+                initial_state=str(source_state),
+                initial_optimizer=str(source_optimizer),
+                initial_optimizer_mode="damped",
+                initial_optimizer_damping=0.25,
+            )
+            config["pbt"].update(
+                baseline_metric_value=1.0367,
+                baseline_guard_seed_initial_best=True,
+            )
+            manifest = {"best": None}
+
+            seeded = strategy.seed_initial_global_best(config, experiment_dir, manifest)
+
+            self.assertTrue(seeded)
+            self.assertEqual((experiment_dir / "global_best_state.pt").read_bytes(), b"state")
+            loaded = torch.load(experiment_dir / "global_best_optimizer.pt", map_location="cpu")
+            self.assertTrue(torch.equal(loaded["state"][0]["exp_avg"], torch.full((2,), 0.25)))
+            self.assertEqual(manifest["best"]["member"], "initial_resume")
+            self.assertEqual(manifest["best"]["generation"], -1)
+            self.assertAlmostEqual(manifest["best"]["metric_value"], 1.0367)
+            self.assertTrue((experiment_dir / "global_best_metadata.json").is_file())
 
     def test_optimizer_options_are_forwarded_to_weaver(self):
         config = pbt_smoke_config()

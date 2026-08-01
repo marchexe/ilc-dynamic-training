@@ -8,6 +8,7 @@ from training.pbt.checkpointing import (  # noqa: F401
     controller_checkpoint_path,
     epoch_for_generation,
     global_best_paths,
+    seed_initial_global_best,
 )
 from training.pbt.metrics import (  # noqa: F401
     best_worker_in_generation,
@@ -28,7 +29,9 @@ from training.pbt.planning import (  # noqa: F401
     fixed_lr_grid_plan,
     lr_factors_for_population,
     plan_for_strategy,
+    previous_lr_controller_record,
     previous_lr_radius_record,
+    smooth_lr_controller_state,
     ranking_and_plan,
     strategy_uses_population_rollbacks,
 )

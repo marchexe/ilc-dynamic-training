@@ -1,18 +1,23 @@
 schema_version: 1
 
 experiment:
-  name: finetune_4h_default_weak_adaptive_ranger
+  name: finetune_8gpu_smooth_lr_resume_best_guarded_ranger
   output_root: runs/pbt
 
 shared:
   dataset: datasets/20250218_ilc_nnqq_sgvnew_parquet
   data_extension: parquet
-  checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+  checkpoint: runs/pbt/smooth_lr_8gpu_iutgpu01_01234567_20260801/global_best_state.pt
+  initial_epoch: 32
+  initial_state: runs/pbt/smooth_lr_8gpu_iutgpu01_01234567_20260801/global_best_state.pt
+  initial_optimizer: runs/pbt/smooth_lr_8gpu_iutgpu01_01234567_20260801/global_best_optimizer.pt
+  initial_optimizer_mode: damped
+  initial_optimizer_damping: 0.25
   data_config: /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
   network_config: networks/pretrained_sgv_particle_transformer.py
   training_controller: null
   seed: 12345
-  generations: 40
+  generations: 24
   epochs_per_generation: 1
   samples_per_epoch: 2400000
   samples_per_epoch_val: 150000
@@ -27,41 +32,50 @@ shared:
   no_remake_weights: true
 
 resources:
-  gpus: [0, 1, 2, 3]
+  gpus: [0, 1, 2, 3, 4, 5, 6, 7]
 
 population:
   - name: member_00
   - name: member_01
   - name: member_02
   - name: member_03
+  - name: member_04
+  - name: member_05
+  - name: member_06
+  - name: member_07
 
 pbt:
   backend: local_weaver
   strategy: anchored_lr_sweep
   metric: validation_working_point_mistag_percent
   mode: min
+  baseline_metric_value: 1.0367279700736196
+  baseline_guard_tolerance: 0.0
+  baseline_guard_action: observe
+  baseline_guard_reject_global_best: true
+  baseline_guard_seed_initial_best: true
   exploit_fraction: 0.25
-  mutation_factors: [0.9, 1.1]
-  min_lr: 3.0e-6
-  max_lr: 4.0e-5
+  mutation_factors: [0.95, 1.05]
+  min_lr: 1.0e-5
+  max_lr: 2.1e-5
   degradation_tolerance: 0.01
   degradation_window: 2
   rollback_fraction: 0.25
-  early_stop_degraded_generations: 0
+  early_stop_degraded_generations: 6
   controller_state_on_exploit: reset
   seed: 2026
-  base_start_lr: 1.5e-5
+  base_start_lr: 1.56e-5
   lr_radius:
-    initial: 0.60
-    minimum: 0.10
-    shrink_factor: 0.70
+    initial: 0.25
+    minimum: 0.05
+    shrink_factor: 0.75
     shrink_after_inner_wins: 2
     keep_if_edge_wins: true
   lr_controller:
     mode: smooth
-    smoothing: 0.25
-    max_center_increase: 1.20
-    max_center_decrease: 0.85
-    max_member_increase: 1.25
-    max_member_decrease: 0.80
-    decay_bias: 0.98
+    smoothing: 0.20
+    max_center_increase: 1.10
+    max_center_decrease: 0.90
+    max_member_increase: 1.15
+    max_member_decrease: 0.87
+    decay_bias: 0.995

@@ -1,7 +1,7 @@
 schema_version: 1
 
 experiment:
-  name: finetune_4h_default_weak_adaptive_ranger
+  name: finetune_8gpu_smooth_lr_ranger
   output_root: runs/pbt
 
 shared:
@@ -27,13 +27,17 @@ shared:
   no_remake_weights: true
 
 resources:
-  gpus: [0, 1, 2, 3]
+  gpus: [0, 1, 2, 3, 4, 5, 6, 7]
 
 population:
   - name: member_00
   - name: member_01
   - name: member_02
   - name: member_03
+  - name: member_04
+  - name: member_05
+  - name: member_06
+  - name: member_07
 
 pbt:
   backend: local_weaver
