@@ -3,7 +3,6 @@
 
 import math
 import random
-from functools import cmp_to_key
 
 from training.pbt.metrics import metric_is_worse_than_reference
 from training.pbt.models.events import normalize_exploit_plan
@@ -48,6 +47,67 @@ def metric_difference(config, left_value, right_value):
     return float(right_value) - float(left_value)
 
 
+def raw_metric_sort_key(config, generation_record, member_name, metric_name):
+    value = member_metric_value(generation_record, member_name, metric_name)
+    if config["pbt"]["mode"] == "max":
+        value = -value
+    return value
+
+
+def previous_anchor(manifest, members):
+    if not manifest:
+        return None
+    for generation in reversed(manifest.get("generations", [])):
+        ranking = generation.get("ranking") or []
+        for member_name in ranking:
+            if member_name in members:
+                return member_name
+    return None
+
+
+def member_metric_uncertainty(generation_record, member_name, metric_name):
+    metrics = generation_record["workers"][member_name]["metrics"]
+    return metric_uncertainty(metrics, metric_name)
+
+
+def has_all_member_uncertainties(generation_record, members, metric_name):
+    return all(
+        member_metric_uncertainty(generation_record, member_name, metric_name) is not None
+        for member_name in members
+    )
+
+
+def statistically_beats(config, generation_record, candidate, incumbent, metric_name, sigma):
+    candidate_value = member_metric_value(generation_record, candidate, metric_name)
+    incumbent_value = member_metric_value(generation_record, incumbent, metric_name)
+    candidate_uncertainty = member_metric_uncertainty(generation_record, candidate, metric_name)
+    incumbent_uncertainty = member_metric_uncertainty(generation_record, incumbent, metric_name)
+    if candidate_uncertainty is None or incumbent_uncertainty is None or sigma is None:
+        return metric_difference(config, candidate_value, incumbent_value) > 0.0
+
+    margin = float(sigma)
+    if config["pbt"]["mode"] == "max":
+        return (
+            candidate_value - margin * candidate_uncertainty
+            > incumbent_value + margin * incumbent_uncertainty
+        )
+    return (
+        candidate_value + margin * candidate_uncertainty
+        < incumbent_value - margin * incumbent_uncertainty
+    )
+
+
+def confidence_bound_sort_key(config, generation_record, members, member_name, metric_name, sigma, manifest=None):
+    value = member_metric_value(generation_record, member_name, metric_name)
+    uncertainty = member_metric_uncertainty(generation_record, member_name, metric_name) or 0.0
+    margin = 0.0 if sigma is None else float(sigma) * uncertainty
+    if config["pbt"]["mode"] == "max":
+        score = -(value - margin)
+    else:
+        score = value + margin
+    return score, ranking_tie_break_key(manifest, members, member_name)
+
+
 def confidence_aware_ranking(config, generation_record, members, manifest=None):
     metric_name = config["pbt"]["metric"]
     pbt = config["pbt"]
@@ -59,36 +119,64 @@ def confidence_aware_ranking(config, generation_record, members, manifest=None):
         )
 
     sigma = pbt.get("selection_uncertainty_sigma")
+    if sigma is None or not has_all_member_uncertainties(generation_record, members, metric_name):
+        ranking = sorted(
+            members,
+            key=lambda name: (
+                raw_metric_sort_key(config, generation_record, name, metric_name),
+                ranking_tie_break_key(manifest, members, name),
+            ),
+        )
+        generation_record["selection"] = {
+            "schema_version": 1,
+            "mode": "raw_metric",
+            "metric": metric_name,
+            "uncertainty_sigma": sigma,
+            "reason": "missing_uncertainty",
+        }
+        return ranking
 
-    def compare(left, right):
-        left_metrics = generation_record["workers"][left]["metrics"]
-        right_metrics = generation_record["workers"][right]["metrics"]
-        left_value = member_metric_value(generation_record, left, metric_name)
-        right_value = member_metric_value(generation_record, right, metric_name)
-        improvement = metric_difference(config, left_value, right_value)
-        if sigma is not None:
-            left_uncertainty = metric_uncertainty(left_metrics, metric_name)
-            right_uncertainty = metric_uncertainty(right_metrics, metric_name)
-            if left_uncertainty is not None and right_uncertainty is not None:
-                margin = float(sigma) * math.sqrt(left_uncertainty ** 2 + right_uncertainty ** 2)
-                if abs(improvement) <= margin:
-                    left_key = ranking_tie_break_key(manifest, members, left)
-                    right_key = ranking_tie_break_key(manifest, members, right)
-                    return -1 if left_key < right_key else 1 if left_key > right_key else 0
-        if improvement > 0:
-            return -1
-        if improvement < 0:
-            return 1
-        left_key = ranking_tie_break_key(manifest, members, left)
-        right_key = ranking_tie_break_key(manifest, members, right)
-        return -1 if left_key < right_key else 1 if left_key > right_key else 0
+    incumbent = previous_anchor(manifest, members)
+    if incumbent is None:
+        incumbent = min(
+            members,
+            key=lambda name: (
+                raw_metric_sort_key(config, generation_record, name, metric_name),
+                ranking_tie_break_key(manifest, members, name),
+            ),
+        )
+    challenger_order = sorted(
+        (name for name in members if name != incumbent),
+        key=lambda name: (
+            raw_metric_sort_key(config, generation_record, name, metric_name),
+            ranking_tie_break_key(manifest, members, name),
+        ),
+    )
+    for candidate in challenger_order:
+        if statistically_beats(config, generation_record, candidate, incumbent, metric_name, sigma):
+            incumbent = candidate
 
-    ranking = sorted(members, key=cmp_to_key(compare))
+    remaining = sorted(
+        (name for name in members if name != incumbent),
+        key=lambda name: confidence_bound_sort_key(
+            config,
+            generation_record,
+            members,
+            name,
+            metric_name,
+            sigma,
+            manifest,
+        ),
+    )
+    ranking = [incumbent, *remaining]
     generation_record["selection"] = {
         "schema_version": 1,
         "mode": "confidence_aware",
         "metric": metric_name,
         "uncertainty_sigma": sigma,
+        "anchor_policy": "incumbent_significance",
+        "score": "conservative_confidence_bound",
+        "anchor_member": incumbent,
     }
     return ranking
 

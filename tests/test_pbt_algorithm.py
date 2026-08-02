@@ -440,6 +440,84 @@ class PBTAlgorithmTest(unittest.TestCase):
 
         self.assertEqual(ranking, ["member_01", "member_00"])
 
+    def test_confidence_aware_selection_uses_incumbent_not_pairwise_ties(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            metric="validation_working_point_mistag_percent",
+            mode="min",
+            confidence_aware_selection=True,
+            selection_uncertainty_sigma=1.0,
+        )
+        generation = {
+            "index": 1,
+            "workers": {
+                "member_00": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 1.00,
+                        "validation_working_point_mistag_percent_uncertainty": 0.03,
+                    }
+                },
+                "member_01": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 0.96,
+                        "validation_working_point_mistag_percent_uncertainty": 0.03,
+                    }
+                },
+                "member_02": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 0.92,
+                        "validation_working_point_mistag_percent_uncertainty": 0.03,
+                    }
+                },
+            },
+        }
+        members = {
+            "member_00": {"lr": 2.0e-5},
+            "member_01": {"lr": 2.1e-5},
+            "member_02": {"lr": 2.2e-5},
+        }
+        manifest = {"generations": [{"index": 0, "ranking": ["member_00", "member_01", "member_02"]}]}
+
+        ranking = strategy.confidence_aware_ranking(config, generation, members, manifest)
+
+        self.assertEqual(ranking, ["member_02", "member_01", "member_00"])
+        self.assertEqual(generation["selection"]["anchor_policy"], "incumbent_significance")
+        self.assertEqual(generation["selection"]["score"], "conservative_confidence_bound")
+
+
+    def test_confidence_aware_selection_preserves_incumbent_without_significant_win(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            metric="validation_working_point_mistag_percent",
+            mode="min",
+            confidence_aware_selection=True,
+            selection_uncertainty_sigma=1.0,
+        )
+        generation = {
+            "index": 1,
+            "workers": {
+                "member_00": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 1.00,
+                        "validation_working_point_mistag_percent_uncertainty": 0.03,
+                    }
+                },
+                "member_01": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 0.96,
+                        "validation_working_point_mistag_percent_uncertainty": 0.03,
+                    }
+                },
+            },
+        }
+        members = {"member_00": {"lr": 2.0e-5}, "member_01": {"lr": 2.1e-5}}
+        manifest = {"generations": [{"index": 0, "ranking": ["member_00", "member_01"]}]}
+
+        ranking = strategy.confidence_aware_ranking(config, generation, members, manifest)
+
+        self.assertEqual(ranking[0], "member_00")
+
+
     def test_anchored_lr_sweep_can_preserve_branch_weights(self):
         config = pbt_smoke_config()
         config["pbt"].update(
