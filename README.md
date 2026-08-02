@@ -121,7 +121,17 @@ Fine-tuning architecture for the pretrained best checkpoint:
 
 The guarded fine-tuning runs rank workers by `validation_working_point_mistag_percent`, the average mistag at b-tag 80/90% and c-tag 50/80% reference working points. They resume the canonical pretrained epoch-17 state and optimizer from the self-contained `checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/` bundle, seed the initial checkpoint as global best, and reject any worse global-best replacement. Selection is confidence-aware when exact background pass/total counters are available, so near-ties inside the configured uncertainty margin keep the previous/stable ordering instead of over-selecting noisy tails. The guarded presets use `anchored_weight_source: self`: LR is still centered on the best branch, but each member keeps its own weights across generations. This preserves long-horizon branch diversity; `anchored_weight_source: anchor` remains available for aggressive exploit-and-copy sweeps. Historical fixed-grid and rescue experiments are kept under `configs/experiments/archive/legacy_finetune/` for reproducibility only.
 
-Datasets are not committed; the expected local parquet layout is recorded in `datasets/manifests/`. PBT runs write `metrics_summary.json` and plot PNGs under `plots/` automatically after completion. Lightweight Git-trackable research evidence lives in `results/research/` and can be produced with:
+Datasets are not committed; the expected local parquet layout is recorded in `datasets/manifests/`.
+
+The main proxy-validation dataset is a local 3-category subset of `/data/suehara/mldata/flavortag/20250711_ilc_nnqq_sgv_10m`, restricted to `bb/cc/dd` to match the current pretrained 3cat head and working-point metrics. Rebuild its parquet form with:
+
+```bash
+bash scripts/data/convert_20250711_sgv10m_3cat_to_parquet.sh
+```
+
+Its tracked base manifest is `datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_parquet.json`; the active proxy manifest is `datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json`. Use `configs/experiments/pretrained_guarded_8gpu_smooth_lr_10m_proxy_control.yaml` for an adaptive run that trains on `train800k` parquet while validating on the fixed `val5k_tail` control proxy. The `val5k_tail` control proxy uses the final rows of each `val1000k` file; `val50k_tail` monitor uses the immediately preceding rows, so monitor/control are disjoint and both come from the dataset tail.
+
+PBT runs write `metrics_summary.json` and plot PNGs under `plots/` automatically after completion. Lightweight Git-trackable research evidence lives in `results/research/` and can be produced with:
 
 ```bash
 PYTHONPATH=scripts .venv/bin/python scripts/reports/export_research_result.py \

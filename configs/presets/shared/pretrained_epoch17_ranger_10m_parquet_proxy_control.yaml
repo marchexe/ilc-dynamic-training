@@ -1,0 +1,44 @@
+schema_version: 1
+
+shared:
+  dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  data_extension: parquet
+  train_suffix: train800k
+  validation_suffix: val5k_tail
+  checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+  initial_epoch: 17
+  initial_state: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+  initial_optimizer: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
+  initial_optimizer_mode: damped
+  initial_optimizer_damping: 0.25
+  data_config: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
+  network_config: networks/pretrained_sgv_particle_transformer.py
+  training_controller: null
+  seed: 12345
+  generations: 96
+  epochs_per_generation: 1
+  samples_per_epoch: 120000
+  samples_per_epoch_val: 15000
+  batch_size: 1024
+  optimizer: ranger
+  lr_scheduler: none
+  num_workers: 1
+  fetch_step: 0.01
+  prefetch_factor: 4
+  use_amp: true
+  amp_dtype: fp16
+  no_remake_weights: true
+  proxy_validation:
+    manifest: datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json
+    active_subset: control
+    control_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    monitor_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    full_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    train_suffix: train800k
+    control_suffix: val5k_tail
+    monitor_suffix: val50k_tail
+    full_suffix: val1000k
+    control_rows_per_class: 5000
+    monitor_rows_per_class: 50000
+    full_rows_per_class: 1000000
+    strategy: disjoint_tail_windows_from_full_validation

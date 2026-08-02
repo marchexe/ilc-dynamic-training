@@ -1,0 +1,19 @@
+schema_version: 1
+
+population:
+  - name: fixed_lr_3e-6
+    start_lr: 3.00e-6
+  - name: fixed_lr_4p5e-6
+    start_lr: 4.50e-6
+  - name: fixed_lr_6e-6
+    start_lr: 6.00e-6
+  - name: fixed_lr_7p5e-6
+    start_lr: 7.50e-6
+  - name: fixed_lr_9e-6
+    start_lr: 9.00e-6
+  - name: fixed_lr_10p5e-6
+    start_lr: 1.05e-5
+  - name: fixed_lr_12e-6
+    start_lr: 1.20e-5
+  - name: fixed_lr_14e-6
+    start_lr: 1.40e-5

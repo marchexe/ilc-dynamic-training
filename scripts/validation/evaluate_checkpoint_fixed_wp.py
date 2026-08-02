@@ -33,6 +33,7 @@ def parse_args():
     parser.add_argument("--data-config", type=Path, default=DEFAULT_DATA_CONFIG)
     parser.add_argument("--network-config", type=Path, default=DEFAULT_NETWORK_CONFIG)
     parser.add_argument("--samples-per-epoch-val", type=int, default=150000)
+    parser.add_argument("--validation-suffix", default="val50k")
     parser.add_argument("--batch-size", type=int, default=1024)
     parser.add_argument("--num-workers", type=int, default=1)
     parser.add_argument("--fetch-step", default="0.01")
@@ -50,7 +51,14 @@ def project_path(path):
 def build_test_command(args, log_path):
     dataset = project_path(args.dataset)
     data_extension = normalize_data_extension(args.data_extension)
-    val_paths = [value.split(":", 1)[1] for value in data_paths(dataset, data_extension)["val"]]
+    val_paths = [
+        value.split(":", 1)[1]
+        for value in data_paths(
+            dataset,
+            data_extension,
+            validation_suffix=args.validation_suffix,
+        )["val"]
+    ]
     return [
         str(weaver_executable()),
         "--run-mode",
@@ -97,6 +105,7 @@ def build_manifest(args, metrics, log_path, command):
             "shared": {
                 "dataset": str(project_path(args.dataset)),
                 "data_extension": normalize_data_extension(args.data_extension),
+                "validation_suffix": args.validation_suffix,
                 "checkpoint": str(checkpoint),
                 "data_config": str(project_path(args.data_config)),
                 "network_config": str(project_path(args.network_config)),

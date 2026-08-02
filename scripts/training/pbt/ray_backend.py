@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from training.pbt.backend import PBTBackend, format_duration, log_event
-from training.pbt.weaver import make_command
+from training.pbt.weaver import make_command, make_initial_evaluation_command
 from training.runtime import PROJECT_DIR, atomic_json, read_metrics, utc_now
 
 SCRIPTS_DIR = PROJECT_DIR / "scripts"
@@ -60,6 +60,9 @@ class RayWeaverBackend(PBTBackend):
 
     def command_for(self, config, member, slot, member_dir, generation):
         return make_command(config, member, slot, member_dir, generation)
+
+    def initial_evaluation_command_for(self, config, slot, experiment_dir):
+        return make_initial_evaluation_command(config, slot, experiment_dir)
 
     def run_generation(self, config, experiment_dir, manifest, generation_record, names, manifest_path):
         ray = _ray_import()

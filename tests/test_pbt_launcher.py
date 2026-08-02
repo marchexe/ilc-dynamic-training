@@ -311,6 +311,106 @@ class PBTLauncherTest(unittest.TestCase):
         self.assertEqual(len(config["population"]), 8)
         self.assertEqual(config["slots"][0]["label"], "iutgpu01:0")
 
+    def test_proxy_validation_config_sets_active_validation_dataset(self):
+        source = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "proxy_control.yaml"
+            payload = source.read_text().replace(
+                "  no_remake_weights: true\n",
+                "  no_remake_weights: true\n"
+                "  proxy_validation:\n"
+                "    manifest: datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json\n"
+                "    active_subset: control\n"
+                "    control_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet\n"
+                "    monitor_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet\n"
+                "    full_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet\n"
+                "    train_suffix: train800k\n"
+                "    control_suffix: val5k_tail\n"
+                "    monitor_suffix: val50k_tail\n"
+                "    full_suffix: val1000k\n"
+                "    control_rows_per_class: 5000\n"
+                "    monitor_rows_per_class: 50000\n"
+                "    full_rows_per_class: 1000000\n"
+                "    strategy: disjoint_tail_windows_from_full_validation\n",
+            )
+            config_path.write_text(payload)
+
+            config = config_module.load_config(
+                namespace(
+                    config=config_path,
+                    experiment_name="unit_proxy_control",
+                    gpus="0,1",
+                    slots=None,
+                    smoke=True,
+                )
+            )
+
+        proxy = config["shared"]["proxy_validation"]
+        self.assertEqual(proxy["active_subset"], "control")
+        self.assertTrue(config["shared"]["validation_dataset"].endswith("20250711_ilc_nnqq_sgv_10m_3cat_parquet"))
+        self.assertEqual(config["shared"]["train_suffix"], "train800k")
+        self.assertEqual(config["shared"]["validation_suffix"], "val5k_tail")
+        self.assertTrue(proxy["manifest"].endswith("datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json"))
+
+
+    def test_pretrained_10m_proxy_control_config_uses_val5k_tail_control(self):
+        config = config_module.load_config(
+            namespace(
+                config=PROJECT_DIR / "configs/experiments/pretrained_guarded_8gpu_smooth_lr_10m_proxy_control.yaml",
+                experiment_name="unit_10m_proxy_control",
+                gpus="0,1",
+                slots=None,
+                smoke=False,
+            )
+        )
+
+        shared = config["shared"]
+        self.assertTrue(shared["dataset"].endswith("20250711_ilc_nnqq_sgv_10m_3cat_parquet"))
+        self.assertTrue(shared["validation_dataset"].endswith("20250711_ilc_nnqq_sgv_10m_3cat_parquet"))
+        self.assertEqual(shared["train_suffix"], "train800k")
+        self.assertEqual(shared["validation_suffix"], "val5k_tail")
+        self.assertEqual(shared["samples_per_epoch"], 120000)
+        self.assertEqual(shared["generations"], 96)
+        self.assertEqual(shared["proxy_validation"]["monitor_suffix"], "val50k_tail")
+        self.assertEqual(shared["proxy_validation"]["full_suffix"], "val1000k")
+
+        pbt = config["pbt"]
+        self.assertEqual(pbt["baseline_metric_value"], 1.1400000057487494)
+        self.assertEqual(pbt["min_lr"], 3.0e-6)
+        self.assertEqual(pbt["max_lr"], 1.2e-5)
+        self.assertEqual(pbt["base_start_lr"], 8.0e-6)
+        self.assertTrue(pbt["dynamic_controller"]["evaluate_initial_checkpoint"])
+        self.assertAlmostEqual(config["population"][0]["start_lr"], 1.0e-5)
+        self.assertAlmostEqual(config["population"][-1]["start_lr"], 6.0e-6)
+
+    def test_initial_evaluation_command_uses_initial_state_and_test_mode(self):
+        config = pbt_smoke_config()
+        config["shared"].update(
+            initial_epoch=17,
+            initial_state="checkpoints/pretrained/epoch17_state.pt",
+            initial_optimizer="checkpoints/pretrained/epoch17_optimizer.pt",
+        )
+        config["pbt"]["dynamic_controller"] = {
+            "mode": "active",
+            "evaluate_initial_checkpoint": True,
+        }
+
+        command, log_path = self.backend.initial_evaluation_command_for(
+            config,
+            "0",
+            PROJECT_DIR / "runs/pbt/unit_initial_eval",
+        )
+
+        self.assertIn("--run-mode", command)
+        self.assertEqual(command[command.index("--run-mode") + 1], "test")
+        self.assertIn("--data-test", command)
+        self.assertEqual(
+            command[command.index("--model-prefix") + 1],
+            "checkpoints/pretrained/epoch17_state.pt",
+        )
+        self.assertEqual(log_path.name, "initial-evaluation.log")
+
+
     def test_lr_controller_is_rejected_outside_anchored_sweep(self):
         source = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
         with tempfile.TemporaryDirectory() as temporary:

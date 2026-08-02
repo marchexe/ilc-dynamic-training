@@ -51,6 +51,22 @@ class ParallelTrainingTest(unittest.TestCase):
         self.assertEqual(args[6], "nncc:/tmp/sgv/*_cc_val50k.parquet")
         self.assertNotIn(".root", " ".join(args))
 
+    def test_data_command_args_can_use_separate_validation_dataset_and_suffix(self):
+        args = runtime.data_command_args(
+            "/tmp/train_sgv",
+            "parquet",
+            "/tmp/proxy_sgv",
+            train_suffix="train800k",
+            validation_suffix="val5k_tail",
+        )
+
+        self.assertEqual(args[0], "--data-train")
+        self.assertEqual(args[4], "--data-val")
+        self.assertEqual(args[1], "nnbb:/tmp/train_sgv/*_bb_train800k.parquet")
+        self.assertEqual(args[5], "nnbb:/tmp/proxy_sgv/*_bb_val5k_tail.parquet")
+        self.assertEqual(args[7], "nndd:/tmp/proxy_sgv/*_dd_val5k_tail.parquet")
+
+
     def test_parallel_command_can_use_parquet_data_and_prefetch(self):
         resolved = comparison_runner.load_and_resolve(
             namespace(

@@ -4,7 +4,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from training.pbt.weaver import make_command, slot_label
+from training.pbt.weaver import make_command, make_initial_evaluation_command, slot_label
 from training.runtime import PROJECT_DIR, atomic_json, read_metrics, terminate, utc_now
 
 
@@ -18,6 +18,9 @@ class PBTBackend:
 
     def slot_label(self, slot):
         return slot_label(slot)
+
+    def initial_evaluation_command_for(self, config, slot, experiment_dir):
+        raise NotImplementedError
 
     def run_generation(self, config, experiment_dir, manifest, generation_record, names, manifest_path):
         raise NotImplementedError
@@ -49,6 +52,9 @@ class LocalWeaverBackend(PBTBackend):
 
     def command_for(self, config, member, slot, member_dir, generation):
         return make_command(config, member, slot, member_dir, generation)
+
+    def initial_evaluation_command_for(self, config, slot, experiment_dir):
+        return make_initial_evaluation_command(config, slot, experiment_dir)
 
     def run_generation(self, config, experiment_dir, manifest, generation_record, names, manifest_path):
         processes = {}

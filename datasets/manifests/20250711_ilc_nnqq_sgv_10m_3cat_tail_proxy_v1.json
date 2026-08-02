@@ -1,0 +1,149 @@
+{
+  "created_at": "2026-08-02T13:03:03.765180+00:00",
+  "data_extension": "parquet",
+  "flavors": [
+    "bb",
+    "cc",
+    "dd"
+  ],
+  "levels": {
+    "control": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val5k_tail.parquet",
+          "row_groups": 1,
+          "rows": 5000,
+          "size_bytes": 18993793,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val1000k.parquet",
+          "source_start_row": 993645,
+          "source_stop_row": 998645
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val5k_tail.parquet",
+          "row_groups": 1,
+          "rows": 5000,
+          "size_bytes": 17402755,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val1000k.parquet",
+          "source_start_row": 991995,
+          "source_stop_row": 996995
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val5k_tail.parquet",
+          "row_groups": 1,
+          "rows": 5000,
+          "size_bytes": 16467077,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val1000k.parquet",
+          "source_start_row": 989485,
+          "source_stop_row": 994485
+        }
+      ],
+      "role": "high_frequency_control_proxy_tail",
+      "rows_by_flavor": {
+        "bb": 5000,
+        "cc": 5000,
+        "dd": 5000
+      },
+      "rows_total": 15000,
+      "selection": "last_rows_of_full_validation",
+      "size_bytes_total": 52863625,
+      "suffix": "val5k_tail"
+    },
+    "full": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val1000k.parquet",
+          "row_groups": 999,
+          "rows": 998645,
+          "size_bytes": 2669453690
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val1000k.parquet",
+          "row_groups": 997,
+          "rows": 996995,
+          "size_bytes": 2429073208
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val1000k.parquet",
+          "row_groups": 995,
+          "rows": 994485,
+          "size_bytes": 2274118528
+        }
+      ],
+      "role": "coarse_full_validation_reference",
+      "rows_by_flavor": {
+        "bb": 998645,
+        "cc": 996995,
+        "dd": 994485
+      },
+      "rows_total": 2990125,
+      "size_bytes_total": 7372645426,
+      "suffix": "val1000k"
+    },
+    "monitor": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val50k_tail.parquet",
+          "row_groups": 1,
+          "rows": 50000,
+          "size_bytes": 158970217,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val1000k.parquet",
+          "source_start_row": 943645,
+          "source_stop_row": 993645
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val50k_tail.parquet",
+          "row_groups": 1,
+          "rows": 50000,
+          "size_bytes": 147719635,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val1000k.parquet",
+          "source_start_row": 941995,
+          "source_stop_row": 991995
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val50k_tail.parquet",
+          "row_groups": 1,
+          "rows": 50000,
+          "size_bytes": 140442377,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val1000k.parquet",
+          "source_start_row": 939485,
+          "source_stop_row": 989485
+        }
+      ],
+      "role": "independent_lower_frequency_monitor_proxy_tail",
+      "rows_by_flavor": {
+        "bb": 50000,
+        "cc": 50000,
+        "dd": 50000
+      },
+      "rows_total": 150000,
+      "selection": "rows_immediately_before_control_tail_window",
+      "size_bytes_total": 447132229,
+      "suffix": "val50k_tail"
+    }
+  },
+  "name": "20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1",
+  "output_dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+  "schema_version": 1,
+  "source_dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+  "strategy": {
+    "control_rows_per_class": 5000,
+    "control_suffix": "val5k_tail",
+    "monitor_rows_per_class": 50000,
+    "monitor_suffix": "val50k_tail",
+    "name": "disjoint_tail_windows_from_full_validation",
+    "notes": "Control uses the final rows of each full-validation parquet file. Monitor uses the immediately preceding rows, so control and monitor are disjoint while both come from the dataset tail.",
+    "source_suffix": "val1000k"
+  }
+}

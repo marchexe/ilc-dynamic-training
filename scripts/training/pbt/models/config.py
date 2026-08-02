@@ -82,6 +82,7 @@ class DynamicControllerConfig(StrictSectionModel):
     """Dynamic-control policy that can override planned LR actions after each generation."""
 
     mode: Literal["disabled", "active"] = "active"
+    evaluate_initial_checkpoint: bool = False
     allowed_actions: list[ControllerActionName] = Field(
         default_factory=lambda: list(DEFAULT_CONTROLLER_ACTIONS),
         min_length=1,
@@ -104,8 +105,27 @@ class DynamicControllerConfig(StrictSectionModel):
         return values
 
 
+class ProxyValidationConfig(StrictSectionModel):
+    """Proxy-validation datasets used for physics-aware high-frequency control."""
+
+    manifest: str
+    active_subset: Literal["control", "monitor", "full"] = "control"
+    control_dataset: str
+    monitor_dataset: str | None = None
+    full_dataset: str | None = None
+    train_suffix: str | None = None
+    control_suffix: str | None = None
+    monitor_suffix: str | None = None
+    full_suffix: str | None = None
+    control_rows_per_class: int | None = Field(default=None, gt=0)
+    monitor_rows_per_class: int | None = Field(default=None, gt=0)
+    full_rows_per_class: int | None = Field(default=None, gt=0)
+    strategy: str | None = None
+
+
 class SharedSection(WeaverSharedSection):
     dataset: str
+    validation_dataset: str | None = None
     checkpoint: str
     data_config: str
     network_config: str
@@ -122,7 +142,10 @@ class SharedSection(WeaverSharedSection):
     use_amp: bool
     amp_dtype: str
     no_remake_weights: bool
+    proxy_validation: ProxyValidationConfig | None = None
     data_extension: str | None = None
+    train_suffix: str | None = None
+    validation_suffix: str | None = None
     training_controller: str | None = None
     initial_epoch: int | None = None
     initial_state: str | None = None

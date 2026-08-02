@@ -8,7 +8,7 @@ from pathlib import Path
 
 from training.pbt.checkpointing import epoch_for_generation
 from training.weaver import build_command
-from training.runtime import PROJECT_DIR, project_path
+from training.runtime import PROJECT_DIR, data_paths, project_path, weaver_executable
 
 
 def local_hostnames():
@@ -83,6 +83,51 @@ def wrap_remote_command(command, slot):
     else:
         remote = f"cd {shlex.quote(str(PROJECT_DIR))} && exec {shlex.join(command)}"
     return ["ssh", host, remote]
+
+
+def make_initial_evaluation_command(config, slot, experiment_dir):
+    shared = config["shared"]
+    validation_paths = data_paths(
+        shared["dataset"],
+        shared.get("data_extension", "root"),
+        shared.get("validation_dataset"),
+        shared.get("train_suffix"),
+        shared.get("validation_suffix"),
+    )["val"]
+    eval_dir = Path(experiment_dir) / "initial_evaluation"
+    log_path = eval_dir / "initial-evaluation.log"
+    checkpoint = shared.get("initial_state") or shared["checkpoint"]
+    gpu = slot["gpu"] if isinstance(slot, dict) else str(slot)
+    command = [
+        str(weaver_executable()),
+        "--run-mode",
+        "test",
+        "--data-test",
+        *validation_paths,
+        "--data-config",
+        shared["data_config"],
+        "--network-config",
+        shared["network_config"],
+        "--model-prefix",
+        str(checkpoint),
+        "--log-file",
+        str(log_path),
+        "--batch-size",
+        str(shared["batch_size"]),
+        "--num-workers",
+        str(shared["num_workers"]),
+        "--fetch-step",
+        str(shared["fetch_step"]),
+        "--gpus",
+        str(gpu),
+        "--predict-gpus",
+        str(gpu),
+    ]
+    if shared["use_amp"]:
+        command.extend(["--use-amp", "--amp-dtype", str(shared["amp_dtype"])])
+    if shared.get("prefetch_factor") is not None:
+        command.extend(["--prefetch-factor", str(shared["prefetch_factor"])])
+    return wrap_remote_command(command, slot), log_path
 
 
 def make_command(config, member, slot, member_dir, generation):

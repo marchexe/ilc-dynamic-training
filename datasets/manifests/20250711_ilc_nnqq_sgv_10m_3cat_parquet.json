@@ -1,0 +1,204 @@
+{
+  "created_at": "2026-08-02T12:53:52.156577+00:00",
+  "data_extension": "parquet",
+  "expected_patterns": [
+    "*_bb_train800k.parquet",
+    "*_cc_train800k.parquet",
+    "*_dd_train800k.parquet",
+    "*_bb_val5k.parquet",
+    "*_cc_val5k.parquet",
+    "*_dd_val5k.parquet",
+    "*_bb_val50k.parquet",
+    "*_cc_val50k.parquet",
+    "*_dd_val50k.parquet",
+    "*_bb_val1000k.parquet",
+    "*_cc_val1000k.parquet",
+    "*_dd_val1000k.parquet"
+  ],
+  "flavors": [
+    "bb",
+    "cc",
+    "dd"
+  ],
+  "levels": {
+    "control": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val5k.parquet",
+          "row_groups": 5,
+          "rows": 4995,
+          "size_bytes": 13488277,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_bb_val5k.root",
+          "source_root_size_bytes": 14879077
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val5k.parquet",
+          "row_groups": 5,
+          "rows": 4980,
+          "size_bytes": 12306774,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_cc_val5k.root",
+          "source_root_size_bytes": 13739221
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val5k.parquet",
+          "row_groups": 5,
+          "rows": 4970,
+          "size_bytes": 11573576,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_dd_val5k.root",
+          "source_root_size_bytes": 13057609
+        }
+      ],
+      "role": "high_frequency_control_proxy",
+      "rows_by_flavor": {
+        "bb": 4995,
+        "cc": 4980,
+        "dd": 4970
+      },
+      "rows_total": 14945,
+      "size_bytes_total": 37368627,
+      "suffix": "val5k"
+    },
+    "full": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val1000k.parquet",
+          "row_groups": 999,
+          "rows": 998645,
+          "size_bytes": 2669453690,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_bb_val1000k.root",
+          "source_root_size_bytes": 2958483393
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val1000k.parquet",
+          "row_groups": 997,
+          "rows": 996995,
+          "size_bytes": 2429073208,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_cc_val1000k.root",
+          "source_root_size_bytes": 2728988217
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val1000k.parquet",
+          "row_groups": 995,
+          "rows": 994485,
+          "size_bytes": 2274118528,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_dd_val1000k.root",
+          "source_root_size_bytes": 2581416998
+        }
+      ],
+      "role": "coarse_full_validation_reference",
+      "rows_by_flavor": {
+        "bb": 998645,
+        "cc": 996995,
+        "dd": 994485
+      },
+      "rows_total": 2990125,
+      "size_bytes_total": 7372645426,
+      "suffix": "val1000k"
+    },
+    "monitor": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val50k.parquet",
+          "row_groups": 50,
+          "rows": 49928,
+          "size_bytes": 133332131,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_bb_val50k.root",
+          "source_root_size_bytes": 147701662
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val50k.parquet",
+          "row_groups": 50,
+          "rows": 49861,
+          "size_bytes": 121879830,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_cc_val50k.root",
+          "source_root_size_bytes": 136753592
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val50k.parquet",
+          "row_groups": 50,
+          "rows": 49729,
+          "size_bytes": 113682048,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_dd_val50k.root",
+          "source_root_size_bytes": 128904575
+        }
+      ],
+      "role": "independent_lower_frequency_monitor_proxy",
+      "rows_by_flavor": {
+        "bb": 49928,
+        "cc": 49861,
+        "dd": 49729
+      },
+      "rows_total": 149518,
+      "size_bytes_total": 368894009,
+      "suffix": "val50k"
+    },
+    "train": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_train800k.parquet",
+          "row_groups": 799,
+          "rows": 798977,
+          "size_bytes": 2137665603,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_bb_train800k.root",
+          "source_root_size_bytes": 2368812938
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_train800k.parquet",
+          "row_groups": 798,
+          "rows": 797569,
+          "size_bytes": 1944160609,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_cc_train800k.root",
+          "source_root_size_bytes": 2183994378
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_train800k.parquet",
+          "row_groups": 796,
+          "rows": 795686,
+          "size_bytes": 1819344727,
+          "source_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root/ml_flavtag_6cat_dd_train800k.root",
+          "source_root_size_bytes": 2065293801
+        }
+      ],
+      "role": "training_input",
+      "rows_by_flavor": {
+        "bb": 798977,
+        "cc": 797569,
+        "dd": 795686
+      },
+      "rows_total": 2392232,
+      "size_bytes_total": 5901170939,
+      "suffix": "train800k"
+    }
+  },
+  "local_parquet_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+  "local_root_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_root",
+  "name": "20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+  "proxy_validation": {
+    "active_control_suffix": "val5k",
+    "full_suffix": "val1000k",
+    "monitor_suffix": "val50k",
+    "notes": "Use bb/cc/dd only, matching the current 3-category checkpoint and b/c/light working-point metrics. gg/ss/uu are intentionally excluded until a 6-category or 11-category contract is added.",
+    "strategy": "existing_size_ladder_from_10m_root"
+  },
+  "reason_not_tracked": "ROOT/parquet data are large; keep only this manifest in Git.",
+  "schema_version": 1,
+  "source_dataset": "/data/suehara/mldata/flavortag/20250711_ilc_nnqq_sgv_10m",
+  "total_size_bytes": 13680079001,
+  "tracked_in_git": false
+}

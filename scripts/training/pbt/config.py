@@ -111,10 +111,34 @@ def absolute_project_path(value, *, resolve=True):
     return str(path.resolve() if resolve else path.absolute())
 
 
+def resolve_proxy_validation_paths(proxy_validation):
+    if not proxy_validation:
+        return None
+    resolved = dict(proxy_validation)
+    for key in ("manifest", "control_dataset", "monitor_dataset", "full_dataset"):
+        if resolved.get(key):
+            resolved[key] = absolute_project_path(resolved[key], resolve=False)
+    return resolved
+
+
 def resolve_shared_paths(shared):
     resolved = dict(shared)
     for key in ("dataset", "data_config", "network_config"):
         resolved[key] = absolute_project_path(resolved[key])
+    proxy_validation = resolve_proxy_validation_paths(resolved.get("proxy_validation"))
+    if proxy_validation:
+        resolved["proxy_validation"] = proxy_validation
+        active_subset = proxy_validation.get("active_subset", "control")
+        dataset_key = f"{active_subset}_dataset"
+        suffix_key = f"{active_subset}_suffix"
+        if proxy_validation.get("train_suffix") and not resolved.get("train_suffix"):
+            resolved["train_suffix"] = proxy_validation["train_suffix"]
+        if proxy_validation.get(dataset_key) and not resolved.get("validation_dataset"):
+            resolved["validation_dataset"] = proxy_validation[dataset_key]
+        if proxy_validation.get(suffix_key) and not resolved.get("validation_suffix"):
+            resolved["validation_suffix"] = proxy_validation[suffix_key]
+    if resolved.get("validation_dataset"):
+        resolved["validation_dataset"] = absolute_project_path(resolved["validation_dataset"])
     if resolved.get("training_controller"):
         resolved["training_controller"] = absolute_project_path(resolved["training_controller"])
     resolved["checkpoint"] = absolute_project_path(resolved["checkpoint"], resolve=False)
@@ -190,7 +214,13 @@ def validate_inputs(config):
         raise FileNotFoundError(
             f"training_controller not found: {shared['training_controller']}"
         )
-    validate_dataset(shared["dataset"], shared.get("data_extension", "root"))
+    validate_dataset(
+        shared["dataset"],
+        shared.get("data_extension", "root"),
+        shared.get("validation_dataset"),
+        shared.get("train_suffix"),
+        shared.get("validation_suffix"),
+    )
     if not (PROJECT_DIR / ".venv/bin/weaver").is_file():
         raise FileNotFoundError("Project Weaver executable is missing")
 

@@ -1,0 +1,10 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/resources/local_8gpu.yaml
+  - ../presets/population/fixed_lr_8_tail.yaml
+  - ../presets/pbt/fixed_lr_grid_mistag.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: pretrained_fixed_lr_8gpu_10m_proxy_control

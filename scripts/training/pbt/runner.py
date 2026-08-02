@@ -4,6 +4,7 @@
 import argparse
 import json
 import shlex
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -17,6 +18,7 @@ from training.runtime import (
     PROJECT_DIR,
     atomic_json,
     git_metadata,
+    read_metrics,
     sha256,
     utc_now,
 )
@@ -61,6 +63,91 @@ def parse_args():
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
+
+
+def initial_evaluation_enabled(config):
+    controller = config["pbt"].get("dynamic_controller") or {}
+    return bool(controller.get("evaluate_initial_checkpoint"))
+
+
+def update_seeded_best_from_initial_evaluation(manifest, metric_name, metrics):
+    best = manifest.get("best") or {}
+    if best.get("generation") != -1 or best.get("member") != "initial_resume":
+        return
+    metric_value = float(metrics[metric_name])
+    best["metric_value"] = metric_value
+    best["metrics"] = metrics
+    best["updated_at"] = utc_now()
+    best["source"] = "initial_evaluation"
+    metadata_path = best.get("metadata_path")
+    if metadata_path:
+        atomic_json(Path(metadata_path), best)
+
+
+def run_initial_evaluation(config, backend, experiment_dir, manifest, manifest_path, pbt_log_path):
+    if not initial_evaluation_enabled(config):
+        return False
+    existing = manifest.get("initial_evaluation") or {}
+    if existing.get("status") == "completed":
+        return False
+
+    slot = config["slots"][0]
+    command, log_path = backend.initial_evaluation_command_for(config, slot, experiment_dir)
+    console_path = log_path.with_suffix(".console.log")
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "status": "running",
+        "checkpoint": config["shared"].get("initial_state") or config["shared"]["checkpoint"],
+        "metric": config["pbt"]["metric"],
+        "slot": backend.slot_label(slot),
+        "command": command,
+        "log": str(log_path),
+        "console_log": str(console_path),
+        "started_at": utc_now(),
+        "finished_at": None,
+        "returncode": None,
+        "metrics": None,
+    }
+    manifest["initial_evaluation"] = record
+    manifest["updated_at"] = utc_now()
+    atomic_json(manifest_path, manifest)
+    log_event(pbt_log_path, f"started initial_evaluation slot={backend.slot_label(slot)}")
+
+    with console_path.open("w") as stream:
+        result = subprocess.run(
+            command,
+            cwd=PROJECT_DIR,
+            stdout=stream,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            check=False,
+        )
+
+    metrics = read_metrics(log_path)
+    metric_name = config["pbt"]["metric"]
+    metric_ok = metrics is not None and metrics.get(metric_name) is not None
+    status = "completed" if result.returncode == 0 and metric_ok else "failed"
+    record.update(
+        status=status,
+        returncode=result.returncode,
+        metrics=metrics,
+        finished_at=utc_now(),
+    )
+    if metric_ok:
+        update_seeded_best_from_initial_evaluation(manifest, metric_name, metrics)
+    manifest["updated_at"] = utc_now()
+    atomic_json(manifest_path, manifest)
+    log_event(
+        pbt_log_path,
+        "finished initial_evaluation returncode=%d metric=%s"
+        % (
+            result.returncode,
+            "n/a" if not metric_ok else "%.6g" % metrics[metric_name],
+        ),
+    )
+    if status == "failed":
+        raise RuntimeError("initial checkpoint evaluation failed")
+    return True
 
 
 def initial_manifest(config, fingerprint):
@@ -123,6 +210,13 @@ def run(args):
 
     if args.dry_run:
         print(yaml.safe_dump(config, sort_keys=False).rstrip())
+        if initial_evaluation_enabled(config):
+            command, _ = backend.initial_evaluation_command_for(
+                config,
+                config["slots"][0],
+                experiment_dir,
+            )
+            print(f"[initial_evaluation] {shlex.join(command)}")
         for index, member_config in enumerate(config["population"]):
             member = {"name": member_config["name"], "lr": float(member_config["start_lr"])}
             command, _, _ = backend.command_for(
@@ -160,6 +254,7 @@ def run(args):
         if not args.dry_run:
             bootstrap_initial_checkpoint(config, member_dir)
     seed_initial_global_best(config, experiment_dir, manifest)
+    run_initial_evaluation(config, backend, experiment_dir, manifest, manifest_path, pbt_log_path)
     (experiment_dir / "resolved_config.yaml").write_text(
         yaml.safe_dump(config, sort_keys=False)
     )

@@ -18,7 +18,9 @@ PROJECT_DIR = Path(__file__).resolve().parents[2]
 SUPPORTED_DATA_EXTENSIONS = {"root", "parquet", "h5", "awkd"}
 # (Weaver input name, jet-flavor file stem)
 FLAVOR_SAMPLE_GROUPS = (("nnbb", "bb"), ("nncc", "cc"), ("nndd", "dd"))
-DATA_SPLITS = (("train", "train800k"), ("val", "val50k"))
+DEFAULT_TRAIN_SUFFIX = "train800k"
+DEFAULT_VALIDATION_SUFFIX = "val50k"
+DATA_SPLITS = (("train", DEFAULT_TRAIN_SUFFIX), ("val", DEFAULT_VALIDATION_SUFFIX))
 BKG_REJECTION_EFFICIENCY_POINTS = (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
 # Fine-tuning selection points: b-tag is judged at 80/90%, c-tag at the
 # reference table working points 50/80%. Pair names are <tag><background>.
@@ -91,41 +93,80 @@ def normalize_data_extension(value):
     return extension
 
 
-def required_sample_patterns(data_extension):
+def split_suffixes(train_suffix=None, validation_suffix=None):
+    return {
+        "train": str(train_suffix or DEFAULT_TRAIN_SUFFIX),
+        "val": str(validation_suffix or DEFAULT_VALIDATION_SUFFIX),
+    }
+
+
+def required_sample_patterns(data_extension, split=None, train_suffix=None, validation_suffix=None):
     data_extension = normalize_data_extension(data_extension)
+    suffixes = split_suffixes(train_suffix, validation_suffix)
+    splits = tuple(suffixes) if split is None else (split,)
+    if any(name not in suffixes for name in splits):
+        raise ValueError(f"unknown data split: {split}")
     return [
-        f"*_{flavor}_{suffix}.{data_extension}"
-        for _, suffix in DATA_SPLITS
+        f"*_{flavor}_{suffixes[name]}.{data_extension}"
+        for name in splits
         for _, flavor in FLAVOR_SAMPLE_GROUPS
     ]
 
 
-def data_paths(dataset, data_extension):
-    dataset = Path(dataset)
+def data_paths(dataset, data_extension, validation_dataset=None, train_suffix=None, validation_suffix=None):
+    train_dataset = Path(dataset)
+    val_dataset = Path(validation_dataset) if validation_dataset else train_dataset
     data_extension = normalize_data_extension(data_extension)
+    suffixes = split_suffixes(train_suffix, validation_suffix)
     return {
-        split: [
-            f"{label}:{dataset}/*_{flavor}_{suffix}.{data_extension}"
+        "train": [
+            f"{label}:{train_dataset}/*_{flavor}_{suffixes['train']}.{data_extension}"
             for label, flavor in FLAVOR_SAMPLE_GROUPS
-        ]
-        for split, suffix in DATA_SPLITS
+        ],
+        "val": [
+            f"{label}:{val_dataset}/*_{flavor}_{suffixes['val']}.{data_extension}"
+            for label, flavor in FLAVOR_SAMPLE_GROUPS
+        ],
     }
 
 
-def data_command_args(dataset, data_extension):
-    paths = data_paths(dataset, data_extension)
+def data_command_args(dataset, data_extension, validation_dataset=None, train_suffix=None, validation_suffix=None):
+    paths = data_paths(dataset, data_extension, validation_dataset, train_suffix, validation_suffix)
     return ["--data-train", *paths["train"], "--data-val", *paths["val"]]
 
 
-def validate_dataset(dataset, data_extension):
+def validate_dataset(dataset, data_extension, validation_dataset=None, train_suffix=None, validation_suffix=None):
     dataset = Path(dataset)
     if not dataset.is_dir():
         raise FileNotFoundError(f"dataset not found: {dataset}")
     missing = [
         pattern
-        for pattern in required_sample_patterns(data_extension)
+        for pattern in required_sample_patterns(data_extension, split="train", train_suffix=train_suffix)
         if not any(dataset.glob(pattern))
     ]
+    if validation_dataset:
+        validation_dataset = Path(validation_dataset)
+        if not validation_dataset.is_dir():
+            raise FileNotFoundError(f"validation_dataset not found: {validation_dataset}")
+        missing.extend(
+            f"validation_dataset:{pattern}"
+            for pattern in required_sample_patterns(
+                data_extension,
+                split="val",
+                validation_suffix=validation_suffix,
+            )
+            if not any(validation_dataset.glob(pattern))
+        )
+    else:
+        missing.extend(
+            pattern
+            for pattern in required_sample_patterns(
+                data_extension,
+                split="val",
+                validation_suffix=validation_suffix,
+            )
+            if not any(dataset.glob(pattern))
+        )
     if missing:
         missing_list = ", ".join(missing)
         raise FileNotFoundError(
