@@ -1,5 +1,7 @@
 Local links:
   net_best_epoch_state.pt -> /data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+  net_epoch-17_state.pt -> /data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+  net_epoch-17_optimizer.pt -> /data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
   data_config.auto.yaml -> /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
   base_config.yaml -> /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.yaml
   ilc_nnqq_sgvnew_3cat_cut.log -> /data/suehara/part/suehara/logs/unprocessed/ilc_nnqq_sgvnew_3cat_cut/ilc_nnqq_sgvnew_3cat_cut.log

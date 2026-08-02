@@ -16,6 +16,64 @@ from training.runtime import (
 )
 
 
+def deep_merge(base, override):
+    result = dict(base)
+    for key, value in override.items():
+        if (
+            key in result
+            and isinstance(result[key], dict)
+            and isinstance(value, dict)
+        ):
+            result[key] = deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def resolve_preset_path(raw_path, parent):
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path
+    candidate = parent / path
+    if candidate.exists():
+        return candidate.resolve()
+    return project_path(path).resolve()
+
+
+def load_yaml_with_presets(config_path, seen=None):
+    config_path = config_path.resolve()
+    seen = set() if seen is None else set(seen)
+    if config_path in seen:
+        chain = " -> ".join(str(path) for path in [*seen, config_path])
+        raise ValueError(f"Preset cycle detected: {chain}")
+    seen.add(config_path)
+
+    payload = yaml.safe_load(config_path.read_text())
+    if payload is None:
+        payload = {}
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected YAML mapping: {config_path}")
+
+    preset_paths = payload.get("presets") or []
+    if isinstance(preset_paths, (str, Path)):
+        preset_paths = [str(preset_paths)]
+    if not isinstance(preset_paths, list) or any(
+        not isinstance(item, str) for item in preset_paths
+    ):
+        raise ValueError("presets must be a string or a list of strings")
+
+    merged = {}
+    for raw_preset in preset_paths:
+        preset_path = resolve_preset_path(raw_preset, config_path.parent)
+        merged = deep_merge(merged, load_yaml_with_presets(preset_path, seen))
+
+    local = dict(payload)
+    local.pop("presets", None)
+    merged = deep_merge(merged, local)
+    seen.remove(config_path)
+    return merged
+
+
 def parse_slots(args, resources):
     if args.gpus and args.slots:
         raise ValueError("Use either --gpus or --slots, not both")
@@ -81,7 +139,7 @@ def smoke_overrides(shared, population):
 
 def load_config(args):
     config_path = args.config.resolve()
-    payload = yaml.safe_load(config_path.read_text())
+    payload = load_yaml_with_presets(config_path)
     if not isinstance(payload, dict) or payload.get("schema_version") != 1:
         raise ValueError("Expected a schema_version: 1 PBT configuration")
 

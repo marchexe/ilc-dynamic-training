@@ -19,24 +19,38 @@ Large checkpoint/data/run artifacts are not tracked by Git.
 
 ## Experiments
 
-Active presets:
+Active experiment configs:
 
 ```text
-configs/experiments/parallel_baseline_vs_controller.yaml
-configs/experiments/pbt_smoke.yaml
-configs/experiments/pbt_anchored_lr_sweep.yaml
-configs/experiments/pbt_anchored_lr_sweep_ray.yaml        # full Ray executor sweep
-configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml  # epoch-wise Ray LR sweep preset
-configs/experiments/pbt_ray_smoke.yaml                    # Ray executor smoke preset
-configs/experiments/pbt_no_controller.yaml
-configs/experiments/pbt_observe_controller.yaml
-configs/experiments/pbt_control_fixed_lr.yaml
+configs/experiments/pretrained_guarded_8gpu_smooth_lr.yaml  # canonical full run
+configs/experiments/pretrained_guarded_4gpu_smooth_lr.yaml  # shorter test run
+configs/experiments/pbt_smoke.yaml                          # local unit/smoke PBT
+configs/experiments/pbt_ray_smoke.yaml                      # Ray executor smoke PBT
+configs/experiments/pbt_anchored_lr_sweep.yaml              # legacy local sweep fixture
+configs/experiments/pbt_anchored_lr_sweep_ray.yaml          # legacy Ray sweep fixture
+configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml    # Ray trial fixture
+configs/experiments/parallel_baseline_vs_controller.yaml    # comparison runner fixture
+configs/experiments/pbt_control_fixed_lr.yaml               # comparison test fixture
+configs/experiments/pbt_no_controller.yaml                  # controller fixture
+configs/experiments/pbt_observe_controller.yaml             # controller fixture
+```
+
+Reusable preset blocks live in:
+
+```text
+configs/presets/shared/pretrained_epoch17_ranger_parquet.yaml
+configs/presets/resources/local_8gpu.yaml
+configs/presets/resources/local_4gpu.yaml
+configs/presets/population/members_8.yaml
+configs/presets/population/members_4.yaml
+configs/presets/pbt/guarded_smooth_lr_mistag.yaml
 ```
 
 Archived old presets live in:
 
 ```text
 configs/experiments/archive/
+configs/experiments/archive/legacy_finetune/
 ```
 
 Controller presets:
@@ -92,35 +106,20 @@ scripts/validation/validate_pretrained_sgv_3cat.sh 0
 Fine-tuning architecture for the pretrained best checkpoint:
 
 ```bash
-# 1. Low-LR fixed grid, AdamW: tests whether smaller LR alone prevents drift.
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_fixed_lr_grid_adamw.yaml --gpus 0,1,2,3'
+# Full 8GPU guarded continuation from pretrained epoch17 + optimizer state.
+.venv/bin/python scripts/training/run_pbt.py \
+  --config configs/experiments/pretrained_guarded_8gpu_smooth_lr.yaml \
+  --slots iutgpu01:0,iutgpu01:1,iutgpu01:2,iutgpu01:3,iutgpu01:4,iutgpu01:5,iutgpu01:6,iutgpu01:7 \
+  --experiment-name pretrained_guarded_8gpu_iutgpu01_$(date +%Y%m%d)
 
-# 1a. Weaker low-LR grid, AdamW: isolates whether full fine-tuning needs much smaller steps.
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_weak_lr_grid_adamw.yaml --gpus 0,1,2,3'
-
-# 1b. Weaker low-LR grid, Ranger: same weak LR range with the historically steadier optimizer.
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_weak_lr_grid_ranger.yaml --gpus 0,1,2,3'
-
-# 2. Same fixed grid, Ranger: optimizer comparison against the historically stronger setup.
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_fixed_lr_grid_ranger.yaml --gpus 0,1,2,3'
-
-# 3. Adaptive rescue: anchored LR sweep with global-best rollback and early stop.
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_adaptive_lr_rescue.yaml --gpus 0,1,2,3'
-
-# 3a. Weaker adaptive rescue: smart LR around 1.5e-5 with radius shrink, rollback, and early stop.
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_weak_adaptive_lr_rescue.yaml --gpus 0,1,2,3'
-
-# 4. Head warmup: freeze backbone for two generations, then unfreeze for the same low-LR grid.
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_head_warmup_fixed_lr_grid.yaml --gpus 0,1,2,3'
-
-# 5. Safe optimizer-resume tail grid: damp epoch-17 Ranger momentum and rollback any baseline-regressing branch.
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_damped_optimizer_tail_lr_grid_ranger.yaml --gpus 0,1,2,3'
-
-# 5-control. Raw optimizer-resume tail grid: keep only as a control for reproducing the unsafe start behavior.
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/finetune_resume_optimizer_tail_lr_grid_ranger.yaml --gpus 0,1,2,3'
+# Shorter 4GPU guarded test run using the same pretrained/safety presets.
+.venv/bin/python scripts/training/run_pbt.py \
+  --config configs/experiments/pretrained_guarded_4gpu_smooth_lr.yaml \
+  --gpus 0,1,2,3 \
+  --experiment-name pretrained_guarded_4gpu_test_$(date +%Y%m%d)
 ```
 
-The fine-tuning runs rank workers by `validation_working_point_mistag_percent`, the average mistag at b-tag 80/90% and c-tag 50/80% reference working points. The fixed-grid runs keep each LR fixed; the adaptive rescue run is the one that mutates/rolls back workers.
+The guarded fine-tuning runs rank workers by `validation_working_point_mistag_percent`, the average mistag at b-tag 80/90% and c-tag 50/80% reference working points. They resume the canonical pretrained epoch-17 state and optimizer, seed the initial checkpoint as global best, and reject any worse global-best replacement. Historical fixed-grid and rescue experiments are kept under `configs/experiments/archive/legacy_finetune/` for reproducibility only.
 
 PBT runs write `metrics_summary.json` and plot PNGs under `plots/` automatically after completion. The clean showcase set is intentionally small:
 

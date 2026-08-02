@@ -1,0 +1,10 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_parquet.yaml
+  - ../presets/resources/local_8gpu.yaml
+  - ../presets/population/members_8.yaml
+  - ../presets/pbt/guarded_smooth_lr_mistag.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: pretrained_guarded_8gpu_smooth_lr

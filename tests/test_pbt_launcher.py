@@ -256,7 +256,7 @@ class PBTLauncherTest(unittest.TestCase):
     def test_fixed_lr_grid_config_preserves_low_lr_grid(self):
         config = config_module.load_config(
             namespace(
-                config=PROJECT_DIR / "configs/experiments/finetune_fixed_lr_grid_adamw.yaml",
+                config=PROJECT_DIR / "configs/experiments/archive/legacy_finetune/finetune_fixed_lr_grid_adamw.yaml",
                 experiment_name="unit_fixed_grid",
                 gpus="0,1,2,3",
                 slots=None,
@@ -276,7 +276,7 @@ class PBTLauncherTest(unittest.TestCase):
     def test_finetune_config_enables_smooth_lr_controller(self):
         config = config_module.load_config(
             namespace(
-                config=PROJECT_DIR / "configs/experiments/finetune_4h_default_weak_adaptive_ranger.yaml",
+                config=PROJECT_DIR / "configs/experiments/pretrained_guarded_4gpu_smooth_lr.yaml",
                 experiment_name="unit_smooth_lr",
                 gpus="0,1,2,3",
                 slots=None,
@@ -287,8 +287,29 @@ class PBTLauncherTest(unittest.TestCase):
         controller = config["pbt"]["lr_controller"]
         self.assertEqual(config["pbt"]["strategy"], "anchored_lr_sweep")
         self.assertEqual(controller["mode"], "smooth")
-        self.assertAlmostEqual(controller["smoothing"], 0.25)
-        self.assertAlmostEqual(controller["max_member_decrease"], 0.80)
+        self.assertAlmostEqual(controller["smoothing"], 0.20)
+        self.assertAlmostEqual(controller["max_member_decrease"], 0.87)
+
+
+    def test_pretrained_guarded_config_uses_presets(self):
+        config = config_module.load_config(
+            namespace(
+                config=PROJECT_DIR / "configs/experiments/pretrained_guarded_8gpu_smooth_lr.yaml",
+                experiment_name="unit_pretrained_guarded",
+                gpus=None,
+                slots="iutgpu01:0,iutgpu01:1,iutgpu01:2,iutgpu01:3,iutgpu01:4,iutgpu01:5,iutgpu01:6,iutgpu01:7",
+                smoke=False,
+            )
+        )
+
+        self.assertEqual(config["shared"]["initial_epoch"], 17)
+        self.assertTrue(config["shared"]["initial_optimizer"].endswith("net_epoch-17_optimizer.pt"))
+        self.assertEqual(config["shared"]["initial_optimizer_mode"], "damped")
+        self.assertEqual(config["shared"]["data_extension"], "parquet")
+        self.assertEqual(config["pbt"]["baseline_metric_value"], 1.0426476744821431)
+        self.assertTrue(config["pbt"]["baseline_guard_seed_initial_best"])
+        self.assertEqual(len(config["population"]), 8)
+        self.assertEqual(config["slots"][0]["label"], "iutgpu01:0")
 
     def test_lr_controller_is_rejected_outside_anchored_sweep(self):
         source = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
@@ -314,7 +335,7 @@ class PBTLauncherTest(unittest.TestCase):
     def test_head_warmup_freezes_backbone_only_for_configured_generations(self):
         config = config_module.load_config(
             namespace(
-                config=PROJECT_DIR / "configs/experiments/finetune_head_warmup_fixed_lr_grid.yaml",
+                config=PROJECT_DIR / "configs/experiments/archive/legacy_finetune/finetune_head_warmup_fixed_lr_grid.yaml",
                 experiment_name="unit_head_warmup",
                 gpus="0,1,2,3",
                 slots=None,

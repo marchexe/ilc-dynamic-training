@@ -1,0 +1,11 @@
+schema_version: 1
+
+population:
+  - name: member_00
+  - name: member_01
+  - name: member_02
+  - name: member_03
+  - name: member_04
+  - name: member_05
+  - name: member_06
+  - name: member_07
