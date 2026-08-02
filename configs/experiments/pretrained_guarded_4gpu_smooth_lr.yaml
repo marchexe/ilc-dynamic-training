@@ -11,7 +11,7 @@ experiment:
 
 shared:
   generations: 8
-  samples_per_epoch: 1200000
+  samples_per_epoch: 480000
 
 pbt:
   early_stop_degraded_generations: 4

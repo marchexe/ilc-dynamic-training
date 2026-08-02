@@ -10,16 +10,32 @@ __pycache__/
 
 # Training outputs and generated data
 runs/
-results/
-datasets/
+results/**
+!results/
+!results/research/
+!results/research/README.md
+!results/research/.gitkeep
+!results/research/*.json
+!results/research/*.csv
+datasets/**
+!datasets/
+!datasets/README.md
+!datasets/manifests/
+!datasets/manifests/*.json
 *.auto.yaml
 *.log
 *.onnx
 *.pt
 *.root
 
-# Keep only checkpoint provenance in Git
+# Keep the small canonical pretrained bundle in Git
 checkpoints/**
 !checkpoints/pretrained/
 !checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/
 !checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/source.txt
+!checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/base_config.yaml
+!checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
+!checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/metadata.json
+!checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+!checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+!checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt

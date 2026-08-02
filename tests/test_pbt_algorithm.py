@@ -34,6 +34,7 @@ class PBTAlgorithmTest(unittest.TestCase):
         config = pbt_smoke_config()
         config["pbt"].update(
             strategy="anchored_lr_sweep",
+            anchored_weight_source="anchor",
             lr_factors=[1.05, 1.025, 0.975, 0.95],
         )
         generation = {
@@ -373,6 +374,96 @@ class PBTAlgorithmTest(unittest.TestCase):
         self.assertEqual(plan[0]["source"], "global_best")
         self.assertEqual(plan[0]["recipient"], "member_01")
         self.assertEqual(plan[0]["new_lr"], 9.0e-5)
+
+    def test_confidence_aware_selection_keeps_previous_winner_inside_uncertainty(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            metric="validation_working_point_mistag_percent",
+            mode="min",
+            confidence_aware_selection=True,
+            selection_uncertainty_sigma=1.0,
+        )
+        generation = {
+            "index": 1,
+            "workers": {
+                "member_00": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 1.00,
+                        "validation_working_point_mistag_percent_uncertainty": 0.05,
+                    }
+                },
+                "member_01": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 0.98,
+                        "validation_working_point_mistag_percent_uncertainty": 0.05,
+                    }
+                },
+            },
+        }
+        members = {"member_00": {"lr": 2.0e-5}, "member_01": {"lr": 2.2e-5}}
+        manifest = {"generations": [{"index": 0, "ranking": ["member_00", "member_01"]}]}
+
+        ranking = strategy.confidence_aware_ranking(config, generation, members, manifest)
+
+        self.assertEqual(ranking, ["member_00", "member_01"])
+        self.assertEqual(generation["selection"]["mode"], "confidence_aware")
+
+    def test_confidence_aware_selection_switches_when_delta_exceeds_uncertainty(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            metric="validation_working_point_mistag_percent",
+            mode="min",
+            confidence_aware_selection=True,
+            selection_uncertainty_sigma=1.0,
+        )
+        generation = {
+            "index": 1,
+            "workers": {
+                "member_00": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 1.00,
+                        "validation_working_point_mistag_percent_uncertainty": 0.02,
+                    }
+                },
+                "member_01": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 0.90,
+                        "validation_working_point_mistag_percent_uncertainty": 0.02,
+                    }
+                },
+            },
+        }
+        members = {"member_00": {"lr": 2.0e-5}, "member_01": {"lr": 2.2e-5}}
+        manifest = {"generations": [{"index": 0, "ranking": ["member_00", "member_01"]}]}
+
+        ranking = strategy.confidence_aware_ranking(config, generation, members, manifest)
+
+        self.assertEqual(ranking, ["member_01", "member_00"])
+
+    def test_anchored_lr_sweep_can_preserve_branch_weights(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            strategy="anchored_lr_sweep",
+            anchored_weight_source="self",
+            lr_factors=[1.05, 0.95],
+        )
+        generation = {
+            "index": 0,
+            "workers": {
+                "member_00": {"metrics": {"validation_bkg_rejection_score": 7.0}},
+                "member_01": {"metrics": {"validation_bkg_rejection_score": 8.0}},
+            },
+        }
+        members = {
+            "member_00": {"lr": 1.0e-4},
+            "member_01": {"lr": 0.9e-4},
+        }
+
+        ranking, plan = strategy.anchored_lr_sweep_plan(config, generation, members)
+
+        self.assertEqual(ranking[0], "member_01")
+        self.assertEqual([event["donor"] for event in plan], ["member_00", "member_01"])
+        self.assertTrue(all(event["weight_source"] == "self" for event in plan))
 
     def test_generation_health_records_baseline_regression(self):
         config = pbt_smoke_config()

@@ -69,6 +69,7 @@ class MetricsSummaryTest(unittest.TestCase):
                 "training_diagnostics_plot": Path(temporary) / "plots/report/training_diagnostics.png",
                 "btag_mistag_table_csv": Path(temporary) / "plots/report/btag_mistag_tables.csv",
                 "ctag_mistag_table_csv": Path(temporary) / "plots/report/ctag_mistag_tables.csv",
+                "controller_diagnostics_plot": Path(temporary) / "plots/diagnostics/controller_diagnostics.png",
             }
             for key, plot_path in plot_paths.items():
                 plot_path.parent.mkdir(parents=True, exist_ok=True)
@@ -105,7 +106,10 @@ class MetricsSummaryTest(unittest.TestCase):
                 summary["report_plots"]["physics_performance_plot"],
                 str(plot_paths["physics_performance_plot"]),
             )
-            self.assertEqual(summary["diagnostic_plots"], {})
+            self.assertEqual(
+                summary["diagnostic_plots"]["controller_diagnostics_plot"],
+                str(plot_paths["controller_diagnostics_plot"]),
+            )
             c_table = next(item for item in summary["mistag_percentages"] if item["tag"] == "c")
             b_table = next(item for item in summary["mistag_percentages"] if item["tag"] == "b")
             self.assertEqual(c_table["rows"][0]["fixed_efficiency"], 0.5)

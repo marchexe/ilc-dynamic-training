@@ -3,6 +3,9 @@ schema_version: 1
 pbt:
   backend: local_weaver
   strategy: anchored_lr_sweep
+  confidence_aware_selection: true
+  selection_uncertainty_sigma: 1.0
+  anchored_weight_source: self
   metric: validation_working_point_mistag_percent
   mode: min
   baseline_metric_value: 1.0426476744821431
@@ -35,3 +38,16 @@ pbt:
     max_member_increase: 1.15
     max_member_decrease: 0.87
     decay_bias: 0.995
+
+  dynamic_controller:
+    mode: active
+    allowed_actions: [keep, lr_mul_0_95, lr_mul_0_9, lr_mul_1_05, lr_mul_1_1, flag_review]
+    metric_delta_tolerance: 0.0
+    ema_beta: 0.70
+    trend_window: 3
+    noisy_metric_threshold: 0.02
+    min_delta_sigma_for_action: 1.0
+    eval_interval_fraction: 0.20
+    action_interval_fraction: 0.20
+    generation_epoch_fraction: 0.20
+    max_cumulative_lr_factor_per_epoch: 2.0

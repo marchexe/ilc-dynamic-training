@@ -25,6 +25,7 @@ from training.pbt.checkpointing import (
     epoch_for_generation,
     seed_initial_global_best,
 )
+from training.pbt.controller import apply_actions_to_plan, run_generation_controller
 from training.pbt.metrics import update_generation_health, update_global_best
 from training.pbt.planning import (
     add_baseline_guard_rollbacks,
@@ -218,6 +219,26 @@ def run(args):
                     experiment_dir, manifest, existing, manifest_path
                 )
                 health = update_generation_health(config, manifest, existing)
+                controller_record = run_generation_controller(config, manifest, existing, experiment_dir)
+                if controller_record:
+                    log_event(
+                        pbt_log_path,
+                        "controller generation=%d actions=%s"
+                        % (
+                            existing["index"],
+                            ",".join(
+                                "%s:%s/%s"
+                                % (
+                                    name,
+                                    action["state_label"],
+                                    action["action"],
+                                )
+                                for name, action in sorted(
+                                    existing.get("controller_actions", {}).items()
+                                )
+                            ),
+                        ),
+                    )
                 early_stop_after = int(config["pbt"].get("early_stop_degraded_generations", 0))
                 early_stop_triggered = (
                     early_stop_after > 0
@@ -229,6 +250,7 @@ def run(args):
                     and not early_stop_triggered
                 )
                 if will_exploit:
+                    plan = apply_actions_to_plan(config, existing, plan)
                     plan = add_baseline_guard_rollbacks(
                         config, manifest, existing, manifest["members"], plan
                     )
@@ -388,6 +410,19 @@ def run(args):
             log_event(
                 pbt_log_path,
                 f"warning: failed to create selection timeline plot: {plot_error}",
+            )
+        try:
+            from reports.plot_controller_diagnostics import plot_manifest
+
+            plot_path = plot_manifest(manifest_path)
+            manifest["controller_diagnostics_plot"] = str(plot_path)
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
+            log_event(pbt_log_path, f"controller diagnostics plot: {plot_path}")
+        except Exception as plot_error:
+            log_event(
+                pbt_log_path,
+                f"warning: failed to create controller diagnostics plot: {plot_error}",
             )
         try:
             from reports.plot_mistag_tables import collect_tables, write_csv

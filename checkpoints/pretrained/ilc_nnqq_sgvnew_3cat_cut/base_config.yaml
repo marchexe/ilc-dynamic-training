@@ -1,0 +1,300 @@
+#treename:
+selection:
+   ### use `&`, `|`, `~` for logical operations on numpy arrays
+   ### can use functions from `math`, `np` (numpy), and `awkward` in the expression
+   #(jet_tightId==1) & (jet_no<2) & (fj_pt>200) & (fj_pt<2500) & (((sample_isQCD==0) & (fj_isQCD==0)) | ((sample_isQCD==1) & (fj_isQCD==1))) & (event_no%7!=0)
+   #(recojet_e>=5)
+
+test_time_selection:
+   ### selection to apply at test time (i.e., when running w/ --predict)
+   #(jet_tightId==1) & (jet_no<2) & (fj_pt>200) & (fj_pt<2500) & (((sample_isQCD==0) & (fj_isQCD==0)) | ((sample_isQCD==1) & (fj_isQCD==1))) & (event_no%7==0)
+   #(recojet_e<5)
+
+new_variables:
+   ### [format] name: formula
+   ### can use functions from `math`, `np` (numpy), and `awkward` in the expression
+   #pfcand_mask: awkward.JaggedArray.ones_like(pfcand_etarel)
+   #sv_mask: awkward.JaggedArray.ones_like(sv_etarel)
+   #pfcand_mask: awkward.JaggedArray.ones_like(pfcand_e)
+   pfcand_mask: ak.ones_like(pfcand_e)
+   pfcand_p: np.sqrt(pfcand_px*pfcand_px + pfcand_py*pfcand_py + pfcand_pz*pfcand_pz)
+   neu_pfcand_mask: ak.ones_like(neu_pfcand_e)
+   neu_pfcand_p: np.sqrt(neu_pfcand_px*neu_pfcand_px + neu_pfcand_py*neu_pfcand_py + neu_pfcand_pz*neu_pfcand_pz)
+
+   mc_b: 1*(label==5)
+   mc_bbar: 1*(label==-5)
+   mc_c: 1*(label==4)
+   mc_cbar: 1*(label==-4)
+   mc_s: 1*(label==3)
+   mc_sbar: 1*(label==-3)
+   mc_d: 1*(label==2)
+   mc_dbar: 1*(label==-2)
+   mc_u: 1*(label==1)
+   mc_ubar: 1*(label==-1)
+   mc_g: 1*(label==21)
+
+### Track Errors
+   # pfcand_dptdpt_log: np.log10(np.abs(pfcand_dptdpt))
+   # pfcand_detadeta_log: np.log10(np.abs(pfcand_detadeta))
+   # pfcand_dphidphi_log: np.log10(np.abs(pfcand_dphidphi))
+   # pfcand_dxydxy_log: np.log10(np.abs(pfcand_dxydxy))
+   # pfcand_dzdz_log: np.log10(np.abs(pfcand_dzdz))
+   # pfcand_dxydz_log: np.log10(np.abs(pfcand_dxydz))
+   # pfcand_dphidxy_log: np.log10(np.abs(pfcand_dphidxy))
+   # pfcand_dlambdadz_log: np.log10(np.abs(pfcand_dlambdadz))
+   # pfcand_dxyc_log: np.log10(np.abs(pfcand_dxyc))
+   # pfcand_dxyctgtheta_log: np.log10(np.abs(pfcand_dxyctgtheta))
+   # pfcand_phic_log: np.log10(np.abs(pfcand_phic))
+   # pfcand_phidz_log: np.log10(np.abs(pfcand_phidz))
+   # pfcand_phictgtheta_log: np.log10(np.abs(pfcand_phictgtheta))
+   # pfcand_cdz_log: np.log10(np.abs(pfcand_cdz))
+   # pfcand_cctgtheta_log: np.log10(np.abs(pfcand_cctgtheta))
+
+### Track Impact Parameters
+   # pfcand_dxy_log: np.log10(np.abs(pfcand_dxy))
+   # pfcand_dz_log: np.log10(np.abs(pfcand_dz))
+   # pfcand_btagSip2dVal_log: np.log10(np.abs(pfcand_btagSip2dVal))
+   # pfcand_btagSip2dSig_log: np.log10(np.abs(pfcand_btagSip2dSig))
+   # pfcand_btagSip3dVal_log: np.log10(np.abs(pfcand_btagSip3dVal))
+   # pfcand_btagSip3dSig_log: np.log10(np.abs(pfcand_btagSip3dSig))
+
+### Jet Track Distance
+   # pfcand_btagJetDistVal_log: np.log10(np.abs(pfcand_btagJetDistVal))
+   # pfcand_btagJetDistSig_log: np.log10(np.abs(pfcand_btagJetDistSig))
+
+preprocess:
+  ### method: [manual, auto] - whether to use manually specified parameters for variable standardization
+  ### [note]: `[var]_mask` will not be transformed even if `method=auto`
+  method: auto
+  ### data_fraction: fraction of events to use when calculating the mean/scale for the standardization
+  data_fraction: 0.1
+
+inputs:
+   pf_features:
+      pad_mode: wrap
+      length: 75
+      vars:
+      ### [format 1]: var_name (no transformation)
+      ### [format 2]: [var_name,
+      ###              subtract_by(optional, default=None, no transf. if preprocess.method=manual, auto transf. if preprocess.method=auto),
+      ###              multiply_by(optional, default=1),
+      ###              clip_min(optional, default=-5),
+      ###              clip_max(optional, default=5),
+      ###              pad_value(optional, default=0)]
+      #- pfcand_btagSip2dVal
+         - pfcand_erel_log
+         - pfcand_thetarel
+         - pfcand_phirel
+
+### Track Errors
+
+         - pfcand_dptdpt
+         - pfcand_detadeta
+         - pfcand_dphidphi
+         - pfcand_dxydxy
+         - pfcand_dzdz
+         - pfcand_dxydz
+         - pfcand_dphidxy
+         - pfcand_dlambdadz
+         - pfcand_dxyc
+         - pfcand_dxyctgtheta
+         - pfcand_phic
+         - pfcand_phidz
+         - pfcand_phictgtheta
+         - pfcand_cdz
+         - pfcand_cctgtheta
+
+         # - pfcand_dptdpt_log
+         # - pfcand_detadeta_log
+         # - pfcand_dphidphi_log
+         # - pfcand_dxydxy_log
+         # - pfcand_dzdz_log
+         # - pfcand_dxydz_log
+         # - pfcand_dphidxy_log
+         # - pfcand_dlambdadz_log
+         # - pfcand_dxyc_log
+         # - pfcand_dxyctgtheta_log
+         # - pfcand_phic_log
+         # - pfcand_phidz_log
+         # - pfcand_phictgtheta_log
+         # - pfcand_cdz_log
+         # - pfcand_cctgtheta_log
+
+
+         # - pfcand_mtof
+         # - pfcand_mtofn
+         # - pfcand_dndx
+
+         - pfcand_charge
+
+### Particle ID
+
+         # - pfcand_isMu
+         # - pfcand_isEl
+         # - pfcand_isChargedHad
+         # - pfcand_isGamma
+         # - pfcand_isNeutralHad
+         # - pfcand_type
+
+### Track Impact Parameters
+
+         - pfcand_dxy
+         - pfcand_dz
+         - pfcand_btagSip2dVal
+         - pfcand_btagSip2dSig
+         - pfcand_btagSip3dVal
+         - pfcand_btagSip3dSig
+
+         # - pfcand_dxy_log
+         # - pfcand_dz_log
+         # - pfcand_btagSip2dVal_log
+         # - pfcand_btagSip2dSig_log
+         # - pfcand_btagSip3dVal_log
+         # - pfcand_btagSip3dSig_log
+
+### Jet Track Distance
+
+         - pfcand_btagJetDistVal
+         - pfcand_btagJetDistSig
+
+         # - pfcand_btagJetDistVal_log
+         # - pfcand_btagJetDistSig_log
+
+
+   pf_vectors:
+      length: 75
+      pad_mode: wrap
+      vars:
+         - [pfcand_px, null]
+         - [pfcand_py, null]
+         - [pfcand_pz, null]
+         - [pfcand_e, null]
+
+   pf_mask:
+      length: 75
+      pad_mode: constant
+      vars:
+         - [pfcand_mask, null]
+
+   neu_features:
+      pad_mode: wrap
+      length: 75
+      vars:
+      ### [format 1]: var_name (no transformation)
+      ### [format 2]: [var_name,
+      ###              subtract_by(optional, default=None, no transf. if preprocess.method=manual, auto transf. if preprocess.method=auto),
+      ###              multiply_by(optional, default=1),
+      ###              clip_min(optional, default=-5),
+      ###              clip_max(optional, default=5),
+      ###              pad_value(optional, default=0)]
+         - neu_pfcand_btagSip2dVal
+         - neu_pfcand_erel_log
+         - neu_pfcand_thetarel
+         - neu_pfcand_phirel
+
+### Track Errors
+
+         - neu_pfcand_dptdpt
+         - neu_pfcand_detadeta
+         - neu_pfcand_dphidphi
+         - neu_pfcand_dxydxy
+         - neu_pfcand_dzdz
+         - neu_pfcand_dxydz
+         - neu_pfcand_dphidxy
+         - neu_pfcand_dlambdadz
+         - neu_pfcand_dxyc
+         - neu_pfcand_dxyctgtheta
+         - neu_pfcand_phic
+         - neu_pfcand_phidz
+         - neu_pfcand_phictgtheta
+         - neu_pfcand_cdz
+         - neu_pfcand_cctgtheta
+
+         # - pfcand_mtof
+         # - pfcand_mtofn
+         # - pfcand_dndx
+
+         - neu_pfcand_charge
+
+### Particle ID
+
+         # - neu_pfcand_isMu
+         # - neu_pfcand_isEl
+         # - neu_pfcand_isChargedHad
+         # - neu_pfcand_isGamma
+         # - neu_pfcand_isNeutralHad
+         # - neu_pfcand_isKaon
+         # - neu_pfcand_isPion
+         # - neu_pfcand_isProton
+         # - neu_pfcand_isKaon0
+         # - neu_pfcand_type
+
+### Track Impact Parameters
+
+         - neu_pfcand_dxy
+         - neu_pfcand_dz
+         - neu_pfcand_btagSip2dVal
+         - neu_pfcand_btagSip2dSig
+         - neu_pfcand_btagSip3dVal
+         - neu_pfcand_btagSip3dSig
+
+### Jet Track Distance
+
+         - neu_pfcand_btagJetDistVal
+         - neu_pfcand_btagJetDistSig
+
+   neu_vectors:
+      length: 75
+      pad_mode: wrap
+      vars:
+         - [neu_pfcand_px, null]
+         - [neu_pfcand_py, null]
+         - [neu_pfcand_pz, null]
+         - [neu_pfcand_e, null]
+
+   neu_mask:
+      length: 75
+      pad_mode: constant
+      vars:
+         - [neu_pfcand_mask, null]
+
+labels:
+   ### type can be `simple`, `custom`
+  ### [option 1] use `simple` for binary/multi-class classification, then `value` is a list of 0-1 labels
+   type: simple
+   value: [
+      mc_b, mc_c, mc_d
+      ]
+   ### [option 2] otherwise use `custom` to define the label, then `value` is a map
+   # type: custom
+   # value:
+      # target_mass: np.where(fj_isQCD, fj_genjet_sdmass, fj_gen_mass)
+
+observers:
+   #- recojet_e
+   #- recojet_theta
+   #- recojet_phi
+   #- recojet_m
+   #- n_pfcand
+
+weights:
+   ### [option 1] use precomputed weights stored in the input files
+   # use_precomputed_weights: true
+   # weight_branches: [weight, class_weight]
+   ### [option 2] compute weights on-the-fly using reweighting histograms
+   use_precomputed_weights: false
+   reweight_method: flat
+   reweight_vars:
+      jet_phi: [-10., 10.]
+      jet_theta: [-10., 10.]
+   reweight_classes: [
+      mc_b,
+      mc_c,
+      mc_d
+      ]
+   class_weights: [
+      1,
+      1,
+      1,
+      ]
+   reweight_hists:

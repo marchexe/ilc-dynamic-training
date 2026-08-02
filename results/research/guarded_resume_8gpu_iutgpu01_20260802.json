@@ -1,0 +1,53 @@
+{
+  "aggregate": {
+    "best_metric": {
+      "count": 1,
+      "mean": 1.0367279700736196,
+      "std": 0.0
+    },
+    "improvement_vs_checkpoint_abs": {
+      "count": 1,
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "improvement_vs_checkpoint_percent": {
+      "count": 1,
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "run_count": 1,
+    "seeds": [
+      12345
+    ]
+  },
+  "runs": [
+    {
+      "anchored_weight_source": null,
+      "backend": "local_weaver",
+      "best_generation": -1,
+      "best_member": "initial_resume",
+      "best_metric": 1.0367279700736196,
+      "checkpoint_baseline_metric": 1.0367279700736196,
+      "confidence_aware_selection": null,
+      "dynamic_controller_mode": null,
+      "experiment": "guarded_resume_8gpu_iutgpu01_20260802",
+      "final_generation_member": "member_07",
+      "final_generation_metric": 1.0586303586751025,
+      "generations_completed": 19,
+      "improvement_vs_checkpoint_abs": 0.0,
+      "improvement_vs_checkpoint_percent": 0.0,
+      "manifest": "runs/pbt/guarded_resume_8gpu_iutgpu01_20260802/manifest.json",
+      "metric": "validation_working_point_mistag_percent",
+      "mode": "min",
+      "samples_per_epoch": 2400000,
+      "samples_per_epoch_val": 150000,
+      "seed": 12345,
+      "selection_uncertainty_sigma": null,
+      "start_generation_member": "member_06",
+      "start_generation_metric": 1.0617655565024415,
+      "status": "completed",
+      "strategy": "anchored_lr_sweep"
+    }
+  ],
+  "schema_version": 1
+}

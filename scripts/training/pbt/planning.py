@@ -3,19 +3,99 @@
 
 import math
 import random
+from functools import cmp_to_key
 
 from training.pbt.metrics import metric_is_worse_than_reference
 from training.pbt.models.events import normalize_exploit_plan
 
 
-def ranking_and_plan(config, generation_record, members):
+def metric_uncertainty(metrics, metric_name):
+    value = metrics.get(f"{metric_name}_uncertainty")
+    if value is None:
+        return None
+    value = float(value)
+    return value if math.isfinite(value) and value >= 0.0 else None
+
+
+def member_metric_value(generation_record, member_name, metric_name):
+    return float(generation_record["workers"][member_name]["metrics"][metric_name])
+
+
+def previous_ranking_index(manifest, member_name):
+    if not manifest:
+        return None
+    for generation in reversed(manifest.get("generations", [])):
+        ranking = generation.get("ranking") or []
+        if member_name in ranking:
+            return ranking.index(member_name)
+    return None
+
+
+def stable_member_index(members, member_name):
+    return list(members).index(member_name)
+
+
+def ranking_tie_break_key(manifest, members, member_name):
+    previous_index = previous_ranking_index(manifest, member_name)
+    if previous_index is None:
+        previous_index = stable_member_index(members, member_name)
+    return previous_index, stable_member_index(members, member_name), member_name
+
+
+def metric_difference(config, left_value, right_value):
+    if config["pbt"]["mode"] == "max":
+        return float(left_value) - float(right_value)
+    return float(right_value) - float(left_value)
+
+
+def confidence_aware_ranking(config, generation_record, members, manifest=None):
     metric_name = config["pbt"]["metric"]
-    reverse = config["pbt"]["mode"] == "max"
-    ranking = sorted(
-        members,
-        key=lambda name: generation_record["workers"][name]["metrics"][metric_name],
-        reverse=reverse,
-    )
+    pbt = config["pbt"]
+    if not pbt.get("confidence_aware_selection", True):
+        return sorted(
+            members,
+            key=lambda name: member_metric_value(generation_record, name, metric_name),
+            reverse=pbt["mode"] == "max",
+        )
+
+    sigma = pbt.get("selection_uncertainty_sigma")
+
+    def compare(left, right):
+        left_metrics = generation_record["workers"][left]["metrics"]
+        right_metrics = generation_record["workers"][right]["metrics"]
+        left_value = member_metric_value(generation_record, left, metric_name)
+        right_value = member_metric_value(generation_record, right, metric_name)
+        improvement = metric_difference(config, left_value, right_value)
+        if sigma is not None:
+            left_uncertainty = metric_uncertainty(left_metrics, metric_name)
+            right_uncertainty = metric_uncertainty(right_metrics, metric_name)
+            if left_uncertainty is not None and right_uncertainty is not None:
+                margin = float(sigma) * math.sqrt(left_uncertainty ** 2 + right_uncertainty ** 2)
+                if abs(improvement) <= margin:
+                    left_key = ranking_tie_break_key(manifest, members, left)
+                    right_key = ranking_tie_break_key(manifest, members, right)
+                    return -1 if left_key < right_key else 1 if left_key > right_key else 0
+        if improvement > 0:
+            return -1
+        if improvement < 0:
+            return 1
+        left_key = ranking_tie_break_key(manifest, members, left)
+        right_key = ranking_tie_break_key(manifest, members, right)
+        return -1 if left_key < right_key else 1 if left_key > right_key else 0
+
+    ranking = sorted(members, key=cmp_to_key(compare))
+    generation_record["selection"] = {
+        "schema_version": 1,
+        "mode": "confidence_aware",
+        "metric": metric_name,
+        "uncertainty_sigma": sigma,
+    }
+    return ranking
+
+
+def ranking_and_plan(config, generation_record, members, manifest=None):
+    metric_name = config["pbt"]["metric"]
+    ranking = confidence_aware_ranking(config, generation_record, members, manifest)
     count = max(1, math.floor(len(ranking) * config["pbt"]["exploit_fraction"]))
     count = min(count, len(ranking) // 2)
     donors = ranking[:count]
@@ -207,13 +287,8 @@ def adaptive_lr_radius_state(config, generation_record, ranking, member_names, m
 
 def anchored_lr_sweep_plan(config, generation_record, members, manifest=None):
     metric_name = config["pbt"]["metric"]
-    reverse = config["pbt"]["mode"] == "max"
     member_names = list(members)
-    ranking = sorted(
-        member_names,
-        key=lambda name: generation_record["workers"][name]["metrics"][metric_name],
-        reverse=reverse,
-    )
+    ranking = confidence_aware_ranking(config, generation_record, members, manifest)
     anchor = ranking[0]
     anchor_lr = float(members[anchor]["lr"])
     anchor_metric = generation_record["workers"][anchor]["metrics"][metric_name]
@@ -249,15 +324,17 @@ def anchored_lr_sweep_plan(config, generation_record, members, manifest=None):
             )
             member_step_clamped = proposed_lr != proposed_lr_before_member_clamp
         new_lr = _clamp(proposed_lr, config["pbt"]["min_lr"], config["pbt"]["max_lr"])
+        donor = anchor if config["pbt"].get("anchored_weight_source", "anchor") == "anchor" else recipient
         plan.append(
             {
                 "source": "anchored_lr_sweep",
                 "recipient": recipient,
-                "donor": anchor,
+                "donor": donor,
                 "anchor_member": anchor,
                 "anchor_metric": anchor_metric,
                 "recipient_lr": float(members[recipient]["lr"]),
-                "donor_lr": anchor_lr,
+                "donor_lr": float(members[donor]["lr"]),
+                "weight_source": config["pbt"].get("anchored_weight_source", "anchor"),
                 "lr_center": center_lr,
                 "lr_factor": factor,
                 "lr_radius": None if radius_state is None else radius_state["radius"],
@@ -274,7 +351,7 @@ def fixed_lr_grid_plan(config, generation_record, members, manifest=None):
     return ranking, []
 
 def exploit_mutate_plan(config, generation_record, members, manifest=None):
-    return ranking_and_plan(config, generation_record, members)
+    return ranking_and_plan(config, generation_record, members, manifest)
 
 STRATEGY_PLANNERS = {
     "anchored_lr_sweep": anchored_lr_sweep_plan,

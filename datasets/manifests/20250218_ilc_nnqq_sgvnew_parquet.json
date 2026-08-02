@@ -1,0 +1,42 @@
+{
+  "expected_patterns": [
+    "*_bb_train800k.parquet",
+    "*_cc_train800k.parquet",
+    "*_dd_train800k.parquet",
+    "*_bb_val50k.parquet",
+    "*_cc_val50k.parquet",
+    "*_dd_val50k.parquet"
+  ],
+  "files": [
+    {
+      "path": "datasets/20250218_ilc_nnqq_sgvnew_parquet/ml_flavtag_6cat_bb_train800k.parquet",
+      "size_bytes": 2336488096
+    },
+    {
+      "path": "datasets/20250218_ilc_nnqq_sgvnew_parquet/ml_flavtag_6cat_bb_val50k.parquet",
+      "size_bytes": 146266876
+    },
+    {
+      "path": "datasets/20250218_ilc_nnqq_sgvnew_parquet/ml_flavtag_6cat_cc_train800k.parquet",
+      "size_bytes": 2139580237
+    },
+    {
+      "path": "datasets/20250218_ilc_nnqq_sgvnew_parquet/ml_flavtag_6cat_cc_val50k.parquet",
+      "size_bytes": 133942568
+    },
+    {
+      "path": "datasets/20250218_ilc_nnqq_sgvnew_parquet/ml_flavtag_6cat_dd_train800k.parquet",
+      "size_bytes": 2022278926
+    },
+    {
+      "path": "datasets/20250218_ilc_nnqq_sgvnew_parquet/ml_flavtag_6cat_dd_val50k.parquet",
+      "size_bytes": 126641556
+    }
+  ],
+  "local_path": "datasets/20250218_ilc_nnqq_sgvnew_parquet",
+  "name": "20250218_ilc_nnqq_sgvnew_parquet",
+  "reason_not_tracked": "Parquet dataset is about 6.5 GB; keep only this manifest in Git.",
+  "schema_version": 1,
+  "total_size_bytes": 6905198259,
+  "tracked_in_git": false
+}

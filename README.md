@@ -119,9 +119,18 @@ Fine-tuning architecture for the pretrained best checkpoint:
   --experiment-name pretrained_guarded_4gpu_test_$(date +%Y%m%d)
 ```
 
-The guarded fine-tuning runs rank workers by `validation_working_point_mistag_percent`, the average mistag at b-tag 80/90% and c-tag 50/80% reference working points. They resume the canonical pretrained epoch-17 state and optimizer, seed the initial checkpoint as global best, and reject any worse global-best replacement. Historical fixed-grid and rescue experiments are kept under `configs/experiments/archive/legacy_finetune/` for reproducibility only.
+The guarded fine-tuning runs rank workers by `validation_working_point_mistag_percent`, the average mistag at b-tag 80/90% and c-tag 50/80% reference working points. They resume the canonical pretrained epoch-17 state and optimizer from the self-contained `checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/` bundle, seed the initial checkpoint as global best, and reject any worse global-best replacement. Selection is confidence-aware when exact background pass/total counters are available, so near-ties inside the configured uncertainty margin keep the previous/stable ordering instead of over-selecting noisy tails. The guarded presets use `anchored_weight_source: self`: LR is still centered on the best branch, but each member keeps its own weights across generations. This preserves long-horizon branch diversity; `anchored_weight_source: anchor` remains available for aggressive exploit-and-copy sweeps. Historical fixed-grid and rescue experiments are kept under `configs/experiments/archive/legacy_finetune/` for reproducibility only.
 
-PBT runs write `metrics_summary.json` and plot PNGs under `plots/` automatically after completion. The clean showcase set is intentionally small:
+Datasets are not committed; the expected local parquet layout is recorded in `datasets/manifests/`. PBT runs write `metrics_summary.json` and plot PNGs under `plots/` automatically after completion. Lightweight Git-trackable research evidence lives in `results/research/` and can be produced with:
+
+```bash
+PYTHONPATH=scripts .venv/bin/python scripts/reports/export_research_result.py \
+  runs/pbt/<run>/manifest.json \
+  --output results/research/<result>.json \
+  --csv-output results/research/<result>.csv
+```
+
+The clean showcase set is intentionally small:
 
 - `plots/report/physics_performance.png`: the main HEP-style result, combining fixed working-point mistag tables with compact mistag [%] bar charts.
 - `plots/report/training_diagnostics.png`: compact training/PBT diagnostic for understanding whether the run improved or drifted.

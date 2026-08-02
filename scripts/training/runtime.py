@@ -4,6 +4,7 @@
 import ast
 import hashlib
 import json
+import math
 import os
 import re
 import signal
@@ -61,8 +62,24 @@ def sha256(path):
     return digest.hexdigest()
 
 
+def expand_path_aliases(value):
+    text = str(value)
+    aliases = {
+        "PROJECT_DIR": PROJECT_DIR,
+        "PART_ROOT": PROJECT_DIR.parent,
+        "PART_DATA_DIR": PROJECT_DIR.parent / "data",
+    }
+    for name, path in aliases.items():
+        for token in (f"${{{name}}}", f"${name}", f"<{name}>"):
+            if text == token:
+                return str(path)
+            if text.startswith(f"{token}/"):
+                return str(path / text[len(token) + 1:])
+    return os.path.expandvars(text)
+
+
 def project_path(value):
-    path = Path(value)
+    path = Path(expand_path_aliases(value))
     return path if path.is_absolute() else PROJECT_DIR / path
 
 
@@ -242,13 +259,61 @@ def _working_point_metrics(curves):
     return out
 
 
+def _count_mistag_uncertainty(counts, pair, eff):
+    rows = (counts or {}).get(pair) or []
+    for row in rows:
+        if abs(float(row.get("signal_efficiency", -1.0)) - float(eff)) > 1.0e-6:
+            continue
+        total = row.get("background_total")
+        passed = row.get("background_passed")
+        if total is None or passed is None:
+            return None
+        total = int(total)
+        passed = int(passed)
+        if total <= 0:
+            return None
+        background_efficiency = passed / total
+        variance = max(background_efficiency * (1.0 - background_efficiency), 0.0) / total
+        return 100.0 * math.sqrt(variance)
+    return None
+
+
+def _working_point_uncertainty_metrics(counts):
+    if not counts:
+        return {}
+
+    def combined_uncertainty(working_points):
+        values = [
+            _count_mistag_uncertainty(counts, pair, eff)
+            for pair, eff in working_points
+        ]
+        values = [value for value in values if value is not None and math.isfinite(value)]
+        if not values:
+            return None, 0
+        return math.sqrt(sum(value * value for value in values)) / len(values), len(values)
+
+    working_point_uncertainty, working_point_count = combined_uncertainty(WORKING_POINT_DEFINITION)
+    ctag_uncertainty, ctag_count = combined_uncertainty(CTAG_REFERENCE_WORKING_POINTS)
+    return {
+        "validation_working_point_mistag_percent_uncertainty": working_point_uncertainty,
+        "validation_working_point_mistag_percent_uncertainty_points": working_point_count,
+        "validation_ctag_reference_mistag_percent_uncertainty": ctag_uncertainty,
+        "validation_ctag_reference_mistag_percent_uncertainty_points": ctag_count,
+    }
+
+
 def read_metrics(path):
     log_path = path / "train.log" if path.is_dir() else path
     if not log_path.is_file():
         return None
     text = log_path.read_text(errors="replace")
-    loss_accuracy = re.findall(r"Eval AvgLoss: ([0-9.]+), AvgAcc: ([0-9.]+)", text)
-    auc = re.findall(r"roc_auc_score:\s*\n([0-9.]+)", text)
+    loss_accuracy = re.findall(r"Eval AvgLoss: ([0-9.eE+-]+), AvgAcc: ([0-9.eE+-]+)", text)
+    train_loss_accuracy = re.findall(r"Train AvgLoss: ([0-9.eE+-]+), AvgAcc: ([0-9.eE+-]+)", text)
+    grad_norms = re.findall(r"Max Grad Norm: ([0-9.eE+-]+)", text)
+    amp_skipped = re.findall(r"AMP skipped optimizer steps: (\d+)", text)
+    cuda_memory = re.findall(r"Max CUDA memory: ([0-9.eE+-]+) MB", text)
+    loaded_lrs = re.findall(r"Overrode loaded optimizer learning rate: [0-9.eE+-]+ -> ([0-9.eE+-]+)", text)
+    auc = re.findall(r"roc_auc_score:\s*\n([0-9.eE+-]+)", text)
     if not loss_accuracy:
         return None
     loss, accuracy = loss_accuracy[-1]
@@ -258,6 +323,18 @@ def read_metrics(path):
         "validation_auc": float(auc[-1]) if auc else None,
         "validation_shutdown_warning": "cannot schedule new futures after shutdown" in text,
     }
+    if train_loss_accuracy:
+        train_loss, train_accuracy = train_loss_accuracy[-1]
+        metrics["train_loss"] = float(train_loss)
+        metrics["train_accuracy"] = float(train_accuracy)
+    if grad_norms:
+        metrics["train_max_grad_norm"] = float(grad_norms[-1])
+    if amp_skipped:
+        metrics["train_amp_skipped_optimizer_steps"] = int(amp_skipped[-1])
+    if cuda_memory:
+        metrics["train_max_cuda_memory_mb"] = float(cuda_memory[-1])
+    if loaded_lrs:
+        metrics["train_loaded_optimizer_lr"] = float(loaded_lrs[-1])
     for name in (
         "bkg_rejection_bc_score",
         "bkg_rejection_bd_score",
@@ -277,6 +354,7 @@ def read_metrics(path):
     counts = _parse_bkg_rejection_at_eff_counts(text)
     if counts:
         metrics["validation_bkg_rejection_at_eff_counts"] = counts
+        metrics.update(_working_point_uncertainty_metrics(counts))
     return metrics
 
 

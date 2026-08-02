@@ -32,6 +32,16 @@ class ParallelTrainingTest(unittest.TestCase):
         self.assertEqual(command[command.index("--start-lr") + 1], "0.000125")
         self.assertEqual(command[command.index("--seed") + 1], "12347")
 
+    def test_project_path_expands_portable_aliases(self):
+        self.assertEqual(
+            runtime.project_path("${PROJECT_DIR}/configs").resolve(),
+            PROJECT_DIR / "configs",
+        )
+        self.assertEqual(
+            runtime.project_path("${PART_DATA_DIR}/data.yaml"),
+            PROJECT_DIR.parent / "data/data.yaml",
+        )
+
     def test_data_command_args_are_shared_by_launchers(self):
         args = runtime.data_command_args("/tmp/sgv", "parquet")
 
@@ -72,6 +82,11 @@ class ParallelTrainingTest(unittest.TestCase):
             log_path = Path(temporary) / "train.log"
             log_path.write_text(
                 """
+Overrode loaded optimizer learning rate: 2e-05 -> 1.9e-05
+Train AvgLoss: 0.27196, AvgAcc: 0.89479
+Max Grad Norm: 0.69661
+AMP skipped optimizer steps: 0
+Max CUDA memory: 12345.0 MB
 Eval AvgLoss: 0.5, AvgAcc: 0.75
 INFO: Evaluation metrics:
     - bkg_rejection_at_eff:
@@ -99,6 +114,12 @@ INFO: Evaluation metrics:
                 sum(100.0 / value for value in (6, 7, 82, 83)) / 4,
             )
             self.assertAlmostEqual(metrics["validation_bc_mistag_eff_0.80_percent"], 100.0 / 80)
+            self.assertAlmostEqual(metrics["train_loss"], 0.27196)
+            self.assertAlmostEqual(metrics["train_accuracy"], 0.89479)
+            self.assertAlmostEqual(metrics["train_max_grad_norm"], 0.69661)
+            self.assertEqual(metrics["train_amp_skipped_optimizer_steps"], 0)
+            self.assertAlmostEqual(metrics["train_max_cuda_memory_mb"], 12345.0)
+            self.assertAlmostEqual(metrics["train_loaded_optimizer_lr"], 1.9e-5)
 
     def test_read_metrics_accepts_nan_in_bgrej_curves(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -141,6 +162,11 @@ INFO: Evaluation metrics:
             self.assertEqual(counts["bc"][0]["background_passed"], 12)
             self.assertEqual(counts["bc"][0]["background_total"], 1000)
             self.assertEqual(counts["bc"][0]["background_efficiency"], 0.012)
+            self.assertEqual(metrics["validation_working_point_mistag_percent_uncertainty_points"], 1)
+            self.assertAlmostEqual(
+                metrics["validation_working_point_mistag_percent_uncertainty"],
+                100.0 * (0.012 * 0.988 / 1000) ** 0.5,
+            )
 
 
 if __name__ == "__main__":

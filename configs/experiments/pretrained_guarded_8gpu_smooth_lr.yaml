@@ -8,3 +8,6 @@ presets:
 experiment:
   output_root: runs/pbt
   name: pretrained_guarded_8gpu_smooth_lr
+
+shared:
+  samples_per_epoch: 480000

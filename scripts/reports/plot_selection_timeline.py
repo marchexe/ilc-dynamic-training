@@ -15,6 +15,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 from reports.plot_pbt_summary import (
     best_physics_for_generation,
     best_physics_overall,
+    checkpoint_baseline_row,
     compact_member_name,
     completed_generations,
 )
@@ -60,6 +61,7 @@ def plot_manifest(manifest_path, output=None):
     manifest, resolved_manifest_path = load_manifest(manifest_path)
     output = Path(output) if output is not None else default_output(resolved_manifest_path)
     rows, selected = selected_rows(manifest)
+    baseline = checkpoint_baseline_row(manifest, resolved_manifest_path)
     members = sorted({row["member"] for row in rows})
     member_y = {member: len(members) - 1 - index for index, member in enumerate(members)}
     xs = [row["generation"] for row in rows]
@@ -113,6 +115,22 @@ def plot_manifest(manifest_path, output=None):
         linewidth=1.2,
         zorder=1,
     )
+    if baseline is not None:
+        ax_score.axhline(
+            baseline["mistag_score"],
+            color="#5f6f82",
+            linestyle=":",
+            linewidth=1.2,
+            zorder=2,
+        )
+        ax_score.annotate(
+            f"checkpoint {baseline['mistag_score']:.3f}%",
+            (xs[0], baseline["mistag_score"]),
+            xytext=(6, 7),
+            textcoords="offset points",
+            fontsize=8.2,
+            color="#4c5868",
+        )
     for row in rows:
         is_selected = row["generation"] == selected["generation"] and row["member"] == selected["member"]
         ax_score.scatter(
@@ -144,6 +162,8 @@ def plot_manifest(manifest_path, output=None):
         Line2D([0], [0], marker="o", color="none", markerfacecolor=MEMBER_COLORS.get(member, "#4c78a8"), markeredgecolor="white", label=compact_member_name(member), markersize=7)
         for member in members
     ]
+    if baseline is not None:
+        handles.append(Line2D([0], [0], color="#5f6f82", linestyle=":", linewidth=1.2, label="checkpoint mistag"))
     handles.append(Line2D([0], [0], marker="*", color="none", markerfacecolor="#111111", markeredgecolor="#111111", label="overall best", markersize=10))
     ax_score.legend(handles=handles, frameon=False, ncols=min(5, len(handles)), loc="best")
 

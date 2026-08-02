@@ -1,0 +1,38 @@
+{
+  "description": "Canonical pretrained SGV 3-category ParticleTransformer checkpoint bundle used by guarded PBT fine-tuning.",
+  "files": {
+    "base_config.yaml": {
+      "sha256": "9edea91132117c161c8376adffe3df38b9461bbf4d357850dc40bb5ae10f1f2a",
+      "size_bytes": 9387
+    },
+    "data_config.auto.yaml": {
+      "sha256": "25c670c3b817a5423d876a989af613be282ce927ea06753e70add611731ff77f",
+      "size_bytes": 13158
+    },
+    "net_best_epoch_state.pt": {
+      "sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501",
+      "size_bytes": 3587246
+    },
+    "net_epoch-17_optimizer.pt": {
+      "sha256": "a1909dd493b3ed07bea41d044fa6cb6862180709a33ad4cd691a094754519f09",
+      "size_bytes": 7143724
+    },
+    "net_epoch-17_state.pt": {
+      "sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501",
+      "size_bytes": 3587246
+    }
+  },
+  "name": "ilc_nnqq_sgvnew_3cat_cut",
+  "notes": [
+    "The epoch-17 state and best-epoch state currently have identical SHA256.",
+    "Datasets are intentionally kept outside Git; see datasets/manifests/20250218_ilc_nnqq_sgvnew_parquet.json."
+  ],
+  "original_sources": {
+    "base_config.yaml": "/data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.yaml",
+    "data_config.auto.yaml": "/data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml",
+    "net_best_epoch_state.pt": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt",
+    "net_epoch-17_optimizer.pt": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt",
+    "net_epoch-17_state.pt": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt"
+  },
+  "schema_version": 1
+}

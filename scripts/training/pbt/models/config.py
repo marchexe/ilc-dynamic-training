@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from training.pbt.models.controller import ControllerActionName, DEFAULT_CONTROLLER_ACTIONS
 from training.pbt.optimizer_state import normalize_optimizer_state_mode
 
 
@@ -77,6 +78,32 @@ class SmoothLrControllerConfig(StrictSectionModel):
     decay_bias: float = Field(default=1.0, gt=0.0, le=1.0)
 
 
+class DynamicControllerConfig(StrictSectionModel):
+    """Dynamic-control policy that can override planned LR actions after each generation."""
+
+    mode: Literal["disabled", "active"] = "active"
+    allowed_actions: list[ControllerActionName] = Field(
+        default_factory=lambda: list(DEFAULT_CONTROLLER_ACTIONS),
+        min_length=1,
+    )
+    metric_delta_tolerance: float = Field(default=0.0, ge=0.0)
+    ema_beta: float = Field(default=0.7, ge=0.0, lt=1.0)
+    trend_window: int = Field(default=3, ge=2)
+    noisy_metric_threshold: float | None = Field(default=None, gt=0.0)
+    min_delta_sigma_for_action: float | None = Field(default=1.0, gt=0.0)
+    eval_interval_fraction: float = Field(default=0.20, gt=0.0)
+    action_interval_fraction: float = Field(default=0.20, gt=0.0)
+    generation_epoch_fraction: float | None = Field(default=None, gt=0.0)
+    max_cumulative_lr_factor_per_epoch: float = Field(default=2.0, ge=1.0)
+
+    @field_validator("allowed_actions")
+    @classmethod
+    def validate_unique_actions(cls, values):
+        if len(set(values)) != len(values):
+            raise ValueError("dynamic_controller.allowed_actions must be unique")
+        return values
+
+
 class SharedSection(WeaverSharedSection):
     dataset: str
     checkpoint: str
@@ -142,10 +169,14 @@ class PBTSection(StrictSectionModel):
     controller_state_on_exploit: Literal["copy", "reset"] | None = None
     backend: Literal["local_weaver", "ray_weaver", "ray_tune"] | None = None
     strategy: Literal["exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid"] | None = None
+    confidence_aware_selection: bool = True
+    selection_uncertainty_sigma: float | None = Field(default=1.0, gt=0.0)
+    anchored_weight_source: Literal["anchor", "self"] = "anchor"
     base_start_lr: float | None = None
     lr_factors: list[float] | None = None
     lr_radius: LrRadiusConfig | None = None
     lr_controller: SmoothLrControllerConfig | None = None
+    dynamic_controller: DynamicControllerConfig | None = None
     baseline_metric_value: float | None = None
     baseline_guard_tolerance: float | None = Field(default=None, ge=0.0, lt=1.0)
     baseline_guard_action: Literal["observe", "rollback_to_initial"] | None = None

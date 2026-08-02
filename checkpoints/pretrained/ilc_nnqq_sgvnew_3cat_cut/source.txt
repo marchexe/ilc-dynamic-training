@@ -1,17 +1,15 @@
-Local links:
-  net_best_epoch_state.pt -> /data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
-  net_epoch-17_state.pt -> /data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
-  net_epoch-17_optimizer.pt -> /data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
-  data_config.auto.yaml -> /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
-  base_config.yaml -> /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.yaml
-  ilc_nnqq_sgvnew_3cat_cut.log -> /data/suehara/part/suehara/logs/unprocessed/ilc_nnqq_sgvnew_3cat_cut/ilc_nnqq_sgvnew_3cat_cut.log
+Canonical pretrained checkpoint bundle
 
-Data config provenance:
-  base_config.yaml is the config passed to Weaver.
-  data_config.auto.yaml is the preprocessed config used by Weaver and by this project runtime.
+This directory is self-contained for the pretrained model artifacts used by guarded PBT fine-tuning.
+The small checkpoint/config files are stored as real files, not symlinks, so configs do not depend on `/data/suehara/part/suehara/...`.
 
-Local validation (pretrained_sgv_3cat, legacy_takahiro_test.log):
-  2026-07-24 legacy Weaver test on bb/cc/dd val50k files:
-    Test metric 0.88936
-    ROC AUC 0.9733589198284708
-    Entries 149833
+Files:
+  base_config.yaml
+  data_config.auto.yaml
+  net_best_epoch_state.pt
+  net_epoch-17_state.pt
+  net_epoch-17_optimizer.pt
+  metadata.json
+
+Original source paths and SHA256 values are recorded in metadata.json.
+Datasets are not committed; see datasets/manifests/20250218_ilc_nnqq_sgvnew_parquet.json.

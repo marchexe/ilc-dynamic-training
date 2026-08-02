@@ -167,34 +167,55 @@ def summary_fixed_wp_mistag(summary):
     return None
 
 
+def configured_checkpoint_mistag(manifest):
+    config = manifest.get("config") or {}
+    pbt = config.get("pbt") or {}
+    if pbt.get("metric") == "validation_working_point_mistag_percent":
+        value = pbt.get("baseline_metric_value")
+        if value is not None:
+            return float(value)
+    best = manifest.get("best") or {}
+    if best.get("generation") == -1 and best.get("metric_value") is not None:
+        return float(best["metric_value"])
+    initial_resume = manifest.get("initial_resume") or {}
+    metric_value = initial_resume.get("metric_value")
+    if metric_value is not None:
+        return float(metric_value)
+    return None
+
+
+def make_checkpoint_baseline_row(mistag):
+    return {
+        "generation": -1,
+        "member": "checkpoint",
+        "worker": {},
+        "mistag_score": float(mistag),
+        "lr": None,
+        "label": "checkpoint",
+    }
+
+
 def checkpoint_baseline_row(manifest, manifest_path):
     checkpoint = checkpoint_path(manifest)
-    if not checkpoint:
-        return None
-    checkpoint_resolved = str(Path(checkpoint).resolve())
-    search_root = manifest_path.parents[2] / "eval" if len(manifest_path.parents) >= 3 else None
-    candidates = sorted(search_root.glob("*/metrics_summary.json")) if search_root and search_root.exists() else []
-    for summary_path in candidates:
-        try:
-            summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        summary_checkpoint = summary_checkpoint_path(summary)
-        if not summary_checkpoint:
-            continue
-        if str(Path(summary_checkpoint).resolve()) != checkpoint_resolved:
-            continue
-        mistag = summary_fixed_wp_mistag(summary)
-        if mistag is not None:
-            return {
-                "generation": -1,
-                "member": "checkpoint",
-                "worker": {},
-                "mistag_score": mistag,
-                "lr": None,
-                "label": "checkpoint",
-            }
-    return None
+    if checkpoint:
+        checkpoint_resolved = str(Path(checkpoint).resolve())
+        search_root = manifest_path.parents[2] / "eval" if len(manifest_path.parents) >= 3 else None
+        candidates = sorted(search_root.glob("*/metrics_summary.json")) if search_root and search_root.exists() else []
+        for summary_path in candidates:
+            try:
+                summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            summary_checkpoint = summary_checkpoint_path(summary)
+            if not summary_checkpoint:
+                continue
+            if str(Path(summary_checkpoint).resolve()) != checkpoint_resolved:
+                continue
+            mistag = summary_fixed_wp_mistag(summary)
+            if mistag is not None:
+                return make_checkpoint_baseline_row(mistag)
+    mistag = configured_checkpoint_mistag(manifest)
+    return make_checkpoint_baseline_row(mistag) if mistag is not None else None
 
 
 def plot_manifest(manifest_path, output=None):
@@ -240,6 +261,13 @@ def plot_manifest(manifest_path, output=None):
     ax_mistag.plot(xs, ys, marker="o", linewidth=2.0, markersize=4.5, color="#2f5597")
     label_box = {"boxstyle": "round,pad=0.18", "facecolor": "white", "edgecolor": "none", "alpha": 0.86}
     if baseline is not None:
+        ax_mistag.axhline(
+            baseline["mistag_score"],
+            color="#5f6f82",
+            linestyle=":",
+            linewidth=1.2,
+            zorder=2,
+        )
         ax_mistag.scatter(
             [baseline["generation"]],
             [baseline["mistag_score"]],
@@ -334,11 +362,18 @@ def plot_manifest(manifest_path, output=None):
     ax_lr.set_ylabel("LR")
     ax_lr.ticklabel_format(axis="y", style="sci", scilimits=(-2, 2))
     ax_lr.grid(axis="both", color="0.88", linewidth=0.6)
+    lr_handles = [
+        Line2D([0], [0], color="0.70", linewidth=1.0, label="all trials"),
+    ]
+    if baseline is not None:
+        lr_handles.append(
+            Line2D([0], [0], color="#5f6f82", linestyle=":", linewidth=1.2, label="checkpoint mistag")
+        )
+    lr_handles.append(
+        Line2D([0], [0], color="none", marker="*", markerfacecolor="#111111", markeredgecolor="#111111", label=f"selected checkpoint ({compact_member_name(selected['member'])})", markersize=9)
+    )
     ax_lr.legend(
-        handles=[
-            Line2D([0], [0], color="0.70", linewidth=1.0, label="all trials"),
-            Line2D([0], [0], color="none", marker="*", markerfacecolor="#111111", markeredgecolor="#111111", label=f"selected checkpoint ({compact_member_name(selected['member'])})", markersize=9),
-        ],
+        handles=lr_handles,
         frameon=False,
         loc="best",
     )

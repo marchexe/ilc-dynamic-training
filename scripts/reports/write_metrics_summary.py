@@ -418,6 +418,7 @@ def build_summary(manifest, manifest_path):
             "background_efficiency_curves_plot": "diagnostics/background_efficiency_curves.png",
             "btag_background_efficiency_plot": "diagnostics/btag_background_efficiency_vs_training_size.png",
             "selection_timeline_plot": "diagnostics/selection_timeline.png",
+            "controller_diagnostics_plot": "diagnostics/controller_diagnostics.png",
         },
     }
     grouped_plots = {group: {} for group in plot_layout}
