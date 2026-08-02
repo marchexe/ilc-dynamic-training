@@ -1,15 +1,25 @@
-# Python environments and caches
+# Local Python environments and caches
 .venv/
 .venv-*/
 .python/
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 .agents/
 .codex/
 
-# Training outputs and generated data
+# Heavy training outputs and model artifacts
 runs/
+*.auto.yaml
+*.log
+*.onnx
+*.pt
+*.root
+
+# Keep lightweight research summaries in Git, but ignore generated result bulk
 results/**
 !results/
 !results/research/
@@ -17,16 +27,13 @@ results/**
 !results/research/.gitkeep
 !results/research/*.json
 !results/research/*.csv
+
+# Keep dataset provenance/manifests in Git, but not local parquet data
 datasets/**
 !datasets/
 !datasets/README.md
 !datasets/manifests/
 !datasets/manifests/*.json
-*.auto.yaml
-*.log
-*.onnx
-*.pt
-*.root
 
 # Keep the small canonical pretrained bundle in Git
 checkpoints/**
