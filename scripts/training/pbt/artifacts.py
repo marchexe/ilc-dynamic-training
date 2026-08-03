@@ -18,22 +18,84 @@ METRICS_NAME = "metrics.csv"
 SUMMARY_NAME = "summary.json"
 REPORT_NAME = "report.md"
 PLOT_NAMES = {
-    "physics_metric_over_time": "physics_metric_over_time.png",
-    "learning_rate_over_time": "learning_rate_over_time.png",
-    "pbt_lineage": "pbt_lineage.png",
-    "best_model_progress": "best_model_progress.png",
-    "final_summary": "final_summary.png",
+    "training_evolution": "training_evolution.png",
+    "working_point_evolution": "working_point_evolution.png",
+    "baseline_comparison": "baseline_vs_selected.png",
 }
+EXPLOIT_TABLE_NAME = "plots/report/exploit_table.csv"
+FIXED_WORKING_POINTS = (
+    {"tag": "b", "efficiency": 0.80, "background": "c", "column": "btag_c_mistag_percent_at_0p80", "label": "c bkg, b-eff 80%"},
+    {"tag": "b", "efficiency": 0.80, "background": "d", "column": "btag_d_mistag_percent_at_0p80", "label": "d bkg, b-eff 80%"},
+    {"tag": "b", "efficiency": 0.90, "background": "c", "column": "btag_c_mistag_percent_at_0p90", "label": "c bkg, b-eff 90%"},
+    {"tag": "b", "efficiency": 0.90, "background": "d", "column": "btag_d_mistag_percent_at_0p90", "label": "d bkg, b-eff 90%"},
+    {"tag": "c", "efficiency": 0.50, "background": "b", "column": "ctag_b_mistag_percent_at_0p50", "label": "b bkg, c-eff 50%"},
+    {"tag": "c", "efficiency": 0.50, "background": "d", "column": "ctag_d_mistag_percent_at_0p50", "label": "d bkg, c-eff 50%"},
+    {"tag": "c", "efficiency": 0.80, "background": "b", "column": "ctag_b_mistag_percent_at_0p80", "label": "b bkg, c-eff 80%"},
+    {"tag": "c", "efficiency": 0.80, "background": "d", "column": "ctag_d_mistag_percent_at_0p80", "label": "d bkg, c-eff 80%"},
+)
+FIXED_WORKING_POINT_COLUMNS = tuple(point["column"] for point in FIXED_WORKING_POINTS)
+# Wilson-interval bookkeeping columns for each fixed-WP mistag value: the
+# asymmetric 68.27% (~1 sigma) confidence half-widths plus the raw
+# background pass/total counts they were derived from, kept for auditability.
+FIXED_WORKING_POINT_UNCERTAINTY_SUFFIXES = ("err_low", "err_high", "passed", "total")
+FIXED_WORKING_POINT_UNCERTAINTY_COLUMNS = tuple(
+    f"{point['column']}_{suffix}"
+    for point in FIXED_WORKING_POINTS
+    for suffix in FIXED_WORKING_POINT_UNCERTAINTY_SUFFIXES
+)
+FIXED_WORKING_POINT_ERROR_COLUMNS = tuple(
+    column for column in FIXED_WORKING_POINT_UNCERTAINTY_COLUMNS if column.endswith(("_err_low", "_err_high"))
+)
+FIXED_WORKING_POINT_COUNT_COLUMNS = tuple(
+    column for column in FIXED_WORKING_POINT_UNCERTAINTY_COLUMNS if column.endswith(("_passed", "_total"))
+)
+# Background-flavour colors, shared across every fixed-WP plot (b-tag and
+# c-tag panels alike) so a given color always means the same mistagged flavour.
+FLAVOR_COLORS = {
+    "b": "#4c78a8",
+    "c": "#59a14f",
+    "d": "#e15759",
+}
+
+
+def _working_point_style_ranks():
+    ranks = {}
+    for tag in sorted({point["tag"] for point in FIXED_WORKING_POINTS}):
+        efficiencies = sorted({point["efficiency"] for point in FIXED_WORKING_POINTS if point["tag"] == tag})
+        for rank, efficiency in enumerate(efficiencies):
+            ranks[(tag, efficiency)] = rank
+    return ranks
+
+
+# Marker/linestyle rank (0 = lower efficiency, 1 = higher efficiency) within
+# each tag, so working points are distinguished by shape/style, not color.
+WORKING_POINT_STYLE_RANK = _working_point_style_ranks()
+WORKING_POINT_MARKERS = ("o", "s")
+WORKING_POINT_LINESTYLES = ("-", "--")
+CONTROLLER_OBJECTIVE_COLUMN = "controller_objective_mistag_percent"
 METRICS_COLUMNS = (
-    "step",
+    "generation",
     "training_chunk",
     "samples_seen",
     "epoch_fraction",
     "trial",
     "LR",
-    "proxy_metric",
+    "optimization_metric_name",
+    "optimization_metric_value",
+    "optimization_metric_mode",
+    CONTROLLER_OBJECTIVE_COLUMN,
+    "validation_working_point_mistag_percent",
+    *FIXED_WORKING_POINT_COLUMNS,
+    *FIXED_WORKING_POINT_UNCERTAINTY_COLUMNS,
+    "validation_accuracy",
+    "validation_auc",
+    "validation_loss",
     "best_so_far",
     "training_loss",
+    "validation_dataset",
+    "validation_suffix",
+    "validation_sample_count",
+    "evaluation_type",
 )
 
 
@@ -223,6 +285,119 @@ def _better(mode, candidate, incumbent):
     return candidate > incumbent if mode == "max" else candidate < incumbent
 
 
+def _rejection_at(metrics, tag, eff, background):
+    lookup = metrics.get("validation_bkg_rejection_at_eff_lookup") or {}
+    row = lookup.get(f"{tag}_tag_eff_{eff:.2f}") or {}
+    value = row.get(f"{background}_bkg_rejection")
+    if value is not None:
+        return float(value)
+
+    curves = metrics.get("validation_bkg_rejection_at_eff") or {}
+    efficiencies = [float(value) for value in curves.get("efficiencies") or []]
+    pairs = curves.get("pairs") or {}
+    pair = f"{tag}{background}"
+    if eff not in efficiencies or pair not in pairs:
+        return None
+    index = efficiencies.index(eff)
+    values = pairs.get(pair) or []
+    return float(values[index]) if index < len(values) else None
+
+
+def _mistag_percent(metrics, tag, eff, background):
+    rejection = _rejection_at(metrics, tag, eff, background)
+    if rejection is None or rejection <= 0 or not math.isfinite(rejection):
+        return None
+    return 100.0 / rejection
+
+
+def fixed_working_point_values(metrics):
+    return {
+        point["column"]: _mistag_percent(metrics, point["tag"], point["efficiency"], point["background"])
+        for point in FIXED_WORKING_POINTS
+    }
+
+
+def _working_point_counts(metrics, tag, eff, background):
+    rows = (metrics.get("validation_bkg_rejection_at_eff_counts") or {}).get(f"{tag}{background}") or []
+    for row in rows:
+        if abs(float(row.get("signal_efficiency", -1.0)) - float(eff)) < 1.0e-6:
+            return row.get("background_passed"), row.get("background_total")
+    return None, None
+
+
+def wilson_interval(passed, total, z=1.0):
+    """Asymmetric binomial confidence half-widths (fractional, 0-1) via the
+    Wilson score interval, centered on the observed rate p = passed/total.
+
+    z=1.0 gives the ~68.27% (1 sigma) interval. Unlike the naive
+    sqrt(p(1-p)/n) normal approximation, this never produces bounds outside
+    [0, 1] and stays meaningful when p is close to 0 -- the regime fixed-WP
+    mistag rates usually sit in, so it avoids implying misleadingly tight or
+    symmetric uncertainty for rare mistags.
+    """
+    if passed is None or total is None:
+        return None
+    total = int(total)
+    passed = int(passed)
+    if total <= 0 or passed < 0 or passed > total:
+        return None
+    p = passed / total
+    denom = 1.0 + z * z / total
+    centre = (p + z * z / (2 * total)) / denom
+    half = (z / denom) * math.sqrt(p * (1 - p) / total + z * z / (4 * total * total))
+    lower = max(0.0, centre - half)
+    upper = min(1.0, centre + half)
+    return max(0.0, p - lower), max(0.0, upper - p)
+
+
+def fixed_working_point_uncertainty(metrics, tag, eff, background):
+    """(lower_err, upper_err, passed, total) in mistag-percent units, or None."""
+    passed, total = _working_point_counts(metrics, tag, eff, background)
+    bounds = wilson_interval(passed, total)
+    if bounds is None:
+        return None
+    lower, upper = bounds
+    return 100.0 * lower, 100.0 * upper, int(passed), int(total)
+
+
+def fixed_working_point_uncertainties(metrics):
+    out = {}
+    for point in FIXED_WORKING_POINTS:
+        result = fixed_working_point_uncertainty(metrics, point["tag"], point["efficiency"], point["background"])
+        lower, upper, passed, total = result if result else (None, None, None, None)
+        column = point["column"]
+        out[f"{column}_err_low"] = lower
+        out[f"{column}_err_high"] = upper
+        out[f"{column}_passed"] = passed
+        out[f"{column}_total"] = total
+    return out
+
+
+def format_mistag_value(value, lower_err=None, upper_err=None):
+    """Format a mistag percentage rounded to the precision its uncertainty
+    actually supports, so tiny mistag rates are never shown with false
+    precision (e.g. not "0.01734%" when the uncertainty is +-0.02%).
+    """
+    if value is None:
+        return "n/a"
+    errors = [err for err in (lower_err, upper_err) if err is not None and err > 0]
+    if not errors:
+        return f"{value:.3f}%"
+    magnitude = max(errors)
+    digits = max(0, min(6, 1 - int(math.floor(math.log10(magnitude)))))
+    if lower_err is not None and upper_err is not None and abs(lower_err - upper_err) > 0.5 * 10 ** (-digits):
+        return f"{value:.{digits}f}% (+{upper_err:.{digits}f}/-{lower_err:.{digits}f})"
+    return f"{value:.{digits}f}±{magnitude:.{digits}f}%"
+
+
+def controller_objective_mistag(metrics):
+    values = [value for value in fixed_working_point_values(metrics).values() if value is not None]
+    if values:
+        return sum(values) / len(values)
+    value = metrics.get("validation_working_point_mistag_percent")
+    return None if value is None else float(value)
+
+
 def training_chunk_samples(manifest):
     shared = manifest.get("config", {}).get("shared", {})
     samples_per_epoch = int(shared.get("samples_per_epoch", 0) or 0)
@@ -259,11 +434,42 @@ def _worker_samples_seen(worker, cumulative, chunk_samples):
     return int(cumulative) + int(increment or 0)
 
 
+def evaluation_metadata(manifest):
+    shared = manifest.get("config", {}).get("shared", {})
+    datasets = manifest.get("datasets") or (manifest.get("run") or {}).get("datasets") or {}
+    proxy = shared.get("proxy_validation") or datasets.get("proxy_validation") or {}
+    suffix = shared.get("validation_suffix") or datasets.get("validation_suffix")
+    dataset = shared.get("validation_dataset") or datasets.get("validation_dataset") or shared.get("dataset") or datasets.get("train_dataset")
+    sample_count = shared.get("samples_per_epoch_val")
+    if proxy:
+        active_subset = proxy.get("active_subset", "control")
+        sample_count = proxy.get(f"{active_subset}_rows_total", sample_count)
+    if manifest.get("config", {}).get("smoke"):
+        evaluation_type = "smoke"
+    elif proxy and proxy.get("active_subset") != "full":
+        evaluation_type = "proxy"
+    elif suffix and "tail" in str(suffix):
+        evaluation_type = "proxy"
+    else:
+        evaluation_type = "full"
+    return {
+        "validation_dataset": dataset,
+        "validation_suffix": suffix,
+        "validation_sample_count": None if sample_count is None else int(sample_count),
+        "evaluation_type": evaluation_type,
+    }
+
+
+def _metric_from_row(row):
+    return row.get("optimization_metric_value")
+
+
 def evaluation_rows(manifest):
     metric = _metric_name(manifest)
     mode = _metric_mode(manifest)
     best = None
     rows = []
+    metadata = evaluation_metadata(manifest)
     baseline = baseline_record(manifest)
     if baseline and baseline.get("metric_value") is not None:
         best = float(baseline["metric_value"])
@@ -285,15 +491,25 @@ def evaluation_rows(manifest):
                 best = value
             rows.append(
                 {
-                    "step": training_chunk,
+                    "generation": training_chunk,
                     "training_chunk": training_chunk,
                     "samples_seen": samples_seen,
                     "epoch_fraction": epoch_fraction,
                     "trial": trial,
                     "LR": float(worker["lr"]) if worker.get("lr") is not None else None,
-                    "proxy_metric": value,
+                    "optimization_metric_name": metric,
+                    "optimization_metric_value": value,
+                    "optimization_metric_mode": mode,
+                    CONTROLLER_OBJECTIVE_COLUMN: controller_objective_mistag(metrics),
+                    "validation_working_point_mistag_percent": metrics.get("validation_working_point_mistag_percent"),
+                    **fixed_working_point_values(metrics),
+                    **fixed_working_point_uncertainties(metrics),
+                    "validation_accuracy": metrics.get("validation_accuracy"),
+                    "validation_auc": metrics.get("validation_auc"),
+                    "validation_loss": metrics.get("validation_loss"),
                     "best_so_far": best,
                     "training_loss": metrics.get("train_loss"),
+                    **metadata,
                 }
             )
     return rows
@@ -321,9 +537,28 @@ def read_metrics_rows(run_dir):
         rows = []
         for row in csv.DictReader(stream):
             converted = dict(row)
-            for key in ("step", "training_chunk", "samples_seen"):
+            for key in (
+                "generation",
+                "training_chunk",
+                "samples_seen",
+                "validation_sample_count",
+                *FIXED_WORKING_POINT_COUNT_COLUMNS,
+            ):
                 converted[key] = int(float(converted[key])) if converted.get(key) else None
-            for key in ("epoch_fraction", "LR", "proxy_metric", "best_so_far", "training_loss"):
+            for key in (
+                "epoch_fraction",
+                "LR",
+                "optimization_metric_value",
+                CONTROLLER_OBJECTIVE_COLUMN,
+                "validation_working_point_mistag_percent",
+                *FIXED_WORKING_POINT_COLUMNS,
+                *FIXED_WORKING_POINT_ERROR_COLUMNS,
+                "validation_accuracy",
+                "validation_auc",
+                "validation_loss",
+                "best_so_far",
+                "training_loss",
+            ):
                 converted[key] = float(converted[key]) if converted.get(key) else None
             rows.append(converted)
         return rows
@@ -372,7 +607,7 @@ def final_best_row(rows, mode):
     if not rows:
         return None
     selector = max if mode == "max" else min
-    return selector(rows, key=lambda row: row["proxy_metric"])
+    return selector(rows, key=lambda row: row["optimization_metric_value"])
 
 
 def relative_change(mode, baseline, value):
@@ -398,7 +633,7 @@ def build_summary(run_dir, manifest):
         final_generation = max(manifest["generations"], key=lambda item: item.get("index", -1))
     final_best = None
     if final_generation:
-        final_rows = [row for row in rows if row["step"] == final_generation.get("index")]
+        final_rows = [row for row in rows if row["generation"] == final_generation.get("index")]
         final_best = final_best_row(final_rows, mode)
     baseline_value = None if baseline is None else baseline.get("metric_value")
     return {
@@ -424,11 +659,11 @@ def build_summary(run_dir, manifest):
         "final_improvement_vs_baseline": relative_change(
             mode,
             baseline_value,
-            None if final_best is None else final_best.get("proxy_metric"),
+            None if final_best is None else final_best.get("optimization_metric_value"),
         ),
         "lr_trajectory": {
             trial: [
-                {"step": row["step"], "LR": row["LR"]}
+                {"generation": row["generation"], "samples_seen": row["samples_seen"], "LR": row["LR"]}
                 for row in rows
                 if row["trial"] == trial and row["LR"] is not None
             ]
@@ -443,12 +678,18 @@ def build_summary(run_dir, manifest):
             event_type: sum(1 for event in events if event.get("event_type") == event_type)
             for event_type in sorted({event.get("event_type") for event in events})
         },
+        "evaluation": evaluation_metadata(manifest),
         "plots": {
-            **{name: str(Path("plots") / filename) for name, filename in PLOT_NAMES.items()},
+            **{
+                name: str(Path("plots") / filename)
+                for name, filename in PLOT_NAMES.items()
+                if name != "baseline_comparison" or (Path(run_dir) / "plots" / filename).is_file()
+            },
             "physics_performance": str(Path("plots") / "report" / "physics_performance.png"),
             "background_efficiency_curves": str(Path("plots") / "diagnostics" / "background_efficiency_curves.png"),
             "btag_mistag_table_csv": str(Path("plots") / "report" / "btag_mistag_tables.csv"),
             "ctag_mistag_table_csv": str(Path("plots") / "report" / "ctag_mistag_tables.csv"),
+            "exploit_table_csv": EXPLOIT_TABLE_NAME,
         },
         "checkpoints": {
             "global_best_state": None if best is None else best.get("state_path"),
@@ -475,157 +716,313 @@ def _plot_setup():
     return plt
 
 
-def _finite_points(rows, x_key, y_key):
-    return [
-        (row[x_key], row[y_key])
-        for row in rows
-        if row.get(x_key) is not None and row.get(y_key) is not None and math.isfinite(float(row[y_key]))
-    ]
-
-
-def plot_physics_metric(run_dir, manifest, rows):
-    plt = _plot_setup()
-    metric = _metric_name(manifest)
-    fig, ax = plt.subplots(figsize=(9, 5))
-    for trial in sorted({row["trial"] for row in rows}):
-        series = [row for row in rows if row["trial"] == trial]
-        points = _finite_points(series, "step", "proxy_metric")
-        if points:
-            ax.plot([x for x, _ in points], [y for _, y in points], marker="o", label=trial)
-    baseline = baseline_record(manifest)
-    if baseline and baseline.get("metric_value") is not None:
-        ax.axhline(float(baseline["metric_value"]), color="black", linestyle="--", linewidth=1.2, label="pretrained baseline")
-    best_points = _finite_points(rows, "step", "best_so_far")
-    if best_points:
-        ax.plot([x for x, _ in best_points], [y for _, y in best_points], color="crimson", linewidth=2.0, label="best so far")
-    ax.set_xlabel("PBT step")
-    ax.set_ylabel(metric)
-    ax.set_title("Physics metric over time")
-    ax.grid(True, alpha=0.25)
-    ax.legend(fontsize="small")
-    fig.tight_layout()
-    path = Path(run_dir) / "plots" / PLOT_NAMES["physics_metric_over_time"]
-    fig.savefig(path, dpi=160)
-    plt.close(fig)
-    return path
-
-
-def plot_learning_rate(run_dir, rows, events):
-    plt = _plot_setup()
-    fig, ax = plt.subplots(figsize=(9, 5))
-    for trial in sorted({row["trial"] for row in rows}):
-        series = [row for row in rows if row["trial"] == trial]
-        points = _finite_points(series, "step", "LR")
-        if points:
-            ax.plot([x for x, _ in points], [y for _, y in points], marker="o", label=trial)
-    for event in events:
-        if event.get("event_type") != "lr_change":
+def generation_sample_map(rows):
+    out = {}
+    for row in rows:
+        generation = row.get("generation")
+        samples_seen = row.get("samples_seen")
+        if generation is None or samples_seen is None:
             continue
-        step = event.get("generation")
-        new_lr = event.get("new_lr")
-        if step is not None and new_lr is not None:
-            ax.scatter([step], [new_lr], marker="x", color="crimson", zorder=5)
-    ax.set_xlabel("PBT step")
-    ax.set_ylabel("learning rate")
-    ax.set_yscale("log")
-    ax.set_title("Learning rate over time")
-    ax.grid(True, alpha=0.25)
-    ax.legend(fontsize="small")
-    fig.tight_layout()
-    path = Path(run_dir) / "plots" / PLOT_NAMES["learning_rate_over_time"]
-    fig.savefig(path, dpi=160)
-    plt.close(fig)
-    return path
+        out[generation] = max(samples_seen, out.get(generation, 0))
+    return out
 
 
-def plot_lineage(run_dir, manifest, events):
+def _compact_trial(name):
+    return str(name).replace("member_", "m")
+
+
+def _controller_value(row):
+    value = row.get(CONTROLLER_OBJECTIVE_COLUMN)
+    if value is not None:
+        return value
+    return row.get("validation_working_point_mistag_percent")
+
+
+def selected_generation_rows(rows, mode):
+    """Per-generation row actually chosen by the configured selection metric.
+
+    This must track the real PBT ranking (same metric/mode as
+    `best_worker_in_generation` in metrics.py), not the HEP controller
+    objective, so historical max-mode runs plot the trial the algorithm
+    truly selected rather than whichever trial happens to have the best
+    fixed-WP mistag mean that generation.
+    """
+    selected = []
+    for generation in sorted({row.get("generation") for row in rows if row.get("generation") is not None}):
+        row = final_best_row([item for item in rows if item.get("generation") == generation], mode)
+        if row is not None:
+            selected.append(row)
+    return selected
+
+
+def _row_for_checkpoint(rows, checkpoint):
+    if not checkpoint:
+        return None
+    generation = checkpoint.get("generation")
+    member = checkpoint.get("member")
+    for row in rows:
+        if row.get("generation") == generation and row.get("trial") == member:
+            return row
+    return None
+
+
+def _baseline_controller_record(manifest):
+    initial = manifest.get("initial_evaluation") or {}
+    metrics = initial.get("metrics") or {}
+    if initial.get("status") != "completed" or not metrics:
+        return None
+    value = controller_objective_mistag(metrics)
+    if value is None:
+        return None
+    return {"samples_seen": 0, "trial": "pretrained", "controller_objective": value}
+
+
+def _completed_initial_evaluation_metrics(manifest):
+    initial = manifest.get("initial_evaluation") or {}
+    metrics = initial.get("metrics") or {}
+    if initial.get("status") != "completed" or not metrics:
+        return None
+    return metrics
+
+
+def _baseline_fixed_working_point_values(manifest):
+    metrics = _completed_initial_evaluation_metrics(manifest)
+    return None if metrics is None else fixed_working_point_values(metrics)
+
+
+def _baseline_fixed_working_point_uncertainties(manifest):
+    metrics = _completed_initial_evaluation_metrics(manifest)
+    return None if metrics is None else fixed_working_point_uncertainties(metrics)
+
+
+def _global_best_metrics(manifest):
+    metrics = (manifest.get("best") or {}).get("metrics") or {}
+    return metrics or None
+
+
+def _mark_checkpoint(ax, row, label, marker, color, y_key=None):
+    if row is None or row.get("samples_seen") is None:
+        return
+    value = _controller_value(row) if y_key is None else row.get(y_key)
+    if value is None:
+        return
+    ax.scatter([row["samples_seen"]], [value], marker=marker, s=100, color=color, edgecolor="black", zorder=6, label=label)
+
+
+def _set_log_if_positive(ax, values):
+    values = [value for value in values if value is not None and value > 0]
+    if values and max(values) / min(values) >= 8.0:
+        ax.set_yscale("log")
+
+
+def plot_training_evolution(run_dir, manifest, rows, events):
     plt = _plot_setup()
-    members = sorted(manifest.get("members", {}))
-    member_y = {name: index for index, name in enumerate(members)}
-    fig, ax = plt.subplots(figsize=(9, max(3, 0.5 * len(members) + 2)))
-    max_generation = max([event.get("generation", 0) or 0 for event in events] + [0])
-    for name, y in member_y.items():
-        ax.hlines(y, 0, max_generation + 1, color="lightgray", linewidth=1)
-        ax.text(-0.05, y, name, ha="right", va="center")
-    exploit_events = [event for event in events if event.get("event_type") == "exploit"]
-    for event in exploit_events:
+    mode = _metric_mode(manifest)
+    selected = selected_generation_rows(rows, mode)
+    best_row = _row_for_checkpoint(rows, manifest.get("best") or {})
+    final_row = selected[-1] if selected else None
+    baseline = _baseline_controller_record(manifest)
+    evaluation = evaluation_metadata(manifest)
+    fig, axes = plt.subplots(3, 1, figsize=(11.5, 9.2), sharex=True, gridspec_kw={"height_ratios": [1.45, 1.05, 1.15]})
+    fig.subplots_adjust(left=0.08, right=0.82, top=0.88, bottom=0.07, hspace=0.30)
+    ax_objective, ax_lr, ax_events = axes
+
+    if selected:
+        xs = [row["samples_seen"] for row in selected]
+        ys = [_controller_value(row) for row in selected]
+        ax_objective.plot(xs, ys, marker="o", markersize=5.5, linestyle=":", linewidth=1.3, color="#2f5aa0", label="selected trial")
+    if baseline:
+        ax_objective.scatter([0], [baseline["controller_objective"]], marker="o", s=90, facecolor="white", edgecolor="#2f5aa0", linewidth=1.6, zorder=6, label="pretrained start")
+    _mark_checkpoint(ax_objective, best_row, "global best", "*", "black")
+    _mark_checkpoint(ax_objective, final_row, "final checkpoint", "s", "#8fb7dc")
+    ax_objective.set_ylabel("mean fixed-WP mistag [%]")
+    ax_objective.set_title("Controller objective (mean fixed-WP mistag, lower = better)", loc="left", fontsize=11, fontweight="bold")
+    ax_objective.grid(True, color="0.9", linewidth=0.6)
+    ax_objective.legend(frameon=False, fontsize=8.3, loc="upper left", bbox_to_anchor=(1.01, 1.03), borderaxespad=0.0)
+
+    for trial in sorted({row["trial"] for row in rows}):
+        series = [row for row in rows if row["trial"] == trial and row.get("LR") is not None and row.get("samples_seen") is not None]
+        if not series:
+            continue
+        ax_lr.plot([row["samples_seen"] for row in series], [row["LR"] for row in series], marker="o", markersize=4.5, linestyle=":", linewidth=1.1, alpha=0.8, label=_compact_trial(trial))
+    if best_row and best_row.get("LR") is not None:
+        ax_lr.scatter([best_row["samples_seen"]], [best_row["LR"]], marker="*", s=110, color="black", zorder=6)
+    if final_row and final_row.get("LR") is not None:
+        ax_lr.scatter([final_row["samples_seen"]], [final_row["LR"]], marker="s", s=82, color="#8fb7dc", edgecolor="black", zorder=6)
+    ax_lr.set_ylabel("LR")
+    ax_lr.set_yscale("log")
+    ax_lr.set_title("Learning-rate trajectories", loc="left", fontsize=11, fontweight="bold")
+    ax_lr.grid(True, color="0.9", linewidth=0.6)
+    ax_lr.legend(frameon=False, fontsize=7.8, loc="upper left", bbox_to_anchor=(1.01, 1.03), borderaxespad=0.0)
+
+    trials = sorted({row["trial"] for row in rows})
+    y_by_trial = {trial: index for index, trial in enumerate(trials)}
+    sample_by_generation = generation_sample_map(rows)
+    for trial, y in y_by_trial.items():
+        ax_events.hlines(y, 0, max(sample_by_generation.values(), default=1), color="0.88", linewidth=1.0, zorder=1)
+    for row in selected:
+        trial = row.get("trial")
+        if trial in y_by_trial:
+            ax_events.scatter([row["samples_seen"]], [y_by_trial[trial]], marker="o", s=42, color="#2f5aa0", zorder=4)
+    for event in events:
+        if event.get("event_type") not in {"exploit", "weight_copy", "optimizer_copy"}:
+            continue
         donor = event.get("donor")
         recipient = event.get("recipient")
-        generation = event.get("generation", 0) or 0
-        if donor not in member_y or recipient not in member_y:
+        generation = event.get("generation")
+        x = sample_by_generation.get(generation)
+        if x is None:
             continue
-        ax.annotate(
-            "",
-            xy=(generation + 0.85, member_y[recipient]),
-            xytext=(generation + 0.15, member_y[donor]),
-            arrowprops={"arrowstyle": "->", "color": "tab:blue", "lw": 1.5},
-        )
-    if not exploit_events:
-        ax.text(0.5, 0.5, "No exploit/copy events", transform=ax.transAxes, ha="center", va="center")
-    ax.set_xlim(-0.25, max_generation + 1.25)
-    ax.set_ylim(-1, len(members))
-    ax.set_yticks([])
-    ax.set_xlabel("PBT step")
-    ax.set_title("PBT lineage")
-    ax.grid(True, axis="x", alpha=0.25)
-    fig.tight_layout()
-    path = Path(run_dir) / "plots" / PLOT_NAMES["pbt_lineage"]
-    fig.savefig(path, dpi=160)
+        if donor in y_by_trial:
+            ax_events.scatter([x], [y_by_trial[donor]], marker="^", color="#cf6f2e", s=54, zorder=5)
+        if donor in y_by_trial and recipient in y_by_trial:
+            ax_events.annotate("", xy=(x, y_by_trial[recipient]), xytext=(x, y_by_trial[donor]), arrowprops={"arrowstyle": "->", "color": "0.25", "lw": 1.2}, zorder=3)
+    if best_row and best_row.get("trial") in y_by_trial:
+        ax_events.scatter([best_row["samples_seen"]], [y_by_trial[best_row["trial"]]], marker="*", s=120, color="black", zorder=6, label="global best")
+    if final_row and final_row.get("trial") in y_by_trial:
+        ax_events.scatter([final_row["samples_seen"]], [y_by_trial[final_row["trial"]]], marker="s", s=82, color="#8fb7dc", edgecolor="black", zorder=6, label="final checkpoint")
+    ax_events.set_yticks(list(y_by_trial.values()))
+    ax_events.set_yticklabels([_compact_trial(trial) for trial in trials])
+    ax_events.set_ylabel("selected/donor trial")
+    ax_events.set_xlabel("samples seen")
+    ax_events.set_title("Selected trials and exploit/copy events", loc="left", fontsize=11, fontweight="bold")
+    ax_events.grid(True, axis="x", color="0.9", linewidth=0.6)
+    ax_events.legend(frameon=False, fontsize=8, loc="upper left", bbox_to_anchor=(1.01, 1.03), borderaxespad=0.0)
+
+    fig.suptitle("PBT training evolution", x=0.02, y=0.975, ha="left", fontsize=14, fontweight="bold")
+    fig.text(
+        0.02,
+        0.955,
+        f"{manifest.get('experiment', Path(run_dir).name)} | evaluation: {evaluation.get('evaluation_type', 'n/a')} | "
+        f"PBT selection metric: {_metric_name(manifest)} ({mode})\n"
+        "Objective panel below is a separate, always lower-is-better HEP presentation quantity -- not the selection metric.",
+        ha="left",
+        va="top",
+        fontsize=8.6,
+        color="0.35",
+    )
+    path = Path(run_dir) / "plots" / PLOT_NAMES["training_evolution"]
+    fig.savefig(path, dpi=170)
     plt.close(fig)
     return path
 
 
-def plot_best_progress(run_dir, manifest, rows):
+def plot_working_point_evolution(run_dir, manifest, rows):
     plt = _plot_setup()
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    points = _finite_points(rows, "step", "best_so_far")
-    if points:
-        ax.plot([x for x, _ in points], [y for _, y in points], marker="o", color="crimson")
-    baseline = baseline_record(manifest)
-    if baseline and baseline.get("metric_value") is not None:
-        ax.axhline(float(baseline["metric_value"]), color="black", linestyle="--", linewidth=1.2)
-    ax.set_xlabel("PBT step")
-    ax.set_ylabel(_metric_name(manifest))
-    ax.set_title("Best model progress")
-    ax.grid(True, alpha=0.25)
-    fig.tight_layout()
-    path = Path(run_dir) / "plots" / PLOT_NAMES["best_model_progress"]
-    fig.savefig(path, dpi=160)
+    mode = _metric_mode(manifest)
+    selected = selected_generation_rows(rows, mode)
+    best_row = _row_for_checkpoint(rows, manifest.get("best") or {})
+    baseline_values = _baseline_fixed_working_point_values(manifest)
+    baseline_uncertainties = _baseline_fixed_working_point_uncertainties(manifest)
+    evaluation = evaluation_metadata(manifest)
+
+    fig, axes = plt.subplots(2, 1, figsize=(10.5, 7.6), sharex=True)
+    fig.subplots_adjust(left=0.08, right=0.79, top=0.85, bottom=0.08, hspace=0.32)
+    groups = (
+        ("b", "b-tag fixed-efficiency mistag", axes[0]),
+        ("c", "c-tag fixed-efficiency mistag", axes[1]),
+    )
+    for tag, title, ax in groups:
+        plotted = []
+        for point in FIXED_WORKING_POINTS:
+            if point["tag"] != tag:
+                continue
+            column = point["column"]
+            rank = WORKING_POINT_STYLE_RANK[(tag, point["efficiency"])]
+            marker = WORKING_POINT_MARKERS[rank]
+            linestyle = WORKING_POINT_LINESTYLES[rank]
+            color = FLAVOR_COLORS[point["background"]]
+
+            xs = [row["samples_seen"] for row in selected if row.get(column) is not None]
+            ys = [row[column] for row in selected if row.get(column) is not None]
+            lower = [row.get(f"{column}_err_low") or 0.0 for row in selected if row.get(column) is not None]
+            upper = [row.get(f"{column}_err_high") or 0.0 for row in selected if row.get(column) is not None]
+
+            baseline_value = (baseline_values or {}).get(column)
+            if baseline_value is not None:
+                baseline_lower = (baseline_uncertainties or {}).get(f"{column}_err_low") or 0.0
+                baseline_upper = (baseline_uncertainties or {}).get(f"{column}_err_high") or 0.0
+                xs = [0, *xs]
+                ys = [baseline_value, *ys]
+                lower = [baseline_lower, *lower]
+                upper = [baseline_upper, *upper]
+
+            if not xs:
+                continue
+            plotted.extend(ys)
+            ax.errorbar(
+                xs,
+                ys,
+                yerr=[lower, upper],
+                marker=marker,
+                markersize=5.5,
+                linestyle=linestyle,
+                linewidth=1.1,
+                color=color,
+                ecolor=color,
+                elinewidth=0.9,
+                capsize=2.5,
+                alpha=0.92,
+                label=point["label"],
+            )
+        if best_row and best_row.get("samples_seen") is not None:
+            ax.axvline(best_row["samples_seen"], color="0.3", linestyle=":", linewidth=1.0, alpha=0.6)
+        _set_log_if_positive(ax, plotted)
+        ax.set_ylabel("mistag [%]")
+        ax.set_title(title, loc="left", fontsize=11, fontweight="bold")
+        ax.grid(True, color="0.9", linewidth=0.6)
+        ax.legend(frameon=False, fontsize=8.2, loc="upper left", bbox_to_anchor=(1.01, 1.03), borderaxespad=0.0, handlelength=2.2)
+    axes[-1].set_xlabel("samples seen")
+
+    fig.suptitle("Fixed working-point mistag evolution", x=0.02, y=0.975, ha="left", fontsize=14, fontweight="bold")
+    fig.text(
+        0.02,
+        0.935,
+        f"{manifest.get('experiment', Path(run_dir).name)} | evaluation: {evaluation.get('evaluation_type', 'n/a')}\n"
+        "Markers = measured checkpoints; error bars = 68% Wilson interval; lines guide the eye only; "
+        "dotted vertical line = selected/global-best checkpoint.",
+        ha="left",
+        va="top",
+        fontsize=8.6,
+        color="0.35",
+    )
+    path = Path(run_dir) / "plots" / PLOT_NAMES["working_point_evolution"]
+    fig.savefig(path, dpi=170)
     plt.close(fig)
     return path
 
 
-def plot_final_summary(run_dir, manifest, rows):
-    plt = _plot_setup()
-    summary = build_summary(run_dir, manifest)
-    labels = []
-    values = []
-    baseline = summary.get("baseline")
-    if baseline and baseline.get("metric_value") is not None:
-        labels.append("pretrained baseline")
-        values.append(float(baseline["metric_value"]))
-    final = summary.get("final_best")
-    if final and final.get("proxy_metric") is not None:
-        labels.append("final best")
-        values.append(float(final["proxy_metric"]))
-    best = summary.get("best")
-    if best and best.get("metric_value") is not None:
-        labels.append("global best")
-        values.append(float(best["metric_value"]))
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    if values:
-        colors = ["#6b7280", "#2563eb", "#dc2626"][: len(values)]
-        ax.bar(labels, values, color=colors)
-    else:
-        ax.text(0.5, 0.5, "No completed evaluations", transform=ax.transAxes, ha="center", va="center")
-    ax.set_ylabel(_metric_name(manifest))
-    ax.set_title("Final summary")
-    ax.grid(True, axis="y", alpha=0.25)
-    fig.autofmt_xdate(rotation=20, ha="right")
-    fig.tight_layout()
-    path = Path(run_dir) / "plots" / PLOT_NAMES["final_summary"]
-    fig.savefig(path, dpi=160)
-    plt.close(fig)
+def write_exploit_table(run_dir, events):
+    path = Path(run_dir) / EXPLOIT_TABLE_NAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    by_key = {}
+    for event in events:
+        key = (event.get("generation"), event.get("donor"), event.get("recipient"))
+        if event.get("event_type") == "exploit":
+            by_key.setdefault(key, {}).update(event)
+        elif event.get("event_type") == "weight_copy":
+            row = by_key.setdefault(key, {})
+            row["weight_source_path"] = event.get("source_path")
+            row["weight_destination_path"] = event.get("destination_path")
+            row["weight_copied"] = event.get("copied")
+        elif event.get("event_type") == "optimizer_copy":
+            row = by_key.setdefault(key, {})
+            row["optimizer_source_path"] = event.get("source_path")
+            row["optimizer_destination_path"] = event.get("destination_path")
+            row["optimizer_copied"] = event.get("copied")
+    columns = (
+        "generation", "donor", "recipient", "donor_metric", "recipient_metric",
+        "weight_source", "optimizer_source", "old_lr", "new_lr", "mutation",
+        "weight_copied", "weight_source_path", "weight_destination_path",
+        "optimizer_copied", "optimizer_source_path", "optimizer_destination_path",
+    )
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=columns)
+        writer.writeheader()
+        for row in sorted(by_key.values(), key=lambda item: (item.get("generation") is None, item.get("generation") or -1, item.get("recipient") or "")):
+            writer.writerow({column: "" if row.get(column) is None else row.get(column) for column in columns})
+    os.replace(temporary, path)
     return path
 
 
@@ -662,17 +1059,121 @@ def write_existing_physics_reports(run_dir, manifest):
     return outputs
 
 
+def plot_baseline_comparison(run_dir, manifest):
+    """HEP observable comparison: pretrained baseline vs. the selected
+    (global-best) checkpoint at every fixed working point, absolute mistag
+    plus the relative gain from training. Skipped (returns None) unless both
+    a measured baseline and a global-best checkpoint with metrics exist.
+    """
+    baseline_metrics = _completed_initial_evaluation_metrics(manifest)
+    selected_metrics = _global_best_metrics(manifest)
+    if not baseline_metrics or not selected_metrics:
+        return None
+
+    plt = _plot_setup()
+    fig, axes = plt.subplots(
+        2, 2, figsize=(11.5, 7.4), gridspec_kw={"width_ratios": [1.55, 1.0], "hspace": 0.48, "wspace": 0.30}
+    )
+    fig.subplots_adjust(left=0.07, right=0.97, top=0.85, bottom=0.11)
+
+    best = manifest.get("best") or {}
+    selected_label = f"selected ({best.get('member', 'global best')}, gen {best.get('generation', 'n/a')})"
+
+    for tag, (ax_abs, ax_delta) in zip(("b", "c"), axes):
+        points = [point for point in FIXED_WORKING_POINTS if point["tag"] == tag]
+        labels = [f"{point['background']} bkg\n{tag}-eff {int(round(point['efficiency'] * 100))}%" for point in points]
+        colors = [FLAVOR_COLORS[point["background"]] for point in points]
+        baseline_vals = [_mistag_percent(baseline_metrics, tag, point["efficiency"], point["background"]) for point in points]
+        baseline_errs = [
+            fixed_working_point_uncertainty(baseline_metrics, tag, point["efficiency"], point["background"]) for point in points
+        ]
+        selected_vals = [_mistag_percent(selected_metrics, tag, point["efficiency"], point["background"]) for point in points]
+        selected_errs = [
+            fixed_working_point_uncertainty(selected_metrics, tag, point["efficiency"], point["background"]) for point in points
+        ]
+
+        x_positions = list(range(len(points)))
+        width = 0.36
+        baseline_x = [x - width / 2 for x in x_positions]
+        selected_x = [x + width / 2 for x in x_positions]
+        ax_abs.bar(
+            baseline_x, [value or 0.0 for value in baseline_vals], width=width,
+            color=colors, alpha=0.40, hatch="//", edgecolor="0.3", linewidth=0.6, label="pretrained baseline",
+        )
+        ax_abs.bar(
+            selected_x, [value or 0.0 for value in selected_vals], width=width,
+            color=colors, alpha=0.95, edgecolor="0.2", linewidth=0.6, label=selected_label,
+        )
+        for x, value, err in zip(baseline_x, baseline_vals, baseline_errs):
+            if value is None:
+                continue
+            lower, upper = err[:2] if err else (0.0, 0.0)
+            ax_abs.errorbar([x], [value], yerr=[[lower], [upper]], fmt="none", ecolor="0.2", elinewidth=0.9, capsize=2.5, zorder=5)
+        for x, value, err in zip(selected_x, selected_vals, selected_errs):
+            if value is None:
+                continue
+            lower, upper = err[:2] if err else (0.0, 0.0)
+            ax_abs.errorbar([x], [value], yerr=[[lower], [upper]], fmt="none", ecolor="0.2", elinewidth=0.9, capsize=2.5, zorder=5)
+        ax_abs.set_xticks(x_positions)
+        ax_abs.set_xticklabels(labels, fontsize=8)
+        ax_abs.set_ylabel("mistag [%]")
+        ax_abs.set_title(f"{tag}-tag: baseline vs. selected", loc="left", fontsize=10.5, fontweight="bold")
+        ax_abs.grid(True, axis="y", color="0.9", linewidth=0.6)
+        peak = max(
+            [(v or 0.0) + ((e[1] if e else 0.0)) for v, e in zip(baseline_vals, baseline_errs)]
+            + [(v or 0.0) + ((e[1] if e else 0.0)) for v, e in zip(selected_vals, selected_errs)]
+            or [1.0]
+        )
+        ax_abs.set_ylim(0, peak * 1.28 if peak > 0 else 1.0)
+
+        deltas = []
+        for base, selected in zip(baseline_vals, selected_vals):
+            if not base or selected is None:
+                deltas.append(None)
+            else:
+                deltas.append(100.0 * (base - selected) / base)
+        bar_colors = ["#2ca02c" if (delta is not None and delta >= 0) else "#d62728" for delta in deltas]
+        ax_delta.bar(x_positions, [delta or 0.0 for delta in deltas], color=bar_colors, alpha=0.85, edgecolor="0.25", linewidth=0.6)
+        for x, delta in zip(x_positions, deltas):
+            if delta is None:
+                continue
+            ax_delta.text(x, delta, f"{delta:+.0f}%", ha="center", va="bottom" if delta >= 0 else "top", fontsize=7.4)
+        ax_delta.axhline(0, color="0.3", linewidth=0.8)
+        ax_delta.set_xticks(x_positions)
+        ax_delta.set_xticklabels(labels, fontsize=8)
+        ax_delta.set_ylabel("relative gain [%]")
+        ax_delta.set_title("mistag reduction vs. baseline", loc="left", fontsize=10.5, fontweight="bold")
+        ax_delta.grid(True, axis="y", color="0.9", linewidth=0.6)
+
+    fig.suptitle("Baseline vs. selected-model mistag", x=0.02, y=0.975, ha="left", fontsize=14, fontweight="bold")
+    fig.text(
+        0.02,
+        0.915,
+        f"{manifest.get('experiment', Path(run_dir).name)} | positive gain = lower mistag after training; "
+        "hatched = pretrained, solid = selected checkpoint",
+        ha="left",
+        va="top",
+        fontsize=8.6,
+        color="0.35",
+    )
+    path = Path(run_dir) / "plots" / PLOT_NAMES["baseline_comparison"]
+    fig.savefig(path, dpi=170)
+    plt.close(fig)
+    return path
+
+
 def write_plots(run_dir, manifest):
     ensure_run_layout(run_dir)
     rows = read_metrics_rows(run_dir)
     events = read_events(run_dir)
-    return {
-        "physics_metric_over_time": str(plot_physics_metric(run_dir, manifest, rows)),
-        "learning_rate_over_time": str(plot_learning_rate(run_dir, rows, events)),
-        "pbt_lineage": str(plot_lineage(run_dir, manifest, events)),
-        "best_model_progress": str(plot_best_progress(run_dir, manifest, rows)),
-        "final_summary": str(plot_final_summary(run_dir, manifest, rows)),
+    plots = {
+        "training_evolution": str(plot_training_evolution(run_dir, manifest, rows, events)),
+        "working_point_evolution": str(plot_working_point_evolution(run_dir, manifest, rows)),
     }
+    comparison_path = plot_baseline_comparison(run_dir, manifest)
+    if comparison_path is not None:
+        plots["baseline_comparison"] = str(comparison_path)
+    return plots
 
 
 def _fmt(value, digits=6):
@@ -689,44 +1190,47 @@ def write_report(run_dir, manifest, summary):
     baseline = summary.get("baseline") or {}
     configured_baseline = summary.get("configured_baseline") or {}
     best = summary.get("best") or {}
+    final_best = summary.get("final_best") or {}
     improvement = summary.get("best_improvement_vs_baseline")
+    evaluation = summary.get("evaluation") or {}
     schedule = summary.get("schedule") or {}
     eval_schedule = schedule.get("evaluation_interval") or {}
     exploit_schedule = schedule.get("exploit_interval") or {}
+    provenance = manifest.get("run") or {}
+    git = provenance.get("git") or manifest.get("git") or {}
+    plots = summary.get("plots") or {}
+
     lines = [
         f"# {summary.get('experiment')}",
         "",
-        "## Method",
-        f"- Method: `{summary.get('method')}`",
-        f"- Metric: `{metric['name']}` ({metric['mode']})",
-        f"- Population: {len(summary.get('population') or [])} trials",
-        f"- Training interval: {schedule.get('training_interval', {}).get('epochs_per_generation', 'n/a')} epoch(s), {schedule.get('training_interval', {}).get('samples_per_trial_chunk', 'n/a')} samples/trial chunk",
-        f"- Evaluation interval: every {eval_schedule.get('training_chunks', 'n/a')} training chunk(s), {eval_schedule.get('samples_per_epoch_val', 'n/a')} validation samples",
-        f"- Exploit interval: {('disabled' if not exploit_schedule.get('enabled') else 'every ' + str(exploit_schedule.get('training_chunks', 'n/a')) + ' training chunk(s)')}",
-        "",
-        "## Inputs",
-        f"- Starting checkpoint: `{(summary.get('starting_checkpoint') or {}).get('state_path') or (summary.get('starting_checkpoint') or {}).get('path')}`",
-        f"- Dataset/proxy: `{summary.get('dataset')}`",
-        "",
-        "## Result",
+        "## Results",
+        f"- Evaluation type: `{evaluation.get('evaluation_type', 'n/a')}`",
+        f"- Validation dataset: `{evaluation.get('validation_dataset', 'n/a')}`",
+        f"- Validation suffix: `{evaluation.get('validation_suffix', 'n/a')}`",
+        f"- Validation sample count: {_fmt(evaluation.get('validation_sample_count'))}",
+        "- Controller objective: mean predefined fixed-WP mistag percent (lower is better; not a HEP metric)",
+        f"- Configured PBT selection metric: `{metric['name']}` ({metric['mode']})",
         f"- Measured baseline: {_fmt(baseline.get('metric_value'))}",
-        f"- Configured baseline/reference: {_fmt(configured_baseline.get('metric_value'))}",
-        f"- Best: {_fmt(best.get('metric_value'))}",
-        f"- Improvement vs baseline: {_fmt(None if improvement is None else 100.0 * improvement)}%",
-        f"- Winning trial: `{summary.get('winning_trial')}`",
+        f"- Configured reference: {_fmt(configured_baseline.get('metric_value'))}",
+        f"- Final checkpoint controller objective: {_fmt(final_best.get(CONTROLLER_OBJECTIVE_COLUMN))} by `{final_best.get('trial', 'n/a')}`",
+        f"- Global best configured metric: {_fmt(best.get('metric_value'))} by `{best.get('member', 'n/a')}`",
+        f"- Delta vs measured baseline: {_fmt(None if improvement is None else 100.0 * improvement)}%",
         f"- Best checkpoint: `{(summary.get('checkpoints') or {}).get('global_best_state')}`",
         "",
-        "## LR Trajectory",
+        "## Training Evolution",
+        f"- [Training evolution]({plots.get('training_evolution', 'plots/training_evolution.png')})",
+        f"- [Working-point evolution]({plots.get('working_point_evolution', 'plots/working_point_evolution.png')})",
     ]
     for trial, values in (summary.get("lr_trajectory") or {}).items():
-        rendered = ", ".join(f"{item['step']}:{_fmt(item['LR'], 3)}" for item in values)
-        lines.append(f"- `{trial}`: {rendered}")
-    lines.extend(["", "## Exploit History"])
+        rendered = ", ".join(f"{item['samples_seen']}:{_fmt(item['LR'], 3)}" for item in values)
+        lines.append(f"- `{trial}` samples_seen:LR = {rendered}")
+
+    lines.extend(["", "## Exploit History", f"- [Exploit table]({plots.get('exploit_table_csv', EXPLOIT_TABLE_NAME)})"])
     exploits = [event for event in summary.get("exploit_history", []) if event.get("event_type") == "exploit"]
     if exploits:
         for event in exploits:
             lines.append(
-                "- generation {generation}: `{donor}` -> `{recipient}`, metric {donor_metric} -> {recipient_metric}, LR {old_lr} -> {new_lr}, mutation `{mutation}`".format(
+                "- generation {generation}: `{donor}` -> `{recipient}`, donor metric {donor_metric}, recipient metric {recipient_metric}, LR {old_lr} -> {new_lr}, mutation `{mutation}`, weight `{weight_source}`, optimizer `{optimizer_source}`".format(
                     generation=event.get("generation"),
                     donor=event.get("donor"),
                     recipient=event.get("recipient"),
@@ -735,30 +1239,56 @@ def write_report(run_dir, manifest, summary):
                     old_lr=_fmt(event.get("old_lr"), 3),
                     new_lr=_fmt(event.get("new_lr"), 3),
                     mutation=event.get("mutation"),
+                    weight_source=event.get("weight_source"),
+                    optimizer_source=event.get("optimizer_source"),
                 )
             )
     else:
         lines.append("- No exploit events recorded.")
+
     lines.extend(
         [
             "",
-            "## Plots",
-            "- [Physics metric over time](plots/physics_metric_over_time.png)",
-            "- [Learning rate over time](plots/learning_rate_over_time.png)",
-            "- [PBT lineage](plots/pbt_lineage.png)",
-            "- [Best model progress](plots/best_model_progress.png)",
-            "- [Final summary](plots/final_summary.png)",
-            "- [Physics performance](plots/report/physics_performance.png)",
-            "- [Background efficiency curves](plots/diagnostics/background_efficiency_curves.png)",
-            "- [B-tag mistag CSV](plots/report/btag_mistag_tables.csv)",
-            "- [C-tag mistag CSV](plots/report/ctag_mistag_tables.csv)",
+            "## Physics Performance",
+            f"- [Physics performance]({plots.get('physics_performance', 'plots/report/physics_performance.png')})",
+            f"- [Background efficiency curves]({plots.get('background_efficiency_curves', 'plots/diagnostics/background_efficiency_curves.png')})",
+            f"- [B-tag mistag CSV]({plots.get('btag_mistag_table_csv', 'plots/report/btag_mistag_tables.csv')})",
+            f"- [C-tag mistag CSV]({plots.get('ctag_mistag_table_csv', 'plots/report/ctag_mistag_tables.csv')})",
+        ]
+    )
+    baseline_comparison_path = plots.get("baseline_comparison")
+    if baseline_comparison_path:
+        lines.extend(
+            [
+                "",
+                "## Baseline vs. Selected Model",
+                f"- [Baseline vs. selected mistag]({baseline_comparison_path})",
+            ]
+        )
+    lines.extend(
+        [
             "",
-            "## Structured Files",
+            "## Method",
+            f"- Method: `{summary.get('method')}`",
+            f"- Population: {len(summary.get('population') or [])} trials",
+            f"- Training interval: {schedule.get('training_interval', {}).get('samples_per_trial_chunk', 'n/a')} samples/trial chunk ({schedule.get('training_interval', {}).get('epochs_per_generation', 'n/a')}x samples_per_epoch)",
+            f"- Evaluation interval: every {eval_schedule.get('training_chunks', 'n/a')} training chunk(s), {eval_schedule.get('samples_per_epoch_val', 'n/a')} validation samples",
+            f"- Exploit interval: {('disabled' if not exploit_schedule.get('enabled') else 'every ' + str(exploit_schedule.get('training_chunks', 'n/a')) + ' training chunk(s)')}",
+            "",
+            "## Provenance",
+            f"- Starting checkpoint: `{(summary.get('starting_checkpoint') or {}).get('state_path') or (summary.get('starting_checkpoint') or {}).get('path')}`",
+            f"- Git commit: `{git.get('commit')}`",
+            f"- Git dirty: `{git.get('dirty')}`",
+            f"- Launch command: `{provenance.get('command') or manifest.get('command')}`",
             "- [manifest.json](manifest.json)",
             "- [resolved_config.yaml](resolved_config.yaml)",
             "- [events.jsonl](events.jsonl)",
             "- [metrics.csv](metrics.csv)",
             "- [summary.json](summary.json)",
+            "",
+            "## Caveats",
+            "- Proxy, smoke, and full validation results are reported as distinct evaluation types and should not be mixed in one scorecard.",
+            "- Configured reference values are not treated as measured baselines unless a successful runtime initial evaluation exists.",
         ]
     )
     atomic_text(path, "\n".join(lines) + "\n")
@@ -772,13 +1302,15 @@ def write_canonical_outputs(run_dir, manifest):
     write_resolved_config(run_dir, manifest.get("config", {}))
     refresh_metrics_csv(run_dir, manifest)
     physics_outputs = write_existing_physics_reports(run_dir, manifest)
+    events = read_events(run_dir)
+    exploit_table = write_exploit_table(run_dir, events)
     plots = write_plots(run_dir, manifest)
     manifest["canonical_artifacts"] = {
         "events": str(run_dir / EVENTS_NAME),
         "metrics": str(run_dir / METRICS_NAME),
         "summary": str(run_dir / SUMMARY_NAME),
         "report": str(run_dir / REPORT_NAME),
-        "plots": {**plots, **physics_outputs},
+        "plots": {**plots, **physics_outputs, "exploit_table_csv": str(exploit_table)},
         "resolved_config": str(run_dir / "resolved_config.yaml"),
     }
     manifest["updated_at"] = utc_now()

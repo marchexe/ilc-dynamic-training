@@ -340,6 +340,59 @@ class PBTAlgorithmTest(unittest.TestCase):
             self.assertEqual((root / "checkpoints" / "global_best_optimizer.pt").read_bytes(), b"best-optimizer")
             self.assertTrue((root / "checkpoints" / "global_best_metadata.json").is_file())
 
+    def test_global_best_selection_respects_min_mode(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name, epoch in (("member_00", 1), ("member_01", 1), ("member_00", 2)):
+                member_dir = root / name
+                member_dir.mkdir(exist_ok=True)
+                state, optimizer = strategy.checkpoint_paths(member_dir, epoch)
+                state.write_bytes(f"{name}-epoch{epoch}-state".encode())
+                optimizer.write_bytes(f"{name}-epoch{epoch}-optimizer".encode())
+            manifest_path = root / "manifest.json"
+            config = pbt_smoke_config()
+            config["pbt"]["metric"] = "validation_working_point_mistag_percent"
+            config["pbt"]["mode"] = "min"
+            manifest = {
+                "config": config,
+                "members": {"member_00": {"lr": 9.0e-5}, "member_01": {"lr": 1.0e-4}},
+                "generations": [],
+                "best": None,
+            }
+            generation_one = {
+                "index": 0,
+                "epoch": 1,
+                "ranking": ["member_01", "member_00"],
+                "workers": {
+                    "member_00": {"metrics": {"validation_working_point_mistag_percent": 1.2}},
+                    "member_01": {"metrics": {"validation_working_point_mistag_percent": 0.8}},
+                },
+            }
+
+            improved = strategy.update_global_best(root, manifest, generation_one, manifest_path)
+
+            self.assertTrue(improved)
+            self.assertEqual(manifest["best"]["member"], "member_01")
+            self.assertEqual(manifest["best"]["metric_value"], 0.8)
+
+            # A worse (higher) mistag rate in a later generation must not
+            # overwrite the lower-is-better incumbent.
+            generation_two = {
+                "index": 1,
+                "epoch": 2,
+                "ranking": ["member_00"],
+                "workers": {
+                    "member_00": {"metrics": {"validation_working_point_mistag_percent": 1.0}},
+                },
+            }
+
+            improved_again = strategy.update_global_best(root, manifest, generation_two, manifest_path)
+
+            self.assertFalse(improved_again)
+            self.assertEqual(manifest["best"]["member"], "member_01")
+            self.assertEqual(manifest["best"]["metric_value"], 0.8)
+            self.assertEqual((root / "checkpoints" / "global_best_state.pt").read_bytes(), b"member_01-epoch1-state")
+
     def test_degraded_generation_rolls_back_worst_member_from_global_best(self):
         config = pbt_smoke_config()
         config["pbt"]["rollback_fraction"] = 0.5

@@ -23,11 +23,13 @@ PAIR_LABELS = {
     "cb": "b background",
     "cd": "d background",
 }
-PAIR_COLORS = {
-    "bc": "#1f77b4",
-    "bd": "#2ca02c",
-    "cb": "#9467bd",
-    "cd": "#d62728",
+# Background-flavour colors, shared across every fixed-WP figure (this file,
+# artifacts.py's evolution/comparison plots, and the background-efficiency
+# diagnostic) so a given color always means the same mistagged flavour.
+FLAVOR_COLORS = {
+    "b": "#4c78a8",
+    "c": "#59a14f",
+    "d": "#e15759",
 }
 REFERENCE_WORKING_POINTS = {
     "b": (0.8, 0.9),
@@ -145,8 +147,52 @@ def mistag_percent(metrics, tag, eff, background):
     return 100.0 / rejection
 
 
-def format_percent(value):
-    return "-" if value is None else f"{value:.3f}%"
+def working_point_counts(metrics, tag, eff, background):
+    rows = (metrics.get("validation_bkg_rejection_at_eff_counts") or {}).get(f"{tag}{background}") or []
+    for row in rows:
+        if abs(float(row.get("signal_efficiency", -1.0)) - float(eff)) < 1.0e-6:
+            return row.get("background_passed"), row.get("background_total")
+    return None, None
+
+
+def wilson_uncertainty_percent(passed, total, z=1.0):
+    """Asymmetric ~68% (1 sigma) Wilson score interval half-widths, in mistag
+    percent units. Stays well-behaved (non-negative, asymmetric) for the
+    small mistag rates fixed working points usually sit at, unlike a naive
+    sqrt(p(1-p)/n) normal approximation.
+    """
+    if passed is None or total is None:
+        return None
+    total = int(total)
+    passed = int(passed)
+    if total <= 0 or passed < 0 or passed > total:
+        return None
+    p = passed / total
+    denom = 1.0 + z * z / total
+    centre = (p + z * z / (2 * total)) / denom
+    half = (z / denom) * math.sqrt(p * (1 - p) / total + z * z / (4 * total * total))
+    lower = max(0.0, centre - half)
+    upper = min(1.0, centre + half)
+    return 100.0 * max(0.0, p - lower), 100.0 * max(0.0, upper - p)
+
+
+def mistag_uncertainty(metrics, tag, eff, background):
+    passed, total = working_point_counts(metrics, tag, eff, background)
+    return wilson_uncertainty_percent(passed, total)
+
+
+def format_percent(value, err=None):
+    if value is None:
+        return "-"
+    errors = [e for e in (err or ()) if e is not None and e > 0]
+    if not errors:
+        return f"{value:.3f}%"
+    magnitude = max(errors)
+    digits = max(0, min(6, 1 - int(math.floor(math.log10(magnitude)))))
+    lower, upper = err
+    if abs(lower - upper) > 0.5 * 10 ** (-digits):
+        return f"{value:.{digits}f}% (+{upper:.{digits}f}/-{lower:.{digits}f})"
+    return f"{value:.{digits}f}±{magnitude:.{digits}f}%"
 
 
 def physics_mistag_score(metrics):
@@ -222,7 +268,7 @@ def sample_summary(manifest):
     dataset = Path(str(shared.get("dataset", ""))).name or "dataset"
     parts = [dataset]
     if train is not None:
-        parts.append(f"train {compact_count(train)}/epoch")
+        parts.append(f"training chunk {compact_count(train)} events/trial")
     if validation is not None:
         parts.append(f"validation {compact_count(validation)}")
     return " | ".join(parts)
@@ -245,7 +291,10 @@ def draw_table(ax, metrics, tag):
         rows.append(
             [
                 f"{int(round(eff * 100))}%",
-                *[format_percent(mistag_percent(metrics, tag, eff, background)) for background in backgrounds],
+                *[
+                    format_percent(mistag_percent(metrics, tag, eff, background), mistag_uncertainty(metrics, tag, eff, background))
+                    for background in backgrounds
+                ],
             ]
         )
     table = ax.table(
@@ -276,14 +325,11 @@ def draw_mistag_bars(ax, metrics, tag):
     efficiencies = REFERENCE_WORKING_POINTS[tag]
     x_positions = list(range(len(efficiencies)))
     width = 0.34
-    colors = {
-        "b": "#4c78a8",
-        "c": "#59a14f",
-        "d": "#e15759",
-    }
+    colors = FLAVOR_COLORS
 
     for background_index, background in enumerate(backgrounds):
         values = [mistag_percent(metrics, tag, eff, background) for eff in efficiencies]
+        errors = [mistag_uncertainty(metrics, tag, eff, background) for eff in efficiencies]
         offsets = [x + (background_index - 0.5) * width for x in x_positions]
         bars = ax.bar(
             offsets,
@@ -292,16 +338,29 @@ def draw_mistag_bars(ax, metrics, tag):
             color=colors[background],
             label=f"{background} background",
         )
-        for bar, value in zip(bars, values):
+        lower = [0.0 if (value is None or err is None) else err[0] for value, err in zip(values, errors)]
+        upper = [0.0 if (value is None or err is None) else err[1] for value, err in zip(values, errors)]
+        ax.errorbar(
+            offsets,
+            [0.0 if value is None else value for value in values],
+            yerr=[lower, upper],
+            fmt="none",
+            ecolor="0.2",
+            elinewidth=1.0,
+            capsize=3,
+            zorder=5,
+        )
+        for bar, value, err in zip(bars, values, errors):
             if value is None:
                 continue
+            top = value + (err[1] if err else 0.0)
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
-                bar.get_height(),
-                f"{value:.3f}%",
+                top,
+                format_percent(value, err),
                 ha="center",
                 va="bottom",
-                fontsize=8.2,
+                fontsize=7.4,
             )
 
     ax.set_title(f"{tag}-tag mistag at fixed efficiency", loc="left", fontsize=11, fontweight="bold")
@@ -310,10 +369,15 @@ def draw_mistag_bars(ax, metrics, tag):
     ax.set_xlabel(f"{tag}-tag efficiency")
     ax.set_ylabel("mistag [%]")
     ymax = max(
-        [mistag_percent(metrics, tag, eff, background) or 0.0 for eff in efficiencies for background in backgrounds]
+        [
+            (mistag_percent(metrics, tag, eff, background) or 0.0)
+            + ((mistag_uncertainty(metrics, tag, eff, background) or (0.0, 0.0))[1])
+            for eff in efficiencies
+            for background in backgrounds
+        ]
         or [1.0]
     )
-    ax.set_ylim(0, ymax * 1.22 if ymax > 0 else 1.0)
+    ax.set_ylim(0, ymax * 1.3 if ymax > 0 else 1.0)
     ax.grid(axis="y", color="0.88", linewidth=0.6)
     ax.legend(frameon=False, fontsize=8.5, loc="upper left")
 
@@ -359,7 +423,7 @@ def plot_manifest(manifest_path, output=None, member="best_physics"):
     draw_mistag_bars(fig.add_subplot(grid[1, 1]), metrics, "b")
     score_text = "" if physics_score is None else f" | avg fixed-WP mistag {physics_score:.3f}%"
     fig.suptitle(
-        f"Best fixed-WP model: {member_name}, generation {generation['index']}{score_text}",
+        f"Selected model: {member_name}, generation {generation['index']}{score_text}",
         x=0.06,
         y=0.975,
         ha="left",

@@ -1,15 +1,53 @@
 import csv
 import json
+import math
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 from tests.helpers import PROJECT_DIR  # noqa: F401
 from training.pbt import strategy
-from training.pbt.artifacts import append_event, run_contract, write_canonical_outputs
+from training.pbt.artifacts import (
+    _baseline_fixed_working_point_values,
+    append_event,
+    evaluation_rows,
+    fixed_working_point_uncertainty,
+    format_mistag_value,
+    run_contract,
+    selected_generation_rows,
+    wilson_interval,
+    write_canonical_outputs,
+)
 
 
 METRIC = "validation_working_point_mistag_percent"
+CURVE_EFFICIENCIES = [0.5, 0.8, 0.9]
+CURVE_REJECTIONS = {
+    "bc": [800.0, 500.0, 40.0],
+    "bd": [900.0, 700.0, 120.0],
+    "cb": [250.0, 80.0, 20.0],
+    "cd": [900.0, 120.0, 12.0],
+}
+
+
+def counts_from_rejections(rejections, efficiencies=CURVE_EFFICIENCIES, total=100_000):
+    counts = {}
+    for pair, values in rejections.items():
+        rows = []
+        for eff, rejection in zip(efficiencies, values):
+            passed = max(1, round(total / rejection))
+            rows.append(
+                {
+                    "signal_efficiency": eff,
+                    "background_passed": passed,
+                    "background_total": total,
+                    "background_efficiency": passed / total,
+                }
+            )
+        counts[pair] = rows
+    return counts
 
 
 def fixed_curve_metrics(metric_value, accuracy, auc, train_loss):
@@ -19,14 +57,10 @@ def fixed_curve_metrics(metric_value, accuracy, auc, train_loss):
         "validation_auc": auc,
         "train_loss": train_loss,
         "validation_bkg_rejection_at_eff": {
-            "efficiencies": [0.5, 0.8, 0.9],
-            "pairs": {
-                "bc": [800.0, 500.0, 40.0],
-                "bd": [900.0, 700.0, 120.0],
-                "cb": [250.0, 80.0, 20.0],
-                "cd": [900.0, 120.0, 12.0],
-            },
+            "efficiencies": CURVE_EFFICIENCIES,
+            "pairs": CURVE_REJECTIONS,
         },
+        "validation_bkg_rejection_at_eff_counts": counts_from_rejections(CURVE_REJECTIONS),
     }
 
 
@@ -67,7 +101,7 @@ def synthetic_manifest(measured_baseline=True, configured_baseline=1.7, dataset_
         "initial_evaluation": {
             "status": "completed" if measured_baseline else "skipped",
             "checkpoint": "checkpoint.pt",
-            "metrics": {METRIC: 1.5, "validation_accuracy": 0.86, "validation_auc": 0.96} if measured_baseline else {},
+            "metrics": fixed_curve_metrics(1.5, 0.86, 0.96, None) if measured_baseline else {},
         },
         "config": {
             "shared": shared,
@@ -108,6 +142,7 @@ def synthetic_manifest(measured_baseline=True, configured_baseline=1.7, dataset_
             "metric": METRIC,
             "metric_value": 0.9,
             "lr": 7.5e-5,
+            "metrics": fixed_curve_metrics(0.9, 0.9, 0.975, 0.27),
             "state_path": "checkpoints/global_best_state.pt",
             "optimizer_path": "checkpoints/global_best_optimizer.pt",
             "metadata_path": "checkpoints/global_best_metadata.json",
@@ -196,11 +231,9 @@ class PBTArtifactsTest(unittest.TestCase):
             ):
                 self.assertTrue((run_dir / relative).is_file(), relative)
             for name in (
-                "physics_metric_over_time.png",
-                "learning_rate_over_time.png",
-                "pbt_lineage.png",
-                "best_model_progress.png",
-                "final_summary.png",
+                "training_evolution.png",
+                "working_point_evolution.png",
+                "baseline_vs_selected.png",
                 "report/physics_performance.png",
                 "diagnostics/background_efficiency_curves.png",
                 "report/btag_mistag_tables.csv",
@@ -213,12 +246,32 @@ class PBTArtifactsTest(unittest.TestCase):
                 rows = list(csv.DictReader(stream))
             self.assertEqual(len(rows), 4)
             self.assertEqual(rows[0]["trial"], "trial_a")
+            self.assertEqual(rows[0]["generation"], "0")
             self.assertEqual(rows[0]["training_chunk"], "0")
             self.assertEqual(rows[0]["samples_seen"], "100")
             self.assertEqual(rows[0]["epoch_fraction"], "0.1")
+            self.assertEqual(rows[0]["optimization_metric_name"], METRIC)
+            self.assertEqual(rows[0]["optimization_metric_value"], "1.1")
+            self.assertEqual(rows[0]["optimization_metric_mode"], "min")
+            self.assertEqual(rows[0]["validation_working_point_mistag_percent"], "1.1")
+            self.assertAlmostEqual(float(rows[0]["controller_objective_mistag_percent"]), 0.7838293650793651)
+            self.assertEqual(rows[0]["btag_c_mistag_percent_at_0p80"], "0.2")
+            self.assertEqual(rows[0]["ctag_d_mistag_percent_at_0p80"], "0.8333333333333334")
+            self.assertEqual(rows[0]["btag_c_mistag_percent_at_0p80_passed"], "200")
+            self.assertEqual(rows[0]["btag_c_mistag_percent_at_0p80_total"], "100000")
+            expected_lower, expected_upper = wilson_interval(200, 100_000)
+            self.assertAlmostEqual(float(rows[0]["btag_c_mistag_percent_at_0p80_err_low"]), 100.0 * expected_lower)
+            self.assertAlmostEqual(float(rows[0]["btag_c_mistag_percent_at_0p80_err_high"]), 100.0 * expected_upper)
+            self.assertEqual(rows[0]["validation_accuracy"], "0.88")
+            self.assertEqual(rows[0]["validation_auc"], "0.97")
+            self.assertEqual(rows[0]["validation_dataset"], "synthetic_proxy")
+            self.assertEqual(rows[0]["validation_suffix"], "val5k_tail")
+            self.assertEqual(rows[0]["validation_sample_count"], "3000")
+            self.assertEqual(rows[0]["evaluation_type"], "proxy")
             self.assertEqual(rows[-1]["samples_seen"], "200")
             self.assertEqual(rows[-1]["epoch_fraction"], "0.2")
             self.assertEqual(rows[-1]["best_so_far"], "0.9")
+            self.assertTrue((run_dir / "plots" / "report" / "exploit_table.csv").is_file())
 
             summary = json.loads((run_dir / "summary.json").read_text())
             self.assertEqual(summary["winning_trial"], "trial_b")
@@ -226,8 +279,211 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertEqual(summary["configured_baseline"]["kind"], "configured")
             self.assertEqual(summary["configured_baseline"]["metric_value"], 1.7)
             self.assertAlmostEqual(summary["best_improvement_vs_baseline"], (1.5 - 0.9) / 1.5)
+            self.assertEqual(summary["evaluation"]["evaluation_type"], "proxy")
             self.assertIn("physics_performance", summary["plots"])
-            self.assertIn("anchored_lr_sweep", (run_dir / "report.md").read_text())
+            self.assertIn("training_evolution", summary["plots"])
+            self.assertIn("working_point_evolution", summary["plots"])
+            self.assertIn("baseline_comparison", summary["plots"])
+            self.assertNotIn("lr_vs_metric", summary["plots"])
+            report = (run_dir / "report.md").read_text()
+            self.assertLess(report.index("## Results"), report.index("## Method"))
+            self.assertIn("anchored_lr_sweep", report)
+            self.assertIn("Controller objective: mean predefined fixed-WP mistag percent", report)
+            self.assertIn("Training evolution", report)
+            self.assertIn("## Baseline vs. Selected Model", report)
+            self.assertNotIn("LR vs metric", report)
+            self.assertIn("samples/trial chunk", report)
+            self.assertNotIn("epoch(s)", report)
+
+    def test_baseline_evaluation_feeds_working_point_plot_start(self):
+        manifest = synthetic_manifest()
+
+        baseline_values = _baseline_fixed_working_point_values(manifest)
+
+        self.assertIsNotNone(baseline_values)
+        self.assertAlmostEqual(baseline_values["btag_c_mistag_percent_at_0p80"], 0.2)
+        self.assertAlmostEqual(baseline_values["ctag_d_mistag_percent_at_0p80"], 0.8333333333333334)
+
+    def test_baseline_evaluation_is_absent_without_measured_initial_evaluation(self):
+        manifest = synthetic_manifest(measured_baseline=False)
+
+        self.assertIsNone(_baseline_fixed_working_point_values(manifest))
+
+    def test_selected_generation_rows_follows_configured_metric_not_controller_objective(self):
+        # member_00 has the worse (higher) controller objective (mean fixed-WP
+        # mistag) but the better (higher) validation_bkg_rejection_score, the
+        # metric this historical run actually selected on (mode=max). The
+        # plotted "selected trial" must therefore be member_00, not whichever
+        # trial happens to have the best HEP-presentation mistag mean.
+        manifest = {
+            "config": {
+                "shared": {"samples_per_epoch": 100, "epochs_per_generation": 1},
+                "pbt": {"metric": "validation_bkg_rejection_score", "mode": "max"},
+            },
+            "initial_evaluation": {"status": "skipped", "metrics": {}},
+            "generations": [
+                {
+                    "index": 0,
+                    "workers": {
+                        "member_00": {
+                            "lr": 1.0e-4,
+                            "metrics": {
+                                "validation_bkg_rejection_score": 9.0,
+                                "validation_bkg_rejection_at_eff": {
+                                    "efficiencies": [0.5, 0.8, 0.9],
+                                    "pairs": {
+                                        "bc": [10.0] * 3,
+                                        "bd": [10.0] * 3,
+                                        "cb": [10.0] * 3,
+                                        "cd": [10.0] * 3,
+                                    },
+                                },
+                            },
+                        },
+                        "member_01": {
+                            "lr": 2.0e-4,
+                            "metrics": {
+                                "validation_bkg_rejection_score": 5.0,
+                                "validation_bkg_rejection_at_eff": {
+                                    "efficiencies": [0.5, 0.8, 0.9],
+                                    "pairs": {
+                                        "bc": [1000.0] * 3,
+                                        "bd": [1000.0] * 3,
+                                        "cb": [1000.0] * 3,
+                                        "cd": [1000.0] * 3,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                }
+            ],
+        }
+
+        rows = evaluation_rows(manifest)
+        selected = selected_generation_rows(rows, "max")
+
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]["trial"], "member_00")
+        # Confirm the scenario is meaningful: the controller objective alone
+        # would have picked the other trial.
+        objective_winner = min(rows, key=lambda row: row["controller_objective_mistag_percent"])
+        self.assertEqual(objective_winner["trial"], "member_01")
+
+    def test_wilson_interval_is_bounded_and_asymmetric_for_rare_mistags(self):
+        # A tiny observed rate (2 passes out of 100000) is the regime fixed-WP
+        # mistags usually live in. The interval must stay within [0, 1] and
+        # must not be forced symmetric around p.
+        bounds = wilson_interval(2, 100_000)
+
+        self.assertIsNotNone(bounds)
+        lower, upper = bounds
+        p = 2 / 100_000
+        self.assertGreaterEqual(p - lower, 0.0)
+        self.assertLessEqual(p - lower, p)  # lower bound of interval stays >= 0
+        self.assertNotAlmostEqual(lower, upper)  # asymmetric, not a naive symmetric stderr
+
+    def test_wilson_interval_handles_zero_passes_without_going_negative(self):
+        bounds = wilson_interval(0, 1000)
+
+        self.assertIsNotNone(bounds)
+        lower, upper = bounds
+        self.assertEqual(lower, 0.0)
+        self.assertGreater(upper, 0.0)
+
+    def test_wilson_interval_approaches_normal_approximation_for_large_n_moderate_p(self):
+        # Sanity check against the textbook large-n regime: for p away from
+        # the edges and large n, Wilson should be close to the symmetric
+        # sqrt(p(1-p)/n) approximation.
+        passed, total = 30_000, 100_000
+        lower, upper = wilson_interval(passed, total)
+        p = passed / total
+        naive_stderr = math.sqrt(p * (1 - p) / total)
+
+        self.assertAlmostEqual(lower, naive_stderr, delta=naive_stderr * 0.05)
+        self.assertAlmostEqual(upper, naive_stderr, delta=naive_stderr * 0.05)
+
+    def test_fixed_working_point_uncertainty_reads_counts_from_metrics(self):
+        metrics = fixed_curve_metrics(1.1, 0.88, 0.97, 0.32)
+
+        result = fixed_working_point_uncertainty(metrics, "b", 0.80, "c")
+
+        self.assertIsNotNone(result)
+        lower, upper, passed, total = result
+        self.assertEqual(passed, 200)
+        self.assertEqual(total, 100_000)
+        self.assertGreater(lower, 0.0)
+        self.assertGreater(upper, 0.0)
+
+    def test_fixed_working_point_uncertainty_is_none_without_counts(self):
+        self.assertIsNone(fixed_working_point_uncertainty({}, "b", 0.80, "c"))
+
+    def test_format_mistag_value_rounds_to_uncertainty_precision(self):
+        # A tiny central value with a much larger uncertainty must not be
+        # printed with false precision (e.g. not "0.001700%").
+        self.assertEqual(format_mistag_value(0.0017, 0.05, 0.05), "0.002±0.050%")
+        # Comfortably-measured values keep the default 3-decimal precision.
+        self.assertEqual(format_mistag_value(0.2), "0.200%")
+        # A visibly asymmetric interval is reported as +/- rather than
+        # symmetrized away.
+        self.assertEqual(format_mistag_value(1.0, 0.05, 0.4), "1.00% (+0.40/-0.05)")
+
+    def test_format_mistag_value_handles_missing_value(self):
+        self.assertEqual(format_mistag_value(None), "n/a")
+
+    def test_working_point_evolution_plot_supports_many_generations(self):
+        # The evolution plots must not be hard-coded around the two-point
+        # smoke-test shape; verify a longer, single-trial run round-trips
+        # cleanly through the full canonical-artifact pipeline.
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            manifest = synthetic_manifest()
+            manifest["generations"] = [
+                {
+                    "index": index,
+                    "epoch": index,
+                    "status": "completed",
+                    "workers": {
+                        "trial_a": {
+                            "status": "completed",
+                            "lr": 1.0e-4,
+                            "metrics": fixed_curve_metrics(1.2 - 0.05 * index, 0.85, 0.96, 0.3),
+                        },
+                    },
+                    "ranking": ["trial_a"],
+                    "exploit": [],
+                }
+                for index in range(8)
+            ]
+            manifest["best"]["generation"] = 7
+            manifest["best"]["member"] = "trial_a"
+
+            write_canonical_outputs(run_dir, manifest)
+
+            with (run_dir / "metrics.csv").open() as stream:
+                rows = list(csv.DictReader(stream))
+            self.assertEqual(len(rows), 8)
+            self.assertTrue((run_dir / "plots" / "working_point_evolution.png").is_file())
+
+    def test_rebuild_command_regenerates_report_without_training(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            manifest = synthetic_manifest()
+            write_canonical_outputs(run_dir, manifest)
+            (run_dir / "report.md").unlink()
+
+            result = subprocess.run(
+                [sys.executable, str(PROJECT_DIR / "scripts/training/pbt/rebuild_artifacts.py"), str(run_dir)],
+                cwd=PROJECT_DIR,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((run_dir / "report.md").is_file())
+            self.assertIn("report.md", result.stdout)
 
     def test_configured_baseline_is_not_measured_baseline(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -242,7 +498,9 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertIsNone(summary["best_improvement_vs_baseline"])
             report = (run_dir / "report.md").read_text()
             self.assertIn("Measured baseline: n/a", report)
-            self.assertIn("Configured baseline/reference: 1.5", report)
+            self.assertIn("Configured reference: 1.5", report)
+            self.assertNotIn("## Baseline vs. Selected Model", report)
+            self.assertFalse((run_dir / "plots" / "baseline_vs_selected.png").exists())
 
     def test_epoch_fraction_is_null_when_training_dataset_size_is_unknown(self):
         with tempfile.TemporaryDirectory() as temporary:

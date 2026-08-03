@@ -131,7 +131,13 @@ bash scripts/data/convert_20250711_sgv10m_3cat_to_parquet.sh
 
 Its tracked base manifest is `datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_parquet.json`; the active proxy manifest is `datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json`. Use `configs/experiments/pretrained_guarded_8gpu_smooth_lr_10m_proxy_control.yaml` for an adaptive run that trains on `train800k` parquet while validating on the fixed `val5k_tail` control proxy. The `val5k_tail` control proxy uses the final rows of each `val1000k` file; `val50k_tail` monitor uses the immediately preceding rows, so monitor/control are disjoint and both come from the dataset tail.
 
-PBT runs write `metrics_summary.json` and plot PNGs under `plots/` automatically after completion. Lightweight Git-trackable research evidence lives in `results/research/` and can be produced with:
+PBT runs write canonical artifacts automatically after completion. Rebuild those artifacts for an existing completed run without training with:
+
+```bash
+.venv/bin/python scripts/training/pbt/rebuild_artifacts.py runs/pbt/<run>
+```
+
+Lightweight Git-trackable research evidence lives in `results/research/` and can be produced with:
 
 ```bash
 PYTHONPATH=scripts .venv/bin/python scripts/reports/export_research_result.py \
@@ -140,28 +146,16 @@ PYTHONPATH=scripts .venv/bin/python scripts/reports/export_research_result.py \
   --csv-output results/research/<result>.csv
 ```
 
-The clean showcase set is intentionally small:
+The final PBT artifact set is intentionally small:
 
-- `plots/report/physics_performance.png`: the main HEP-style result, combining fixed working-point mistag tables with compact mistag [%] bar charts.
-- `plots/report/training_diagnostics.png`: compact training/PBT diagnostic for understanding whether the run improved or drifted.
-
-Machine-readable fixed working-point tables are also written as `plots/report/ctag_mistag_tables.csv` and `plots/report/btag_mistag_tables.csv`. Default diagnostic PNGs are `plots/diagnostics/background_efficiency_curves.png`, `plots/diagnostics/btag_background_efficiency_vs_training_size.png`, and `plots/diagnostics/selection_timeline.png`; other report scripts are available for manual debugging but are not generated as part of the standard report.
-
-Plot reports from an existing PBT run:
-
-```bash
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_bgrej_curves.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_summary.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_physics_performance.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_fixed_b_efficiency.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_bgrej_evolution.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --tag b --quantity mistag'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_bgrej_evolution.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --tag c --quantity mistag'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_pbt_lr_response.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_mistag_tables.py run=runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --tag c --eff 0.5,0.8'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_mistag_tables.py run=runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json --tag b --eff 0.8,0.9'
-# Optional ROOT style, after loading ROOT/PyROOT on the host:
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/reports/plot_fixed_b_efficiency_root.py runs/pbt/parquet_pbt_bkg_rejection_best/manifest.json'
-```
+- `plots/training_evolution.png`
+- `plots/working_point_evolution.png`
+- `plots/baseline_vs_selected.png` (only when a measured baseline and a global-best checkpoint both exist)
+- `plots/report/physics_performance.png`
+- `plots/diagnostics/background_efficiency_curves.png`
+- `plots/report/btag_mistag_tables.csv`
+- `plots/report/ctag_mistag_tables.csv`
+- `plots/report/exploit_table.csv`
 
 Run tests:
 

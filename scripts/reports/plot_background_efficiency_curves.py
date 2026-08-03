@@ -14,7 +14,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from reports.plot_physics_performance import (  # noqa: E402
-    PAIR_COLORS,
+    FLAVOR_COLORS,
     REFERENCE_WORKING_POINTS,
     TAG_PAIRS,
     load_manifest,
@@ -72,7 +72,7 @@ def draw_efficiency(ax, metrics, tag):
             marker="o",
             markersize=4.2,
             linewidth=2.0,
-            color=PAIR_COLORS[pair],
+            color=FLAVOR_COLORS[pair[1]],
             label=PAIR_SHORT_LABELS[pair],
         )
     for working_point in REFERENCE_WORKING_POINTS[tag]:
