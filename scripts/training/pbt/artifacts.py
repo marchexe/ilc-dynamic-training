@@ -21,8 +21,12 @@ PLOT_NAMES = {
     "training_evolution": "training_evolution.png",
     "working_point_evolution": "working_point_evolution.png",
     "baseline_comparison": "baseline_vs_selected.png",
+    "proxy_diagnostics": "proxy_diagnostics.png",
 }
+CONDITIONAL_PLOT_NAMES = ("baseline_comparison", "proxy_diagnostics")
 EXPLOIT_TABLE_NAME = "plots/report/exploit_table.csv"
+SKIPPED_EXPLOIT_TABLE_NAME = "plots/report/skipped_exploits.csv"
+TIERED_METRICS_NAME = "tiered_metrics.csv"
 FIXED_WORKING_POINTS = (
     {"tag": "b", "efficiency": 0.80, "background": "c", "column": "btag_c_mistag_percent_at_0p80", "label": "c bkg, b-eff 80%"},
     {"tag": "b", "efficiency": 0.80, "background": "d", "column": "btag_d_mistag_percent_at_0p80", "label": "d bkg, b-eff 80%"},
@@ -92,6 +96,7 @@ METRICS_COLUMNS = (
     "validation_loss",
     "best_so_far",
     "training_loss",
+    "validation_shutdown_warning",
     "validation_dataset",
     "validation_suffix",
     "validation_sample_count",
@@ -509,6 +514,7 @@ def evaluation_rows(manifest):
                     "validation_loss": metrics.get("validation_loss"),
                     "best_so_far": best,
                     "training_loss": metrics.get("train_loss"),
+                    "validation_shutdown_warning": bool(metrics.get("validation_shutdown_warning")),
                     **metadata,
                 }
             )
@@ -683,7 +689,7 @@ def build_summary(run_dir, manifest):
             **{
                 name: str(Path("plots") / filename)
                 for name, filename in PLOT_NAMES.items()
-                if name != "baseline_comparison" or (Path(run_dir) / "plots" / filename).is_file()
+                if name not in CONDITIONAL_PLOT_NAMES or (Path(run_dir) / "plots" / filename).is_file()
             },
             "physics_performance": str(Path("plots") / "report" / "physics_performance.png"),
             "background_efficiency_curves": str(Path("plots") / "diagnostics" / "background_efficiency_curves.png"),
@@ -1012,7 +1018,9 @@ def write_exploit_table(run_dir, events):
             row["optimizer_copied"] = event.get("copied")
     columns = (
         "generation", "donor", "recipient", "donor_metric", "recipient_metric",
-        "weight_source", "optimizer_source", "old_lr", "new_lr", "mutation",
+        "weight_source", "optimizer_source", "old_lr", "new_lr",
+        "mutation", "significance_margin_sigma", "significance_sigma_required",
+        "dynamic_controller_action", "dynamic_controller_lr_before", "dynamic_controller_bounded_lr",
         "weight_copied", "weight_source_path", "weight_destination_path",
         "optimizer_copied", "optimizer_source_path", "optimizer_destination_path",
     )
@@ -1021,6 +1029,28 @@ def write_exploit_table(run_dir, events):
         writer = csv.DictWriter(stream, fieldnames=columns)
         writer.writeheader()
         for row in sorted(by_key.values(), key=lambda item: (item.get("generation") is None, item.get("generation") or -1, item.get("recipient") or "")):
+            writer.writerow({column: "" if row.get(column) is None else row.get(column) for column in columns})
+    os.replace(temporary, path)
+    return path
+
+
+def write_skipped_exploits_table(run_dir, events):
+    """Every donor->recipient replacement significance gating declined to
+    apply -- audit trail for "we deliberately did not overwrite this member
+    because the win wasn't statistically meaningful", not just what was done.
+    """
+    path = Path(run_dir) / SKIPPED_EXPLOIT_TABLE_NAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = [event for event in events if event.get("event_type") == "exploit_skipped"]
+    columns = (
+        "generation", "donor", "recipient", "donor_metric", "recipient_metric",
+        "margin_sigma", "required_sigma", "reason",
+    )
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=columns)
+        writer.writeheader()
+        for row in sorted(rows, key=lambda item: (item.get("generation") or -1, item.get("recipient") or "")):
             writer.writerow({column: "" if row.get(column) is None else row.get(column) for column in columns})
     os.replace(temporary, path)
     return path
@@ -1162,6 +1192,421 @@ def plot_baseline_comparison(run_dir, manifest):
     return path
 
 
+TIERED_METRICS_COLUMNS = (
+    "generation",
+    "samples_seen",
+    "tier",
+    "member",
+    "dataset",
+    "suffix",
+    "status",
+    "rank",
+    "population_size",
+    "metric_name",
+    "metric_value",
+    CONTROLLER_OBJECTIVE_COLUMN,
+    "validation_working_point_mistag_percent",
+    *FIXED_WORKING_POINT_COLUMNS,
+    *FIXED_WORKING_POINT_UNCERTAINTY_COLUMNS,
+)
+TIER_ORDER = ("control", "monitor", "full", "full_holdout")
+
+
+def _tiered_round_samples_seen(manifest, generation):
+    if generation is None or generation < 0:
+        return 0
+    return training_chunk_samples(manifest) * (int(generation) + 1)
+
+
+def tiered_evaluation_rows(manifest):
+    """Flatten manifest["tiered_evaluations"] into one row per
+    (generation, tier, member), preserving the tier's full rank for that
+    round so `member`+`generation` observations can be joined across
+    control/monitor/full for paired comparison (see requirement: paired
+    control<->monitor<->full observations, not just aggregate trends).
+    """
+    rows = []
+    for round_record in manifest.get("tiered_evaluations", []):
+        tier = round_record.get("tier")
+        generation = round_record.get("generation")
+        dataset = round_record.get("dataset")
+        suffix = round_record.get("suffix")
+        metric_name = round_record.get("metric_name")
+        members = round_record.get("members") or {}
+        ranking = round_record.get("ranking") or []
+        rank_by_member = {name: index + 1 for index, name in enumerate(ranking)}
+        for member, record in members.items():
+            metrics = record.get("metrics") or {}
+            rows.append(
+                {
+                    "generation": generation,
+                    "samples_seen": _tiered_round_samples_seen(manifest, generation),
+                    "tier": tier,
+                    "member": member,
+                    "dataset": dataset,
+                    "suffix": suffix,
+                    "status": record.get("status"),
+                    "rank": rank_by_member.get(member),
+                    "population_size": len(members),
+                    "metric_name": metric_name,
+                    "metric_value": metrics.get(metric_name),
+                    CONTROLLER_OBJECTIVE_COLUMN: controller_objective_mistag(metrics) if metrics else None,
+                    "validation_working_point_mistag_percent": metrics.get("validation_working_point_mistag_percent"),
+                    **fixed_working_point_values(metrics),
+                    **fixed_working_point_uncertainties(metrics),
+                }
+            )
+    return rows
+
+
+def write_tiered_metrics_csv(run_dir, manifest):
+    ensure_run_layout(run_dir)
+    rows = tiered_evaluation_rows(manifest)
+    path = Path(run_dir) / TIERED_METRICS_NAME
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=TIERED_METRICS_COLUMNS)
+        writer.writeheader()
+        for row in sorted(
+            rows,
+            key=lambda item: (
+                item["generation"] if item["generation"] is not None else -999,
+                TIER_ORDER.index(item["tier"]) if item["tier"] in TIER_ORDER else 99,
+                item["member"] or "",
+            ),
+        ):
+            writer.writerow({key: "" if row.get(key) is None else row.get(key) for key in TIERED_METRICS_COLUMNS})
+    os.replace(temporary, path)
+    return path
+
+
+def _paired_tier_values(manifest, tier_a, tier_b):
+    """(x, y, member, generation) tuples for every (member, generation) that
+    has a valid metric under both tier_a and tier_b -- the paired
+    observations proxy-vs-monitor/full correlation requires.
+    """
+    by_key = {}
+    for round_record in manifest.get("tiered_evaluations", []):
+        tier = round_record.get("tier")
+        if tier not in (tier_a, tier_b):
+            continue
+        metric_name = round_record.get("metric_name")
+        generation = round_record.get("generation")
+        for member, record in (round_record.get("members") or {}).items():
+            value = (record.get("metrics") or {}).get(metric_name)
+            if value is None or not math.isfinite(float(value)):
+                continue
+            by_key.setdefault((generation, member), {})[tier] = float(value)
+    pairs = []
+    for (generation, member), values in sorted(by_key.items(), key=lambda item: (item[0][0] or -999, item[0][1] or "")):
+        if tier_a in values and tier_b in values:
+            pairs.append((values[tier_a], values[tier_b], member, generation))
+    return pairs
+
+
+def tier_correlation(manifest, tier_a, tier_b):
+    """Pearson r and Spearman rho between tier_a and tier_b's metric values
+    at every (member, generation) evaluated on both. Returns None (with a
+    reason) rather than a number when there are too few paired points for a
+    correlation to mean anything -- never fabricate significance from n<3.
+    """
+    pairs = _paired_tier_values(manifest, tier_a, tier_b)
+    n = len(pairs)
+    if n < 3:
+        return {"n": n, "pearson_r": None, "spearman_rho": None, "reason": "insufficient_paired_observations"}
+    try:
+        from scipy import stats
+    except ImportError:
+        return {"n": n, "pearson_r": None, "spearman_rho": None, "reason": "scipy_unavailable"}
+    xs = [pair[0] for pair in pairs]
+    ys = [pair[1] for pair in pairs]
+    pearson_r, pearson_p = stats.pearsonr(xs, ys)
+    spearman_rho, spearman_p = stats.spearmanr(xs, ys)
+    return {
+        "n": n,
+        "pearson_r": float(pearson_r),
+        "pearson_p": float(pearson_p),
+        "spearman_rho": float(spearman_rho),
+        "spearman_p": float(spearman_p),
+        "reason": None,
+    }
+
+
+def _paired_round_rankings(manifest, tier_a, tier_b):
+    """(generation, ranking_a, ranking_b, shared_members) for every
+    generation where both tiers recorded a round -- the full-ordering data
+    ranking-agreement/top-k-agreement is computed from.
+    """
+    rounds_by_generation = {}
+    for round_record in manifest.get("tiered_evaluations", []):
+        rounds_by_generation.setdefault(round_record.get("generation"), {})[round_record.get("tier")] = round_record
+    paired = []
+    for generation, by_tier in sorted(rounds_by_generation.items(), key=lambda item: item[0] if item[0] is not None else -999):
+        if tier_a not in by_tier or tier_b not in by_tier:
+            continue
+        ranking_a = by_tier[tier_a].get("ranking") or []
+        ranking_b = by_tier[tier_b].get("ranking") or []
+        shared = [name for name in ranking_a if name in ranking_b]
+        if len(shared) < 2:
+            continue
+        paired.append((generation, ranking_a, ranking_b, shared))
+    return paired
+
+
+def ranking_agreement(manifest, tier_a, tier_b):
+    """Per paired-generation ranking agreement between tier_a and tier_b:
+    Spearman rho of rank positions (restricted to members ranked by both),
+    plus top-1 and top-min(3,n) overlap -- "does the proxy pick the same
+    winner/leaders as monitor/full", not just "are the raw values correlated".
+    """
+    paired = _paired_round_rankings(manifest, tier_a, tier_b)
+    results = []
+    for generation, ranking_a, ranking_b, shared in paired:
+        rank_a = {name: index for index, name in enumerate(ranking_a) if name in shared}
+        rank_b = {name: index for index, name in enumerate(ranking_b) if name in shared}
+        ordered = sorted(shared, key=lambda name: rank_a[name])
+        ranks_a = [rank_a[name] for name in ordered]
+        ranks_b = [rank_b[name] for name in ordered]
+        spearman_rho = None
+        if len(ordered) >= 3:
+            try:
+                from scipy import stats
+
+                spearman_rho, _ = stats.spearmanr(ranks_a, ranks_b)
+                spearman_rho = float(spearman_rho)
+            except ImportError:
+                spearman_rho = None
+        top1_a = ranking_a[0] if ranking_a else None
+        top1_b = ranking_b[0] if ranking_b else None
+        k = min(3, len(shared))
+        top_k_a = set(ranking_a[:k])
+        top_k_b = set(ranking_b[:k])
+        results.append(
+            {
+                "generation": generation,
+                "members_compared": len(shared),
+                "spearman_rho": spearman_rho,
+                "top1_agrees": bool(top1_a is not None and top1_a == top1_b),
+                "top_k": k,
+                "top_k_overlap_fraction": len(top_k_a & top_k_b) / k if k else None,
+            }
+        )
+    return results
+
+
+def best_checkpoint_by_tier(manifest):
+    """The (generation, member, metric_value) with the best metric under
+    each tier, across every recorded round of that tier -- so we can ask
+    "does control's favorite checkpoint match monitor/full's".
+    """
+    mode = manifest.get("config", {}).get("pbt", {}).get("mode", "max")
+    best_by_tier = {}
+    for round_record in manifest.get("tiered_evaluations", []):
+        tier = round_record.get("tier")
+        metric_name = round_record.get("metric_name")
+        for member, record in (round_record.get("members") or {}).items():
+            value = (record.get("metrics") or {}).get(metric_name)
+            if value is None or not math.isfinite(float(value)):
+                continue
+            value = float(value)
+            candidate = {"generation": round_record.get("generation"), "member": member, "metric_value": value}
+            current = best_by_tier.get(tier)
+            if current is None or _better(mode, value, current["metric_value"]):
+                best_by_tier[tier] = candidate
+    return best_by_tier
+
+
+def proxy_selected_checkpoint_other_tiers(manifest):
+    """What do monitor/full say about the checkpoint control-based PBT
+    actually selected as global best? None entries mean that checkpoint was
+    never evaluated on that tier.
+    """
+    best = manifest.get("best") or {}
+    generation = best.get("generation")
+    member = best.get("member")
+    out = {}
+    for round_record in manifest.get("tiered_evaluations", []):
+        if round_record.get("generation") != generation or round_record.get("tier") == "control":
+            continue
+        record = (round_record.get("members") or {}).get(member)
+        if record is None:
+            continue
+        metric_name = round_record.get("metric_name")
+        out[round_record.get("tier")] = {
+            "metric_value": (record.get("metrics") or {}).get(metric_name),
+            "status": record.get("status"),
+        }
+    return {"generation": generation, "member": member, "tiers": out}
+
+
+def proxy_overfitting_cases(manifest, tier_b="monitor"):
+    """(member, generation_from, generation_to) triples where control
+    improved but tier_b (monitor by default) did not, for the same member
+    across the same pair of paired generations -- the explicit "proxy got
+    better, physics didn't" signal this whole diagnostic exists to catch.
+    A control-only improvement must never be reported as a confirmed
+    physics result; this is the concrete evidence for when that would be wrong.
+    """
+    mode = manifest.get("config", {}).get("pbt", {}).get("mode", "max")
+    paired_generations = sorted(
+        {round_record.get("generation") for round_record in manifest.get("tiered_evaluations", []) if round_record.get("tier") == tier_b}
+    )
+    by_generation_tier = {}
+    for round_record in manifest.get("tiered_evaluations", []):
+        by_generation_tier.setdefault(round_record.get("generation"), {})[round_record.get("tier")] = round_record
+
+    def metric_for(generation, tier, member):
+        round_record = by_generation_tier.get(generation, {}).get(tier)
+        if not round_record:
+            return None
+        metric_name = round_record.get("metric_name")
+        value = (round_record.get("members", {}).get(member, {}).get("metrics") or {}).get(metric_name)
+        return None if value is None else float(value)
+
+    cases = []
+    for previous_generation, current_generation in zip(paired_generations, paired_generations[1:]):
+        control_prev = by_generation_tier.get(previous_generation, {}).get("control")
+        control_curr = by_generation_tier.get(current_generation, {}).get("control")
+        if not control_prev or not control_curr:
+            continue
+        members = set(control_prev.get("members", {})) & set(control_curr.get("members", {}))
+        for member in sorted(members):
+            control_before = metric_for(previous_generation, "control", member)
+            control_after = metric_for(current_generation, "control", member)
+            other_before = metric_for(previous_generation, tier_b, member)
+            other_after = metric_for(current_generation, tier_b, member)
+            if None in (control_before, control_after, other_before, other_after):
+                continue
+            control_improved = _better(mode, control_after, control_before)
+            other_improved = _better(mode, other_after, other_before)
+            if control_improved and not other_improved:
+                cases.append(
+                    {
+                        "member": member,
+                        "generation_from": previous_generation,
+                        "generation_to": current_generation,
+                        "control_before": control_before,
+                        "control_after": control_after,
+                        f"{tier_b}_before": other_before,
+                        f"{tier_b}_after": other_after,
+                    }
+                )
+    return cases
+
+
+def plot_proxy_diagnostics(run_dir, manifest):
+    """Does the control proxy actually track monitor/full? Evolution per
+    tier, paired correlation, ranking agreement, and explicit
+    proxy-overfitting cases. Returns None (no plot) if no monitor/full
+    rounds were ever recorded -- nothing to diagnose.
+    """
+    rounds = manifest.get("tiered_evaluations", [])
+    if not any(round_record.get("tier") in ("monitor", "full", "full_holdout") for round_record in rounds):
+        return None
+
+    plt = _plot_setup()
+    events = read_events(run_dir)
+    fig, axes = plt.subplots(2, 2, figsize=(13.0, 9.0))
+    fig.subplots_adjust(left=0.07, right=0.97, top=0.87, bottom=0.08, hspace=0.38, wspace=0.28)
+    ax_evolution, ax_control_monitor, ax_control_holdout, ax_agreement = axes[0, 0], axes[0, 1], axes[1, 0], axes[1, 1]
+
+    tier_colors = {"control": "#2f5aa0", "monitor": "#cf6f2e", "full": "#59a14f", "full_holdout": "#b07aa1"}
+    for tier in TIER_ORDER:
+        tier_rounds = [r for r in rounds if r.get("tier") == tier]
+        if not tier_rounds:
+            continue
+        xs, means, mins, maxs = [], [], [], []
+        for round_record in sorted(tier_rounds, key=lambda item: item.get("generation") if item.get("generation") is not None else -999):
+            metric_name = round_record.get("metric_name")
+            values = [
+                float((record.get("metrics") or {}).get(metric_name))
+                for record in (round_record.get("members") or {}).values()
+                if (record.get("metrics") or {}).get(metric_name) is not None
+                and math.isfinite(float((record.get("metrics") or {}).get(metric_name)))
+            ]
+            if not values:
+                continue
+            xs.append(_tiered_round_samples_seen(manifest, round_record.get("generation")))
+            means.append(sum(values) / len(values))
+            mins.append(min(values))
+            maxs.append(max(values))
+        if not xs:
+            continue
+        color = tier_colors.get(tier, "0.4")
+        ax_evolution.plot(xs, means, marker="o", markersize=5, linestyle="-", linewidth=1.4, color=color, label=f"{tier} (population mean)")
+        ax_evolution.fill_between(xs, mins, maxs, color=color, alpha=0.15, linewidth=0)
+    for event in events:
+        if event.get("event_type") != "exploit":
+            continue
+        x = _tiered_round_samples_seen(manifest, event.get("generation"))
+        ax_evolution.axvline(x, color="0.75", linestyle=":", linewidth=0.8, zorder=1)
+    ax_evolution.set_xlabel("samples seen")
+    ax_evolution.set_ylabel("metric value (population min/mean/max)")
+    ax_evolution.set_title("Tiered validation evolution", loc="left", fontsize=10.5, fontweight="bold")
+    ax_evolution.grid(True, color="0.9", linewidth=0.6)
+    ax_evolution.legend(frameon=False, fontsize=8, loc="best")
+
+    # Fidelity diagnostics deliberately use full_holdout, not plain "full":
+    # full contains the exact control/monitor events (see the dataset
+    # suitability note), so it is not an independent check of the proxy.
+    for ax, tier_b, label in (
+        (ax_control_monitor, "monitor", "control vs. monitor"),
+        (ax_control_holdout, "full_holdout", "control vs. full_holdout (independent)"),
+    ):
+        correlation = tier_correlation(manifest, "control", tier_b)
+        pairs = _paired_tier_values(manifest, "control", tier_b)
+        if pairs:
+            xs = [pair[0] for pair in pairs]
+            ys = [pair[1] for pair in pairs]
+            ax.scatter(xs, ys, s=28, color=tier_colors.get(tier_b, "0.4"), edgecolor="0.2", linewidth=0.4, zorder=3)
+            lo, hi = min(xs + ys), max(xs + ys)
+            if hi > lo:
+                ax.plot([lo, hi], [lo, hi], color="0.6", linestyle="--", linewidth=0.9, zorder=2, label="y = x")
+        if correlation["reason"] == "insufficient_paired_observations":
+            caption = f"n={correlation['n']} paired points -- too few for a meaningful correlation"
+        elif correlation["reason"]:
+            caption = f"n={correlation['n']}, correlation unavailable ({correlation['reason']})"
+        else:
+            caption = f"n={correlation['n']}  Pearson r={correlation['pearson_r']:.2f}  Spearman rho={correlation['spearman_rho']:.2f}"
+        ax.set_xlabel(f"control {rounds[0].get('metric_name') if rounds else ''}")
+        ax.set_ylabel(f"{tier_b} {rounds[0].get('metric_name') if rounds else ''}")
+        ax.set_title(label, loc="left", fontsize=10.5, fontweight="bold")
+        ax.text(0.02, 0.98, caption, transform=ax.transAxes, ha="left", va="top", fontsize=8, color="0.3")
+        ax.grid(True, color="0.9", linewidth=0.6)
+
+    agreement_rows = ranking_agreement(manifest, "control", "monitor") or ranking_agreement(manifest, "control", "full_holdout")
+    if agreement_rows:
+        xs = [row["generation"] for row in agreement_rows]
+        overlap = [row["top_k_overlap_fraction"] for row in agreement_rows]
+        top1 = [1.0 if row["top1_agrees"] else 0.0 for row in agreement_rows]
+        ax_agreement.plot(xs, overlap, marker="o", markersize=5, color="#4c78a8", label="top-k overlap fraction")
+        ax_agreement.scatter(xs, top1, marker="s", s=36, color="#e15759", label="top-1 (winner) agrees", zorder=4)
+        ax_agreement.set_ylim(-0.05, 1.05)
+        ax_agreement.set_xlabel("generation")
+        ax_agreement.set_ylabel("agreement")
+        ax_agreement.legend(frameon=False, fontsize=8, loc="lower left")
+    else:
+        ax_agreement.text(0.5, 0.5, "no paired control/monitor(-or-full_holdout)\nranking rounds recorded yet", ha="center", va="center", transform=ax_agreement.transAxes, fontsize=9, color="0.4")
+    ax_agreement.set_title("Ranking agreement (control vs. monitor/full_holdout)", loc="left", fontsize=10.5, fontweight="bold")
+    ax_agreement.grid(True, color="0.9", linewidth=0.6)
+
+    fig.suptitle("Proxy validation diagnostics", x=0.02, y=0.975, ha="left", fontsize=14, fontweight="bold")
+    fig.text(
+        0.02,
+        0.935,
+        f"{manifest.get('experiment', Path(run_dir).name)} | control drives PBT decisions; monitor/full are read-only checks, never fed back\n"
+        "Shaded bands = population min-max; dotted vertical lines = exploit events. A control-only improvement is provisional, not confirmed.",
+        ha="left",
+        va="top",
+        fontsize=8.6,
+        color="0.35",
+    )
+    path = Path(run_dir) / "plots" / PLOT_NAMES["proxy_diagnostics"]
+    fig.savefig(path, dpi=170)
+    plt.close(fig)
+    return path
+
+
 def write_plots(run_dir, manifest):
     ensure_run_layout(run_dir)
     rows = read_metrics_rows(run_dir)
@@ -1170,6 +1615,9 @@ def write_plots(run_dir, manifest):
         "training_evolution": str(plot_training_evolution(run_dir, manifest, rows, events)),
         "working_point_evolution": str(plot_working_point_evolution(run_dir, manifest, rows)),
     }
+    diagnostics_path = plot_proxy_diagnostics(run_dir, manifest)
+    if diagnostics_path is not None:
+        plots["proxy_diagnostics"] = str(diagnostics_path)
     comparison_path = plot_baseline_comparison(run_dir, manifest)
     if comparison_path is not None:
         plots["baseline_comparison"] = str(comparison_path)
@@ -1182,6 +1630,141 @@ def _fmt(value, digits=6):
     if isinstance(value, float):
         return f"{value:.{digits}g}"
     return str(value)
+
+
+def _tier_metric_for_member_generation(manifest, tier, generation, member):
+    for round_record in manifest.get("tiered_evaluations", []):
+        if round_record.get("tier") != tier or round_record.get("generation") != generation:
+            continue
+        metric_name = round_record.get("metric_name")
+        record = (round_record.get("members") or {}).get(member)
+        if record is None:
+            return None
+        value = (record.get("metrics") or {}).get(metric_name)
+        return None if value is None else float(value)
+    return None
+
+
+def corroboration_status(manifest):
+    """provisional / monitor-corroborated / full-corroborated for the
+    control-selected global-best checkpoint: same-direction agreement with
+    monitor/full measured at that SAME (member, generation) checkpoint.
+
+    Deliberately not a significance test and not an error-bar-overlap rule
+    (see write_report's effect-size/uncertainty lines, reported alongside
+    this label, not folded into it) -- this label only says which tiers of
+    evidence exist and agree on direction; the human reader judges magnitude.
+    """
+    mode = manifest.get("config", {}).get("pbt", {}).get("mode", "max")
+    best = manifest.get("best") or {}
+    generation, member = best.get("generation"), best.get("member")
+    status = "provisional"
+    details = {}
+    for tier in ("monitor", "full"):
+        baseline_tier = _tier_metric_for_member_generation(manifest, tier, -1, "initial_resume")
+        selected_tier = _tier_metric_for_member_generation(manifest, tier, generation, member)
+        if baseline_tier is None or selected_tier is None:
+            details[tier] = {"available": False}
+            continue
+        improved = _better(mode, selected_tier, baseline_tier)
+        details[tier] = {"available": True, "baseline": baseline_tier, "selected": selected_tier, "improved": improved}
+        if improved:
+            status = f"{tier}-corroborated"
+    return status, details
+
+
+def _proxy_diagnostics_report_lines(manifest, plots, proxy_diagnostics_path):
+    lines = ["", "## Proxy Validation Diagnostics", f"- [Proxy validation diagnostics]({proxy_diagnostics_path})"]
+    for label, correlation in (
+        ("control vs. monitor", tier_correlation(manifest, "control", "monitor")),
+        ("control vs. full_holdout (independent, excludes control+monitor)", tier_correlation(manifest, "control", "full_holdout")),
+    ):
+        if correlation["reason"] == "insufficient_paired_observations":
+            lines.append(f"- {label} correlation: n={correlation['n']} paired observations -- too few for a meaningful correlation")
+        elif correlation["reason"]:
+            lines.append(f"- {label} correlation: unavailable ({correlation['reason']})")
+        else:
+            lines.append(
+                f"- {label} correlation: n={correlation['n']}, Pearson r={correlation['pearson_r']:.3f}, "
+                f"Spearman rho={correlation['spearman_rho']:.3f}"
+            )
+
+    best_by_tier = best_checkpoint_by_tier(manifest)
+    if best_by_tier:
+        bits = ", ".join(
+            f"{tier}: `{info['member']}` gen {info['generation']} ({_fmt(info['metric_value'])})"
+            for tier, info in best_by_tier.items()
+        )
+        lines.append(f"- Best checkpoint by tier: {bits}")
+        if len(best_by_tier) > 1:
+            agree = len({(info["member"], info["generation"]) for info in best_by_tier.values()}) == 1
+            lines.append(f"- Best-checkpoint agreement across tiers: {'AGREE' if agree else 'DISAGREE'}")
+
+    selected_other_tiers = proxy_selected_checkpoint_other_tiers(manifest)
+    if selected_other_tiers["tiers"]:
+        bits = ", ".join(f"{tier}: {_fmt(info.get('metric_value'))}" for tier, info in selected_other_tiers["tiers"].items())
+        lines.append(
+            f"- Control-selected global best (`{selected_other_tiers.get('member')}`, gen {selected_other_tiers.get('generation')}) "
+            f"measured on other tiers: {bits}"
+        )
+    else:
+        lines.append("- Control-selected global best has not been evaluated on monitor/full yet.")
+
+    status, details = corroboration_status(manifest)
+    lines.append(f"- Corroboration status: **{status}**")
+    mode = manifest.get("config", {}).get("pbt", {}).get("mode", "max")
+    for tier, info in details.items():
+        if not info.get("available"):
+            lines.append(f"  - {tier}: not available (baseline or selected checkpoint not evaluated on this tier)")
+            continue
+        delta = relative_change(mode, info["baseline"], info["selected"])
+        lines.append(
+            f"  - {tier}: baseline {_fmt(info['baseline'])} -> selected {_fmt(info['selected'])} "
+            f"({'improved' if info['improved'] else 'not improved'}, "
+            f"{_fmt(None if delta is None else 100.0 * delta)}% relative change)"
+        )
+
+    overfitting = proxy_overfitting_cases(manifest)
+    if overfitting:
+        lines.append(f"- **{len(overfitting)} proxy-overfitting case(s) detected** (control improved, monitor did not):")
+        for case in overfitting[:10]:
+            lines.append(
+                f"  - `{case['member']}` gen {case['generation_from']}->{case['generation_to']}: "
+                f"control {_fmt(case['control_before'])}->{_fmt(case['control_after'])}, "
+                f"monitor {_fmt(case['monitor_before'])}->{_fmt(case['monitor_after'])}"
+            )
+        if len(overfitting) > 10:
+            lines.append(f"  - ... and {len(overfitting) - 10} more (see tiered_metrics.csv)")
+    else:
+        lines.append("- No proxy-overfitting cases detected (control improved while monitor did not) in the paired generations evaluated so far.")
+    return lines
+
+
+def _shutdown_warning_summary(manifest):
+    count = 0
+    total = 0
+
+    def scan(metrics):
+        nonlocal count, total
+        if metrics is None:
+            return
+        total += 1
+        if metrics.get("validation_shutdown_warning"):
+            count += 1
+
+    scan((manifest.get("initial_evaluation") or {}).get("metrics"))
+    for generation in manifest.get("generations", []):
+        for worker in (generation.get("workers") or {}).values():
+            scan(worker.get("metrics"))
+    for round_record in manifest.get("tiered_evaluations", []):
+        for record in (round_record.get("members") or {}).values():
+            scan(record.get("metrics"))
+    if count == 0:
+        return f"No data-loader shutdown-race warnings observed across {total} evaluation(s)."
+    return (
+        f"Data-loader shutdown-race warning (validation_shutdown_warning) observed in {count}/{total} "
+        "evaluation(s) -- treat affected metrics with extra caution."
+    )
 
 
 def write_report(run_dir, manifest, summary):
@@ -1245,6 +1828,14 @@ def write_report(run_dir, manifest, summary):
             )
     else:
         lines.append("- No exploit events recorded.")
+    skipped = [event for event in read_events(run_dir) if event.get("event_type") == "exploit_skipped"]
+    lines.append(
+        f"- [Skipped exploits (significance gating)]({plots.get('skipped_exploit_table_csv', SKIPPED_EXPLOIT_TABLE_NAME)}) -- {len(skipped)} donor->recipient replacement(s) declined for insufficient significance"
+    )
+
+    proxy_diagnostics_path = plots.get("proxy_diagnostics")
+    if proxy_diagnostics_path:
+        lines.extend(_proxy_diagnostics_report_lines(manifest, plots, proxy_diagnostics_path))
 
     lines.extend(
         [
@@ -1265,6 +1856,10 @@ def write_report(run_dir, manifest, summary):
                 f"- [Baseline vs. selected mistag]({baseline_comparison_path})",
             ]
         )
+    pbt_config = manifest.get("config", {}).get("pbt", {})
+    significance_sigma = pbt_config.get("exploit_significance_sigma")
+    burn_in = pbt_config.get("burn_in_generations", 0)
+    tiered_config = pbt_config.get("tiered_validation") or {}
     lines.extend(
         [
             "",
@@ -1274,6 +1869,10 @@ def write_report(run_dir, manifest, summary):
             f"- Training interval: {schedule.get('training_interval', {}).get('samples_per_trial_chunk', 'n/a')} samples/trial chunk ({schedule.get('training_interval', {}).get('epochs_per_generation', 'n/a')}x samples_per_epoch)",
             f"- Evaluation interval: every {eval_schedule.get('training_chunks', 'n/a')} training chunk(s), {eval_schedule.get('samples_per_epoch_val', 'n/a')} validation samples",
             f"- Exploit interval: {('disabled' if not exploit_schedule.get('enabled') else 'every ' + str(exploit_schedule.get('training_chunks', 'n/a')) + ' training chunk(s)')}",
+            f"- Exploit significance gating: {'disabled (nominal rank order only)' if significance_sigma is None else f'{significance_sigma} sigma (combined uncertainty) required before a donor replaces a recipient'}",
+            f"- Burn-in: {burn_in} generation(s) (observe-only, no exploit/controller LR action applied)",
+            f"- Monitor-tier cadence: {tiered_config.get('monitor_interval_generations') or 'disabled'} generation(s), all population members, read-only",
+            f"- Full-tier cadence: {tiered_config.get('full_interval_generations') or 'disabled'} generation(s), all population members, read-only",
             "",
             "## Provenance",
             f"- Starting checkpoint: `{(summary.get('starting_checkpoint') or {}).get('state_path') or (summary.get('starting_checkpoint') or {}).get('path')}`",
@@ -1284,11 +1883,14 @@ def write_report(run_dir, manifest, summary):
             "- [resolved_config.yaml](resolved_config.yaml)",
             "- [events.jsonl](events.jsonl)",
             "- [metrics.csv](metrics.csv)",
+            "- [tiered_metrics.csv](tiered_metrics.csv)",
             "- [summary.json](summary.json)",
             "",
             "## Caveats",
             "- Proxy, smoke, and full validation results are reported as distinct evaluation types and should not be mixed in one scorecard.",
             "- Configured reference values are not treated as measured baselines unless a successful runtime initial evaluation exists.",
+            "- Control-tier evidence alone is 'provisional' -- see Proxy Validation Diagnostics above. It is never a substitute for monitor/full corroboration.",
+            f"- {_shutdown_warning_summary(manifest)}",
         ]
     )
     atomic_text(path, "\n".join(lines) + "\n")
@@ -1302,15 +1904,23 @@ def write_canonical_outputs(run_dir, manifest):
     write_resolved_config(run_dir, manifest.get("config", {}))
     refresh_metrics_csv(run_dir, manifest)
     physics_outputs = write_existing_physics_reports(run_dir, manifest)
+    tiered_metrics_path = write_tiered_metrics_csv(run_dir, manifest)
     events = read_events(run_dir)
     exploit_table = write_exploit_table(run_dir, events)
+    skipped_exploit_table = write_skipped_exploits_table(run_dir, events)
     plots = write_plots(run_dir, manifest)
     manifest["canonical_artifacts"] = {
         "events": str(run_dir / EVENTS_NAME),
         "metrics": str(run_dir / METRICS_NAME),
+        "tiered_metrics": str(tiered_metrics_path),
         "summary": str(run_dir / SUMMARY_NAME),
         "report": str(run_dir / REPORT_NAME),
-        "plots": {**plots, **physics_outputs, "exploit_table_csv": str(exploit_table)},
+        "plots": {
+            **plots,
+            **physics_outputs,
+            "exploit_table_csv": str(exploit_table),
+            "skipped_exploit_table_csv": str(skipped_exploit_table),
+        },
         "resolved_config": str(run_dir / "resolved_config.yaml"),
     }
     manifest["updated_at"] = utc_now()
@@ -1419,6 +2029,92 @@ def _worker_metric(config, generation_record, member):
     return metrics.get(metric)
 
 
+def record_skipped_exploit(run_dir, generation_record, skipped_event):
+    """Log a donor->recipient replacement that significance gating declined
+    to apply, so the audit trail shows not just what happened but what
+    almost happened and why it didn't -- see planning.py:exploit_significance.
+    """
+    append_event(
+        run_dir,
+        "exploit_skipped",
+        {
+            "generation": generation_record.get("index"),
+            "donor": skipped_event.get("donor"),
+            "recipient": skipped_event.get("recipient"),
+            "donor_metric": skipped_event.get("donor_metric"),
+            "recipient_metric": skipped_event.get("recipient_metric"),
+            "margin_sigma": skipped_event.get("margin_sigma"),
+            "required_sigma": skipped_event.get("required_sigma"),
+            "reason": skipped_event.get("reason"),
+        },
+    )
+
+
+def record_controller_lr_change(run_dir, generation_record, member_name, change):
+    """Log a fine dynamic-controller LR nudge applied directly to a member's
+    own LR, independent of PBT exploit -- a distinct event type from
+    "exploit"/"lr_change" (population layer) so the two adaptation layers
+    stay clearly separated in the event log, not just in the config.
+    """
+    append_event(
+        run_dir,
+        "controller_lr_change",
+        {
+            "generation": generation_record.get("index"),
+            "member": member_name,
+            "action": change.get("action"),
+            "old_lr": change.get("old_lr"),
+            "new_lr": change.get("new_lr"),
+        },
+    )
+
+
+def record_tiered_evaluation_round(run_dir, manifest, generation_record, tier, dataset, suffix, member_results, metric_name, mode):
+    """Persist one control/monitor/full evaluation round: every member's
+    result at this generation, plus the full rank ordering (not just #1),
+    so post-hoc ranking-agreement/correlation analysis has real paired data.
+    Read-only bookkeeping -- nothing in planning.py/controller.py ever reads
+    manifest["tiered_evaluations"]; it must stay that way for `full` (and
+    `monitor`) to remain a genuine, non-leaking check on the control proxy.
+    """
+    ranking = sorted(
+        (
+            name
+            for name, record in member_results.items()
+            if (record.get("metrics") or {}).get(metric_name) is not None
+            and math.isfinite(float(record["metrics"][metric_name]))
+        ),
+        key=lambda name: float(member_results[name]["metrics"][metric_name]),
+        reverse=(mode == "max"),
+    )
+    round_record = {
+        "schema_version": 1,
+        "generation": generation_record.get("index"),
+        "tier": tier,
+        "dataset": dataset,
+        "suffix": suffix,
+        "metric_name": metric_name,
+        "mode": mode,
+        "members": member_results,
+        "ranking": ranking,
+        "recorded_at": utc_now(),
+    }
+    manifest.setdefault("tiered_evaluations", []).append(round_record)
+    append_event(
+        run_dir,
+        "tiered_evaluation",
+        {
+            "generation": generation_record.get("index"),
+            "tier": tier,
+            "dataset": dataset,
+            "suffix": suffix,
+            "ranking": ranking,
+            "member_count": len(member_results),
+        },
+    )
+    return round_record
+
+
 def record_new_best(run_dir, manifest, generation_record, best_record):
     append_event(
         run_dir,
@@ -1468,7 +2164,16 @@ def record_exploit_application(
         "optimizer_source": event.get("optimizer_source", event.get("source")),
         "old_lr": old_lr,
         "new_lr": new_lr,
+        # Population-exploit mutation layer (donor_lr * mutation_factor) and
+        # the fine-grained per-generation dynamic-controller layer are two
+        # separate adaptation mechanisms -- kept as distinct fields end to
+        # end so neither is conflated with the other in logs/artifacts.
         "mutation": mutation,
+        "significance_margin_sigma": event.get("significance_margin_sigma"),
+        "significance_sigma_required": event.get("significance_sigma_required"),
+        "dynamic_controller_action": event.get("dynamic_controller_action"),
+        "dynamic_controller_lr_before": event.get("dynamic_controller_lr_before"),
+        "dynamic_controller_bounded_lr": event.get("dynamic_controller_bounded_lr"),
         "source": event.get("source"),
         "applied": event.get("applied"),
     }

@@ -1,7 +1,13 @@
 import unittest
 
 from tests.helpers import pbt_smoke_config
-from training.pbt.controller import apply_actions_to_plan, run_generation_controller, oriented_delta, observation_epoch_fraction
+from training.pbt.controller import (
+    apply_actions_to_plan,
+    apply_controller_actions_to_members,
+    run_generation_controller,
+    oriented_delta,
+    observation_epoch_fraction,
+)
 
 
 class PBTDynamicControllerTest(unittest.TestCase):
@@ -290,6 +296,89 @@ class PBTDynamicControllerTest(unittest.TestCase):
         self.assertAlmostEqual(observation["metric_delta_sigma"], -0.02 / (0.05 ** 2 + 0.05 ** 2) ** 0.5)
         self.assertEqual(action["state_label"], "noisy")
         self.assertEqual(action["action"], "keep")
+
+    def test_apply_controller_actions_to_members_updates_lr_independent_of_exploit(self):
+        # Two members both get a ready, non-keep action this generation, and
+        # NEITHER is an exploit recipient -- this is exactly the case that
+        # was previously silently dropped (only plan/exploit recipients ever
+        # got a controller action applied).
+        config = pbt_smoke_config()
+        config["pbt"]["dynamic_controller"] = {"mode": "active"}
+        manifest = {
+            "members": {
+                "member_00": {"name": "member_00", "lr": 2.0e-5, "parent": None},
+                "member_01": {"name": "member_01", "lr": 3.0e-5, "parent": None},
+            }
+        }
+        generation = {
+            "index": 0,
+            "controller_actions": {
+                "member_00": {"action": "lr_mul_0_9", "action_ready": True, "safety_check": "passed", "bounded_lr": 1.8e-5},
+                "member_01": {"action": "lr_mul_1_05", "action_ready": True, "safety_check": "passed", "bounded_lr": 3.15e-5},
+            },
+        }
+
+        applied = apply_controller_actions_to_members(config, manifest, generation)
+
+        self.assertAlmostEqual(manifest["members"]["member_00"]["lr"], 1.8e-5)
+        self.assertAlmostEqual(manifest["members"]["member_01"]["lr"], 3.15e-5)
+        self.assertEqual(set(applied), {"member_00", "member_01"})
+        self.assertTrue(generation["controller_actions"]["member_00"]["applied"])
+
+    def test_apply_controller_actions_to_members_skips_excluded_members(self):
+        config = pbt_smoke_config()
+        config["pbt"]["dynamic_controller"] = {"mode": "active"}
+        manifest = {"members": {"member_00": {"name": "member_00", "lr": 2.0e-5, "parent": None}}}
+        generation = {
+            "index": 0,
+            "controller_actions": {
+                "member_00": {"action": "lr_mul_0_9", "action_ready": True, "safety_check": "passed", "bounded_lr": 1.8e-5},
+            },
+        }
+
+        applied = apply_controller_actions_to_members(config, manifest, generation, exclude_members={"member_00"})
+
+        self.assertEqual(applied, {})
+        self.assertAlmostEqual(manifest["members"]["member_00"]["lr"], 2.0e-5)
+
+    def test_apply_controller_actions_to_members_skips_keep_and_not_ready(self):
+        config = pbt_smoke_config()
+        config["pbt"]["dynamic_controller"] = {"mode": "active"}
+        manifest = {
+            "members": {
+                "member_00": {"name": "member_00", "lr": 2.0e-5, "parent": None},
+                "member_01": {"name": "member_01", "lr": 3.0e-5, "parent": None},
+            }
+        }
+        generation = {
+            "index": 0,
+            "controller_actions": {
+                "member_00": {"action": "keep", "action_ready": True, "safety_check": "passed", "bounded_lr": 2.0e-5},
+                "member_01": {"action": "lr_mul_0_9", "action_ready": False, "safety_check": "cooldown", "bounded_lr": 2.7e-5},
+            },
+        }
+
+        applied = apply_controller_actions_to_members(config, manifest, generation)
+
+        self.assertEqual(applied, {})
+        self.assertAlmostEqual(manifest["members"]["member_00"]["lr"], 2.0e-5)
+        self.assertAlmostEqual(manifest["members"]["member_01"]["lr"], 3.0e-5)
+
+    def test_apply_controller_actions_to_members_noop_when_controller_disabled(self):
+        config = pbt_smoke_config()
+        config["pbt"]["dynamic_controller"] = {"mode": "disabled"}
+        manifest = {"members": {"member_00": {"name": "member_00", "lr": 2.0e-5, "parent": None}}}
+        generation = {
+            "index": 0,
+            "controller_actions": {
+                "member_00": {"action": "lr_mul_0_9", "action_ready": True, "safety_check": "passed", "bounded_lr": 1.8e-5},
+            },
+        }
+
+        applied = apply_controller_actions_to_members(config, manifest, generation)
+
+        self.assertEqual(applied, {})
+        self.assertAlmostEqual(manifest["members"]["member_00"]["lr"], 2.0e-5)
 
 
 if __name__ == "__main__":

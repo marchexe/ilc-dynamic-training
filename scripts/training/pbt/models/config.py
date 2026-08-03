@@ -109,18 +109,42 @@ class ProxyValidationConfig(StrictSectionModel):
     """Proxy-validation datasets used for physics-aware high-frequency control."""
 
     manifest: str
-    active_subset: Literal["control", "monitor", "full"] = "control"
+    active_subset: Literal["control", "monitor", "full", "full_holdout"] = "control"
     control_dataset: str
     monitor_dataset: str | None = None
     full_dataset: str | None = None
+    # full_holdout = full validation with the control+monitor tail windows
+    # excluded -- zero overlap with either, used for control<->full
+    # correlation/ranking-agreement diagnostics (unlike plain "full", which
+    # contains the exact control/monitor events and so isn't an independent
+    # check). Never used to drive decisions, same as monitor/full.
+    full_holdout_dataset: str | None = None
     train_suffix: str | None = None
     control_suffix: str | None = None
     monitor_suffix: str | None = None
     full_suffix: str | None = None
+    full_holdout_suffix: str | None = None
     control_rows_per_class: int | None = Field(default=None, gt=0)
     monitor_rows_per_class: int | None = Field(default=None, gt=0)
     full_rows_per_class: int | None = Field(default=None, gt=0)
+    full_holdout_rows_per_class: int | None = Field(default=None, gt=0)
     strategy: str | None = None
+
+
+class TieredValidationConfig(StrictSectionModel):
+    """Schedule for automatic, read-only monitor/full proxy-tier evaluation.
+
+    Control-tier evaluation is unconditional (every generation, via the
+    normal per-worker Weaver eval) and is the only tier allowed to drive
+    ranking/exploit/controller decisions. Monitor and full are diagnostic
+    only: evaluated on their own cadence, for every population member (so
+    ranking-agreement/correlation analysis has paired observations), and
+    never read by planning.py or controller.py.
+    """
+
+    monitor_interval_generations: int | None = Field(default=None, gt=0)
+    full_interval_generations: int | None = Field(default=None, gt=0)
+    evaluate_initial_checkpoint_all_tiers: bool = False
 
 
 class SharedSection(WeaverSharedSection):
@@ -194,12 +218,32 @@ class PBTSection(StrictSectionModel):
     strategy: Literal["exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid"] | None = None
     confidence_aware_selection: bool = True
     selection_uncertainty_sigma: float | None = Field(default=1.0, gt=0.0)
+    exploit_significance_sigma: float | None = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "If set, a donor->recipient exploit copy is only executed when the donor "
+            "beats the recipient by at least this many combined-uncertainty sigma "
+            "(exploit_mutate only). Missing uncertainty is treated as inconclusive "
+            "(skip, don't copy), not as a nominal-comparison fallback."
+        ),
+    )
+    burn_in_generations: int = Field(default=0, ge=0)
+    # Real cadence gate: PBT ranking is still computed every generation (for
+    # health/global-best bookkeeping), but the exploit plan is only applied
+    # every exploit_interval_generations generations. Unset (None) means
+    # every generation, same as before this field existed. NOTE: this used
+    # to also be readable as `exploit_interval` in configured_intervals()'s
+    # *reporting* output, but that value was never actually consulted by the
+    # runtime loop -- this field is what makes the interval real.
+    exploit_interval_generations: int | None = Field(default=None, gt=0)
     anchored_weight_source: Literal["anchor", "self"] = "anchor"
     base_start_lr: float | None = None
     lr_factors: list[float] | None = None
     lr_radius: LrRadiusConfig | None = None
     lr_controller: SmoothLrControllerConfig | None = None
     dynamic_controller: DynamicControllerConfig | None = None
+    tiered_validation: TieredValidationConfig | None = None
     baseline_metric_value: float | None = None
     baseline_guard_tolerance: float | None = Field(default=None, ge=0.0, lt=1.0)
     baseline_guard_action: Literal["observe", "rollback_to_initial"] | None = None

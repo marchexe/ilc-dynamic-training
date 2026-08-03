@@ -11,6 +11,7 @@ from training.runtime import FLAVOR_SAMPLE_GROUPS, PROJECT_DIR, atomic_json, utc
 DEFAULT_SOURCE_SUFFIX = "val1000k"
 DEFAULT_CONTROL_SUFFIX = "val5k_tail"
 DEFAULT_MONITOR_SUFFIX = "val50k_tail"
+DEFAULT_FULL_HOLDOUT_SUFFIX = "val_holdout"
 
 
 def display_path(path):
@@ -86,11 +87,25 @@ def build_tail_proxy_subsets(
     source_suffix=DEFAULT_SOURCE_SUFFIX,
     control_suffix=DEFAULT_CONTROL_SUFFIX,
     monitor_suffix=DEFAULT_MONITOR_SUFFIX,
+    full_holdout_suffix=DEFAULT_FULL_HOLDOUT_SUFFIX,
     control_rows_per_class=5000,
     monitor_rows_per_class=50000,
+    build_full_holdout=True,
     compression="lz4",
     force=False,
 ):
+    """Build disjoint tail-window control/monitor proxy subsets, plus (by
+    default) a full_holdout subset: the full validation file with the
+    control+monitor tail rows excluded.
+
+    full_holdout exists specifically for control<->full correlation and
+    ranking-agreement diagnostics -- the plain "full" level below is the
+    *entire* source file (control+monitor included, just a tiny fraction of
+    it), which is fine for a standalone headline physics number but is not
+    an independent check of the proxy: it necessarily contains the exact
+    events control/monitor were scored on. full_holdout has zero overlap
+    with control or monitor by construction.
+    """
     dataset = Path(dataset)
     output_dataset = Path(output_dataset) if output_dataset else dataset
     manifest_output = Path(manifest_output) if manifest_output else None
@@ -121,6 +136,14 @@ def build_tail_proxy_subsets(
             "files": [],
         },
     }
+    if build_full_holdout:
+        levels["full_holdout"] = {
+            "role": "independent_holdout_for_proxy_fidelity_diagnostics",
+            "dataset": display_path(output_dataset),
+            "suffix": full_holdout_suffix,
+            "selection": "full_validation_excluding_control_and_monitor_tail_windows",
+            "files": [],
+        }
 
     for _, flavor in FLAVOR_SAMPLE_GROUPS:
         source_path = source_file(dataset, flavor, source_suffix)
@@ -167,6 +190,19 @@ def build_tail_proxy_subsets(
         levels["monitor"]["files"].append(monitor_record)
         levels["full"]["files"].append(full_record)
 
+        if build_full_holdout:
+            holdout_path = output_dataset / f"{source_stem}_{full_holdout_suffix}.parquet"
+            holdout_record = write_tail_subset(
+                source_path,
+                holdout_path,
+                0,
+                monitor_start,
+                compression=compression,
+                force=force,
+            )
+            holdout_record["flavor"] = flavor
+            levels["full_holdout"]["files"].append(holdout_record)
+
     for level in levels.values():
         level["rows_total"] = sum(item["rows"] for item in level["files"])
         level["rows_by_flavor"] = {item["flavor"]: item["rows"] for item in level["files"]}
@@ -185,9 +221,16 @@ def build_tail_proxy_subsets(
             "source_suffix": source_suffix,
             "control_suffix": control_suffix,
             "monitor_suffix": monitor_suffix,
+            "full_holdout_suffix": full_holdout_suffix if build_full_holdout else None,
             "control_rows_per_class": control_rows_per_class,
             "monitor_rows_per_class": monitor_rows_per_class,
-            "notes": "Control uses the final rows of each full-validation parquet file. Monitor uses the immediately preceding rows, so control and monitor are disjoint while both come from the dataset tail.",
+            "notes": (
+                "Control uses the final rows of each full-validation parquet file. Monitor uses the "
+                "immediately preceding rows, so control and monitor are disjoint while both come from the "
+                "dataset tail. full_holdout (if built) is everything before the monitor window -- i.e. "
+                "full validation with control+monitor excluded -- for use as an independent proxy-fidelity "
+                "check; it deliberately overlaps with neither."
+            ),
         },
         "levels": levels,
     }

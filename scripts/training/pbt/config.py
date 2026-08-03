@@ -115,7 +115,7 @@ def resolve_proxy_validation_paths(proxy_validation):
     if not proxy_validation:
         return None
     resolved = dict(proxy_validation)
-    for key in ("manifest", "control_dataset", "monitor_dataset", "full_dataset"):
+    for key in ("manifest", "control_dataset", "monitor_dataset", "full_dataset", "full_holdout_dataset"):
         if resolved.get(key):
             resolved[key] = absolute_project_path(resolved[key], resolve=False)
     return resolved

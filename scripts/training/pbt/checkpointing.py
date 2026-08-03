@@ -19,6 +19,29 @@ def atomic_copy(source, destination):
     shutil.copy2(source, temporary)
     os.replace(temporary, destination)
 
+def atomic_copy_pair(pairs):
+    """Copy multiple (source, destination) pairs as one all-or-nothing unit.
+
+    Every source is staged to a temporary file first; only once every
+    staging copy has succeeded are the temp files committed in place via
+    os.replace. This guarantees an exploit recipient never ends up with a
+    donor's weights paired with its own unrelated, pre-copy optimizer state
+    (or vice versa) -- weight and optimizer copy are one coherent transition.
+    """
+    staged = []
+    try:
+        for source, destination in pairs:
+            destination = Path(destination)
+            temporary = destination.with_suffix(destination.suffix + ".pbt-tmp")
+            shutil.copy2(source, temporary)
+            staged.append((temporary, destination))
+    except BaseException:
+        for temporary, _ in staged:
+            temporary.unlink(missing_ok=True)
+        raise
+    for temporary, destination in staged:
+        os.replace(temporary, destination)
+
 def checkpoint_paths(member_dir, epoch):
     prefix = member_dir / f"net_epoch-{epoch}"
     return Path(f"{prefix}_state.pt"), Path(f"{prefix}_optimizer.pt")

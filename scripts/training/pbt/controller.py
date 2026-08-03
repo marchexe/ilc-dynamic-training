@@ -500,3 +500,48 @@ def apply_actions_to_plan(config, generation_record, plan):
     generation_record["dynamic_controller"]["applied"] = applied_count > 0
     generation_record["dynamic_controller"]["applied_action_count"] = applied_count
     return normalize_exploit_plan(updated)
+
+
+def apply_controller_actions_to_members(config, manifest, generation_record, exclude_members=None):
+    """Apply each eligible member's ready controller action directly to its
+    own LR (manifest["members"][name]["lr"]), independent of PBT exploit.
+
+    `apply_actions_to_plan` above only ever touches members that are already
+    exploit recipients in *this* generation's plan -- every other member's
+    computed action (built by run_generation_controller for the whole
+    population) was previously never actually applied anywhere. This is the
+    mechanism that makes the fine controller genuinely act on its own
+    (cooldown-gated) cadence, in every non-burn-in generation, not just the
+    (less frequent, once exploit_interval_generations > 1) generations where
+    population-level exploit also happens.
+
+    `exclude_members` should be the current generation's exploit recipients
+    (if exploit is firing this generation) -- they're about to have their
+    weights AND lr overwritten by the donor copy, so nudging them here first
+    would just be immediately-discarded work and a confusing duplicate log
+    entry.
+    """
+    controller = dynamic_controller_config(config)
+    if not controller or controller.get("mode") != "active":
+        return {}
+    exclude_members = set(exclude_members or ())
+    actions = generation_record.get("controller_actions") or {}
+    applied = {}
+    for member_name, action in actions.items():
+        if member_name in exclude_members:
+            continue
+        if not action.get("action_ready") or action.get("safety_check") not in {"passed", "clamped"}:
+            continue
+        if action.get("action") in {"keep", "flag_review"}:
+            continue
+        member = manifest["members"].get(member_name)
+        if member is None:
+            continue
+        old_lr = float(member["lr"])
+        new_lr = float(action["bounded_lr"])
+        if new_lr == old_lr:
+            continue
+        member["lr"] = new_lr
+        action["applied"] = True
+        applied[member_name] = {"action": action["action"], "old_lr": old_lr, "new_lr": new_lr}
+    return applied

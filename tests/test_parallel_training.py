@@ -1,3 +1,4 @@
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -156,6 +157,35 @@ INFO: Evaluation metrics:
 
             value = metrics["validation_bkg_rejection_at_eff"]["pairs"]["bc"][0]
             self.assertNotEqual(value, value)
+
+    def test_read_metrics_excludes_non_finite_values_from_working_point_mean(self):
+        # A NaN rejection at one of the eight fixed working points (e.g. a
+        # zero-background-event edge case) must not poison the mean fed to
+        # PBT ranking -- it should be dropped, not silently turn the whole
+        # mean into NaN.
+        with tempfile.TemporaryDirectory() as temporary:
+            log_path = Path(temporary) / "train.log"
+            log_path.write_text(
+                """
+Eval AvgLoss: 0.50000, AvgAcc: 0.80000
+INFO: Evaluation metrics:
+    - bkg_rejection_at_eff:
+{'bc': [3, 4, 5, 6, 7, 8, nan, 91, 100], 'bd': [2, 3, 4, 5, 6, 7, 81, 91, 101], 'cb': [3, 4, 5, 6, 7, 8, 82, 92, 102], 'cd': [4, 5, 6, 7, 8, 9, 83, 93, 103]}
+    - bkg_rejection_score:
+1.0
+""",
+                encoding="utf-8",
+            )
+
+            metrics = runtime.read_metrics(log_path)
+
+            self.assertIsNone(metrics["validation_bc_mistag_eff_0.80_percent"])
+            finite_working_points = (81, 91, 91, 6, 7, 82, 83)
+            self.assertAlmostEqual(
+                metrics["validation_working_point_mistag_percent"],
+                sum(100.0 / value for value in finite_working_points) / len(finite_working_points),
+            )
+            self.assertTrue(math.isfinite(metrics["validation_working_point_mistag_percent"]))
 
     def test_read_metrics_keeps_bgrej_counts(self):
         with tempfile.TemporaryDirectory() as temporary:

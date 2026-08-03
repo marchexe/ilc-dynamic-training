@@ -13,12 +13,15 @@ import yaml
 
 from training.pbt.artifacts import (
     ensure_run_layout,
+    record_controller_lr_change,
     record_initial_evaluation,
+    record_skipped_exploit,
+    record_tiered_evaluation_round,
     run_contract,
     write_canonical_outputs,
     write_resolved_config,
 )
-from training.pbt.backend import backend_from_config, format_duration, log_event
+from training.pbt.backend import backend_from_config, finite_metric_ok, format_duration, log_event, run_tiered_evaluation
 from training.pbt.config import contract_fingerprint, load_config, validate_inputs
 from training.pbt.models.manifest import PBTManifest
 from training.runtime import (
@@ -31,15 +34,19 @@ from training.runtime import (
 )
 from training.pbt.checkpointing import (
     bootstrap_initial_checkpoint,
+    checkpoint_paths,
     epoch_for_generation,
     seed_initial_global_best,
 )
-from training.pbt.controller import apply_actions_to_plan, run_generation_controller
+from training.pbt.controller import apply_actions_to_plan, apply_controller_actions_to_members, run_generation_controller
 from training.pbt.metrics import update_generation_health, update_global_best
 from training.pbt.planning import (
     add_baseline_guard_rollbacks,
     add_global_best_rollbacks,
+    in_burn_in,
     plan_for_strategy,
+    raw_metric_ranking,
+    should_apply_exploit,
     strategy_uses_population_rollbacks,
 )
 from training.pbt.transitions import apply_exploit
@@ -137,7 +144,7 @@ def run_initial_evaluation(config, backend, experiment_dir, manifest, manifest_p
 
     metrics = read_metrics(log_path)
     metric_name = config["pbt"]["metric"]
-    metric_ok = metrics is not None and metrics.get(metric_name) is not None
+    metric_ok = finite_metric_ok(metrics, metric_name)
     status = "completed" if result.returncode == 0 and metric_ok else "failed"
     record.update(
         status=status,
@@ -162,9 +169,112 @@ def run_initial_evaluation(config, backend, experiment_dir, manifest, manifest_p
             "n/a" if not metric_ok else "%.6g" % metrics[metric_name],
         ),
     )
+    if metrics is not None and metrics.get("validation_shutdown_warning"):
+        log_event(pbt_log_path, "WARNING: validation_shutdown_warning generation=-1 worker=initial_evaluation")
     if status == "failed":
         raise RuntimeError("initial checkpoint evaluation failed")
+
+    run_initial_evaluation_other_tiers(config, experiment_dir, manifest, manifest_path, pbt_log_path, record)
     return True
+
+
+def run_initial_evaluation_other_tiers(config, experiment_dir, manifest, manifest_path, pbt_log_path, baseline_record):
+    """Optionally evaluate the pretrained baseline on the monitor/full tiers
+    too (`tiered_validation.evaluate_initial_checkpoint_all_tiers`), so
+    baseline-vs-selected comparisons can be made on every tier, not just
+    control. Read-only diagnostics -- failures here never abort the run.
+    """
+    tiered = config["pbt"].get("tiered_validation") or {}
+    if not tiered.get("evaluate_initial_checkpoint_all_tiers"):
+        return
+    proxy = config["shared"].get("proxy_validation") or {}
+    checkpoint = config["shared"].get("initial_state") or config["shared"]["checkpoint"]
+    for tier in ("monitor", "full"):
+        dataset = proxy.get(f"{tier}_dataset")
+        suffix = proxy.get(f"{tier}_suffix")
+        if not dataset or not suffix:
+            continue
+        results = run_tiered_evaluation(
+            config, experiment_dir, -1, tier, dataset, suffix, {"initial_resume": checkpoint}, pbt_log_path
+        )
+        record_tiered_evaluation_round(
+            experiment_dir, manifest, {"index": -1}, tier, dataset, suffix, results,
+            config["pbt"]["metric"], config["pbt"]["mode"],
+        )
+    manifest["updated_at"] = utc_now()
+    atomic_json(manifest_path, manifest)
+
+
+def run_scheduled_tiered_evaluations(config, experiment_dir, manifest, generation_record, manifest_path, pbt_log_path):
+    """Run monitor/full proxy-tier evaluation for the whole population when
+    due, on their own independent cadence from control-tier evaluation and
+    from PBT exploit. Evaluates every population member's just-trained
+    (pre-exploit) checkpoint, so control/monitor/full all describe the exact
+    same model state for that generation -- required for paired
+    control<->monitor<->full comparison. Read-only: never feeds back into
+    ranking/exploit/controller (see planning.py/controller.py, neither of
+    which reads manifest["tiered_evaluations"]).
+    """
+    tiered = config["pbt"].get("tiered_validation") or {}
+    proxy = config["shared"].get("proxy_validation") or {}
+    generation_index = generation_record["index"]
+    due_tiers = []
+    monitor_interval = tiered.get("monitor_interval_generations")
+    if monitor_interval and (generation_index + 1) % int(monitor_interval) == 0:
+        due_tiers.append("monitor")
+    full_interval = tiered.get("full_interval_generations")
+    if full_interval and (generation_index + 1) % int(full_interval) == 0:
+        due_tiers.append("full")
+        # full_holdout is evaluated alongside full: they're a matched pair
+        # (headline full-validation number + the independent, non-overlapping
+        # slice used for control<->full correlation/ranking diagnostics).
+        if proxy.get("full_holdout_dataset") and proxy.get("full_holdout_suffix"):
+            due_tiers.append("full_holdout")
+    if not due_tiers:
+        return
+
+    metric_name = config["pbt"]["metric"]
+    mode = config["pbt"]["mode"]
+
+    # Snapshot this generation's already-collected control-tier results too,
+    # so they can be paired against monitor/full at the exact same checkpoint
+    # without needing to cross-reference metrics.csv separately.
+    control_results = {
+        name: {"status": worker.get("status"), "metrics": worker.get("metrics")}
+        for name, worker in generation_record.get("workers", {}).items()
+    }
+    record_tiered_evaluation_round(
+        experiment_dir, manifest, generation_record, "control",
+        config["shared"].get("validation_dataset"), config["shared"].get("validation_suffix"),
+        control_results, metric_name, mode,
+    )
+
+    epoch = generation_record["epoch"]
+    for tier in due_tiers:
+        dataset = proxy.get(f"{tier}_dataset")
+        suffix = proxy.get(f"{tier}_suffix")
+        if not dataset or not suffix:
+            log_event(
+                pbt_log_path,
+                f"tiered_evaluation tier={tier} generation={generation_index} skipped: "
+                f"no proxy_validation.{tier}_dataset/{tier}_suffix configured",
+            )
+            continue
+        member_checkpoints = {}
+        for name in manifest["members"]:
+            state_path, _ = checkpoint_paths(experiment_dir / name, epoch)
+            if state_path.is_file():
+                member_checkpoints[name] = state_path
+        if not member_checkpoints:
+            log_event(pbt_log_path, f"tiered_evaluation tier={tier} generation={generation_index} skipped: no member checkpoints found")
+            continue
+        results = run_tiered_evaluation(
+            config, experiment_dir, generation_index, tier, dataset, suffix, member_checkpoints, pbt_log_path
+        )
+        record_tiered_evaluation_round(experiment_dir, manifest, generation_record, tier, dataset, suffix, results, metric_name, mode)
+
+    manifest["updated_at"] = utc_now()
+    atomic_json(manifest_path, manifest)
 
 
 def initial_manifest(config, fingerprint, command=None, backend_name=None):
@@ -344,12 +454,18 @@ def run(args):
                 pending,
                 manifest_path,
             )
+            run_scheduled_tiered_evaluations(
+                config, experiment_dir, manifest, existing, manifest_path, pbt_log_path
+            )
 
             if existing["exploit"] is None:
                 ranking, plan = plan_for_strategy(
                     config, existing, manifest["members"], manifest
                 )
                 existing["ranking"] = ranking
+                existing["raw_ranking"] = raw_metric_ranking(config, existing, manifest["members"])
+                for skipped_event in existing.get("skipped_exploits") or []:
+                    record_skipped_exploit(experiment_dir, existing, skipped_event)
                 improved = update_global_best(
                     experiment_dir, manifest, existing, manifest_path
                 )
@@ -380,10 +496,37 @@ def run(args):
                     and health["consecutive_degraded_generations"] >= early_stop_after
                 )
                 existing["early_stop_triggered"] = early_stop_triggered
-                will_exploit = (
-                    generation != int(config["shared"]["generations"]) - 1
-                    and not early_stop_triggered
-                )
+                is_final_generation = generation == int(config["shared"]["generations"]) - 1
+                existing["burn_in"] = in_burn_in(config, generation)
+                will_exploit = should_apply_exploit(config, generation, is_final_generation, early_stop_triggered)
+                if existing["burn_in"]:
+                    log_event(
+                        pbt_log_path,
+                        "burn_in generation=%d (%d/%d) -- observing only, no exploit/controller LR action applied"
+                        % (generation, generation + 1, int(config["pbt"].get("burn_in_generations", 0) or 0)),
+                    )
+
+                # Fine controller LR nudges: applied to every member's own LR
+                # every non-burn-in generation, independent of whether PBT
+                # exploit fires this generation -- this is what makes the
+                # controller genuinely more frequent than exploit once
+                # exploit_interval_generations > 1, not just a config field.
+                # Exclude this generation's exploit recipients: their LR is
+                # about to come from the donor copy instead.
+                if not existing["burn_in"] and not early_stop_triggered:
+                    exploit_recipients = {event["recipient"] for event in plan} if will_exploit else set()
+                    controller_changes = apply_controller_actions_to_members(
+                        config, manifest, existing, exclude_members=exploit_recipients
+                    )
+                    for member_name, change in controller_changes.items():
+                        record_controller_lr_change(experiment_dir, existing, member_name, change)
+                    if controller_changes:
+                        log_event(
+                            pbt_log_path,
+                            "controller_lr_change generation=%d members=%s"
+                            % (existing["index"], ",".join(sorted(controller_changes))),
+                        )
+
                 if will_exploit:
                     plan = apply_actions_to_plan(config, existing, plan)
                     plan = add_baseline_guard_rollbacks(

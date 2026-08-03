@@ -85,18 +85,14 @@ def wrap_remote_command(command, slot):
     return ["ssh", host, remote]
 
 
-def make_initial_evaluation_command(config, slot, experiment_dir):
-    shared = config["shared"]
-    validation_paths = data_paths(
-        shared["dataset"],
-        shared.get("data_extension", "root"),
-        shared.get("validation_dataset"),
-        shared.get("train_suffix"),
-        shared.get("validation_suffix"),
-    )["val"]
-    eval_dir = Path(experiment_dir) / "logs" / "initial_evaluation"
-    log_path = eval_dir / "initial-evaluation.log"
-    checkpoint = shared.get("initial_state") or shared["checkpoint"]
+def _test_mode_command(shared, slot, validation_paths, checkpoint, log_path):
+    """Build a Weaver `--run-mode test` command evaluating one checkpoint
+    against one already-resolved set of validation data paths.
+
+    Shared by baseline evaluation and every proxy-tier (control/monitor/full)
+    evaluation, so there is exactly one place that knows how to turn
+    (checkpoint, dataset, suffix) into a Weaver invocation.
+    """
     gpu = slot["gpu"] if isinstance(slot, dict) else str(slot)
     command = [
         str(weaver_executable()),
@@ -127,7 +123,38 @@ def make_initial_evaluation_command(config, slot, experiment_dir):
         command.extend(["--use-amp", "--amp-dtype", str(shared["amp_dtype"])])
     if shared.get("prefetch_factor") is not None:
         command.extend(["--prefetch-factor", str(shared["prefetch_factor"])])
-    return wrap_remote_command(command, slot), log_path
+    return wrap_remote_command(command, slot)
+
+
+def make_initial_evaluation_command(config, slot, experiment_dir):
+    shared = config["shared"]
+    validation_paths = data_paths(
+        shared["dataset"],
+        shared.get("data_extension", "root"),
+        shared.get("validation_dataset"),
+        shared.get("train_suffix"),
+        shared.get("validation_suffix"),
+    )["val"]
+    eval_dir = Path(experiment_dir) / "logs" / "initial_evaluation"
+    log_path = eval_dir / "initial-evaluation.log"
+    checkpoint = shared.get("initial_state") or shared["checkpoint"]
+    command = _test_mode_command(shared, slot, validation_paths, checkpoint, log_path)
+    return command, log_path
+
+
+def make_tiered_evaluation_command(config, slot, checkpoint, dataset, suffix, log_path):
+    """Build a `--run-mode test` command evaluating an arbitrary checkpoint
+    against an arbitrary (dataset, suffix) pair -- the primitive used for
+    automatic monitor/full proxy-tier evaluation of every population member.
+    """
+    shared = config["shared"]
+    validation_paths = data_paths(
+        dataset,
+        shared.get("data_extension", "root"),
+        validation_suffix=suffix,
+    )["val"]
+    command = _test_mode_command(shared, slot, validation_paths, checkpoint, log_path)
+    return command, log_path
 
 
 def make_command(config, member, slot, member_dir, generation):

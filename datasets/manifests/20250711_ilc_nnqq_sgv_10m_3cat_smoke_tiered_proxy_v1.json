@@ -1,0 +1,195 @@
+{
+  "created_at": "2026-08-03T22:46:13.705468+00:00",
+  "data_extension": "parquet",
+  "flavors": [
+    "bb",
+    "cc",
+    "dd"
+  ],
+  "levels": {
+    "control": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail/ml_flavtag_6cat_bb_smoke_control.parquet",
+          "row_groups": 1,
+          "rows": 1500,
+          "size_bytes": 5819064,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val50k.parquet",
+          "source_start_row": 48428,
+          "source_stop_row": 49928
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail/ml_flavtag_6cat_cc_smoke_control.parquet",
+          "row_groups": 1,
+          "rows": 1500,
+          "size_bytes": 5217672,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val50k.parquet",
+          "source_start_row": 48361,
+          "source_stop_row": 49861
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail/ml_flavtag_6cat_dd_smoke_control.parquet",
+          "row_groups": 1,
+          "rows": 1500,
+          "size_bytes": 4822204,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val50k.parquet",
+          "source_start_row": 48229,
+          "source_stop_row": 49729
+        }
+      ],
+      "role": "high_frequency_control_proxy_tail",
+      "rows_by_flavor": {
+        "bb": 1500,
+        "cc": 1500,
+        "dd": 1500
+      },
+      "rows_total": 4500,
+      "selection": "last_rows_of_full_validation",
+      "size_bytes_total": 15858940,
+      "suffix": "smoke_control"
+    },
+    "full": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val50k.parquet",
+          "row_groups": 50,
+          "rows": 49928,
+          "size_bytes": 133332131
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val50k.parquet",
+          "row_groups": 50,
+          "rows": 49861,
+          "size_bytes": 121879830
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val50k.parquet",
+          "row_groups": 50,
+          "rows": 49729,
+          "size_bytes": 113682048
+        }
+      ],
+      "role": "coarse_full_validation_reference",
+      "rows_by_flavor": {
+        "bb": 49928,
+        "cc": 49861,
+        "dd": 49729
+      },
+      "rows_total": 149518,
+      "size_bytes_total": 368894009,
+      "suffix": "val50k"
+    },
+    "full_holdout": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail/ml_flavtag_6cat_bb_smoke_holdout.parquet",
+          "row_groups": 1,
+          "rows": 42428,
+          "size_bytes": 138947267,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val50k.parquet",
+          "source_start_row": 0,
+          "source_stop_row": 42428
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail/ml_flavtag_6cat_cc_smoke_holdout.parquet",
+          "row_groups": 1,
+          "rows": 42361,
+          "size_bytes": 129666154,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val50k.parquet",
+          "source_start_row": 0,
+          "source_stop_row": 42361
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail/ml_flavtag_6cat_dd_smoke_holdout.parquet",
+          "row_groups": 1,
+          "rows": 42229,
+          "size_bytes": 123143962,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val50k.parquet",
+          "source_start_row": 0,
+          "source_stop_row": 42229
+        }
+      ],
+      "role": "independent_holdout_for_proxy_fidelity_diagnostics",
+      "rows_by_flavor": {
+        "bb": 42428,
+        "cc": 42361,
+        "dd": 42229
+      },
+      "rows_total": 127018,
+      "selection": "full_validation_excluding_control_and_monitor_tail_windows",
+      "size_bytes_total": 391757383,
+      "suffix": "smoke_holdout"
+    },
+    "monitor": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail/ml_flavtag_6cat_bb_smoke_monitor.parquet",
+          "row_groups": 1,
+          "rows": 6000,
+          "size_bytes": 23357091,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val50k.parquet",
+          "source_start_row": 42428,
+          "source_stop_row": 48428
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail/ml_flavtag_6cat_cc_smoke_monitor.parquet",
+          "row_groups": 1,
+          "rows": 6000,
+          "size_bytes": 21002241,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val50k.parquet",
+          "source_start_row": 42361,
+          "source_stop_row": 48361
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail/ml_flavtag_6cat_dd_smoke_monitor.parquet",
+          "row_groups": 1,
+          "rows": 6000,
+          "size_bytes": 19430781,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val50k.parquet",
+          "source_start_row": 42229,
+          "source_stop_row": 48229
+        }
+      ],
+      "role": "independent_lower_frequency_monitor_proxy_tail",
+      "rows_by_flavor": {
+        "bb": 6000,
+        "cc": 6000,
+        "dd": 6000
+      },
+      "rows_total": 18000,
+      "selection": "rows_immediately_before_control_tail_window",
+      "size_bytes_total": 63790113,
+      "suffix": "smoke_monitor"
+    }
+  },
+  "name": "20250711_ilc_nnqq_sgv_10m_3cat_smoke_tiered_proxy_v1",
+  "output_dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet_smoke_tail",
+  "schema_version": 1,
+  "source_dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+  "strategy": {
+    "control_rows_per_class": 1500,
+    "control_suffix": "smoke_control",
+    "full_holdout_suffix": "smoke_holdout",
+    "monitor_rows_per_class": 6000,
+    "monitor_suffix": "smoke_monitor",
+    "name": "disjoint_tail_windows_from_full_validation",
+    "notes": "Control uses the final rows of each full-validation parquet file. Monitor uses the immediately preceding rows, so control and monitor are disjoint while both come from the dataset tail. full_holdout (if built) is everything before the monitor window -- i.e. full validation with control+monitor excluded -- for use as an independent proxy-fidelity check; it deliberately overlaps with neither.",
+    "source_suffix": "val50k"
+  }
+}

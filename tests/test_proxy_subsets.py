@@ -97,6 +97,53 @@ class TailProxySubsetBuilderTest(unittest.TestCase):
                 self.assertEqual(monitor_ids, [12, 13, 14, 15, 16])
                 self.assertTrue(set(control_ids).isdisjoint(monitor_ids))
 
+    def test_build_tail_proxy_subsets_builds_disjoint_full_holdout_by_default(self):
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            root = Path(temporary)
+            dataset = root / "dataset"
+            for flavor, label in (("bb", 5), ("cc", 4), ("dd", 1)):
+                write_val_file(dataset / f"toy_{flavor}_val1000k.parquet", label, 20)
+
+            manifest = build_tail_proxy_subsets(
+                dataset=dataset,
+                manifest_output=root / "tail_manifest.json",
+                name="toy_tail_proxy",
+                control_rows_per_class=3,
+                monitor_rows_per_class=5,
+                compression="snappy",
+            )
+
+            self.assertIn("full_holdout", manifest["levels"])
+            self.assertEqual(manifest["levels"]["full_holdout"]["rows_total"], 36)  # (20-3-5)*3 flavors
+            for flavor in ("bb", "cc", "dd"):
+                control_path = dataset / f"toy_{flavor}_val5k_tail.parquet"
+                monitor_path = dataset / f"toy_{flavor}_val50k_tail.parquet"
+                holdout_path = dataset / f"toy_{flavor}_val_holdout.parquet"
+                control_ids = set(pq.read_table(control_path, columns=["event_id"]).column("event_id").to_pylist())
+                monitor_ids = set(pq.read_table(monitor_path, columns=["event_id"]).column("event_id").to_pylist())
+                holdout_ids = set(pq.read_table(holdout_path, columns=["event_id"]).column("event_id").to_pylist())
+                self.assertEqual(holdout_ids, set(range(12)))  # rows [0, 20-3-5) = [0, 12)
+                self.assertTrue(holdout_ids.isdisjoint(control_ids))
+                self.assertTrue(holdout_ids.isdisjoint(monitor_ids))
+                self.assertEqual(holdout_ids | monitor_ids | control_ids, set(range(20)))
+
+    def test_build_tail_proxy_subsets_can_skip_full_holdout(self):
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            root = Path(temporary)
+            dataset = root / "dataset"
+            for flavor, label in (("bb", 5), ("cc", 4), ("dd", 1)):
+                write_val_file(dataset / f"toy_{flavor}_val1000k.parquet", label, 20)
+
+            manifest = build_tail_proxy_subsets(
+                dataset=dataset,
+                control_rows_per_class=3,
+                monitor_rows_per_class=5,
+                compression="snappy",
+                build_full_holdout=False,
+            )
+
+            self.assertNotIn("full_holdout", manifest["levels"])
+
     def test_build_tail_proxy_subsets_rejects_oversized_tail_request(self):
         with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
             root = Path(temporary)

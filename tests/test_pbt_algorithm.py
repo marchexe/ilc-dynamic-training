@@ -29,6 +29,194 @@ class PBTAlgorithmTest(unittest.TestCase):
         self.assertGreaterEqual(plan[0]["new_lr"], config["pbt"]["min_lr"])
         self.assertLessEqual(plan[0]["new_lr"], config["pbt"]["max_lr"])
 
+    def test_exploit_significance_gating_skips_insignificant_replacement(self):
+        config = pbt_smoke_config()
+        config["pbt"]["mode"] = "min"
+        config["pbt"]["metric"] = "validation_working_point_mistag_percent"
+        config["pbt"]["exploit_significance_sigma"] = 1.0
+        # Donor is nominally better (1.10 < 1.15) but the gap is tiny relative
+        # to the combined uncertainty -- a real PBT should not overwrite the
+        # recipient's weights on noise this small.
+        generation = {
+            "index": 0,
+            "workers": {
+                "member_00": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 1.10,
+                        "validation_working_point_mistag_percent_uncertainty": 0.20,
+                    }
+                },
+                "member_01": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 1.15,
+                        "validation_working_point_mistag_percent_uncertainty": 0.20,
+                    }
+                },
+            },
+        }
+        members = {"member_00": {"lr": 7.5e-5}, "member_01": {"lr": 1.0e-4}}
+
+        ranking, plan = strategy.ranking_and_plan(config, generation, members)
+
+        self.assertEqual(plan, [])
+        self.assertEqual(len(generation["skipped_exploits"]), 1)
+        skipped = generation["skipped_exploits"][0]
+        self.assertEqual(skipped["donor"], "member_00")
+        self.assertEqual(skipped["recipient"], "member_01")
+        self.assertEqual(skipped["reason"], "not_significant")
+        self.assertIsNotNone(skipped["margin_sigma"])
+        self.assertLess(skipped["margin_sigma"], 1.0)
+
+    def test_exploit_significance_gating_applies_clearly_significant_replacement(self):
+        config = pbt_smoke_config()
+        config["pbt"]["mode"] = "min"
+        config["pbt"]["metric"] = "validation_working_point_mistag_percent"
+        config["pbt"]["exploit_significance_sigma"] = 1.0
+        generation = {
+            "index": 0,
+            "workers": {
+                "member_00": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 0.50,
+                        "validation_working_point_mistag_percent_uncertainty": 0.02,
+                    }
+                },
+                "member_01": {
+                    "metrics": {
+                        "validation_working_point_mistag_percent": 2.00,
+                        "validation_working_point_mistag_percent_uncertainty": 0.02,
+                    }
+                },
+            },
+        }
+        members = {"member_00": {"lr": 7.5e-5}, "member_01": {"lr": 1.0e-4}}
+
+        ranking, plan = strategy.ranking_and_plan(config, generation, members)
+
+        self.assertEqual(len(plan), 1)
+        self.assertEqual(plan[0]["donor"], "member_00")
+        self.assertEqual(plan[0]["recipient"], "member_01")
+        self.assertGreater(plan[0]["significance_margin_sigma"], 1.0)
+        self.assertEqual(generation["skipped_exploits"], [])
+
+    def test_exploit_significance_gating_treats_missing_uncertainty_as_inconclusive(self):
+        config = pbt_smoke_config()
+        config["pbt"]["mode"] = "min"
+        config["pbt"]["metric"] = "validation_working_point_mistag_percent"
+        config["pbt"]["exploit_significance_sigma"] = 1.0
+        # Donor is nominally much better, but neither worker reports an
+        # uncertainty -- a missing uncertainty must be treated as
+        # inconclusive (skip), not silently fall back to a nominal compare.
+        generation = {
+            "index": 0,
+            "workers": {
+                "member_00": {"metrics": {"validation_working_point_mistag_percent": 0.10}},
+                "member_01": {"metrics": {"validation_working_point_mistag_percent": 5.0}},
+            },
+        }
+        members = {"member_00": {"lr": 7.5e-5}, "member_01": {"lr": 1.0e-4}}
+
+        ranking, plan = strategy.ranking_and_plan(config, generation, members)
+
+        self.assertEqual(plan, [])
+        self.assertEqual(generation["skipped_exploits"][0]["reason"], "missing_uncertainty")
+
+    def test_exploit_significance_gating_disabled_by_default_keeps_legacy_behavior(self):
+        config = pbt_smoke_config()
+        config["pbt"]["mode"] = "min"
+        config["pbt"]["metric"] = "validation_working_point_mistag_percent"
+        self.assertIsNone(config["pbt"].get("exploit_significance_sigma"))
+        generation = {
+            "index": 0,
+            "workers": {
+                "member_00": {"metrics": {"validation_working_point_mistag_percent": 1.10}},
+                "member_01": {"metrics": {"validation_working_point_mistag_percent": 1.15}},
+            },
+        }
+        members = {"member_00": {"lr": 7.5e-5}, "member_01": {"lr": 1.0e-4}}
+
+        ranking, plan = strategy.ranking_and_plan(config, generation, members)
+
+        self.assertEqual(len(plan), 1)
+        self.assertIsNone(plan[0]["significance_margin_sigma"])
+
+    def test_raw_metric_ranking_is_a_plain_sort_unaffected_by_incumbent_persistence(self):
+        config = pbt_smoke_config()
+        config["pbt"]["mode"] = "max"
+        config["pbt"]["metric"] = "validation_bkg_rejection_score"
+        generation = {
+            "index": 1,
+            "workers": {
+                "member_00": {"metrics": {"validation_bkg_rejection_score": 9.9}},
+                "member_01": {"metrics": {"validation_bkg_rejection_score": 10.0}},
+            },
+        }
+        members = {"member_00": {"lr": 7.5e-5}, "member_01": {"lr": 1.0e-4}}
+
+        ranking = strategy.raw_metric_ranking(config, generation, members)
+
+        self.assertEqual(ranking, ["member_01", "member_00"])
+
+    def test_burn_in_suppresses_exploit_but_final_and_early_stop_still_win(self):
+        config = pbt_smoke_config()
+        config["pbt"]["burn_in_generations"] = 2
+
+        self.assertTrue(strategy.in_burn_in(config, 0))
+        self.assertTrue(strategy.in_burn_in(config, 1))
+        self.assertFalse(strategy.in_burn_in(config, 2))
+
+        # Generation 0 and 1 are within burn-in: no exploit even though
+        # nothing else would block it.
+        self.assertFalse(strategy.should_apply_exploit(config, 0, is_final_generation=False, early_stop_triggered=False))
+        self.assertFalse(strategy.should_apply_exploit(config, 1, is_final_generation=False, early_stop_triggered=False))
+        # Generation 2 is past burn-in: exploit resumes.
+        self.assertTrue(strategy.should_apply_exploit(config, 2, is_final_generation=False, early_stop_triggered=False))
+        # Still respects the existing final-generation / early-stop guards.
+        self.assertFalse(strategy.should_apply_exploit(config, 5, is_final_generation=True, early_stop_triggered=False))
+        self.assertFalse(strategy.should_apply_exploit(config, 5, is_final_generation=False, early_stop_triggered=True))
+
+    def test_burn_in_zero_by_default_never_suppresses_exploit(self):
+        config = pbt_smoke_config()
+        self.assertEqual(config["pbt"].get("burn_in_generations", 0), 0)
+        self.assertFalse(strategy.in_burn_in(config, 0))
+        self.assertTrue(strategy.should_apply_exploit(config, 0, is_final_generation=False, early_stop_triggered=False))
+
+    def test_exploit_interval_generations_makes_exploit_genuinely_less_frequent(self):
+        # exploit_interval_generations previously existed only as a
+        # reporting field nobody consulted -- this locks in that it now
+        # actually gates the exploit-application decision.
+        config = pbt_smoke_config()
+        config["pbt"]["exploit_interval_generations"] = 3
+
+        due = [
+            strategy.should_apply_exploit(config, generation, is_final_generation=False, early_stop_triggered=False)
+            for generation in range(9)
+        ]
+
+        # Due on generations where (generation+1) % 3 == 0: indices 2,5,8.
+        self.assertEqual(due, [False, False, True, False, False, True, False, False, True])
+
+    def test_exploit_interval_generations_unset_means_every_generation(self):
+        config = pbt_smoke_config()
+        self.assertIsNone(config["pbt"].get("exploit_interval_generations"))
+
+        for generation in range(4):
+            self.assertTrue(
+                strategy.should_apply_exploit(config, generation, is_final_generation=False, early_stop_triggered=False)
+            )
+
+    def test_exploit_interval_and_burn_in_compose(self):
+        config = pbt_smoke_config()
+        config["pbt"]["burn_in_generations"] = 2
+        config["pbt"]["exploit_interval_generations"] = 3
+
+        # Generation 2 is past burn-in and satisfies (2+1)%3==0 -> due.
+        self.assertTrue(strategy.should_apply_exploit(config, 2, is_final_generation=False, early_stop_triggered=False))
+        # Generation 1 is past... no, still in burn-in (burn_in=2 covers 0,1).
+        self.assertFalse(strategy.should_apply_exploit(config, 1, is_final_generation=False, early_stop_triggered=False))
+        # Generation 3 is past burn-in but not interval-due ((3+1)%3=1).
+        self.assertFalse(strategy.should_apply_exploit(config, 3, is_final_generation=False, early_stop_triggered=False))
+
 
     def test_anchored_lr_sweep_uses_fixed_worker_positions(self):
         config = pbt_smoke_config()
@@ -719,6 +907,47 @@ class PBTAlgorithmTest(unittest.TestCase):
             self.assertIsNone(manifest["members"]["member_00"]["parent"])
             self.assertEqual(plan[0]["source"], "initial_resume")
             self.assertTrue(plan[0]["applied"])
+
+    def test_atomic_copy_pair_commits_all_or_nothing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_state = root / "source_state.pt"
+            source_optimizer = root / "source_optimizer.pt"
+            source_state.write_bytes(b"new-state")
+            source_optimizer.write_bytes(b"new-optimizer")
+            destination_state = root / "dest_state.pt"
+            destination_optimizer = root / "dest_optimizer.pt"
+            destination_state.write_bytes(b"old-state")
+            destination_optimizer.write_bytes(b"old-optimizer")
+
+            strategy.atomic_copy_pair(
+                [(source_state, destination_state), (source_optimizer, destination_optimizer)]
+            )
+
+            self.assertEqual(destination_state.read_bytes(), b"new-state")
+            self.assertEqual(destination_optimizer.read_bytes(), b"new-optimizer")
+
+    def test_atomic_copy_pair_leaves_destinations_untouched_if_any_source_is_missing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_state = root / "source_state.pt"
+            source_state.write_bytes(b"new-state")
+            missing_optimizer_source = root / "does_not_exist.pt"
+            destination_state = root / "dest_state.pt"
+            destination_optimizer = root / "dest_optimizer.pt"
+            destination_state.write_bytes(b"old-state")
+            destination_optimizer.write_bytes(b"old-optimizer")
+
+            with self.assertRaises(OSError):
+                strategy.atomic_copy_pair(
+                    [(source_state, destination_state), (missing_optimizer_source, destination_optimizer)]
+                )
+
+            # Neither destination changed: a recipient must never end up with
+            # a new weight file paired with its old, unrelated optimizer (or
+            # vice versa) -- weight+optimizer copy is one coherent transition.
+            self.assertEqual(destination_state.read_bytes(), b"old-state")
+            self.assertEqual(destination_optimizer.read_bytes(), b"old-optimizer")
 
 
 if __name__ == "__main__":

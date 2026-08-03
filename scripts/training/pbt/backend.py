@@ -1,12 +1,32 @@
 """Execution backends for Population Based Training workers."""
 
+import math
 import subprocess
 import time
 from pathlib import Path
 
 from training.pbt.artifacts import refresh_metrics_csv, record_evaluation, record_train_finish, record_train_start
-from training.pbt.weaver import make_command, make_initial_evaluation_command, slot_label
+from training.pbt.weaver import make_command, make_initial_evaluation_command, make_tiered_evaluation_command, slot_label
 from training.runtime import PROJECT_DIR, atomic_json, read_metrics, terminate, utc_now
+
+
+def finite_metric_ok(metrics, metric_name):
+    """True only if `metric_name` is present and a finite (non-NaN/inf) number.
+
+    A non-finite value (e.g. NaN from a zero-count fixed-WP ratio) must never
+    reach ranking/exploit/controller decisions -- treat it the same as a
+    missing metric: the worker is marked failed rather than silently
+    poisoning the population's ranking with a NaN comparison.
+    """
+    if metrics is None:
+        return False
+    value = metrics.get(metric_name)
+    if value is None:
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
 
 
 class PBTBackend:
@@ -44,6 +64,99 @@ def log_event(log_path, message):
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as stream:
         stream.write(line + "\n")
+
+
+def run_tiered_evaluation(config, experiment_dir, generation_index, tier, dataset, suffix, member_checkpoints, pbt_log_path):
+    """Evaluate `tier` (monitor/full) for every (member, checkpoint) pair in
+    `member_checkpoints`, in parallel across the population's GPU slots,
+    sequentially with respect to population training (no dedicated
+    evaluation GPU is reserved -- this runs after a generation's population
+    work frees every slot, and before the next generation's training claims
+    them again).
+
+    Read-only and best-effort: a single member's evaluation failing here
+    never raises and never blocks the others -- monitor/full are
+    diagnostics, not part of the training critical path, and must not be
+    able to abort a PBT run.
+    """
+    experiment_dir = Path(experiment_dir)
+    results = {}
+    processes = {}
+    streams = {}
+    process_context = {}
+    started_monotonic = {}
+    pending = list(member_checkpoints.items())
+    free_slots = list(config["slots"])
+
+    def start(member_name, checkpoint_path, slot):
+        eval_dir = experiment_dir / "logs" / "tiered_evaluation" / tier / member_name
+        eval_dir.mkdir(parents=True, exist_ok=True)
+        log_path = eval_dir / f"generation-{generation_index:03d}.log"
+        console_path = log_path.with_suffix(".console.log")
+        command, _ = make_tiered_evaluation_command(config, slot, checkpoint_path, dataset, suffix, log_path)
+        stream = console_path.open("w")
+        try:
+            process = subprocess.Popen(command, cwd=PROJECT_DIR, stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
+        except Exception as error:
+            stream.close()
+            results[member_name] = {
+                "status": "failed",
+                "error": str(error),
+                "metrics": None,
+                "log": str(log_path),
+                "checkpoint": str(checkpoint_path),
+            }
+            log_event(pbt_log_path, f"tiered_evaluation tier={tier} generation={generation_index} worker={member_name} failed_to_launch={error}")
+            return False
+        processes[member_name] = process
+        streams[member_name] = stream
+        process_context[member_name] = (slot, log_path, checkpoint_path)
+        started_monotonic[member_name] = time.monotonic()
+        return True
+
+    while pending and free_slots:
+        name, checkpoint_path = pending.pop(0)
+        slot = free_slots.pop(0)
+        if not start(name, checkpoint_path, slot):
+            free_slots.append(slot)
+
+    while processes or pending:
+        for name, process in list(processes.items()):
+            returncode = process.poll()
+            if returncode is None:
+                continue
+            streams.pop(name).close()
+            processes.pop(name)
+            slot, log_path, checkpoint_path = process_context.pop(name)
+            elapsed = format_duration(time.monotonic() - started_monotonic.pop(name))
+            metrics = read_metrics(log_path)
+            metric_ok = metrics is not None and metrics.get("validation_bkg_rejection_at_eff") is not None
+            status = "completed" if returncode == 0 and metric_ok else "failed"
+            results[name] = {
+                "status": status,
+                "returncode": returncode,
+                "metrics": metrics,
+                "log": str(log_path),
+                "checkpoint": str(checkpoint_path),
+            }
+            log_event(
+                pbt_log_path,
+                f"tiered_evaluation tier={tier} generation={generation_index} worker={name} status={status} elapsed={elapsed}",
+            )
+            if metrics is not None and metrics.get("validation_shutdown_warning"):
+                log_event(
+                    pbt_log_path,
+                    f"WARNING: validation_shutdown_warning tier={tier} generation={generation_index} worker={name}",
+                )
+            free_slots.append(slot)
+            while pending and free_slots:
+                next_name, next_checkpoint = pending.pop(0)
+                next_slot = free_slots.pop(0)
+                if not start(next_name, next_checkpoint, next_slot):
+                    free_slots.append(next_slot)
+        if processes or pending:
+            time.sleep(0.5)
+    return results
 
 
 class LocalWeaverBackend(PBTBackend):
@@ -142,7 +255,7 @@ class LocalWeaverBackend(PBTBackend):
                     record = generation_record["workers"][name]
                     metrics = read_metrics(Path(record["log"]))
                     metric_name = config["pbt"]["metric"]
-                    metric_ok = metrics is not None and metrics.get(metric_name) is not None
+                    metric_ok = finite_metric_ok(metrics, metric_name)
                     status = "completed" if returncode == 0 and metric_ok else "failed"
                     record.update(
                         status=status,
@@ -157,8 +270,16 @@ class LocalWeaverBackend(PBTBackend):
                     log_event(
                         pbt_log_path,
                         f"finished generation={generation_record['index']} "
-                        f"worker={name} returncode={returncode} elapsed={elapsed}",
+                        f"worker={name} returncode={returncode} elapsed={elapsed}"
+                        + ("" if metric_ok or metrics is None or metrics.get(metric_name) is None else " non_finite_metric=true"),
                     )
+                    if metrics is not None and metrics.get("validation_shutdown_warning"):
+                        log_event(
+                            pbt_log_path,
+                            f"WARNING: validation_shutdown_warning generation={generation_record['index']} "
+                            f"worker={name} -- data-loader threads reported a shutdown race during evaluation; "
+                            "treat this worker's metrics for this generation with extra caution",
+                        )
                     manifest["updated_at"] = utc_now()
                     atomic_json(manifest_path, manifest)
                     if status == "failed":

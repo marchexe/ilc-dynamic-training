@@ -22,8 +22,10 @@ def parse_args():
     parser.add_argument("--source-suffix", default="val1000k")
     parser.add_argument("--control-suffix", default="val5k_tail")
     parser.add_argument("--monitor-suffix", default="val50k_tail")
+    parser.add_argument("--full-holdout-suffix", default="val_holdout")
     parser.add_argument("--control-rows-per-class", type=int, default=5000)
     parser.add_argument("--monitor-rows-per-class", type=int, default=50000)
+    parser.add_argument("--no-full-holdout", action="store_true", help="Skip building the independent full_holdout tier")
     parser.add_argument("--compression", default="lz4")
     parser.add_argument("--force", action="store_true")
     return parser.parse_args()
@@ -39,18 +41,24 @@ def main():
         source_suffix=args.source_suffix,
         control_suffix=args.control_suffix,
         monitor_suffix=args.monitor_suffix,
+        full_holdout_suffix=args.full_holdout_suffix,
         control_rows_per_class=args.control_rows_per_class,
         monitor_rows_per_class=args.monitor_rows_per_class,
+        build_full_holdout=not args.no_full_holdout,
         compression=args.compression,
         force=args.force,
     )
-    print(json.dumps({
+    output = {
         "manifest": args.manifest_output,
         "control_suffix": manifest["levels"]["control"]["suffix"],
         "control_rows": manifest["levels"]["control"]["rows_total"],
         "monitor_suffix": manifest["levels"]["monitor"]["suffix"],
         "monitor_rows": manifest["levels"]["monitor"]["rows_total"],
-    }, indent=2, sort_keys=True))
+    }
+    if "full_holdout" in manifest["levels"]:
+        output["full_holdout_suffix"] = manifest["levels"]["full_holdout"]["suffix"]
+        output["full_holdout_rows"] = manifest["levels"]["full_holdout"]["rows_total"]
+    print(json.dumps(output, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

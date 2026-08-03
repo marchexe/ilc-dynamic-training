@@ -181,6 +181,73 @@ def confidence_aware_ranking(config, generation_record, members, manifest=None):
     return ranking
 
 
+def raw_metric_ranking(config, generation_record, members):
+    """Plain metric-value ordering (best first), no confidence adjustment.
+
+    Used for cross-tier (control/monitor/full) ranking-agreement diagnostics,
+    where comparing against the decision-making confidence-aware ranking
+    would bias the comparison via its incumbent-persistence behavior.
+    """
+    metric_name = config["pbt"]["metric"]
+    return sorted(
+        members,
+        key=lambda name: raw_metric_sort_key(config, generation_record, name, metric_name),
+    )
+
+
+def in_burn_in(config, generation):
+    burn_in_generations = int(config["pbt"].get("burn_in_generations", 0) or 0)
+    return int(generation) < burn_in_generations
+
+
+def should_apply_exploit(config, generation, is_final_generation, early_stop_triggered):
+    """Whether this generation's PBT exploit plan (donor->recipient
+    weight+optimizer copy) should actually be applied. False during burn-in,
+    on the final generation, once early stopping has triggered, or -- the
+    real cadence gate -- on any generation not due per
+    `exploit_interval_generations` (default: every generation, if unset).
+
+    This is deliberately independent of the fine dynamic_controller's LR
+    nudges, which are applied every non-burn-in generation regardless (see
+    runner.py/apply_controller_actions_to_members) -- that's what makes the
+    controller genuinely more frequent than PBT exploit when
+    exploit_interval_generations > 1, not just a config field nobody reads.
+    """
+    if in_burn_in(config, generation):
+        return False
+    if early_stop_triggered:
+        return False
+    if is_final_generation:
+        return False
+    interval = int(config["pbt"].get("exploit_interval_generations") or 1)
+    if (int(generation) + 1) % interval != 0:
+        return False
+    return True
+
+
+def exploit_significance(config, generation_record, donor, recipient, metric_name, sigma):
+    """(is_significant, margin_sigma, reason) for a candidate donor->recipient replacement.
+
+    Unlike `statistically_beats` (used for anchor selection, where a missing
+    uncertainty falls back to a nominal comparison), a missing uncertainty
+    here counts as "inconclusive" -- we would rather skip a real weight
+    replacement than gate it on an unmeasured margin.
+    """
+    donor_value = member_metric_value(generation_record, donor, metric_name)
+    recipient_value = member_metric_value(generation_record, recipient, metric_name)
+    donor_uncertainty = member_metric_uncertainty(generation_record, donor, metric_name)
+    recipient_uncertainty = member_metric_uncertainty(generation_record, recipient, metric_name)
+    if donor_uncertainty is None or recipient_uncertainty is None:
+        return False, None, "missing_uncertainty"
+    combined = math.sqrt(donor_uncertainty ** 2 + recipient_uncertainty ** 2)
+    if combined <= 0.0:
+        return False, None, "zero_uncertainty"
+    margin = metric_difference(config, donor_value, recipient_value) / combined
+    if margin >= float(sigma):
+        return True, margin, "significant"
+    return False, margin, "not_significant"
+
+
 def ranking_and_plan(config, generation_record, members, manifest=None):
     metric_name = config["pbt"]["metric"]
     ranking = confidence_aware_ranking(config, generation_record, members, manifest)
@@ -189,9 +256,30 @@ def ranking_and_plan(config, generation_record, members, manifest=None):
     donors = ranking[:count]
     recipients = ranking[-count:]
     rng = random.Random(int(config["pbt"]["seed"]) + generation_record["index"])
+    significance_sigma = config["pbt"].get("exploit_significance_sigma")
     plan = []
+    skipped = []
     for index, recipient in enumerate(recipients):
         donor = donors[index % len(donors)]
+        if significance_sigma is not None:
+            is_significant, margin, reason = exploit_significance(
+                config, generation_record, donor, recipient, metric_name, significance_sigma
+            )
+            if not is_significant:
+                skipped.append(
+                    {
+                        "donor": donor,
+                        "recipient": recipient,
+                        "donor_metric": member_metric_value(generation_record, donor, metric_name),
+                        "recipient_metric": member_metric_value(generation_record, recipient, metric_name),
+                        "margin_sigma": margin,
+                        "required_sigma": significance_sigma,
+                        "reason": reason,
+                    }
+                )
+                continue
+        else:
+            margin = None
         factor = rng.choice(config["pbt"]["mutation_factors"])
         old_lr = float(members[recipient]["lr"])
         donor_lr = float(members[donor]["lr"])
@@ -207,10 +295,13 @@ def ranking_and_plan(config, generation_record, members, manifest=None):
                 "recipient_lr": old_lr,
                 "donor_lr": donor_lr,
                 "mutation_factor": factor,
+                "significance_margin_sigma": margin,
+                "significance_sigma_required": significance_sigma,
                 "new_lr": new_lr,
                 "applied": False,
             }
         )
+    generation_record["skipped_exploits"] = skipped
     return ranking, plan
 
 def factors_from_radius(radius, count):

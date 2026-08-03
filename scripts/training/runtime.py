@@ -277,10 +277,13 @@ def _mistags_for_working_points(curves, working_points):
         index = efficiencies.index(eff)
         rejection = _curve_value(pairs, pair, index)
         key = f"validation_{pair}_mistag_eff_{eff:.2f}_percent"
-        if rejection is None or rejection <= 0:
+        if rejection is None or rejection <= 0 or not math.isfinite(rejection):
             out[key] = None
             continue
         mistag = 100.0 / rejection
+        if not math.isfinite(mistag):
+            out[key] = None
+            continue
         out[key] = mistag
         mistags.append(mistag)
     return out, mistags

@@ -34,11 +34,18 @@ shared:
     control_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
     monitor_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
     full_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    # full_holdout = val1000k with the control+monitor tail rows excluded
+    # (built by scripts/validation/build_tail_proxy_subsets.py); zero
+    # overlap with control/monitor, unlike plain full_suffix (val1000k
+    # itself). Used only for control<->full correlation/ranking diagnostics.
+    full_holdout_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
     train_suffix: train800k
     control_suffix: val5k_tail
     monitor_suffix: val50k_tail
     full_suffix: val1000k
+    full_holdout_suffix: val_holdout
     control_rows_per_class: 5000
     monitor_rows_per_class: 50000
     full_rows_per_class: 1000000
+    full_holdout_rows_per_class: 941708
     strategy: disjoint_tail_windows_from_full_validation

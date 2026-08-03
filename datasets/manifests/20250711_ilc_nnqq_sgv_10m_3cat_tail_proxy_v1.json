@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-08-02T13:03:03.765180+00:00",
+  "created_at": "2026-08-03T22:42:54.756756+00:00",
   "data_extension": "parquet",
   "flavors": [
     "bb",
@@ -87,6 +87,51 @@
       "size_bytes_total": 7372645426,
       "suffix": "val1000k"
     },
+    "full_holdout": {
+      "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val_holdout.parquet",
+          "row_groups": 1,
+          "rows": 943645,
+          "size_bytes": 2463882042,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val1000k.parquet",
+          "source_start_row": 0,
+          "source_stop_row": 943645
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val_holdout.parquet",
+          "row_groups": 1,
+          "rows": 941995,
+          "size_bytes": 2243049376,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val1000k.parquet",
+          "source_start_row": 0,
+          "source_stop_row": 941995
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val_holdout.parquet",
+          "row_groups": 1,
+          "rows": 939485,
+          "size_bytes": 2102232525,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val1000k.parquet",
+          "source_start_row": 0,
+          "source_stop_row": 939485
+        }
+      ],
+      "role": "independent_holdout_for_proxy_fidelity_diagnostics",
+      "rows_by_flavor": {
+        "bb": 943645,
+        "cc": 941995,
+        "dd": 939485
+      },
+      "rows_total": 2825125,
+      "selection": "full_validation_excluding_control_and_monitor_tail_windows",
+      "size_bytes_total": 6809163943,
+      "suffix": "val_holdout"
+    },
     "monitor": {
       "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
       "files": [
@@ -140,10 +185,11 @@
   "strategy": {
     "control_rows_per_class": 5000,
     "control_suffix": "val5k_tail",
+    "full_holdout_suffix": "val_holdout",
     "monitor_rows_per_class": 50000,
     "monitor_suffix": "val50k_tail",
     "name": "disjoint_tail_windows_from_full_validation",
-    "notes": "Control uses the final rows of each full-validation parquet file. Monitor uses the immediately preceding rows, so control and monitor are disjoint while both come from the dataset tail.",
+    "notes": "Control uses the final rows of each full-validation parquet file. Monitor uses the immediately preceding rows, so control and monitor are disjoint while both come from the dataset tail. full_holdout (if built) is everything before the monitor window -- i.e. full validation with control+monitor excluded -- for use as an independent proxy-fidelity check; it deliberately overlaps with neither.",
     "source_suffix": "val1000k"
   }
 }
