@@ -5,6 +5,8 @@ import argparse
 import json
 import math
 import os
+import re
+import shlex
 from pathlib import Path
 
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
@@ -78,10 +80,26 @@ def worker_lr(worker):
     if worker.get("lr") is not None:
         return float(worker["lr"])
     command = worker.get("command") or []
-    if "--start-lr" in command:
-        index = command.index("--start-lr")
-        if index + 1 < len(command):
-            return float(command[index + 1])
+    if isinstance(command, str):
+        command = [command]
+    tokens = []
+    for item in command:
+        if not isinstance(item, str):
+            continue
+        try:
+            tokens.extend(shlex.split(item))
+        except ValueError:
+            tokens.append(item)
+    if "--start-lr" in tokens:
+        index = tokens.index("--start-lr")
+        if index + 1 < len(tokens):
+            return float(tokens[index + 1])
+    for item in command:
+        if not isinstance(item, str):
+            continue
+        match = re.search(r"--start-lr(?:=|\s+)([^\s;]+)", item)
+        if match:
+            return float(match.group(1).strip("'\""))
     return None
 
 

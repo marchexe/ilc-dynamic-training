@@ -70,11 +70,16 @@ def initial_evaluation_enabled(config):
     return bool(controller.get("evaluate_initial_checkpoint"))
 
 
-def update_seeded_best_from_initial_evaluation(manifest, metric_name, metrics):
+def promote_initial_evaluation_baseline(config, manifest, metric_name, metrics):
+    metric_value = float(metrics[metric_name])
+    for pbt in (config["pbt"], manifest["config"]["pbt"]):
+        pbt.setdefault("configured_baseline_metric_value", pbt.get("baseline_metric_value"))
+        pbt["runtime_baseline_metric_value"] = metric_value
+        pbt["baseline_metric_value"] = metric_value
+
     best = manifest.get("best") or {}
     if best.get("generation") != -1 or best.get("member") != "initial_resume":
         return
-    metric_value = float(metrics[metric_name])
     best["metric_value"] = metric_value
     best["metrics"] = metrics
     best["updated_at"] = utc_now()
@@ -134,7 +139,7 @@ def run_initial_evaluation(config, backend, experiment_dir, manifest, manifest_p
         finished_at=utc_now(),
     )
     if metric_ok:
-        update_seeded_best_from_initial_evaluation(manifest, metric_name, metrics)
+        promote_initial_evaluation_baseline(config, manifest, metric_name, metrics)
     manifest["updated_at"] = utc_now()
     atomic_json(manifest_path, manifest)
     log_event(

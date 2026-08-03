@@ -109,6 +109,7 @@ class RayWeaverBackend(PBTBackend):
                 host=slot.get("host") if isinstance(slot, dict) else None,
                 slot=self.slot_label(slot),
                 pid=None,
+                lr=float(member["lr"]),
                 ray_task=str(ref),
                 command=command,
                 log=str(log_path),

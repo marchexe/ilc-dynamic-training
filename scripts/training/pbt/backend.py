@@ -104,6 +104,7 @@ class LocalWeaverBackend(PBTBackend):
                 host=slot.get("host") if isinstance(slot, dict) else None,
                 slot=self.slot_label(slot),
                 pid=process.pid,
+                lr=float(member["lr"]),
                 command=command,
                 log=str(log_path),
                 console_log=str(console_path),
