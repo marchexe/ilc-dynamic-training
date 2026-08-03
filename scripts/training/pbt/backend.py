@@ -4,6 +4,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from training.pbt.artifacts import refresh_metrics_csv, record_evaluation, record_train_finish, record_train_start
 from training.pbt.weaver import make_command, make_initial_evaluation_command, slot_label
 from training.runtime import PROJECT_DIR, atomic_json, read_metrics, terminate, utc_now
 
@@ -61,7 +62,7 @@ class LocalWeaverBackend(PBTBackend):
         streams = {}
         started_monotonic = {}
         process_slots = {}
-        pbt_log_path = manifest_path.with_name("pbt.log")
+        pbt_log_path = manifest_path.parent / "logs" / "pbt.log"
         pending_names = list(names)
         free_slots = list(config["slots"])
 
@@ -71,7 +72,8 @@ class LocalWeaverBackend(PBTBackend):
             command, log_path, target_epoch = self.command_for(
                 config, member, slot, member_dir, generation_record["index"]
             )
-            console_path = member_dir / f"generation-{generation_record['index']:03d}.console.log"
+            console_path = experiment_dir / "logs" / name / f"generation-{generation_record['index']:03d}.console.log"
+            console_path.parent.mkdir(parents=True, exist_ok=True)
             stream = console_path.open("w")
             try:
                 process = subprocess.Popen(
@@ -114,6 +116,7 @@ class LocalWeaverBackend(PBTBackend):
                 returncode=None,
                 metrics=None,
             )
+            record_train_start(experiment_dir, config, generation_record, name, generation_record["workers"][name])
             log_event(
                 pbt_log_path,
                 f"started generation={generation_record['index']} worker={name} "
@@ -147,6 +150,10 @@ class LocalWeaverBackend(PBTBackend):
                         metrics=metrics,
                         finished_at=utc_now(),
                     )
+                    record_train_finish(experiment_dir, config, generation_record, name, record)
+                    if metric_ok:
+                        record_evaluation(experiment_dir, config, generation_record, name, record)
+                    refresh_metrics_csv(experiment_dir, manifest)
                     log_event(
                         pbt_log_path,
                         f"finished generation={generation_record['index']} "

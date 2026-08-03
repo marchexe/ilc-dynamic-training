@@ -5,6 +5,7 @@ import os
 import shutil
 from pathlib import Path
 
+from training.pbt.artifacts import record_new_best
 from training.pbt.optimizer_state import prepare_initial_optimizer
 from training.runtime import atomic_json, utc_now
 
@@ -69,11 +70,13 @@ def bootstrap_initial_checkpoint(config, member_dir):
     return initial_epoch
 
 def global_best_paths(experiment_dir):
+    checkpoint_dir = Path(experiment_dir) / "checkpoints"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     return {
-        "state_path": str(experiment_dir / "global_best_state.pt"),
-        "optimizer_path": str(experiment_dir / "global_best_optimizer.pt"),
-        "controller_path": str(experiment_dir / "global_best_controller.pt"),
-        "metadata_path": str(experiment_dir / "global_best_metadata.json"),
+        "state_path": str(checkpoint_dir / "global_best_state.pt"),
+        "optimizer_path": str(checkpoint_dir / "global_best_optimizer.pt"),
+        "controller_path": str(checkpoint_dir / "global_best_controller.pt"),
+        "metadata_path": str(checkpoint_dir / "global_best_metadata.json"),
     }
 
 def seed_initial_global_best(config, experiment_dir, manifest):
@@ -124,6 +127,7 @@ def seed_initial_global_best(config, experiment_dir, manifest):
         **paths,
     }
     manifest["best"] = best_record
+    record_new_best(experiment_dir, manifest, {"index": -1}, best_record)
     manifest["updated_at"] = utc_now()
     atomic_json(Path(paths["metadata_path"]), best_record)
     return True

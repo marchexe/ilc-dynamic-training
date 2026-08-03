@@ -734,13 +734,13 @@ class PBTLauncherTest(unittest.TestCase):
             seeded = strategy.seed_initial_global_best(config, experiment_dir, manifest)
 
             self.assertTrue(seeded)
-            self.assertEqual((experiment_dir / "global_best_state.pt").read_bytes(), b"state")
-            loaded = torch.load(experiment_dir / "global_best_optimizer.pt", map_location="cpu")
+            self.assertEqual((experiment_dir / "checkpoints" / "global_best_state.pt").read_bytes(), b"state")
+            loaded = torch.load(experiment_dir / "checkpoints" / "global_best_optimizer.pt", map_location="cpu")
             self.assertTrue(torch.equal(loaded["state"][0]["exp_avg"], torch.full((2,), 0.25)))
             self.assertEqual(manifest["best"]["member"], "initial_resume")
             self.assertEqual(manifest["best"]["generation"], -1)
             self.assertAlmostEqual(manifest["best"]["metric_value"], 1.0367)
-            self.assertTrue((experiment_dir / "global_best_metadata.json").is_file())
+            self.assertTrue((experiment_dir / "checkpoints" / "global_best_metadata.json").is_file())
 
     def test_optimizer_options_are_forwarded_to_weaver(self):
         config = pbt_smoke_config()

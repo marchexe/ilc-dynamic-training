@@ -3,6 +3,7 @@
 
 from pathlib import Path
 
+from training.pbt.artifacts import record_new_best
 from training.pbt.checkpointing import (
     atomic_copy,
     checkpoint_paths,
@@ -116,6 +117,7 @@ def update_global_best(experiment_dir, manifest, generation_record, manifest_pat
     }
     manifest["best"] = best_record
     atomic_json(Path(paths["metadata_path"]), best_record)
+    record_new_best(experiment_dir, manifest, generation_record, best_record)
     manifest["updated_at"] = utc_now()
     atomic_json(manifest_path, manifest)
     return True

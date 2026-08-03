@@ -94,7 +94,7 @@ def make_initial_evaluation_command(config, slot, experiment_dir):
         shared.get("train_suffix"),
         shared.get("validation_suffix"),
     )["val"]
-    eval_dir = Path(experiment_dir) / "initial_evaluation"
+    eval_dir = Path(experiment_dir) / "logs" / "initial_evaluation"
     log_path = eval_dir / "initial-evaluation.log"
     checkpoint = shared.get("initial_state") or shared["checkpoint"]
     gpu = slot["gpu"] if isinstance(slot, dict) else str(slot)
@@ -150,7 +150,8 @@ def make_command(config, member, slot, member_dir, generation):
         "gpu": slot["gpu"] if isinstance(slot, dict) else str(slot),
         "controller": shared.get("training_controller"),
     }
-    log_path = member_dir / f"generation-{generation:03d}.log"
+    log_path = member_dir.parent / "logs" / member["name"] / f"generation-{generation:03d}.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
     command = build_command(
         resolved,
         worker,

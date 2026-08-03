@@ -336,9 +336,9 @@ class PBTAlgorithmTest(unittest.TestCase):
             self.assertTrue(improved)
             self.assertEqual(manifest["best"]["member"], "member_00")
             self.assertEqual(manifest["best"]["generation"], 1)
-            self.assertEqual((root / "global_best_state.pt").read_bytes(), b"best-state")
-            self.assertEqual((root / "global_best_optimizer.pt").read_bytes(), b"best-optimizer")
-            self.assertTrue((root / "global_best_metadata.json").is_file())
+            self.assertEqual((root / "checkpoints" / "global_best_state.pt").read_bytes(), b"best-state")
+            self.assertEqual((root / "checkpoints" / "global_best_optimizer.pt").read_bytes(), b"best-optimizer")
+            self.assertTrue((root / "checkpoints" / "global_best_metadata.json").is_file())
 
     def test_degraded_generation_rolls_back_worst_member_from_global_best(self):
         config = pbt_smoke_config()

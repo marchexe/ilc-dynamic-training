@@ -57,10 +57,11 @@ class GlobalBestRollbackEvent(ExploitEventBase):
 
     def donor_paths(self, experiment_dir, recipient_dir, epoch, manifest):
         experiment_dir = Path(experiment_dir)
+        best = manifest.get("best") or {}
         return (
-            experiment_dir / "global_best_state.pt",
-            experiment_dir / "global_best_optimizer.pt",
-            experiment_dir / "global_best_controller.pt",
+            Path(best.get("state_path") or experiment_dir / "checkpoints" / "global_best_state.pt"),
+            Path(best.get("optimizer_path") or experiment_dir / "checkpoints" / "global_best_optimizer.pt"),
+            Path(best.get("controller_path") or experiment_dir / "checkpoints" / "global_best_controller.pt"),
         )
 
 

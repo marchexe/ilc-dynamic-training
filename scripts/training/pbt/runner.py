@@ -11,6 +11,13 @@ from pathlib import Path
 
 import yaml
 
+from training.pbt.artifacts import (
+    ensure_run_layout,
+    record_initial_evaluation,
+    run_contract,
+    write_canonical_outputs,
+    write_resolved_config,
+)
 from training.pbt.backend import backend_from_config, format_duration, log_event
 from training.pbt.config import contract_fingerprint, load_config, validate_inputs
 from training.pbt.models.manifest import PBTManifest
@@ -140,6 +147,11 @@ def run_initial_evaluation(config, backend, experiment_dir, manifest, manifest_p
     )
     if metric_ok:
         promote_initial_evaluation_baseline(config, manifest, metric_name, metrics)
+        manifest.setdefault("run", {}).setdefault("baseline_evaluation", {})["measured_metric_value"] = metrics[metric_name]
+        manifest.setdefault("run", {}).setdefault("baseline_evaluation", {})["measured_source"] = "initial_evaluation"
+        manifest.setdefault("baseline_evaluation", {})["measured_metric_value"] = metrics[metric_name]
+        manifest.setdefault("baseline_evaluation", {})["measured_source"] = "initial_evaluation"
+    record_initial_evaluation(experiment_dir, config, record)
     manifest["updated_at"] = utc_now()
     atomic_json(manifest_path, manifest)
     log_event(
@@ -155,11 +167,12 @@ def run_initial_evaluation(config, backend, experiment_dir, manifest, manifest_p
     return True
 
 
-def initial_manifest(config, fingerprint):
+def initial_manifest(config, fingerprint, command=None, backend_name=None):
     shared = config["shared"]
     checkpoint = Path(shared["checkpoint"])
     initial_state = Path(shared["initial_state"]) if shared.get("initial_state") else None
     initial_optimizer = Path(shared["initial_optimizer"]) if shared.get("initial_optimizer") else None
+    contract = run_contract(config, command, backend_name)
     manifest = {
         "schema_version": 1,
         "experiment": config["experiment_name"],
@@ -167,12 +180,25 @@ def initial_manifest(config, fingerprint):
         "status": "running",
         "started_at": utc_now(),
         "updated_at": utc_now(),
+        "command": list(command or []),
+        "method": config["pbt"].get("strategy", "exploit_mutate"),
+        "run": contract,
+        "datasets": contract["datasets"],
+        "metric_definition": contract["metric"],
+        "baseline_evaluation": contract["baseline_evaluation"],
         "next_generation": 0,
         "config": config,
         "checkpoint": {
             "path": str(checkpoint),
             "resolved_path": str(checkpoint.resolve()),
             "sha256": sha256(checkpoint),
+        },
+        "optimizer_checkpoint": None if initial_optimizer is None else {
+            "path": str(initial_optimizer),
+            "resolved_path": str(initial_optimizer.resolve()),
+            "sha256": sha256(initial_optimizer),
+            "mode": shared.get("initial_optimizer_mode", "raw"),
+            "damping": shared.get("initial_optimizer_damping", 0.1),
         },
         "initial_resume": None if initial_state is None else {
             "epoch": int(shared["initial_epoch"]),
@@ -206,9 +232,10 @@ def run(args):
     fingerprint = contract_fingerprint(config)
     experiment_dir = Path(config["output_root"]) / config["experiment_name"]
     manifest_path = experiment_dir / MANIFEST_NAME
-    pbt_log_path = manifest_path.with_name("pbt.log")
 
     backend = backend_from_config(config)
+    pbt_log_path = experiment_dir / "logs" / "pbt.log"
+    launch_command = [sys.executable, *sys.argv]
 
     if getattr(backend, "handles_run", False):
         return backend.run(config, experiment_dir, dry_run=args.dry_run)
@@ -245,12 +272,22 @@ def run(args):
             return 0
         manifest["status"] = "running"
         manifest.pop("failure", None)
+        manifest.setdefault("command", launch_command)
+        manifest.setdefault("method", config["pbt"].get("strategy", "exploit_mutate"))
+        manifest.setdefault("run", run_contract(config, launch_command, backend.name))
+        manifest.setdefault("datasets", manifest["run"]["datasets"])
+        manifest.setdefault("metric_definition", manifest["run"]["metric"])
+        manifest.setdefault("baseline_evaluation", manifest["run"].get("baseline_evaluation"))
         manifest["updated_at"] = utc_now()
+        ensure_run_layout(experiment_dir)
+        write_resolved_config(experiment_dir, config)
     else:
         if experiment_dir.exists():
             raise FileExistsError(f"Experiment already exists: {experiment_dir}")
         experiment_dir.mkdir(parents=True)
-        manifest = initial_manifest(config, fingerprint)
+        ensure_run_layout(experiment_dir)
+        write_resolved_config(experiment_dir, config)
+        manifest = initial_manifest(config, fingerprint, launch_command, backend.name)
     run_started_monotonic = time.monotonic()
 
     for name in manifest["members"]:
@@ -260,9 +297,7 @@ def run(args):
             bootstrap_initial_checkpoint(config, member_dir)
     seed_initial_global_best(config, experiment_dir, manifest)
     run_initial_evaluation(config, backend, experiment_dir, manifest, manifest_path, pbt_log_path)
-    (experiment_dir / "resolved_config.yaml").write_text(
-        yaml.safe_dump(config, sort_keys=False)
-    )
+    write_resolved_config(experiment_dir, config)
     atomic_json(manifest_path, manifest)
     log_event(
         pbt_log_path,
@@ -440,134 +475,10 @@ def run(args):
         manifest["finished_at"] = utc_now()
         manifest["updated_at"] = utc_now()
         atomic_json(manifest_path, manifest)
-        try:
-            from reports.write_metrics_summary import write_summary
-
-            summary_path = write_summary(manifest_path)
-            manifest["metrics_summary"] = str(summary_path)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"metrics summary: {summary_path}")
-        except Exception as summary_error:
-            log_event(pbt_log_path, f"warning: failed to write metrics summary: {summary_error}")
-        try:
-            from reports.plot_pbt_summary import plot_manifest
-
-            plot_path = plot_manifest(manifest_path)
-            manifest["training_diagnostics_plot"] = str(plot_path)
-            manifest.pop("pbt_objective_diagnostics_plot", None)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"training diagnostics plot: {plot_path}")
-        except Exception as plot_error:
-            log_event(pbt_log_path, f"warning: failed to create training diagnostics plot: {plot_error}")
-        try:
-            from reports.plot_physics_performance import plot_manifest
-
-            plot_path = plot_manifest(manifest_path)
-            manifest["physics_performance_plot"] = str(plot_path)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"physics performance plot: {plot_path}")
-        except Exception as plot_error:
-            log_event(pbt_log_path, f"warning: failed to create physics performance plot: {plot_error}")
-        try:
-            from reports.plot_background_efficiency_curves import plot_manifest
-
-            plot_path = plot_manifest(manifest_path)
-            manifest["background_efficiency_curves_plot"] = str(plot_path)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"background efficiency curves plot: {plot_path}")
-        except Exception as plot_error:
-            log_event(
-                pbt_log_path,
-                f"warning: failed to create background efficiency curves plot: {plot_error}",
-            )
-        try:
-            from reports.plot_fixed_b_efficiency import plot_manifest
-
-            plot_path = plot_manifest(manifest_path)
-            manifest["btag_background_efficiency_plot"] = str(plot_path)
-            manifest.pop("working_point_mistag_history_plot", None)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"b-tag background efficiency plot: {plot_path}")
-        except Exception as plot_error:
-            log_event(
-                pbt_log_path,
-                f"warning: failed to create b-tag background efficiency plot: {plot_error}",
-            )
-        try:
-            from reports.plot_selection_timeline import plot_manifest
-
-            plot_path = plot_manifest(manifest_path)
-            manifest["selection_timeline_plot"] = str(plot_path)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"selection timeline plot: {plot_path}")
-        except Exception as plot_error:
-            log_event(
-                pbt_log_path,
-                f"warning: failed to create selection timeline plot: {plot_error}",
-            )
-        try:
-            from reports.plot_controller_diagnostics import plot_manifest
-
-            plot_path = plot_manifest(manifest_path)
-            manifest["controller_diagnostics_plot"] = str(plot_path)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"controller diagnostics plot: {plot_path}")
-        except Exception as plot_error:
-            log_event(
-                pbt_log_path,
-                f"warning: failed to create controller diagnostics plot: {plot_error}",
-            )
-        try:
-            from reports.plot_mistag_tables import collect_tables, write_csv
-
-            table_specs = {"c": (0.5, 0.8), "b": (0.8, 0.9)}
-            for tag, efficiencies in table_specs.items():
-                tables = collect_tables(
-                    [(manifest.get("experiment", experiment_dir.name), manifest_path)],
-                    tag=tag,
-                    efficiencies=efficiencies,
-                    member="best_physics",
-                    manifests={manifest_path: manifest},
-                )
-                csv_path = experiment_dir / "plots" / "report" / f"{tag}tag_mistag_tables.csv"
-                write_csv(csv_path, tables, tag)
-                manifest.pop(f"{tag}tag_mistag_table_plot", None)
-                manifest[f"{tag}tag_mistag_table_csv"] = str(csv_path)
-                log_event(pbt_log_path, f"{tag}-tag mistag CSV: {csv_path}")
-            for key in (
-                "btag_rejection_evolution_plot",
-                "ctag_rejection_evolution_plot",
-                "btag_mistag_evolution_plot",
-                "ctag_mistag_evolution_plot",
-                "working_point_mistag_history_plot",
-                "global_best_all_pair_rejection_curves_plot",
-                "pbt_lr_response_plot",
-            ):
-                manifest.pop(key, None)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-        except Exception as plot_error:
-            log_event(
-                pbt_log_path,
-                f"warning: failed to create fixed-efficiency mistag CSV tables: {plot_error}",
-            )
-        try:
-            from reports.write_metrics_summary import write_summary
-
-            summary_path = write_summary(manifest_path)
-            manifest["metrics_summary"] = str(summary_path)
-            manifest["updated_at"] = utc_now()
-            atomic_json(manifest_path, manifest)
-            log_event(pbt_log_path, f"metrics summary updated with plots: {summary_path}")
-        except Exception as summary_error:
-            log_event(pbt_log_path, f"warning: failed to refresh metrics summary: {summary_error}")
+        artifacts = write_canonical_outputs(experiment_dir, manifest)
+        manifest["updated_at"] = utc_now()
+        atomic_json(manifest_path, manifest)
+        log_event(pbt_log_path, f"canonical artifacts: {artifacts['report']}")
         log_event(
             pbt_log_path,
             f"run completed experiment={config['experiment_name']} "

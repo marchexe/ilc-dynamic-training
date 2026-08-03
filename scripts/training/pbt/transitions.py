@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Apply typed PBT exploit events to checkpoints and member state."""
 
+from training.pbt.artifacts import record_exploit_application
 from training.pbt.checkpointing import atomic_copy, checkpoint_paths, controller_checkpoint_path
 from training.pbt.models.events import dump_exploit_event, parse_exploit_event
 from training.runtime import atomic_json, utc_now
@@ -22,9 +23,11 @@ def apply_exploit(experiment_dir, manifest, generation_record, manifest_path):
         recipient_state, recipient_optimizer = checkpoint_paths(recipient_dir, epoch)
         if not donor_state.is_file() or not donor_optimizer.is_file():
             raise FileNotFoundError(f"Donor checkpoint is incomplete: {event_model.error_donor_name()}")
-        if donor_state.resolve() != recipient_state.resolve():
+        weight_copied = donor_state.resolve() != recipient_state.resolve()
+        optimizer_copied = donor_optimizer.resolve() != recipient_optimizer.resolve()
+        if weight_copied:
             atomic_copy(donor_state, recipient_state)
-        if donor_optimizer.resolve() != recipient_optimizer.resolve():
+        if optimizer_copied:
             atomic_copy(donor_optimizer, recipient_optimizer)
 
         shared_config = manifest.get("config", {}).get("shared", {})
@@ -47,5 +50,17 @@ def apply_exploit(experiment_dir, manifest, generation_record, manifest_path):
         member.update(event_model.parent_update())
         member["last_exploit_generation"] = generation_record["index"]
         event["applied"] = True
+        record_exploit_application(
+            experiment_dir,
+            manifest.get("config", {}),
+            generation_record,
+            event,
+            donor_state,
+            donor_optimizer,
+            recipient_state,
+            recipient_optimizer,
+            weight_copied=weight_copied,
+            optimizer_copied=optimizer_copied,
+        )
         manifest["updated_at"] = utc_now()
         atomic_json(manifest_path, manifest)
