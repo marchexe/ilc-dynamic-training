@@ -85,6 +85,29 @@ def wrap_remote_command(command, slot):
     return ["ssh", host, remote]
 
 
+def _combine_test_group(validation_paths):
+    """Strip the per-flavor keyword prefix from every `--data-test` glob.
+
+    Weaver's `--run-mode test` loader (`test_load` in weaver-core) builds one
+    independent DataLoader per keyword-prefixed group -- each is evaluated as
+    its own separate test pass with its own confusion matrix, unlike
+    `--data-val` during train/val mode, which merges every group into a
+    single combined SimpleIterDataset. `data_paths()` labels each flavor
+    glob `nnbb:`/`nncc:`/`nndd:` for that train/val merge; passed unchanged
+    to `--data-test`, those three distinct labels instead make Weaver run
+    three single-class passes back to back, each unable to compute a
+    background-rejection curve since that requires signal and background
+    classes present together. Dropping the prefix (Weaver's plain-list
+    `--data-test` form) puts every glob under the same unlabelled group, so
+    weaver's `test_load` merges them into one multi-class evaluation pass --
+    the same approach already used by
+    scripts/validation/evaluate_checkpoint_fixed_wp.py. Per-event class
+    labels come from the data config, not the group name, so this does not
+    change what each event is labelled.
+    """
+    return [path.split(":", 1)[1] if ":" in path else path for path in validation_paths]
+
+
 def _test_mode_command(shared, slot, validation_paths, checkpoint, log_path):
     """Build a Weaver `--run-mode test` command evaluating one checkpoint
     against one already-resolved set of validation data paths.
@@ -99,7 +122,7 @@ def _test_mode_command(shared, slot, validation_paths, checkpoint, log_path):
         "--run-mode",
         "test",
         "--data-test",
-        *validation_paths,
+        *_combine_test_group(validation_paths),
         "--data-config",
         shared["data_config"],
         "--network-config",

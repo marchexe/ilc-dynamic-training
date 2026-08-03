@@ -410,6 +410,55 @@ class PBTLauncherTest(unittest.TestCase):
         )
         self.assertEqual(log_path.name, "initial-evaluation.log")
 
+    def test_initial_evaluation_data_test_merges_flavors_into_one_group(self):
+        # Regression test: Weaver's `--run-mode test` loader (test_load in
+        # weaver-core) builds one independent DataLoader per keyword-prefixed
+        # `--data-test` group, evaluated as its own separate test pass --
+        # unlike `--data-val` during train/val mode, which merges every
+        # group into a single combined evaluation. If the per-flavor labels
+        # data_paths() uses for train/val (nnbb:/nncc:/nndd:) leak into
+        # --data-test unchanged, Weaver runs three single-class passes back
+        # to back, each structurally unable to compute a background-
+        # rejection curve (needs signal and background classes present
+        # together), so validation_working_point_mistag_percent comes out
+        # None and initial evaluation fails even though Weaver exits 0. See
+        # the 2026-08-04 smoke failure: "finished initial_evaluation
+        # returncode=0 metric=n/a".
+        config = pbt_smoke_config()
+        config["shared"].update(
+            initial_epoch=17,
+            initial_state="checkpoints/pretrained/epoch17_state.pt",
+            initial_optimizer="checkpoints/pretrained/epoch17_optimizer.pt",
+        )
+        config["pbt"]["dynamic_controller"] = {
+            "mode": "active",
+            "evaluate_initial_checkpoint": True,
+        }
+
+        command, _ = self.backend.initial_evaluation_command_for(
+            config,
+            "0",
+            PROJECT_DIR / "runs/pbt/unit_initial_eval",
+        )
+
+        start = command.index("--data-test") + 1
+        end = start
+        while end < len(command) and not command[end].startswith("--"):
+            end += 1
+        data_test_args = command[start:end]
+
+        self.assertEqual(len(data_test_args), 3)
+        for arg in data_test_args:
+            self.assertNotRegex(
+                arg,
+                r"^nn(bb|cc|dd):",
+                f"--data-test arg {arg!r} still carries a per-flavor group label; "
+                "Weaver will evaluate it as an independent single-class test pass",
+            )
+        joined = " ".join(data_test_args)
+        self.assertIn("_bb_", joined)
+        self.assertIn("_cc_", joined)
+        self.assertIn("_dd_", joined)
 
     def test_lr_controller_is_rejected_outside_anchored_sweep(self):
         source = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
