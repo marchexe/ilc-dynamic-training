@@ -9,8 +9,7 @@ from pathlib import Path
 
 from tests.helpers import PROJECT_DIR  # noqa: F401
 from training.pbt import strategy
-from training.pbt.artifacts import (
-    _baseline_fixed_working_point_values,
+from training.pbt.reporting import (
     append_event,
     evaluation_rows,
     fixed_working_point_uncertainty,
@@ -20,6 +19,7 @@ from training.pbt.artifacts import (
     wilson_interval,
     write_canonical_outputs,
 )
+from training.pbt.reporting.plots import _baseline_fixed_working_point_values
 
 
 METRIC = "validation_working_point_mistag_percent"

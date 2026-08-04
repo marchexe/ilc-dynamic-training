@@ -12,8 +12,7 @@ import unittest
 from pathlib import Path
 
 from tests.helpers import PROJECT_DIR  # noqa: F401
-from training.pbt.artifacts import (
-    _proxy_diagnostics_report_lines,
+from training.pbt.reporting import (
     best_checkpoint_by_tier,
     corroboration_status,
     proxy_overfitting_cases,
@@ -25,6 +24,7 @@ from training.pbt.artifacts import (
     write_canonical_outputs,
     write_tiered_metrics_csv,
 )
+from training.pbt.reporting.markdown_report import _proxy_diagnostics_report_lines
 from training.pbt.execution.backend import finite_metric_ok
 
 

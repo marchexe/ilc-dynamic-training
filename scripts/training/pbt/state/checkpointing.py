@@ -5,7 +5,7 @@ import os
 import shutil
 from pathlib import Path
 
-from training.pbt.artifacts import record_new_best
+from training.pbt.reporting import record_new_best
 from training.pbt.state.optimizer_state import atomic_copy, prepare_initial_optimizer
 from training.runtime import atomic_json, utc_now
 

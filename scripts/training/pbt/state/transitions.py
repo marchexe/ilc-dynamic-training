@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply typed PBT exploit events to checkpoints and member state."""
 
-from training.pbt.artifacts import record_exploit_application
+from training.pbt.reporting import record_exploit_application
 from training.pbt.state.checkpointing import atomic_copy, atomic_copy_pair, checkpoint_paths, controller_checkpoint_path
 from training.pbt.models.events import dump_exploit_event, parse_exploit_event
 from training.runtime import atomic_json, utc_now

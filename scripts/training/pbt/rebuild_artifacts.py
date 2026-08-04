@@ -10,7 +10,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[2]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from training.pbt.artifacts import write_canonical_outputs  # noqa: E402
+from training.pbt.reporting import write_canonical_outputs  # noqa: E402
 
 
 def parse_args():

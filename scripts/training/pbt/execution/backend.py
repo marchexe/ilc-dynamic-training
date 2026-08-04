@@ -5,7 +5,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from training.pbt.artifacts import refresh_metrics_csv, record_evaluation, record_train_finish, record_train_start
+from training.pbt.reporting import refresh_metrics_csv, record_evaluation, record_train_finish, record_train_start
 from training.pbt.execution.weaver_command import make_command, make_initial_evaluation_command, make_tiered_evaluation_command, slot_label
 from training.runtime import PROJECT_DIR, atomic_json, read_metrics, terminate, utc_now
 

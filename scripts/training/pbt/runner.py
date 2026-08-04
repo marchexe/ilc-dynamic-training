@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from training.pbt.artifacts import (
+from training.pbt.reporting import (
     ensure_run_layout,
     record_controller_lr_change,
     record_initial_evaluation,
