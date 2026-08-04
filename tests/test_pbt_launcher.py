@@ -791,6 +791,39 @@ class PBTLauncherTest(unittest.TestCase):
             self.assertAlmostEqual(manifest["best"]["metric_value"], 1.0367)
             self.assertTrue((experiment_dir / "checkpoints" / "global_best_metadata.json").is_file())
 
+    def test_freeze_batch_norm_defaults_to_true(self):
+        # Every experiment in this repo resumes from a checkpoint (pretrained
+        # or a prior PBT run's global_best), never a random init, so BN
+        # running stats are always worth preserving by default (see
+        # bn_freeze_diag_baseline/frozen.yaml for the confirmed regression
+        # this prevents). Configs must opt OUT explicitly, not opt in.
+        config = pbt_smoke_config()
+        self.assertTrue(config["shared"]["freeze_batch_norm"])
+
+        command, _, _ = self.backend.command_for(
+            config,
+            {"name": "member_00", "lr": 9.0e-5},
+            "0",
+            PROJECT_DIR / "runs/pbt/unit_test/member_00",
+            generation=0,
+        )
+
+        self.assertIn("--freeze-batch-norm", command)
+
+    def test_freeze_batch_norm_can_be_explicitly_disabled(self):
+        config = pbt_smoke_config()
+        config["shared"]["freeze_batch_norm"] = False
+
+        command, _, _ = self.backend.command_for(
+            config,
+            {"name": "member_00", "lr": 9.0e-5},
+            "0",
+            PROJECT_DIR / "runs/pbt/unit_test/member_00",
+            generation=0,
+        )
+
+        self.assertNotIn("--freeze-batch-norm", command)
+
     def test_optimizer_options_are_forwarded_to_weaver(self):
         config = pbt_smoke_config()
         config["shared"]["optimizer_options"] = {"weight_decay": "1e-4"}

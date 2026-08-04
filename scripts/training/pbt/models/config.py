@@ -166,6 +166,15 @@ class SharedSection(WeaverSharedSection):
     use_amp: bool
     amp_dtype: str
     no_remake_weights: bool
+    # Every experiment in this repo resumes from a checkpoint (pretrained or
+    # a prior PBT run's global_best) -- never a random init -- so BatchNorm
+    # running stats accumulated over the source training are always worth
+    # preserving by default. model.train() would otherwise let BN momentum
+    # (0.1) overwrite them within ~20 minibatches (confirmed regression:
+    # see bn_freeze_diag_baseline/frozen.yaml, 1.14% -> 7-9% mistag).
+    # Configs that genuinely want BN to adapt can set `freeze_batch_norm:
+    # false` explicitly (e.g. bn_freeze_diag_baseline.yaml).
+    freeze_batch_norm: bool = True
     proxy_validation: ProxyValidationConfig | None = None
     data_extension: str | None = None
     train_suffix: str | None = None
