@@ -173,11 +173,33 @@ ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python -m unittest discov
 ## Project Layout
 
 ```text
-configs/       experiment and controller presets
-networks/      checkpoint-compatible pretrained SGV model
-scripts/       launchers, PBT backend, reports, validation, cluster helpers
-tests/         unit and compatibility tests
-weaver-core/   editable local Weaver checkout
+configs/               experiment and controller presets (see configs/presets/README.md)
+networks/               checkpoint-compatible pretrained SGV model
+scripts/
+  training/
+    pbt/                 the PBT engine, split by concern:
+      models/              pydantic schema for config/manifest/controller/exploit-events
+      planning/            population ranking + one module per pbt.strategy (exploit_mutate,
+                            anchored_lr_sweep, fixed_lr_grid) + rollback injection
+      controller/           the dynamic (fine-grained LR) controller: observation/decision/apply
+      execution/            backend/ray_backend/weaver_command -- runs the actual Weaver subprocesses
+      state/                 checkpoint paths, optimizer-state transforms, exploit-application
+      reporting/            canonical run-directory artifacts: events, CSVs, plots, report.md
+      tune/                  Ray Tune Function API integration (separate from execution/ray_backend.py's
+                              task-based Ray path; reachable only via run_pbt_tune.py)
+      runner.py             the generation-loop orchestrator (this package's entrypoint)
+    comparison/            independent (non-PBT) baseline-vs-controller runner
+    runtime.py             shared utilities (paths, data layout, Weaver log/metric parsing) used by
+                            pbt/, comparison/, and validation/ alike
+    weaver.py               generic Weaver train/val command builder, wrapped by pbt/execution/weaver_command.py
+  validation/              offline proxy-validation dataset construction + standalone checkpoint evaluation
+  reports/                 plotting/summary library shared by pbt/reporting/ and validation/
+  cluster/, data/          GPU-fleet status and dataset-conversion shell scripts (no Python coupling)
+tests/                   unit and compatibility tests (python -m unittest discover)
+weaver-core/             editable local Weaver checkout (vendored, but actively patched -- see git log)
+checkpoints/, datasets/  pretrained checkpoint and dataset manifests (heavy artifacts are gitignored)
+runs/                    full experiment output trees (gitignored except runs/showcase/)
+results/research/        lightweight, Git-tracked JSON/CSV run summaries (scripts/reports/export_research_result.py)
 ```
 
 ## Git Policy
