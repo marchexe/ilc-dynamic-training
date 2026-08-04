@@ -46,5 +46,5 @@ checkpoints/**
 !checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
 !checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
 
-runs/**
-!runs/showcase
+runs/*
+!runs/showcase/
