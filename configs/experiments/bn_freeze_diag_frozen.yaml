@@ -1,0 +1,32 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/resources/local_8gpu.yaml
+  - ../presets/pbt/exploit_mutate_significance_tiered.yaml
+
+experiment:
+  output_root: runs/dev
+  name: bn_freeze_diag_frozen
+
+# Same as bn_freeze_diag_baseline.yaml, with BatchNorm frozen
+# (--freeze-batch-norm): running_mean/running_var and affine weight/bias
+# stay exactly as loaded from the epoch-17 checkpoint throughout the
+# chunk. If this removes (or greatly shrinks) the gen-0 regression seen in
+# bn_freeze_diag_baseline, that confirms BN running-stat drift as the cause.
+shared:
+  generations: 1
+  samples_per_epoch: 20000
+  samples_per_epoch_val: 15000
+  freeze_batch_norm: true
+
+population:
+  - name: bn_diag_frozen_lr9e-6
+    start_lr: 9.0e-6
+  - name: bn_diag_frozen_lr14e-6
+    start_lr: 1.4e-5
+
+pbt:
+  tiered_validation:
+    monitor_interval_generations: null
+    full_interval_generations: null
+    evaluate_initial_checkpoint_all_tiers: false

@@ -1,0 +1,36 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/resources/local_8gpu.yaml
+  - ../presets/pbt/exploit_mutate_significance_tiered.yaml
+
+experiment:
+  output_root: runs/dev
+  name: bn_freeze_diag_baseline
+
+# Diagnostic-only, single-member, single-generation run reproducing exactly
+# generation 0 of runs/showcase/pretrained_exploit_mutate_8gpu_10m_tiered_pilot_20260804_091343
+# (same checkpoint, same damped-optimizer resume, same production control
+# tier val5k_tail/15000 samples, same batch_size/samples_per_epoch), to
+# check whether BatchNorm running-stat drift explains the gen-0 mistag
+# regression (baseline 1.14% -> ~7-9% observed in the pilot) and whether
+# --freeze-batch-norm (see bn_freeze_diag_frozen.yaml) fixes it. Not a real
+# PBT search: population is one member, generations=1, no exploit/monitor/
+# full-tier evaluation is expected or needed.
+shared:
+  generations: 1
+  samples_per_epoch: 20000
+  samples_per_epoch_val: 15000
+  freeze_batch_norm: false
+
+population:
+  - name: bn_diag_baseline_lr9e-6
+    start_lr: 9.0e-6
+  - name: bn_diag_baseline_lr14e-6
+    start_lr: 1.4e-5
+
+pbt:
+  tiered_validation:
+    monitor_interval_generations: null
+    full_interval_generations: null
+    evaluate_initial_checkpoint_all_tiers: false

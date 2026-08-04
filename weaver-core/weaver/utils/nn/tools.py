@@ -56,6 +56,21 @@ def _flatten_preds(model_output, label=None, mask=None, label_axis=1):
     return preds, label, mask
 
 
+def freeze_batch_norm(model):
+    """Force BatchNorm layers into eval mode: frozen running stats, frozen affine params.
+
+    `model.train()` recursively re-enables training mode (and running-stat updates) on
+    every submodule, including BatchNorm ones, so this must be re-applied after each
+    `model.train()` call rather than once at setup time.
+    """
+    for module in model.modules():
+        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+            module.eval()
+            if module.affine:
+                module.weight.requires_grad_(False)
+                module.bias.requires_grad_(False)
+
+
 def _evaluate_classification_proxy(model, proxy_loader, data_config, dev, *, max_batches, metric_name, extra_args):
     was_training = model.training
     scores = []
@@ -86,6 +101,8 @@ def _evaluate_classification_proxy(model, proxy_loader, data_config, dev, *, max
     finally:
         if was_training:
             model.train()
+            if extra_args and getattr(extra_args.get('args'), 'freeze_batch_norm', False):
+                freeze_batch_norm(model)
 
     if not scores:
         return None
@@ -169,6 +186,8 @@ def train_classification(
         model, loss_func, opt, scheduler, train_loader, dev, epoch, steps_per_epoch=None, grad_scaler=None,
         tb_helper=None, extra_args=None):
     model.train()
+    if extra_args and getattr(extra_args.get('args'), 'freeze_batch_norm', False):
+        freeze_batch_norm(model)
 
     data_config = train_loader.dataset.config
     clip_grad_norm = getattr(opt, '_clip_grad_norm', float('inf'))

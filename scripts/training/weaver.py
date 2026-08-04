@@ -90,6 +90,8 @@ def build_command(
         command.extend(["--optimizer-option", str(key), str(value)])
     if shared.get("freeze_model_weights"):
         command.extend(["--freeze-model-weights", str(shared["freeze_model_weights"])])
+    if shared.get("freeze_batch_norm"):
+        command.append("--freeze-batch-norm")
     if worker["controller"]:
         command.extend(["--training-controller", worker["controller"]])
     if shared["no_remake_weights"]:

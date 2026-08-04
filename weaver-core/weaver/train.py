@@ -125,6 +125,13 @@ parser.add_argument('--exclude-model-weights', type=str, default=None,
                     help='comma-separated regex to exclude matched weights from being loaded, e.g., `a.fc..+,b.fc..+`')
 parser.add_argument('--freeze-model-weights', type=str, default=None,
                     help='comma-separated regex to freeze matched weights from being updated in the training, e.g., `a.fc..+,b.fc..+`')
+parser.add_argument('--freeze-batch-norm', action='store_true', default=False,
+                    help='keep BatchNorm layers in eval mode (frozen running_mean/running_var, frozen affine '
+                         'weight/bias) throughout training, instead of letting `model.train()` put them back into '
+                         'training mode every epoch. Intended for resuming a well-converged pretrained checkpoint, '
+                         'where a handful of new minibatches would otherwise overwrite running stats accumulated '
+                         'over the entire original training (BN momentum defaults to 0.1, so ~20 batches already '
+                         'discounts the old running stats to ~12% weight).')
 parser.add_argument('--num-epochs', type=int, default=20,
                     help='number of epochs')
 parser.add_argument('--steps-per-epoch', type=int, default=None,
