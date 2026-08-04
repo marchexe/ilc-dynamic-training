@@ -3,7 +3,8 @@ import unittest
 from pathlib import Path
 
 from tests.helpers import pbt_smoke_config
-from training.pbt import controller, strategy
+from training.pbt import controller, metrics, planning
+from training.pbt.state import checkpointing, transitions
 
 
 class PBTAlgorithmTest(unittest.TestCase):
@@ -21,7 +22,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             "member_01": {"lr": 1.0e-4},
         }
 
-        ranking, plan = strategy.ranking_and_plan(config, generation, members)
+        ranking, plan = planning.ranking_and_plan(config, generation, members)
 
         self.assertEqual(ranking, ["member_00", "member_01"])
         self.assertEqual(plan[0]["donor"], "member_00")
@@ -56,7 +57,7 @@ class PBTAlgorithmTest(unittest.TestCase):
         }
         members = {"member_00": {"lr": 7.5e-5}, "member_01": {"lr": 1.0e-4}}
 
-        ranking, plan = strategy.ranking_and_plan(config, generation, members)
+        ranking, plan = planning.ranking_and_plan(config, generation, members)
 
         self.assertEqual(plan, [])
         self.assertEqual(len(generation["skipped_exploits"]), 1)
@@ -91,7 +92,7 @@ class PBTAlgorithmTest(unittest.TestCase):
         }
         members = {"member_00": {"lr": 7.5e-5}, "member_01": {"lr": 1.0e-4}}
 
-        ranking, plan = strategy.ranking_and_plan(config, generation, members)
+        ranking, plan = planning.ranking_and_plan(config, generation, members)
 
         self.assertEqual(len(plan), 1)
         self.assertEqual(plan[0]["donor"], "member_00")
@@ -116,7 +117,7 @@ class PBTAlgorithmTest(unittest.TestCase):
         }
         members = {"member_00": {"lr": 7.5e-5}, "member_01": {"lr": 1.0e-4}}
 
-        ranking, plan = strategy.ranking_and_plan(config, generation, members)
+        ranking, plan = planning.ranking_and_plan(config, generation, members)
 
         self.assertEqual(plan, [])
         self.assertEqual(generation["skipped_exploits"][0]["reason"], "missing_uncertainty")
@@ -135,7 +136,7 @@ class PBTAlgorithmTest(unittest.TestCase):
         }
         members = {"member_00": {"lr": 7.5e-5}, "member_01": {"lr": 1.0e-4}}
 
-        ranking, plan = strategy.ranking_and_plan(config, generation, members)
+        ranking, plan = planning.ranking_and_plan(config, generation, members)
 
         self.assertEqual(len(plan), 1)
         self.assertIsNone(plan[0]["significance_margin_sigma"])
@@ -153,7 +154,7 @@ class PBTAlgorithmTest(unittest.TestCase):
         }
         members = {"member_00": {"lr": 7.5e-5}, "member_01": {"lr": 1.0e-4}}
 
-        ranking = strategy.raw_metric_ranking(config, generation, members)
+        ranking = planning.raw_metric_ranking(config, generation, members)
 
         self.assertEqual(ranking, ["member_01", "member_00"])
 
@@ -161,25 +162,25 @@ class PBTAlgorithmTest(unittest.TestCase):
         config = pbt_smoke_config()
         config["pbt"]["burn_in_generations"] = 2
 
-        self.assertTrue(strategy.in_burn_in(config, 0))
-        self.assertTrue(strategy.in_burn_in(config, 1))
-        self.assertFalse(strategy.in_burn_in(config, 2))
+        self.assertTrue(planning.in_burn_in(config, 0))
+        self.assertTrue(planning.in_burn_in(config, 1))
+        self.assertFalse(planning.in_burn_in(config, 2))
 
         # Generation 0 and 1 are within burn-in: no exploit even though
         # nothing else would block it.
-        self.assertFalse(strategy.should_apply_exploit(config, 0, is_final_generation=False, early_stop_triggered=False))
-        self.assertFalse(strategy.should_apply_exploit(config, 1, is_final_generation=False, early_stop_triggered=False))
+        self.assertFalse(planning.should_apply_exploit(config, 0, is_final_generation=False, early_stop_triggered=False))
+        self.assertFalse(planning.should_apply_exploit(config, 1, is_final_generation=False, early_stop_triggered=False))
         # Generation 2 is past burn-in: exploit resumes.
-        self.assertTrue(strategy.should_apply_exploit(config, 2, is_final_generation=False, early_stop_triggered=False))
+        self.assertTrue(planning.should_apply_exploit(config, 2, is_final_generation=False, early_stop_triggered=False))
         # Still respects the existing final-generation / early-stop guards.
-        self.assertFalse(strategy.should_apply_exploit(config, 5, is_final_generation=True, early_stop_triggered=False))
-        self.assertFalse(strategy.should_apply_exploit(config, 5, is_final_generation=False, early_stop_triggered=True))
+        self.assertFalse(planning.should_apply_exploit(config, 5, is_final_generation=True, early_stop_triggered=False))
+        self.assertFalse(planning.should_apply_exploit(config, 5, is_final_generation=False, early_stop_triggered=True))
 
     def test_burn_in_zero_by_default_never_suppresses_exploit(self):
         config = pbt_smoke_config()
         self.assertEqual(config["pbt"].get("burn_in_generations", 0), 0)
-        self.assertFalse(strategy.in_burn_in(config, 0))
-        self.assertTrue(strategy.should_apply_exploit(config, 0, is_final_generation=False, early_stop_triggered=False))
+        self.assertFalse(planning.in_burn_in(config, 0))
+        self.assertTrue(planning.should_apply_exploit(config, 0, is_final_generation=False, early_stop_triggered=False))
 
     def test_exploit_interval_generations_makes_exploit_genuinely_less_frequent(self):
         # exploit_interval_generations previously existed only as a
@@ -189,7 +190,7 @@ class PBTAlgorithmTest(unittest.TestCase):
         config["pbt"]["exploit_interval_generations"] = 3
 
         due = [
-            strategy.should_apply_exploit(config, generation, is_final_generation=False, early_stop_triggered=False)
+            planning.should_apply_exploit(config, generation, is_final_generation=False, early_stop_triggered=False)
             for generation in range(9)
         ]
 
@@ -202,7 +203,7 @@ class PBTAlgorithmTest(unittest.TestCase):
 
         for generation in range(4):
             self.assertTrue(
-                strategy.should_apply_exploit(config, generation, is_final_generation=False, early_stop_triggered=False)
+                planning.should_apply_exploit(config, generation, is_final_generation=False, early_stop_triggered=False)
             )
 
     def test_exploit_interval_and_burn_in_compose(self):
@@ -211,11 +212,11 @@ class PBTAlgorithmTest(unittest.TestCase):
         config["pbt"]["exploit_interval_generations"] = 3
 
         # Generation 2 is past burn-in and satisfies (2+1)%3==0 -> due.
-        self.assertTrue(strategy.should_apply_exploit(config, 2, is_final_generation=False, early_stop_triggered=False))
+        self.assertTrue(planning.should_apply_exploit(config, 2, is_final_generation=False, early_stop_triggered=False))
         # Generation 1 is past... no, still in burn-in (burn_in=2 covers 0,1).
-        self.assertFalse(strategy.should_apply_exploit(config, 1, is_final_generation=False, early_stop_triggered=False))
+        self.assertFalse(planning.should_apply_exploit(config, 1, is_final_generation=False, early_stop_triggered=False))
         # Generation 3 is past burn-in but not interval-due ((3+1)%3=1).
-        self.assertFalse(strategy.should_apply_exploit(config, 3, is_final_generation=False, early_stop_triggered=False))
+        self.assertFalse(planning.should_apply_exploit(config, 3, is_final_generation=False, early_stop_triggered=False))
 
 
     def test_anchored_lr_sweep_uses_fixed_worker_positions(self):
@@ -241,7 +242,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             "member_03": {"lr": 0.90e-4},
         }
 
-        ranking, plan = strategy.anchored_lr_sweep_plan(config, generation, members)
+        ranking, plan = planning.anchored_lr_sweep_plan(config, generation, members)
 
         self.assertEqual(ranking[0], "member_02")
         self.assertEqual([event["recipient"] for event in plan], list(members))
@@ -258,16 +259,16 @@ class PBTAlgorithmTest(unittest.TestCase):
             lr_factors=[1.05, 1.025, 0.975, 0.95],
         )
 
-        factors = strategy.lr_factors_for_population(config, ["member_00", "member_01"])
+        factors = planning.lr_factors_for_population(config, ["member_00", "member_01"])
 
         self.assertEqual(factors, [1.05, 0.95])
 
     def test_anchored_lr_radius_generates_symmetric_factors(self):
         self.assertEqual(
-            strategy.factors_from_radius(0.05, 4),
+            planning.factors_from_radius(0.05, 4),
             [1.05, 1.025, 0.975, 0.95],
         )
-        self.assertEqual(strategy.factors_from_radius(0.05, 2), [1.05, 0.95])
+        self.assertEqual(planning.factors_from_radius(0.05, 2), [1.05, 0.95])
 
     def test_anchored_lr_radius_shrinks_after_inner_wins(self):
         config = pbt_smoke_config()
@@ -303,7 +304,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             },
         }
 
-        ranking, plan = strategy.anchored_lr_sweep_plan(config, generation, members, manifest)
+        ranking, plan = planning.anchored_lr_sweep_plan(config, generation, members, manifest)
 
         self.assertEqual(ranking[0], "member_01")
         self.assertEqual(generation["lr_radius"]["action"], "shrink_inner_winners")
@@ -345,7 +346,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             },
         }
 
-        strategy.anchored_lr_sweep_plan(config, generation, members, manifest)
+        planning.anchored_lr_sweep_plan(config, generation, members, manifest)
 
         self.assertEqual(generation["lr_radius"]["action"], "keep_edge_winner")
         self.assertAlmostEqual(generation["lr_radius"]["next_radius"], 0.05)
@@ -389,7 +390,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             },
         }
 
-        ranking, plan = strategy.anchored_lr_sweep_plan(config, generation, members, manifest)
+        ranking, plan = planning.anchored_lr_sweep_plan(config, generation, members, manifest)
 
         self.assertEqual(ranking[0], "member_01")
         self.assertAlmostEqual(generation["lr_controller"]["target_lr"], 3.0e-6)
@@ -403,14 +404,14 @@ class PBTAlgorithmTest(unittest.TestCase):
             root = Path(temporary)
             for name in ("strong", "weak"):
                 (root / name).mkdir()
-            strong_state, strong_optimizer = strategy.checkpoint_paths(root / "strong", 0)
-            weak_state, weak_optimizer = strategy.checkpoint_paths(root / "weak", 0)
+            strong_state, strong_optimizer = checkpointing.checkpoint_paths(root / "strong", 0)
+            weak_state, weak_optimizer = checkpointing.checkpoint_paths(root / "weak", 0)
             strong_state.write_bytes(b"strong-state")
             strong_optimizer.write_bytes(b"strong-optimizer")
             weak_state.write_bytes(b"weak-state")
             weak_optimizer.write_bytes(b"weak-optimizer")
-            strong_controller = strategy.controller_checkpoint_path(root / "strong", 0)
-            weak_controller = strategy.controller_checkpoint_path(root / "weak", 0)
+            strong_controller = checkpointing.controller_checkpoint_path(root / "strong", 0)
+            weak_controller = checkpointing.controller_checkpoint_path(root / "weak", 0)
             strong_controller.write_bytes(b"strong-controller")
             weak_controller.write_bytes(b"weak-controller")
             manifest_path = root / "manifest.json"
@@ -434,7 +435,7 @@ class PBTAlgorithmTest(unittest.TestCase):
                 ],
             }
 
-            strategy.apply_exploit(root, manifest, generation, manifest_path)
+            transitions.apply_exploit(root, manifest, generation, manifest_path)
 
             self.assertEqual(weak_state.read_bytes(), b"strong-state")
             self.assertEqual(weak_optimizer.read_bytes(), b"strong-optimizer")
@@ -456,8 +457,8 @@ class PBTAlgorithmTest(unittest.TestCase):
             root = Path(temporary)
             for name in ("donor", "recipient"):
                 (root / name).mkdir()
-            donor_state, donor_optimizer = strategy.checkpoint_paths(root / "donor", 0)
-            recipient_state, recipient_optimizer = strategy.checkpoint_paths(root / "recipient", 0)
+            donor_state, donor_optimizer = checkpointing.checkpoint_paths(root / "donor", 0)
+            recipient_state, recipient_optimizer = checkpointing.checkpoint_paths(root / "recipient", 0)
             donor_state.write_bytes(b"donor-state")
             donor_optimizer.write_bytes(b"donor-optimizer")
             recipient_state.write_bytes(b"recipient-state")
@@ -502,7 +503,7 @@ class PBTAlgorithmTest(unittest.TestCase):
                 },
             }
 
-            _, plan = strategy.ranking_and_plan(config, generation, manifest["members"], manifest)
+            _, plan = planning.ranking_and_plan(config, generation, manifest["members"], manifest)
             self.assertEqual(plan[0]["recipient"], "recipient")
             self.assertAlmostEqual(plan[0]["new_lr"], 1.2e-5 * 1.1)
 
@@ -512,7 +513,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             plan = controller.apply_actions_to_plan(config, generation, plan)
             generation["exploit"] = plan
 
-            strategy.apply_exploit(root, manifest, generation, manifest_path)
+            transitions.apply_exploit(root, manifest, generation, manifest_path)
 
             self.assertEqual(recipient_state.read_bytes(), b"donor-state")
             self.assertEqual(recipient_optimizer.read_bytes(), b"donor-optimizer")
@@ -530,14 +531,14 @@ class PBTAlgorithmTest(unittest.TestCase):
             root = Path(temporary)
             for name in ("strong", "weak"):
                 (root / name).mkdir()
-            strong_state, strong_optimizer = strategy.checkpoint_paths(root / "strong", 0)
-            weak_state, weak_optimizer = strategy.checkpoint_paths(root / "weak", 0)
+            strong_state, strong_optimizer = checkpointing.checkpoint_paths(root / "strong", 0)
+            weak_state, weak_optimizer = checkpointing.checkpoint_paths(root / "weak", 0)
             strong_state.write_bytes(b"strong-state")
             strong_optimizer.write_bytes(b"strong-optimizer")
             weak_state.write_bytes(b"weak-state")
             weak_optimizer.write_bytes(b"weak-optimizer")
-            strong_controller = strategy.controller_checkpoint_path(root / "strong", 0)
-            weak_controller = strategy.controller_checkpoint_path(root / "weak", 0)
+            strong_controller = checkpointing.controller_checkpoint_path(root / "strong", 0)
+            weak_controller = checkpointing.controller_checkpoint_path(root / "weak", 0)
             strong_controller.write_bytes(b"strong-controller")
             weak_controller.write_bytes(b"weak-controller")
             manifest_path = root / "manifest.json"
@@ -564,7 +565,7 @@ class PBTAlgorithmTest(unittest.TestCase):
                 ],
             }
 
-            strategy.apply_exploit(root, manifest, generation, manifest_path)
+            transitions.apply_exploit(root, manifest, generation, manifest_path)
 
             self.assertEqual(weak_state.read_bytes(), b"strong-state")
             self.assertEqual(weak_optimizer.read_bytes(), b"strong-optimizer")
@@ -575,7 +576,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             root = Path(temporary)
             member_dir = root / "member_00"
             member_dir.mkdir()
-            state, optimizer = strategy.checkpoint_paths(member_dir, 3)
+            state, optimizer = checkpointing.checkpoint_paths(member_dir, 3)
             state.write_bytes(b"best-state")
             optimizer.write_bytes(b"best-optimizer")
             manifest_path = root / "manifest.json"
@@ -600,7 +601,7 @@ class PBTAlgorithmTest(unittest.TestCase):
                 },
             }
 
-            improved = strategy.update_global_best(root, manifest, generation, manifest_path)
+            improved = metrics.update_global_best(root, manifest, generation, manifest_path)
 
             self.assertTrue(improved)
             self.assertEqual(manifest["best"]["member"], "member_00")
@@ -615,7 +616,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             for name, epoch in (("member_00", 1), ("member_01", 1), ("member_00", 2)):
                 member_dir = root / name
                 member_dir.mkdir(exist_ok=True)
-                state, optimizer = strategy.checkpoint_paths(member_dir, epoch)
+                state, optimizer = checkpointing.checkpoint_paths(member_dir, epoch)
                 state.write_bytes(f"{name}-epoch{epoch}-state".encode())
                 optimizer.write_bytes(f"{name}-epoch{epoch}-optimizer".encode())
             manifest_path = root / "manifest.json"
@@ -638,7 +639,7 @@ class PBTAlgorithmTest(unittest.TestCase):
                 },
             }
 
-            improved = strategy.update_global_best(root, manifest, generation_one, manifest_path)
+            improved = metrics.update_global_best(root, manifest, generation_one, manifest_path)
 
             self.assertTrue(improved)
             self.assertEqual(manifest["best"]["member"], "member_01")
@@ -655,7 +656,7 @@ class PBTAlgorithmTest(unittest.TestCase):
                 },
             }
 
-            improved_again = strategy.update_global_best(root, manifest, generation_two, manifest_path)
+            improved_again = metrics.update_global_best(root, manifest, generation_two, manifest_path)
 
             self.assertFalse(improved_again)
             self.assertEqual(manifest["best"]["member"], "member_01")
@@ -689,8 +690,8 @@ class PBTAlgorithmTest(unittest.TestCase):
             "member_01": {"lr": 1.2e-4},
         }
 
-        health = strategy.update_generation_health(config, manifest, generation)
-        plan = strategy.add_global_best_rollbacks(config, manifest, generation, members, [])
+        health = metrics.update_generation_health(config, manifest, generation)
+        plan = planning.add_global_best_rollbacks(config, manifest, generation, members, [])
 
         self.assertEqual(health["status"], "degraded")
         self.assertEqual(plan[0]["source"], "global_best")
@@ -725,7 +726,7 @@ class PBTAlgorithmTest(unittest.TestCase):
         members = {"member_00": {"lr": 2.0e-5}, "member_01": {"lr": 2.2e-5}}
         manifest = {"generations": [{"index": 0, "ranking": ["member_00", "member_01"]}]}
 
-        ranking = strategy.confidence_aware_ranking(config, generation, members, manifest)
+        ranking = planning.confidence_aware_ranking(config, generation, members, manifest)
 
         self.assertEqual(ranking, ["member_00", "member_01"])
         self.assertEqual(generation["selection"]["mode"], "confidence_aware")
@@ -758,7 +759,7 @@ class PBTAlgorithmTest(unittest.TestCase):
         members = {"member_00": {"lr": 2.0e-5}, "member_01": {"lr": 2.2e-5}}
         manifest = {"generations": [{"index": 0, "ranking": ["member_00", "member_01"]}]}
 
-        ranking = strategy.confidence_aware_ranking(config, generation, members, manifest)
+        ranking = planning.confidence_aware_ranking(config, generation, members, manifest)
 
         self.assertEqual(ranking, ["member_01", "member_00"])
 
@@ -800,7 +801,7 @@ class PBTAlgorithmTest(unittest.TestCase):
         }
         manifest = {"generations": [{"index": 0, "ranking": ["member_00", "member_01", "member_02"]}]}
 
-        ranking = strategy.confidence_aware_ranking(config, generation, members, manifest)
+        ranking = planning.confidence_aware_ranking(config, generation, members, manifest)
 
         self.assertEqual(ranking, ["member_02", "member_01", "member_00"])
         self.assertEqual(generation["selection"]["anchor_policy"], "incumbent_significance")
@@ -835,7 +836,7 @@ class PBTAlgorithmTest(unittest.TestCase):
         members = {"member_00": {"lr": 2.0e-5}, "member_01": {"lr": 2.1e-5}}
         manifest = {"generations": [{"index": 0, "ranking": ["member_00", "member_01"]}]}
 
-        ranking = strategy.confidence_aware_ranking(config, generation, members, manifest)
+        ranking = planning.confidence_aware_ranking(config, generation, members, manifest)
 
         self.assertEqual(ranking[0], "member_00")
 
@@ -859,7 +860,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             "member_01": {"lr": 0.9e-4},
         }
 
-        ranking, plan = strategy.anchored_lr_sweep_plan(config, generation, members)
+        ranking, plan = planning.anchored_lr_sweep_plan(config, generation, members)
 
         self.assertEqual(ranking[0], "member_01")
         self.assertEqual([event["donor"] for event in plan], ["member_00", "member_01"])
@@ -882,7 +883,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             },
         }
 
-        health = strategy.update_generation_health(config, manifest, generation)
+        health = metrics.update_generation_health(config, manifest, generation)
 
         self.assertEqual(health["current_best_member"], "member_00")
         self.assertTrue(health["baseline_degraded"])
@@ -895,7 +896,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             root = Path(temporary)
             member_dir = root / "member_00"
             member_dir.mkdir()
-            state, optimizer = strategy.checkpoint_paths(member_dir, 18)
+            state, optimizer = checkpointing.checkpoint_paths(member_dir, 18)
             state.write_bytes(b"bad-state")
             optimizer.write_bytes(b"bad-optimizer")
             manifest_path = root / "manifest.json"
@@ -924,7 +925,7 @@ class PBTAlgorithmTest(unittest.TestCase):
                 },
             }
 
-            improved = strategy.update_global_best(root, manifest, generation, manifest_path)
+            improved = metrics.update_global_best(root, manifest, generation, manifest_path)
 
             self.assertFalse(improved)
             self.assertIsNone(manifest["best"])
@@ -935,8 +936,8 @@ class PBTAlgorithmTest(unittest.TestCase):
             root = Path(temporary)
             member_dir = root / "member_00"
             member_dir.mkdir()
-            initial_state, initial_optimizer = strategy.checkpoint_paths(member_dir, 17)
-            current_state, current_optimizer = strategy.checkpoint_paths(member_dir, 18)
+            initial_state, initial_optimizer = checkpointing.checkpoint_paths(member_dir, 17)
+            current_state, current_optimizer = checkpointing.checkpoint_paths(member_dir, 18)
             initial_state.write_bytes(b"initial-state")
             initial_optimizer.write_bytes(b"initial-optimizer")
             current_state.write_bytes(b"bad-state")
@@ -975,11 +976,11 @@ class PBTAlgorithmTest(unittest.TestCase):
                 "exploit": [],
             }
 
-            plan = strategy.add_baseline_guard_rollbacks(
+            plan = planning.add_baseline_guard_rollbacks(
                 config, manifest, generation, manifest["members"], []
             )
             generation["exploit"] = plan
-            strategy.apply_exploit(root, manifest, generation, manifest_path)
+            transitions.apply_exploit(root, manifest, generation, manifest_path)
 
             self.assertEqual(current_state.read_bytes(), b"initial-state")
             self.assertEqual(current_optimizer.read_bytes(), b"initial-optimizer")
@@ -1001,7 +1002,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             destination_state.write_bytes(b"old-state")
             destination_optimizer.write_bytes(b"old-optimizer")
 
-            strategy.atomic_copy_pair(
+            checkpointing.atomic_copy_pair(
                 [(source_state, destination_state), (source_optimizer, destination_optimizer)]
             )
 
@@ -1020,7 +1021,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             destination_optimizer.write_bytes(b"old-optimizer")
 
             with self.assertRaises(OSError):
-                strategy.atomic_copy_pair(
+                checkpointing.atomic_copy_pair(
                     [(source_state, destination_state), (missing_optimizer_source, destination_optimizer)]
                 )
 

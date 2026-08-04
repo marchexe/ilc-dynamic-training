@@ -8,7 +8,8 @@ import unittest
 from pathlib import Path
 
 from tests.helpers import PROJECT_DIR  # noqa: F401
-from training.pbt import strategy
+from training.pbt.state import checkpointing
+from training.pbt.state import transitions
 from training.pbt.reporting import (
     append_event,
     evaluation_rows,
@@ -520,8 +521,8 @@ class PBTArtifactsTest(unittest.TestCase):
             root = Path(temporary)
             for name in ("strong", "weak"):
                 (root / name).mkdir()
-            strong_state, strong_optimizer = strategy.checkpoint_paths(root / "strong", 0)
-            weak_state, weak_optimizer = strategy.checkpoint_paths(root / "weak", 0)
+            strong_state, strong_optimizer = checkpointing.checkpoint_paths(root / "strong", 0)
+            weak_state, weak_optimizer = checkpointing.checkpoint_paths(root / "weak", 0)
             strong_state.write_bytes(b"strong-state")
             strong_optimizer.write_bytes(b"strong-optimizer")
             weak_state.write_bytes(b"weak-state")
@@ -557,7 +558,7 @@ class PBTArtifactsTest(unittest.TestCase):
                 ],
             }
 
-            strategy.apply_exploit(root, manifest, generation, manifest_path)
+            transitions.apply_exploit(root, manifest, generation, manifest_path)
 
             self.assertEqual(weak_state.read_bytes(), b"strong-state")
             self.assertEqual(weak_optimizer.read_bytes(), b"strong-optimizer")

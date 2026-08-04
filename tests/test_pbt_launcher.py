@@ -5,7 +5,7 @@ from pathlib import Path
 
 from tests.helpers import PROJECT_DIR, namespace, pbt_smoke_config
 from training.pbt import config as config_module
-from training.pbt import strategy
+from training.pbt.state import checkpointing
 from training.pbt.execution.backend import LocalWeaverBackend, backend_from_config
 from training.pbt.execution.ray_backend import RayWeaverBackend
 from training.pbt.tune.runner import build_trial_specs, ray_runtime_env, small_tune_payload
@@ -120,8 +120,8 @@ class PBTLauncherTest(unittest.TestCase):
             member_dir = root / "member_00"
             checkpoint_dir = root / "ray_checkpoint"
             member_dir.mkdir()
-            state_path, optimizer_path = strategy.checkpoint_paths(member_dir, 3)
-            controller_path = strategy.controller_checkpoint_path(member_dir, 3)
+            state_path, optimizer_path = checkpointing.checkpoint_paths(member_dir, 3)
+            controller_path = checkpointing.controller_checkpoint_path(member_dir, 3)
             state_path.write_bytes(b"state")
             optimizer_path.write_bytes(b"optimizer")
             controller_path.write_bytes(b"controller")
@@ -655,8 +655,8 @@ class PBTLauncherTest(unittest.TestCase):
                 initial_optimizer=str(source_optimizer),
             )
 
-            bootstrapped_epoch = strategy.bootstrap_initial_checkpoint(config, member_dir)
-            state_path, optimizer_path = strategy.checkpoint_paths(member_dir, 17)
+            bootstrapped_epoch = checkpointing.bootstrap_initial_checkpoint(config, member_dir)
+            state_path, optimizer_path = checkpointing.checkpoint_paths(member_dir, 17)
 
             self.assertEqual(bootstrapped_epoch, 17)
             self.assertEqual(state_path.read_bytes(), b"state")
@@ -694,8 +694,8 @@ class PBTLauncherTest(unittest.TestCase):
                 initial_optimizer_damping=0.25,
             )
 
-            strategy.bootstrap_initial_checkpoint(config, member_dir)
-            _, optimizer_path = strategy.checkpoint_paths(member_dir, 17)
+            checkpointing.bootstrap_initial_checkpoint(config, member_dir)
+            _, optimizer_path = checkpointing.checkpoint_paths(member_dir, 17)
             loaded = torch.load(optimizer_path, map_location="cpu")
             metadata = member_dir / "net_epoch-17_optimizer_resume.json"
 
@@ -735,8 +735,8 @@ class PBTLauncherTest(unittest.TestCase):
                 initial_optimizer_mode="reset",
             )
 
-            strategy.bootstrap_initial_checkpoint(config, member_dir)
-            _, optimizer_path = strategy.checkpoint_paths(member_dir, 17)
+            checkpointing.bootstrap_initial_checkpoint(config, member_dir)
+            _, optimizer_path = checkpointing.checkpoint_paths(member_dir, 17)
             loaded = torch.load(optimizer_path, map_location="cpu")
 
             self.assertTrue(torch.equal(loaded["state"][0]["exp_avg"], torch.zeros(2)))
@@ -780,7 +780,7 @@ class PBTLauncherTest(unittest.TestCase):
             )
             manifest = {"best": None}
 
-            seeded = strategy.seed_initial_global_best(config, experiment_dir, manifest)
+            seeded = checkpointing.seed_initial_global_best(config, experiment_dir, manifest)
 
             self.assertTrue(seeded)
             self.assertEqual((experiment_dir / "checkpoints" / "global_best_state.pt").read_bytes(), b"state")
