@@ -1,0 +1,44 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/exploit_mutate_significance_tiered.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: pretrained_pbt_4gpu_long_controller_active
+
+# A/B pair with pretrained_pbt_4gpu_long_controller_off.yaml. The ONLY
+# intended semantic difference between the two resolved configs is
+# pbt.dynamic_controller.mode (active here, disabled in the *_off sibling)
+# -- everything else (checkpoint/optimizer resume, freeze_batch_norm,
+# population/start_lr, seed, samples_per_epoch, generations, datasets,
+# validation tiers, PBT strategy/exploit cadence/mutation factors/uncertainty
+# settings, baseline guard) is inherited unmodified from the same presets
+# pretrained_exploit_mutate_8gpu_10m_tiered_pilot.yaml used, and is
+# identical to the *_off sibling. `mode: active` here is explicit (it is
+# already the preset default) purely so the two files read symmetrically.
+# See pretrained_pbt_4gpu_long_controller_off.yaml for the full timing
+# derivation (generations=100, ~4.03h estimate) and its caveats -- both
+# apply identically here.
+shared:
+  generations: 100
+  samples_per_epoch: 20000
+  freeze_batch_norm: true
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5
+
+pbt:
+  dynamic_controller:
+    mode: active
+  tiered_validation:
+    monitor_interval_generations: 2
+    full_interval_generations: 6

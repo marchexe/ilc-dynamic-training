@@ -1,0 +1,61 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/exploit_mutate_significance_tiered.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: pretrained_pbt_4gpu_long_controller_off
+
+# A/B pair with pretrained_pbt_4gpu_long_controller_active.yaml. The ONLY
+# intended semantic difference between the two resolved configs is
+# pbt.dynamic_controller.mode (disabled here, active in the *_active
+# sibling) -- everything else (checkpoint/optimizer resume, freeze_batch_norm,
+# population/start_lr, seed, samples_per_epoch, generations, datasets,
+# validation tiers, PBT strategy/exploit cadence/mutation factors/uncertainty
+# settings, baseline guard) is inherited unmodified from the same presets
+# pretrained_exploit_mutate_8gpu_10m_tiered_pilot.yaml used, so this is a
+# controller-off baseline against a proven-working recipe, not a new
+# architecture. Verify this with scripts/... resolved-config diff before
+# launching (see the launch scripts under scripts/launch/).
+#
+# generations=100 (samples_per_epoch left at the pilot's validated 20000,
+# not scaled) is sized from the actual per-generation wall time measured in
+# runs/pbt/pretrained_exploit_mutate_8gpu_10m_tiered_pilot_bnfreeze_20260804_034612
+# (12 generations, mean 141.8s/generation including the periodic
+# monitor/full/full_holdout tiered-eval rounds at the same
+# monitor_interval_generations=2 / full_interval_generations=6 cadence kept
+# below) plus that run's ~273s one-time bootstrap/initial-evaluation
+# overhead and a 60s buffer for canonical-artifact writeout at 100
+# generations' worth of rows: 273 + 100*141.8 + 60 =~ 14513s =~ 4.03h.
+# This is an extrapolation from a single 12-generation sample on a
+# differently-sized (8-member) population sharing all 8 GPUs alone, not a
+# guarantee -- co-scheduling two 4-member experiments on the same 8-GPU
+# node, and any per-generation slowdown from concurrent full-tier disk/CPU
+# load, could push actual wall time higher. early_stop_degraded_generations
+# (inherited at 6, unchanged) can also end the run well before 100
+# generations if the population never beats the pretrained baseline, as
+# happened in earlier smoke/pilot runs on this same checkpoint -- that is
+# expected pre-existing PBT behavior here, not disabled for this long run.
+shared:
+  generations: 100
+  samples_per_epoch: 20000
+  freeze_batch_norm: true
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5
+
+pbt:
+  dynamic_controller:
+    mode: disabled
+  tiered_validation:
+    monitor_interval_generations: 2
+    full_interval_generations: 6
