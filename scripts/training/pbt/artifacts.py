@@ -521,18 +521,22 @@ def evaluation_rows(manifest):
     return rows
 
 
+def write_atomic_csv(path, columns, rows):
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=columns)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: "" if row.get(key) is None else row.get(key) for key in columns})
+    os.replace(temporary, path)
+    return path
+
+
 def refresh_metrics_csv(run_dir, manifest):
     ensure_run_layout(run_dir)
     rows = evaluation_rows(manifest)
     path = Path(run_dir) / METRICS_NAME
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    with temporary.open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=METRICS_COLUMNS)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({key: "" if row.get(key) is None else row.get(key) for key in METRICS_COLUMNS})
-    os.replace(temporary, path)
-    return path
+    return write_atomic_csv(path, METRICS_COLUMNS, rows)
 
 
 def read_metrics_rows(run_dir):
@@ -1020,18 +1024,12 @@ def write_exploit_table(run_dir, events):
         "generation", "donor", "recipient", "donor_metric", "recipient_metric",
         "weight_source", "optimizer_source", "old_lr", "new_lr",
         "mutation", "significance_margin_sigma", "significance_sigma_required",
-        "dynamic_controller_action", "dynamic_controller_lr_before", "dynamic_controller_bounded_lr",
+        "pbt_proposed_lr", "final_lr", "controller_applied", "reason",
         "weight_copied", "weight_source_path", "weight_destination_path",
         "optimizer_copied", "optimizer_source_path", "optimizer_destination_path",
     )
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    with temporary.open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=columns)
-        writer.writeheader()
-        for row in sorted(by_key.values(), key=lambda item: (item.get("generation") is None, item.get("generation") or -1, item.get("recipient") or "")):
-            writer.writerow({column: "" if row.get(column) is None else row.get(column) for column in columns})
-    os.replace(temporary, path)
-    return path
+    rows = sorted(by_key.values(), key=lambda item: (item.get("generation") is None, item.get("generation") or -1, item.get("recipient") or ""))
+    return write_atomic_csv(path, columns, rows)
 
 
 def write_skipped_exploits_table(run_dir, events):
@@ -1046,14 +1044,8 @@ def write_skipped_exploits_table(run_dir, events):
         "generation", "donor", "recipient", "donor_metric", "recipient_metric",
         "margin_sigma", "required_sigma", "reason",
     )
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    with temporary.open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=columns)
-        writer.writeheader()
-        for row in sorted(rows, key=lambda item: (item.get("generation") or -1, item.get("recipient") or "")):
-            writer.writerow({column: "" if row.get(column) is None else row.get(column) for column in columns})
-    os.replace(temporary, path)
-    return path
+    rows = sorted(rows, key=lambda item: (item.get("generation") or -1, item.get("recipient") or ""))
+    return write_atomic_csv(path, columns, rows)
 
 
 def write_existing_physics_reports(run_dir, manifest):
@@ -1263,21 +1255,15 @@ def write_tiered_metrics_csv(run_dir, manifest):
     ensure_run_layout(run_dir)
     rows = tiered_evaluation_rows(manifest)
     path = Path(run_dir) / TIERED_METRICS_NAME
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    with temporary.open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=TIERED_METRICS_COLUMNS)
-        writer.writeheader()
-        for row in sorted(
-            rows,
-            key=lambda item: (
-                item["generation"] if item["generation"] is not None else -999,
-                TIER_ORDER.index(item["tier"]) if item["tier"] in TIER_ORDER else 99,
-                item["member"] or "",
-            ),
-        ):
-            writer.writerow({key: "" if row.get(key) is None else row.get(key) for key in TIERED_METRICS_COLUMNS})
-    os.replace(temporary, path)
-    return path
+    rows = sorted(
+        rows,
+        key=lambda item: (
+            item["generation"] if item["generation"] is not None else -999,
+            TIER_ORDER.index(item["tier"]) if item["tier"] in TIER_ORDER else 99,
+            item["member"] or "",
+        ),
+    )
+    return write_atomic_csv(path, TIERED_METRICS_COLUMNS, rows)
 
 
 def _paired_tier_values(manifest, tier_a, tier_b):
@@ -2164,16 +2150,19 @@ def record_exploit_application(
         "optimizer_source": event.get("optimizer_source", event.get("source")),
         "old_lr": old_lr,
         "new_lr": new_lr,
-        # Population-exploit mutation layer (donor_lr * mutation_factor) and
-        # the fine-grained per-generation dynamic-controller layer are two
-        # separate adaptation mechanisms -- kept as distinct fields end to
-        # end so neither is conflated with the other in logs/artifacts.
+        # Exploit recipients are owned entirely by the PBT plan
+        # (donor_lr * mutation_factor); the dynamic controller never applies
+        # to them (see apply_actions_to_plan in controller.py). pbt_proposed_lr
+        # and final_lr are always equal to new_lr here -- controller_applied
+        # is always False -- kept as explicit fields so ownership is visible
+        # in the artifact without needing to read the code.
         "mutation": mutation,
         "significance_margin_sigma": event.get("significance_margin_sigma"),
         "significance_sigma_required": event.get("significance_sigma_required"),
-        "dynamic_controller_action": event.get("dynamic_controller_action"),
-        "dynamic_controller_lr_before": event.get("dynamic_controller_lr_before"),
-        "dynamic_controller_bounded_lr": event.get("dynamic_controller_bounded_lr"),
+        "pbt_proposed_lr": event.get("pbt_proposed_lr"),
+        "final_lr": event.get("final_lr"),
+        "controller_applied": event.get("controller_applied"),
+        "reason": event.get("reason"),
         "source": event.get("source"),
         "applied": event.get("applied"),
     }

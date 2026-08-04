@@ -4,7 +4,8 @@
 import math
 from pathlib import Path
 
-from training.pbt.checkpointing import checkpoint_paths
+from training.pbt.checkpointing import checkpoint_paths, generations_before
+from training.pbt.metrics import clamp
 from training.pbt.models.controller import (
     DEFAULT_CONTROLLER_ACTIONS,
     dump_controller_action,
@@ -48,9 +49,7 @@ def _sample_std(values):
 
 def previous_member_observations(manifest, generation_index, member_name):
     observations = []
-    for generation in manifest.get("generations", []):
-        if int(generation.get("index", -1)) >= int(generation_index):
-            continue
+    for generation in generations_before(manifest, generation_index):
         observation = (generation.get("controller_observations") or {}).get(member_name)
         if observation:
             observations.append(observation)
@@ -61,9 +60,7 @@ def previous_member_metric(manifest, generation_index, member_name, metric_name)
     observations = previous_member_observations(manifest, generation_index, member_name)
     if observations and observations[-1].get("metric_value") is not None:
         return float(observations[-1]["metric_value"])
-    for generation in reversed(manifest.get("generations", [])):
-        if int(generation.get("index", -1)) >= int(generation_index):
-            continue
+    for generation in reversed(generations_before(manifest, generation_index)):
         metrics = (generation.get("workers", {}).get(member_name, {}) or {}).get("metrics", {})
         if metric_name in metrics:
             return float(metrics[metric_name])
@@ -91,9 +88,7 @@ def _delta_sigma(delta, current_uncertainty, previous_uncertainty):
 
 
 def last_action_epoch_fraction(manifest, generation_index, member_name):
-    for generation in reversed(manifest.get("generations", [])):
-        if int(generation.get("index", -1)) >= int(generation_index):
-            continue
+    for generation in reversed(generations_before(manifest, generation_index)):
         action = (generation.get("controller_actions") or {}).get(member_name)
         observation = (generation.get("controller_observations") or {}).get(member_name)
         if action and action.get("action_ready") and action.get("action") != "keep":
@@ -106,9 +101,7 @@ def last_action_epoch_fraction(manifest, generation_index, member_name):
 
 def metric_history(manifest, generation_record, member_name, metric_name, current_metric, window):
     history = []
-    for generation in manifest.get("generations", []):
-        if int(generation.get("index", -1)) >= int(generation_record["index"]):
-            continue
+    for generation in generations_before(manifest, generation_record["index"]):
         metrics = (generation.get("workers", {}).get(member_name, {}) or {}).get("metrics", {})
         if metric_name in metrics:
             history.append(float(metrics[metric_name]))
@@ -175,9 +168,7 @@ def optimizer_summary_for_member(experiment_dir, generation_record, member_name)
 
 def epoch_start_lr(manifest, generation_index, member_name, current_lr, epoch_fraction):
     epoch_index = int(math.floor(float(epoch_fraction or 0.0)))
-    for generation in reversed(manifest.get("generations", [])):
-        if int(generation.get("index", -1)) >= int(generation_index):
-            continue
+    for generation in reversed(generations_before(manifest, generation_index)):
         observation = (generation.get("controller_observations") or {}).get(member_name)
         if not observation or observation.get("epoch_fraction") is None:
             continue
@@ -393,7 +384,7 @@ def bounded_lr(config, observation, action):
     max_factor = float(controller.get("max_cumulative_lr_factor_per_epoch", 2.0))
     lower = max(min_lr, epoch_start / max_factor)
     upper = min(max_lr, epoch_start * max_factor)
-    return proposed, min(upper, max(lower, proposed))
+    return proposed, clamp(proposed, lower, upper)
 
 
 def build_controller_action(config, observation):
@@ -469,36 +460,39 @@ def run_generation_controller(config, manifest, generation_record, experiment_di
 
 
 def apply_actions_to_plan(config, generation_record, plan):
+    """PBT exploit recipients are fully owned by the PBT plan: model state,
+    optimizer state, and LR (donor_lr * mutation_factor) all come from the
+    donor. The dynamic controller must never touch a recipient's LR here --
+    it would otherwise pair donor weights with an LR computed from the
+    recipient's own pre-exploit trend, unrelated to the donor (real incident:
+    generation 2 of the bnfreeze pilot replaced a PBT proposal of 1.32e-5
+    with a controller value of 4.05e-6 derived from the recipient's stale
+    LR). This is therefore a pure annotation pass -- it records that the
+    controller was excluded, but it never modifies `new_lr`.
+
+    Must run before any rollback events (global_best / baseline_guard) are
+    appended to `plan`: those events declare their own `reason` field, and
+    this pass would clobber it if it ran after.
+    """
     controller = dynamic_controller_config(config)
-    if not controller or controller.get("mode") != "active":
-        return plan
-    actions = generation_record.get("controller_actions") or {}
-    if not actions:
+    if not controller:
         return plan
 
     updated = []
-    applied_count = 0
     for event in plan:
         event = dict(event)
-        action = actions.get(event.get("recipient"))
-        if not action or action.get("safety_check") not in {"passed", "clamped"}:
-            updated.append(event)
-            continue
-        if action.get("action") in {"keep", "flag_review"}:
-            updated.append(event)
-            continue
-        old_new_lr = float(event["new_lr"])
-        event["dynamic_controller_action"] = action["action"]
-        event["dynamic_controller_lr_before"] = old_new_lr
-        event["dynamic_controller_proposed_lr"] = action["proposed_lr"]
-        event["dynamic_controller_bounded_lr"] = action["bounded_lr"]
-        event["new_lr"] = float(action["bounded_lr"])
-        action["applied"] = True
-        applied_count += 1
+        final_lr = float(event["new_lr"])
+        event["pbt_proposed_lr"] = final_lr
+        event["final_lr"] = final_lr
+        event["controller_applied"] = False
+        event["reason"] = "exploit_recipient_owned_by_pbt"
         updated.append(event)
 
-    generation_record["dynamic_controller"]["applied"] = applied_count > 0
-    generation_record["dynamic_controller"]["applied_action_count"] = applied_count
+    dynamic_controller_record = generation_record.get("dynamic_controller")
+    if dynamic_controller_record is not None:
+        dynamic_controller_record["applied"] = False
+        dynamic_controller_record["applied_action_count"] = 0
+
     return normalize_exploit_plan(updated)
 
 
@@ -506,20 +500,19 @@ def apply_controller_actions_to_members(config, manifest, generation_record, exc
     """Apply each eligible member's ready controller action directly to its
     own LR (manifest["members"][name]["lr"]), independent of PBT exploit.
 
-    `apply_actions_to_plan` above only ever touches members that are already
-    exploit recipients in *this* generation's plan -- every other member's
-    computed action (built by run_generation_controller for the whole
-    population) was previously never actually applied anywhere. This is the
-    mechanism that makes the fine controller genuinely act on its own
-    (cooldown-gated) cadence, in every non-burn-in generation, not just the
-    (less frequent, once exploit_interval_generations > 1) generations where
-    population-level exploit also happens.
+    `apply_actions_to_plan` above never applies a controller action to a
+    plan event -- exploit recipients' LR is owned entirely by the PBT plan
+    (donor_lr * mutation_factor), never by the controller. This function is
+    the *only* place a controller action ever changes a member's LR, and it
+    runs every non-burn-in generation, not just the (less frequent, once
+    exploit_interval_generations > 1) generations where population-level
+    exploit also happens.
 
     `exclude_members` should be the current generation's exploit recipients
     (if exploit is firing this generation) -- they're about to have their
-    weights AND lr overwritten by the donor copy, so nudging them here first
-    would just be immediately-discarded work and a confusing duplicate log
-    entry.
+    weights, optimizer state, AND lr overwritten by the donor copy, so
+    nudging them here first would just be immediately-discarded work and a
+    confusing duplicate log entry.
     """
     controller = dynamic_controller_config(config)
     if not controller or controller.get("mode") != "active":

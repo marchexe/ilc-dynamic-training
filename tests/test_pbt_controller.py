@@ -127,63 +127,89 @@ class PBTDynamicControllerTest(unittest.TestCase):
         self.assertNotIn("controller_actions", generation)
         self.assertNotIn("dynamic_controller", generation)
 
-    def test_active_controller_applies_bounded_lr_to_existing_plan(self):
+    def test_exploit_recipient_lr_is_owned_by_pbt_plan_not_controller(self):
+        # Real incident (generation 2, bnfreeze pilot): PBT proposed
+        # new_lr = donor_lr(12e-6) * mutation_factor(1.1) = 13.2e-6 for a
+        # recipient whose own pre-exploit LR was 4.5e-6. The dynamic
+        # controller, observing only the recipient's own (donor-unrelated)
+        # stale LR, independently computed lr_mul_0_9 * 4.5e-6 = 4.05e-6 and
+        # used to clobber the PBT value in apply_actions_to_plan. Exploit
+        # recipients must be fully owned by the PBT plan: new_lr must stay
+        # 13.2e-6, not 4.05e-6.
         config = pbt_smoke_config()
         config["pbt"].update(
             metric="validation_working_point_mistag_percent",
             mode="min",
-            min_lr=1.0e-5,
+            min_lr=1.0e-6,
             max_lr=4.0e-5,
             baseline_metric_value=1.0,
             dynamic_controller={
                 "mode": "active",
                 "allowed_actions": ["keep", "lr_mul_0_9"],
                 "metric_delta_tolerance": 0.0,
-                "ema_beta": 0.5,
-                "trend_window": 2,
-                "action_interval_fraction": 0.1,
-                "max_cumulative_lr_factor_per_epoch": 1.05,
             },
         )
         manifest = {
             "members": {
-                "member_00": {"name": "member_00", "lr": 2.0e-5, "parent": None},
+                "recipient": {"name": "recipient", "lr": 4.5e-6, "parent": None},
+                "donor": {"name": "donor", "lr": 1.2e-5, "parent": None},
             },
             "generations": [],
             "best": {"metric_value": 0.95},
         }
         generation = {
             "index": 0,
-            "epoch": 18,
+            "epoch": 2,
             "workers": {
-                "member_00": {
+                "recipient": {
                     "status": "completed",
-                    "metrics": {"validation_working_point_mistag_percent": 1.02, "train_loss": 0.30, "train_accuracy": 0.89, "train_max_grad_norm": 1.4},
+                    "metrics": {"validation_working_point_mistag_percent": 1.10},
+                },
+                "donor": {
+                    "status": "completed",
+                    "metrics": {"validation_working_point_mistag_percent": 0.90},
                 },
             },
         }
         plan = [
             {
-                "source": "anchored_lr_sweep",
-                "recipient": "member_00",
-                "donor": "member_00",
-                "recipient_lr": 2.0e-5,
-                "donor_lr": 2.0e-5,
-                "anchor_member": "member_00",
-                "anchor_metric": 1.02,
-                "lr_factor": 1.0,
-                "new_lr": 2.5e-5,
+                "source": "population",
+                "recipient": "recipient",
+                "donor": "donor",
+                "recipient_lr": 4.5e-6,
+                "donor_lr": 1.2e-5,
+                "mutation_factor": 1.1,
+                "new_lr": 1.32e-5,
                 "applied": False,
             }
         ]
 
         run_generation_controller(config, manifest, generation)
+        # Sanity check: the controller really did compute a competing action
+        # for the recipient -- this test is only meaningful if it did.
+        self.assertEqual(generation["controller_actions"]["recipient"]["action"], "lr_mul_0_9")
+        self.assertAlmostEqual(generation["controller_actions"]["recipient"]["bounded_lr"], 4.05e-6)
+
         updated = apply_actions_to_plan(config, generation, plan)
 
-        self.assertTrue(generation["controller_actions"]["member_00"]["applied"])
-        self.assertEqual(updated[0]["dynamic_controller_action"], "lr_mul_0_9")
-        self.assertAlmostEqual(updated[0]["new_lr"], 1.9e-5)
-        self.assertEqual(generation["dynamic_controller"]["applied_action_count"], 1)
+        self.assertAlmostEqual(updated[0]["new_lr"], 1.32e-5)
+        self.assertAlmostEqual(updated[0]["pbt_proposed_lr"], 1.32e-5)
+        self.assertAlmostEqual(updated[0]["final_lr"], 1.32e-5)
+        self.assertFalse(updated[0]["controller_applied"])
+        self.assertEqual(updated[0]["reason"], "exploit_recipient_owned_by_pbt")
+        self.assertFalse(generation["controller_actions"]["recipient"]["applied"])
+        self.assertFalse(generation["dynamic_controller"]["applied"])
+        self.assertEqual(generation["dynamic_controller"]["applied_action_count"], 0)
+
+    def test_apply_actions_to_plan_is_noop_when_controller_not_configured(self):
+        config = pbt_smoke_config()
+        generation = {"index": 0}
+        plan = [{"recipient": "member_00", "donor": "member_01", "new_lr": 1.0e-5, "applied": False}]
+
+        updated = apply_actions_to_plan(config, generation, plan)
+
+        self.assertEqual(updated, plan)
+        self.assertNotIn("pbt_proposed_lr", updated[0])
 
     def test_active_controller_respects_cooldown(self):
         config = pbt_smoke_config()

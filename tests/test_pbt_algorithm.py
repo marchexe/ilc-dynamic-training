@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from tests.helpers import pbt_smoke_config
-from training.pbt import strategy
+from training.pbt import controller, strategy
 
 
 class PBTAlgorithmTest(unittest.TestCase):
@@ -443,6 +443,87 @@ class PBTAlgorithmTest(unittest.TestCase):
             self.assertEqual(generation["exploit"][0]["source"], "population")
             self.assertEqual(manifest["members"]["weak"]["parent"], "strong")
             self.assertEqual(manifest["members"]["weak"]["lr"], 8.0e-5)
+
+    def test_exploit_recipient_end_to_end_lr_and_state_come_from_pbt_not_controller(self):
+        # Full pipeline: ranking_and_plan (PBT) -> run_generation_controller
+        # -> apply_actions_to_plan -> apply_exploit, exactly as runner.py
+        # sequences them. The dynamic controller computes a competing
+        # action for the recipient, but the applied checkpoint state must
+        # still come from the donor and the applied LR must still be the
+        # PBT proposal (donor_lr * mutation_factor), not the controller's
+        # value.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ("donor", "recipient"):
+                (root / name).mkdir()
+            donor_state, donor_optimizer = strategy.checkpoint_paths(root / "donor", 0)
+            recipient_state, recipient_optimizer = strategy.checkpoint_paths(root / "recipient", 0)
+            donor_state.write_bytes(b"donor-state")
+            donor_optimizer.write_bytes(b"donor-optimizer")
+            recipient_state.write_bytes(b"recipient-state")
+            recipient_optimizer.write_bytes(b"recipient-optimizer")
+            manifest_path = root / "manifest.json"
+            manifest = {
+                "config": {"shared": {}},
+                "members": {
+                    "donor": {"lr": 1.2e-5, "parent": None},
+                    "recipient": {"lr": 4.5e-6, "parent": None},
+                },
+                "generations": [],
+                "best": {"metric_value": 0.90},
+            }
+            config = pbt_smoke_config()
+            config["pbt"].update(
+                metric="validation_working_point_mistag_percent",
+                mode="min",
+                min_lr=1.0e-6,
+                max_lr=4.0e-5,
+                baseline_metric_value=1.0,
+                mutation_factors=[1.1],
+                exploit_fraction=0.5,
+                dynamic_controller={
+                    "mode": "active",
+                    "allowed_actions": ["keep", "lr_mul_0_9"],
+                    "metric_delta_tolerance": 0.0,
+                },
+            )
+            generation = {
+                "index": 0,
+                "epoch": 0,
+                "workers": {
+                    "donor": {
+                        "status": "completed",
+                        "metrics": {"validation_working_point_mistag_percent": 0.90},
+                    },
+                    "recipient": {
+                        "status": "completed",
+                        "metrics": {"validation_working_point_mistag_percent": 1.10},
+                    },
+                },
+            }
+
+            _, plan = strategy.ranking_and_plan(config, generation, manifest["members"], manifest)
+            self.assertEqual(plan[0]["recipient"], "recipient")
+            self.assertAlmostEqual(plan[0]["new_lr"], 1.2e-5 * 1.1)
+
+            controller.run_generation_controller(config, manifest, generation)
+            self.assertEqual(generation["controller_actions"]["recipient"]["action"], "lr_mul_0_9")
+
+            plan = controller.apply_actions_to_plan(config, generation, plan)
+            generation["exploit"] = plan
+
+            strategy.apply_exploit(root, manifest, generation, manifest_path)
+
+            self.assertEqual(recipient_state.read_bytes(), b"donor-state")
+            self.assertEqual(recipient_optimizer.read_bytes(), b"donor-optimizer")
+            event = generation["exploit"][0]
+            self.assertTrue(event["applied"])
+            self.assertAlmostEqual(event["new_lr"], 1.2e-5 * 1.1)
+            self.assertAlmostEqual(manifest["members"]["recipient"]["lr"], 1.2e-5 * 1.1)
+            self.assertAlmostEqual(event["pbt_proposed_lr"], 1.2e-5 * 1.1)
+            self.assertAlmostEqual(event["final_lr"], 1.2e-5 * 1.1)
+            self.assertFalse(event["controller_applied"])
+            self.assertEqual(event["reason"], "exploit_recipient_owned_by_pbt")
 
     def test_exploit_can_reset_controller_state(self):
         with tempfile.TemporaryDirectory() as temporary:
