@@ -20,6 +20,9 @@ def metric_is_better(config, candidate, incumbent):
         return candidate > incumbent
     return candidate < incumbent
 
+def clamp(value, lower, upper):
+    return min(upper, max(lower, value))
+
 def metric_has_degraded(config, current, best):
     if best is None:
         return False

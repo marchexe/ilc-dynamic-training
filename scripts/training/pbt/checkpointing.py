@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 from training.pbt.artifacts import record_new_best
-from training.pbt.optimizer_state import prepare_initial_optimizer
+from training.pbt.optimizer_state import atomic_copy, prepare_initial_optimizer
 from training.runtime import atomic_json, utc_now
 
 
@@ -14,10 +14,13 @@ def epoch_for_generation(config, generation):
     initial_epoch = int(config["shared"].get("initial_epoch", -1))
     return initial_epoch + (generation + 1) * int(config["shared"]["epochs_per_generation"])
 
-def atomic_copy(source, destination):
-    temporary = destination.with_suffix(destination.suffix + ".pbt-tmp")
-    shutil.copy2(source, temporary)
-    os.replace(temporary, destination)
+def generations_before(manifest, generation_index):
+    """Manifest generations strictly before `generation_index`, in original order."""
+    return [
+        generation
+        for generation in manifest.get("generations", [])
+        if int(generation.get("index", -1)) < int(generation_index)
+    ]
 
 def atomic_copy_pair(pairs):
     """Copy multiple (source, destination) pairs as one all-or-nothing unit.

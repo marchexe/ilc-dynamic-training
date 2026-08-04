@@ -22,7 +22,7 @@ Large checkpoint/data/run artifacts are not tracked by Git.
 Active experiment configs:
 
 ```text
-configs/experiments/pretrained_guarded_8gpu_smooth_lr.yaml  # canonical full run
+configs/experiments/pretrained_guarded_8gpu_smooth_lr.yaml  # labeled canonical full run, but no run/ has ever used it -- audit as of 2026-08-04
 configs/experiments/pretrained_guarded_4gpu_smooth_lr.yaml  # shorter test run
 configs/experiments/pbt_smoke.yaml                          # local unit/smoke PBT
 configs/experiments/pbt_ray_smoke.yaml                      # Ray executor smoke PBT
@@ -33,6 +33,13 @@ configs/experiments/parallel_baseline_vs_controller.yaml    # comparison runner 
 configs/experiments/pbt_control_fixed_lr.yaml               # comparison test fixture
 configs/experiments/pbt_no_controller.yaml                  # controller fixture
 configs/experiments/pbt_observe_controller.yaml             # controller fixture
+configs/experiments/pretrained_exploit_mutate_8gpu_10m_tiered_pilot.yaml            # 8-member exploit_mutate + tiered-validation pilot, 10m proxy-control dataset
+configs/experiments/pretrained_fixed_lr_8gpu_10m_proxy_control.yaml                 # fixed-LR grid (no exploit), same 8-member ladder/dataset as the tiered pilot
+configs/experiments/pretrained_guarded_8gpu_smooth_lr_10m_proxy_control.yaml        # guarded smooth-LR sweep on the 10m proxy-control dataset (see line ~132)
+configs/experiments/pretrained_exploit_mutate_smoke_tiered.yaml                     # architecture-complete smoke of the exploit_mutate/tiered-validation stack (4 members, 6 generations)
+configs/experiments/pretrained_exploit_mutate_smoke_tiered_ownership_fix_verify.yaml # same smoke, shortened to 4 generations -- verification run for the PBT/dynamic-controller LR-ownership fix
+configs/experiments/bn_freeze_diag_baseline.yaml            # single-gen BatchNorm-drift diagnostic (freeze_batch_norm: false)
+configs/experiments/bn_freeze_diag_frozen.yaml              # paired diagnostic confirming --freeze-batch-norm fixes the gen-0 mistag regression
 ```
 
 Reusable preset blocks live in:

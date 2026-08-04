@@ -4,6 +4,8 @@
 import math
 import random
 
+from training.pbt.checkpointing import generations_before
+from training.pbt.metrics import clamp as _clamp
 from training.pbt.metrics import metric_is_worse_than_reference
 from training.pbt.models.events import normalize_exploit_plan
 
@@ -283,10 +285,7 @@ def ranking_and_plan(config, generation_record, members, manifest=None):
         factor = rng.choice(config["pbt"]["mutation_factors"])
         old_lr = float(members[recipient]["lr"])
         donor_lr = float(members[donor]["lr"])
-        new_lr = min(
-            config["pbt"]["max_lr"],
-            max(config["pbt"]["min_lr"], donor_lr * factor),
-        )
+        new_lr = _clamp(donor_lr * factor, config["pbt"]["min_lr"], config["pbt"]["max_lr"])
         plan.append(
             {
                 "source": "population",
@@ -337,25 +336,14 @@ def lr_factors_for_population(config, member_names):
 def previous_lr_radius_record(manifest, generation_index):
     if not manifest:
         return None
-    previous = [
-        item
-        for item in manifest.get("generations", [])
-        if item.get("index", -1) < generation_index and item.get("lr_radius")
-    ]
+    previous = [item for item in generations_before(manifest, generation_index) if item.get("lr_radius")]
     return previous[-1].get("lr_radius") if previous else None
 
 def previous_lr_controller_record(manifest, generation_index):
     if not manifest:
         return None
-    previous = [
-        item
-        for item in manifest.get("generations", [])
-        if item.get("index", -1) < generation_index and item.get("lr_controller")
-    ]
+    previous = [item for item in generations_before(manifest, generation_index) if item.get("lr_controller")]
     return previous[-1].get("lr_controller") if previous else None
-
-def _clamp(value, lower, upper):
-    return min(upper, max(lower, value))
 
 def _geometric_mean(values):
     positive_values = [float(value) for value in values if float(value) > 0]
@@ -610,10 +598,7 @@ def add_baseline_guard_rollbacks(config, manifest, generation_record, members, p
     guard_events = []
     for recipient, value in recipients:
         old_lr = float(members[recipient]["lr"])
-        new_lr = min(
-            config["pbt"]["max_lr"],
-            max(config["pbt"]["min_lr"], old_lr * factor),
-        )
+        new_lr = _clamp(old_lr * factor, config["pbt"]["min_lr"], config["pbt"]["max_lr"])
         event = {
             "source": "initial_resume",
             "recipient": recipient,
