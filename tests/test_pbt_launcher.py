@@ -8,8 +8,8 @@ from training.pbt import config as config_module
 from training.pbt import strategy
 from training.pbt.execution.backend import LocalWeaverBackend, backend_from_config
 from training.pbt.execution.ray_backend import RayWeaverBackend
-from training.pbt.tune_runner import build_trial_specs, ray_runtime_env, small_tune_payload
-from training.pbt.tune_trainable import (
+from training.pbt.tune.runner import build_trial_specs, ray_runtime_env, small_tune_payload
+from training.pbt.tune.trainable import (
     TUNE_CONTROLLER_NAME,
     TUNE_METADATA_NAME,
     TUNE_OPTIMIZER_NAME,

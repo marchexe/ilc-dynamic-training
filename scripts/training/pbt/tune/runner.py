@@ -12,7 +12,7 @@ from pathlib import Path
 import yaml
 
 from training.pbt.config import load_config, validate_inputs
-from training.pbt.tune_trainable import run_weaver_trial, run_weaver_trial_direct, tune_trial_slot
+from training.pbt.tune.trainable import run_weaver_trial, run_weaver_trial_direct, tune_trial_slot
 from training.pbt.execution.weaver_command import make_command
 from training.runtime import PROJECT_DIR
 

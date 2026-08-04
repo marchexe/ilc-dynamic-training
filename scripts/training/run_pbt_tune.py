@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from training.pbt.tune_runner import main
+from training.pbt.tune.runner import main
 
 
 if __name__ == "__main__":
