@@ -212,8 +212,8 @@ def run_scheduled_tiered_evaluations(config, experiment_dir, manifest, generatio
     (pre-exploit) checkpoint, so control/monitor/full all describe the exact
     same model state for that generation -- required for paired
     control<->monitor<->full comparison. Read-only: never feeds back into
-    ranking/exploit/controller (see planning.py/controller.py, neither of
-    which reads manifest["tiered_evaluations"]).
+    ranking/exploit/controller (see planning/controller, neither of which
+    reads manifest["tiered_evaluations"]).
     """
     tiered = config["pbt"].get("tiered_validation") or {}
     proxy = config["shared"].get("proxy_validation") or {}
@@ -336,41 +336,47 @@ def initial_manifest(config, fingerprint, command=None, backend_name=None):
     return PBTManifest.parse_payload(manifest).to_runtime_dict()
 
 
-def run(args):
+def _resolve_run_context(args):
+    """Load and validate the config, then compute everything derived from it
+    that every later phase needs. No side effects on disk."""
     config = load_config(args)
     validate_inputs(config)
     fingerprint = contract_fingerprint(config)
     experiment_dir = Path(config["output_root"]) / config["experiment_name"]
     manifest_path = experiment_dir / MANIFEST_NAME
-
     backend = backend_from_config(config)
     pbt_log_path = experiment_dir / "logs" / "pbt.log"
     launch_command = [sys.executable, *sys.argv]
+    return config, backend, experiment_dir, manifest_path, pbt_log_path, launch_command, fingerprint
 
-    if getattr(backend, "handles_run", False):
-        return backend.run(config, experiment_dir, dry_run=args.dry_run)
 
-    if args.dry_run:
-        print(yaml.safe_dump(config, sort_keys=False).rstrip())
-        if initial_evaluation_enabled(config):
-            command, _ = backend.initial_evaluation_command_for(
-                config,
-                config["slots"][0],
-                experiment_dir,
-            )
-            print(f"[initial_evaluation] {shlex.join(command)}")
-        for index, member_config in enumerate(config["population"]):
-            member = {"name": member_config["name"], "lr": float(member_config["start_lr"])}
-            command, _, _ = backend.command_for(
-                config,
-                member,
-                config["slots"][index % len(config["slots"])],
-                experiment_dir / member["name"],
-                0,
-            )
-            print(f"[{member['name']}] {shlex.join(command)}")
-        return 0
+def _print_dry_run_commands(config, backend, experiment_dir):
+    """--dry-run: print the resolved config and every command that would be
+    launched, without touching disk or starting any process."""
+    print(yaml.safe_dump(config, sort_keys=False).rstrip())
+    if initial_evaluation_enabled(config):
+        command, _ = backend.initial_evaluation_command_for(
+            config,
+            config["slots"][0],
+            experiment_dir,
+        )
+        print(f"[initial_evaluation] {shlex.join(command)}")
+    for index, member_config in enumerate(config["population"]):
+        member = {"name": member_config["name"], "lr": float(member_config["start_lr"])}
+        command, _, _ = backend.command_for(
+            config,
+            member,
+            config["slots"][index % len(config["slots"])],
+            experiment_dir / member["name"],
+            0,
+        )
+        print(f"[{member['name']}] {shlex.join(command)}")
 
+
+def _load_or_create_manifest(args, config, backend, experiment_dir, manifest_path, fingerprint, launch_command):
+    """Resume an existing manifest.json (after checking its fingerprint still
+    matches the resolved config) or bootstrap a fresh one. Returns None if a
+    resumed run is already completed -- there is nothing left to do."""
     if args.resume:
         if not manifest_path.is_file():
             raise FileNotFoundError(f"Cannot resume without {manifest_path}")
@@ -378,8 +384,7 @@ def run(args):
         if manifest.get("fingerprint") != fingerprint:
             raise ValueError("Resolved PBT contract differs from the saved manifest")
         if manifest["status"] == "completed":
-            print(f"already completed: {experiment_dir}")
-            return 0
+            return None
         manifest["status"] = "running"
         manifest.pop("failure", None)
         manifest.setdefault("command", launch_command)
@@ -391,15 +396,20 @@ def run(args):
         manifest["updated_at"] = utc_now()
         ensure_run_layout(experiment_dir)
         write_resolved_config(experiment_dir, config)
-    else:
-        if experiment_dir.exists():
-            raise FileExistsError(f"Experiment already exists: {experiment_dir}")
-        experiment_dir.mkdir(parents=True)
-        ensure_run_layout(experiment_dir)
-        write_resolved_config(experiment_dir, config)
-        manifest = initial_manifest(config, fingerprint, launch_command, backend.name)
-    run_started_monotonic = time.monotonic()
+        return manifest
 
+    if experiment_dir.exists():
+        raise FileExistsError(f"Experiment already exists: {experiment_dir}")
+    experiment_dir.mkdir(parents=True)
+    ensure_run_layout(experiment_dir)
+    write_resolved_config(experiment_dir, config)
+    return initial_manifest(config, fingerprint, launch_command, backend.name)
+
+
+def _bootstrap_members(args, config, backend, experiment_dir, manifest, manifest_path, pbt_log_path):
+    """Per-member checkpoint bootstrap, global-best seeding, the initial
+    checkpoint evaluation, and the "run started" log line -- everything that
+    happens exactly once before the first generation."""
     for name in manifest["members"]:
         member_dir = experiment_dir / name
         member_dir.mkdir(parents=True, exist_ok=True)
@@ -417,231 +427,298 @@ def run(args):
         f"batch_size={config['shared']['batch_size']} metric={config['pbt']['metric']}",
     )
 
+
+def _generation_record_for(config, manifest, manifest_path, generation):
+    """The in-progress record for this generation index, resumed as-is if
+    training already reached it, or a freshly-appended pending one on first
+    arrival (persisted immediately so a crash right after doesn't lose the
+    fact that this generation was started)."""
+    existing = next(
+        (item for item in manifest["generations"] if item["index"] == generation),
+        None,
+    )
+    if existing is not None:
+        return existing
+    existing = {
+        "index": generation,
+        "epoch": epoch_for_generation(config, generation),
+        "seed": int(config["shared"]["seed"]) + generation,
+        "status": "training",
+        "workers": {name: {"status": "pending"} for name in manifest["members"]},
+        "ranking": None,
+        "exploit": None,
+        "started_at": utc_now(),
+    }
+    manifest["generations"].append(existing)
+    atomic_json(manifest_path, manifest)
+    return existing
+
+
+def _run_generation_workers(config, backend, experiment_dir, manifest, existing, manifest_path):
+    existing["status"] = "training"
+    pending = [
+        name
+        for name, record in existing["workers"].items()
+        if record["status"] != "completed"
+    ]
+    backend.run_generation(
+        config,
+        experiment_dir,
+        manifest,
+        existing,
+        pending,
+        manifest_path,
+    )
+
+
+def _plan_generation_exploit(config, manifest, existing, generation, is_final_generation, experiment_dir, manifest_path, pbt_log_path):
+    """Rank the population, update global-best/health, run the dynamic
+    controller, and build (or skip, for burn-in/early-stop/off-cadence
+    generations) this generation's exploit plan -- everything that decides
+    what happens to each member's weights and LR this generation. Runs
+    exactly once per generation (guarded by the caller checking
+    `existing["exploit"] is None`); mutates `existing`/`manifest` in place,
+    ultimately setting `existing["exploit"]` to the plan that
+    apply_exploit() will later apply.
+    """
+    ranking, plan = plan_for_strategy(
+        config, existing, manifest["members"], manifest
+    )
+    existing["ranking"] = ranking
+    existing["raw_ranking"] = raw_metric_ranking(config, existing, manifest["members"])
+    for skipped_event in existing.get("skipped_exploits") or []:
+        record_skipped_exploit(experiment_dir, existing, skipped_event)
+    improved = update_global_best(
+        experiment_dir, manifest, existing, manifest_path
+    )
+    health = update_generation_health(config, manifest, existing)
+    controller_record = run_generation_controller(config, manifest, existing, experiment_dir)
+    if controller_record:
+        log_event(
+            pbt_log_path,
+            "controller generation=%d actions=%s"
+            % (
+                existing["index"],
+                ",".join(
+                    "%s:%s/%s"
+                    % (
+                        name,
+                        action["state_label"],
+                        action["action"],
+                    )
+                    for name, action in sorted(
+                        existing.get("controller_actions", {}).items()
+                    )
+                ),
+            ),
+        )
+    early_stop_after = int(config["pbt"].get("early_stop_degraded_generations", 0))
+    early_stop_triggered = (
+        early_stop_after > 0
+        and health["consecutive_degraded_generations"] >= early_stop_after
+    )
+    existing["early_stop_triggered"] = early_stop_triggered
+    existing["burn_in"] = in_burn_in(config, generation)
+    will_exploit = should_apply_exploit(config, generation, is_final_generation, early_stop_triggered)
+    if existing["burn_in"]:
+        log_event(
+            pbt_log_path,
+            "burn_in generation=%d (%d/%d) -- observing only, no exploit/controller LR action applied"
+            % (generation, generation + 1, int(config["pbt"].get("burn_in_generations", 0) or 0)),
+        )
+
+    # Fine controller LR nudges: applied to every member's own LR every
+    # non-burn-in generation, independent of whether PBT exploit fires this
+    # generation -- this is what makes the controller genuinely more
+    # frequent than exploit once exploit_interval_generations > 1, not just
+    # a config field. Exclude this generation's exploit recipients: their LR
+    # is about to come from the donor copy instead.
+    if not existing["burn_in"] and not early_stop_triggered:
+        exploit_recipients = {event["recipient"] for event in plan} if will_exploit else set()
+        controller_changes = apply_controller_actions_to_members(
+            config, manifest, existing, exclude_members=exploit_recipients
+        )
+        for member_name, change in controller_changes.items():
+            record_controller_lr_change(experiment_dir, existing, member_name, change)
+        if controller_changes:
+            log_event(
+                pbt_log_path,
+                "controller_lr_change generation=%d members=%s"
+                % (existing["index"], ",".join(sorted(controller_changes))),
+            )
+
+    if will_exploit:
+        plan = apply_actions_to_plan(config, existing, plan)
+        plan = add_baseline_guard_rollbacks(
+            config, manifest, existing, manifest["members"], plan
+        )
+        if strategy_uses_population_rollbacks(config):
+            plan = add_global_best_rollbacks(
+                config, manifest, existing, manifest["members"], plan
+            )
+    else:
+        existing.pop("baseline_guard", None)
+    existing["exploit"] = plan if will_exploit else []
+    existing["status"] = "exploiting"
+    best = manifest.get("best") or {}
+    log_event(
+        pbt_log_path,
+        "health generation=%d current_best=%s %.6g global_best=%s %.6g "
+        "delta=%s degraded=%s consecutive=%d improved=%s lrs=%s"
+        % (
+            existing["index"],
+            health["current_best_member"],
+            health["current_best_metric"],
+            best.get("member"),
+            best.get("metric_value", float("nan")),
+            (
+                "n/a"
+                if health["relative_to_global_best"] is None
+                else f"{health['relative_to_global_best']:+.3%}"
+            ),
+            health["status"],
+            health["consecutive_degraded_generations"],
+            improved,
+            ",".join(
+                f"{name}:{lr:.3g}"
+                for name, lr in sorted(health["member_lrs"].items())
+            ),
+        ),
+    )
+    guard = existing.get("baseline_guard")
+    if guard:
+        log_event(
+            pbt_log_path,
+            "baseline guard generation=%d action=%s rollbacks=%s"
+            % (
+                existing["index"],
+                guard.get("action"),
+                ",".join(
+                    "%s:%.3g->%.3g metric=%.6g baseline=%.6g"
+                    % (
+                        event["recipient"],
+                        event["recipient_lr"],
+                        event["new_lr"],
+                        event["metric_value"],
+                        event["baseline_metric"],
+                    )
+                    for event in guard.get("events", [])
+                ),
+            ),
+        )
+    atomic_json(manifest_path, manifest)
+
+
+def _finalize_generation(config, manifest, existing, experiment_dir, manifest_path, pbt_log_path, generation):
+    """Apply this generation's exploit plan, mark it completed, advance
+    next_generation, and handle early-stop bookkeeping. Returns True if the
+    caller should stop the generation loop (early stop triggered)."""
+    apply_exploit(experiment_dir, manifest, existing, manifest_path)
+    existing["status"] = "completed"
+    existing["finished_at"] = utc_now()
+    manifest["next_generation"] = generation + 1
+    manifest["updated_at"] = utc_now()
+    if existing.get("early_stop_triggered"):
+        manifest["early_stop"] = {
+            "generation": generation,
+            "reason": "consecutive_degraded_generations",
+            "consecutive_degraded_generations": existing["health"]["consecutive_degraded_generations"],
+            "threshold": int(config["pbt"].get("early_stop_degraded_generations", 0)),
+        }
+        atomic_json(manifest_path, manifest)
+        log_event(
+            pbt_log_path,
+            "early stop generation=%d reason=consecutive_degraded_generations consecutive=%d threshold=%d"
+            % (
+                generation,
+                existing["health"]["consecutive_degraded_generations"],
+                int(config["pbt"].get("early_stop_degraded_generations", 0)),
+            ),
+        )
+        return True
+    atomic_json(manifest_path, manifest)
+    return False
+
+
+def _finalize_run(config, manifest, experiment_dir, manifest_path, pbt_log_path, run_started_monotonic):
+    """Mark the manifest completed, write canonical artifacts, and log
+    completion -- runs whether the generation loop ran to the configured
+    generation count or stopped early."""
+    manifest["status"] = "completed"
+    manifest.pop("failure", None)
+    manifest["finished_at"] = utc_now()
+    manifest["updated_at"] = utc_now()
+    atomic_json(manifest_path, manifest)
+    artifacts = write_canonical_outputs(experiment_dir, manifest)
+    manifest["updated_at"] = utc_now()
+    atomic_json(manifest_path, manifest)
+    log_event(pbt_log_path, f"canonical artifacts: {artifacts['report']}")
+    log_event(
+        pbt_log_path,
+        f"run completed experiment={config['experiment_name']} "
+        f"elapsed={format_duration(time.monotonic() - run_started_monotonic)} "
+        f"directory={experiment_dir} "
+        f"recommended_checkpoint={(manifest.get('best') or {}).get('state_path')}",
+    )
+
+
+def _handle_run_failure(error, manifest, config, manifest_path, pbt_log_path, run_started_monotonic):
+    """Record a failed/interrupted run in the manifest, log it, and re-raise
+    the original exception with its original traceback intact."""
+    manifest["status"] = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
+    manifest["failure"] = f"{type(error).__name__}: {error}"
+    manifest["updated_at"] = utc_now()
+    atomic_json(manifest_path, manifest)
+    log_event(
+        pbt_log_path,
+        f"run {manifest['status']} experiment={config['experiment_name']} "
+        f"elapsed={format_duration(time.monotonic() - run_started_monotonic)} "
+        f"error={type(error).__name__}: {error}",
+    )
+    raise
+
+
+def run(args):
+    config, backend, experiment_dir, manifest_path, pbt_log_path, launch_command, fingerprint = _resolve_run_context(args)
+
+    if getattr(backend, "handles_run", False):
+        return backend.run(config, experiment_dir, dry_run=args.dry_run)
+
+    if args.dry_run:
+        _print_dry_run_commands(config, backend, experiment_dir)
+        return 0
+
+    manifest = _load_or_create_manifest(args, config, backend, experiment_dir, manifest_path, fingerprint, launch_command)
+    if manifest is None:
+        print(f"already completed: {experiment_dir}")
+        return 0
+    run_started_monotonic = time.monotonic()
+    _bootstrap_members(args, config, backend, experiment_dir, manifest, manifest_path, pbt_log_path)
+
     try:
         for generation in range(
             int(manifest["next_generation"]), int(config["shared"]["generations"])
         ):
-            existing = next(
-                (item for item in manifest["generations"] if item["index"] == generation),
-                None,
-            )
-            if existing is None:
-                existing = {
-                    "index": generation,
-                    "epoch": epoch_for_generation(config, generation),
-                    "seed": int(config["shared"]["seed"]) + generation,
-                    "status": "training",
-                    "workers": {
-                        name: {"status": "pending"} for name in manifest["members"]
-                    },
-                    "ranking": None,
-                    "exploit": None,
-                    "started_at": utc_now(),
-                }
-                manifest["generations"].append(existing)
-                atomic_json(manifest_path, manifest)
-            existing["status"] = "training"
-            pending = [
-                name
-                for name, record in existing["workers"].items()
-                if record["status"] != "completed"
-            ]
-            backend.run_generation(
-                config,
-                experiment_dir,
-                manifest,
-                existing,
-                pending,
-                manifest_path,
-            )
+            existing = _generation_record_for(config, manifest, manifest_path, generation)
+            _run_generation_workers(config, backend, experiment_dir, manifest, existing, manifest_path)
             run_scheduled_tiered_evaluations(
                 config, experiment_dir, manifest, existing, manifest_path, pbt_log_path
             )
 
             if existing["exploit"] is None:
-                ranking, plan = plan_for_strategy(
-                    config, existing, manifest["members"], manifest
-                )
-                existing["ranking"] = ranking
-                existing["raw_ranking"] = raw_metric_ranking(config, existing, manifest["members"])
-                for skipped_event in existing.get("skipped_exploits") or []:
-                    record_skipped_exploit(experiment_dir, existing, skipped_event)
-                improved = update_global_best(
-                    experiment_dir, manifest, existing, manifest_path
-                )
-                health = update_generation_health(config, manifest, existing)
-                controller_record = run_generation_controller(config, manifest, existing, experiment_dir)
-                if controller_record:
-                    log_event(
-                        pbt_log_path,
-                        "controller generation=%d actions=%s"
-                        % (
-                            existing["index"],
-                            ",".join(
-                                "%s:%s/%s"
-                                % (
-                                    name,
-                                    action["state_label"],
-                                    action["action"],
-                                )
-                                for name, action in sorted(
-                                    existing.get("controller_actions", {}).items()
-                                )
-                            ),
-                        ),
-                    )
-                early_stop_after = int(config["pbt"].get("early_stop_degraded_generations", 0))
-                early_stop_triggered = (
-                    early_stop_after > 0
-                    and health["consecutive_degraded_generations"] >= early_stop_after
-                )
-                existing["early_stop_triggered"] = early_stop_triggered
                 is_final_generation = generation == int(config["shared"]["generations"]) - 1
-                existing["burn_in"] = in_burn_in(config, generation)
-                will_exploit = should_apply_exploit(config, generation, is_final_generation, early_stop_triggered)
-                if existing["burn_in"]:
-                    log_event(
-                        pbt_log_path,
-                        "burn_in generation=%d (%d/%d) -- observing only, no exploit/controller LR action applied"
-                        % (generation, generation + 1, int(config["pbt"].get("burn_in_generations", 0) or 0)),
-                    )
-
-                # Fine controller LR nudges: applied to every member's own LR
-                # every non-burn-in generation, independent of whether PBT
-                # exploit fires this generation -- this is what makes the
-                # controller genuinely more frequent than exploit once
-                # exploit_interval_generations > 1, not just a config field.
-                # Exclude this generation's exploit recipients: their LR is
-                # about to come from the donor copy instead.
-                if not existing["burn_in"] and not early_stop_triggered:
-                    exploit_recipients = {event["recipient"] for event in plan} if will_exploit else set()
-                    controller_changes = apply_controller_actions_to_members(
-                        config, manifest, existing, exclude_members=exploit_recipients
-                    )
-                    for member_name, change in controller_changes.items():
-                        record_controller_lr_change(experiment_dir, existing, member_name, change)
-                    if controller_changes:
-                        log_event(
-                            pbt_log_path,
-                            "controller_lr_change generation=%d members=%s"
-                            % (existing["index"], ",".join(sorted(controller_changes))),
-                        )
-
-                if will_exploit:
-                    plan = apply_actions_to_plan(config, existing, plan)
-                    plan = add_baseline_guard_rollbacks(
-                        config, manifest, existing, manifest["members"], plan
-                    )
-                    if strategy_uses_population_rollbacks(config):
-                        plan = add_global_best_rollbacks(
-                            config, manifest, existing, manifest["members"], plan
-                        )
-                else:
-                    existing.pop("baseline_guard", None)
-                existing["exploit"] = plan if will_exploit else []
-                existing["status"] = "exploiting"
-                best = manifest.get("best") or {}
-                log_event(
-                    pbt_log_path,
-                    "health generation=%d current_best=%s %.6g global_best=%s %.6g "
-                    "delta=%s degraded=%s consecutive=%d improved=%s lrs=%s"
-                    % (
-                        existing["index"],
-                        health["current_best_member"],
-                        health["current_best_metric"],
-                        best.get("member"),
-                        best.get("metric_value", float("nan")),
-                        (
-                            "n/a"
-                            if health["relative_to_global_best"] is None
-                            else f"{health['relative_to_global_best']:+.3%}"
-                        ),
-                        health["status"],
-                        health["consecutive_degraded_generations"],
-                        improved,
-                        ",".join(
-                            f"{name}:{lr:.3g}"
-                            for name, lr in sorted(health["member_lrs"].items())
-                        ),
-                    ),
+                _plan_generation_exploit(
+                    config, manifest, existing, generation, is_final_generation,
+                    experiment_dir, manifest_path, pbt_log_path,
                 )
-                guard = existing.get("baseline_guard")
-                if guard:
-                    log_event(
-                        pbt_log_path,
-                        "baseline guard generation=%d action=%s rollbacks=%s"
-                        % (
-                            existing["index"],
-                            guard.get("action"),
-                            ",".join(
-                                "%s:%.3g->%.3g metric=%.6g baseline=%.6g"
-                                % (
-                                    event["recipient"],
-                                    event["recipient_lr"],
-                                    event["new_lr"],
-                                    event["metric_value"],
-                                    event["baseline_metric"],
-                                )
-                                for event in guard.get("events", [])
-                            ),
-                        ),
-                    )
-                atomic_json(manifest_path, manifest)
 
-            apply_exploit(experiment_dir, manifest, existing, manifest_path)
-            existing["status"] = "completed"
-            existing["finished_at"] = utc_now()
-            manifest["next_generation"] = generation + 1
-            manifest["updated_at"] = utc_now()
-            if existing.get("early_stop_triggered"):
-                manifest["early_stop"] = {
-                    "generation": generation,
-                    "reason": "consecutive_degraded_generations",
-                    "consecutive_degraded_generations": existing["health"]["consecutive_degraded_generations"],
-                    "threshold": int(config["pbt"].get("early_stop_degraded_generations", 0)),
-                }
-                atomic_json(manifest_path, manifest)
-                log_event(
-                    pbt_log_path,
-                    "early stop generation=%d reason=consecutive_degraded_generations consecutive=%d threshold=%d"
-                    % (
-                        generation,
-                        existing["health"]["consecutive_degraded_generations"],
-                        int(config["pbt"].get("early_stop_degraded_generations", 0)),
-                    ),
-                )
+            if _finalize_generation(config, manifest, existing, experiment_dir, manifest_path, pbt_log_path, generation):
                 break
-            atomic_json(manifest_path, manifest)
 
-        manifest["status"] = "completed"
-        manifest.pop("failure", None)
-        manifest["finished_at"] = utc_now()
-        manifest["updated_at"] = utc_now()
-        atomic_json(manifest_path, manifest)
-        artifacts = write_canonical_outputs(experiment_dir, manifest)
-        manifest["updated_at"] = utc_now()
-        atomic_json(manifest_path, manifest)
-        log_event(pbt_log_path, f"canonical artifacts: {artifacts['report']}")
-        log_event(
-            pbt_log_path,
-            f"run completed experiment={config['experiment_name']} "
-            f"elapsed={format_duration(time.monotonic() - run_started_monotonic)} "
-            f"directory={experiment_dir} "
-            f"recommended_checkpoint={(manifest.get('best') or {}).get('state_path')}",
-        )
+        _finalize_run(config, manifest, experiment_dir, manifest_path, pbt_log_path, run_started_monotonic)
         return 0
     except BaseException as error:
-        manifest["status"] = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
-        manifest["failure"] = f"{type(error).__name__}: {error}"
-        manifest["updated_at"] = utc_now()
-        atomic_json(manifest_path, manifest)
-        log_event(
-            pbt_log_path,
-            f"run {manifest['status']} experiment={config['experiment_name']} "
-            f"elapsed={format_duration(time.monotonic() - run_started_monotonic)} "
-            f"error={type(error).__name__}: {error}",
-        )
-        raise
+        _handle_run_failure(error, manifest, config, manifest_path, pbt_log_path, run_started_monotonic)
 
 
 def main():
