@@ -169,7 +169,7 @@ def run_weaver_trial_direct(tune_config, checkpoint_root=None):
     member_dir.mkdir(parents=True, exist_ok=True)
     record_trial_event(member_dir, "direct_trial_start", member=member_name, lr=member["lr"])
 
-    from training.pbt.checkpointing import bootstrap_initial_checkpoint
+    from training.pbt.state.checkpointing import bootstrap_initial_checkpoint
 
     record_trial_event(member_dir, "bootstrap_start")
     bootstrap_initial_checkpoint(config, member_dir)
@@ -299,7 +299,7 @@ def run_weaver_trial(tune_config):
             start_generation = int(restored.get("generation", -1)) + 1
             record_trial_event(member_dir, "restore_done", start_generation=start_generation)
         else:
-            from training.pbt.checkpointing import bootstrap_initial_checkpoint
+            from training.pbt.state.checkpointing import bootstrap_initial_checkpoint
 
             record_trial_event(member_dir, "bootstrap_start")
             bootstrap_initial_checkpoint(config, member_dir)

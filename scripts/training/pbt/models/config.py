@@ -7,7 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from training.pbt.models.controller import ControllerActionName, DEFAULT_CONTROLLER_ACTIONS
-from training.pbt.optimizer_state import normalize_optimizer_state_mode
+from training.pbt.state.optimizer_state import normalize_optimizer_state_mode
 
 
 MEMBER_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")

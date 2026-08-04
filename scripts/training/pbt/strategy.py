@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compatibility facade for PBT strategy, planning, and state transitions."""
 
-from training.pbt.checkpointing import (  # noqa: F401
+from training.pbt.state.checkpointing import (  # noqa: F401
     atomic_copy,
     atomic_copy_pair,
     bootstrap_initial_checkpoint,
@@ -42,4 +42,4 @@ from training.pbt.planning import (  # noqa: F401
     ranking_and_plan,
     strategy_uses_population_rollbacks,
 )
-from training.pbt.transitions import apply_exploit  # noqa: F401
+from training.pbt.state.transitions import apply_exploit  # noqa: F401

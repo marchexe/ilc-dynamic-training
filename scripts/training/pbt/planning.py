@@ -4,7 +4,7 @@
 import math
 import random
 
-from training.pbt.checkpointing import generations_before
+from training.pbt.state.checkpointing import generations_before
 from training.pbt.metrics import clamp as _clamp
 from training.pbt.metrics import metric_is_worse_than_reference
 from training.pbt.models.events import normalize_exploit_plan

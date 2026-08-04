@@ -4,7 +4,6 @@
 import math
 from pathlib import Path
 
-from training.pbt.checkpointing import checkpoint_paths, generations_before
 from training.pbt.metrics import clamp
 from training.pbt.models.controller import (
     DEFAULT_CONTROLLER_ACTIONS,
@@ -12,7 +11,8 @@ from training.pbt.models.controller import (
     dump_controller_observation,
 )
 from training.pbt.models.events import normalize_exploit_plan
-from training.pbt.optimizer_state import load_optimizer_state, summarize_optimizer_state
+from training.pbt.state.checkpointing import checkpoint_paths, generations_before
+from training.pbt.state.optimizer_state import load_optimizer_state, summarize_optimizer_state
 
 
 LR_ACTION_FACTORS = {

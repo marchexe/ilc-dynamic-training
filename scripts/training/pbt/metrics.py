@@ -4,7 +4,7 @@
 from pathlib import Path
 
 from training.pbt.artifacts import record_new_best
-from training.pbt.checkpointing import (
+from training.pbt.state.checkpointing import (
     atomic_copy,
     checkpoint_paths,
     controller_checkpoint_path,

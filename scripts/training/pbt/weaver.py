@@ -6,7 +6,7 @@ import socket
 import re
 from pathlib import Path
 
-from training.pbt.checkpointing import epoch_for_generation
+from training.pbt.state.checkpointing import epoch_for_generation
 from training.weaver import build_command
 from training.runtime import PROJECT_DIR, data_paths, project_path, weaver_executable
 

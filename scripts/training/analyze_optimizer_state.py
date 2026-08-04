@@ -11,7 +11,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from training.pbt.optimizer_state import (  # noqa: E402
+from training.pbt.state.optimizer_state import (  # noqa: E402
     OPTIMIZER_STATE_MODES,
     atomic_torch_save,
     load_optimizer_state,

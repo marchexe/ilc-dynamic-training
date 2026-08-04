@@ -32,7 +32,7 @@ from training.runtime import (
     sha256,
     utc_now,
 )
-from training.pbt.checkpointing import (
+from training.pbt.state.checkpointing import (
     bootstrap_initial_checkpoint,
     checkpoint_paths,
     epoch_for_generation,
@@ -49,7 +49,7 @@ from training.pbt.planning import (
     should_apply_exploit,
     strategy_uses_population_rollbacks,
 )
-from training.pbt.transitions import apply_exploit
+from training.pbt.state.transitions import apply_exploit
 
 
 DEFAULT_CONFIG = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
