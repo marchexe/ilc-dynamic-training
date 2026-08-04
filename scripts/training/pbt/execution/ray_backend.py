@@ -7,8 +7,8 @@ import time
 from pathlib import Path
 
 from training.pbt.artifacts import refresh_metrics_csv, record_evaluation, record_train_finish, record_train_start
-from training.pbt.backend import PBTBackend, format_duration, log_event
-from training.pbt.weaver import make_command, make_initial_evaluation_command
+from training.pbt.execution.backend import PBTBackend, format_duration, log_event
+from training.pbt.execution.weaver_command import make_command, make_initial_evaluation_command
 from training.runtime import PROJECT_DIR, atomic_json, read_metrics, utc_now
 
 SCRIPTS_DIR = PROJECT_DIR / "scripts"

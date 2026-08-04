@@ -25,7 +25,7 @@ from training.pbt.artifacts import (
     write_canonical_outputs,
     write_tiered_metrics_csv,
 )
-from training.pbt.backend import finite_metric_ok
+from training.pbt.execution.backend import finite_metric_ok
 
 
 METRIC = "validation_working_point_mistag_percent"

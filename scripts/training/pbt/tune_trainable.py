@@ -181,7 +181,7 @@ def run_weaver_trial_direct(tune_config, checkpoint_root=None):
     results = []
 
     for generation in range(start_generation, generations):
-        from training.pbt.weaver import make_command
+        from training.pbt.execution.weaver_command import make_command
         from training.runtime import read_metrics
 
         started = time.monotonic()
@@ -312,7 +312,7 @@ def run_weaver_trial(tune_config):
 
         for generation in range(start_generation, generations):
             started = time.monotonic()
-            from training.pbt.weaver import make_command
+            from training.pbt.execution.weaver_command import make_command
             from training.runtime import read_metrics
 
             record_trial_event(member_dir, "make_command_start", generation=generation)

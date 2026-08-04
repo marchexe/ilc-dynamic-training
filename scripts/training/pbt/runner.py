@@ -21,7 +21,7 @@ from training.pbt.artifacts import (
     write_canonical_outputs,
     write_resolved_config,
 )
-from training.pbt.backend import backend_from_config, finite_metric_ok, format_duration, log_event, run_tiered_evaluation
+from training.pbt.execution.backend import backend_from_config, finite_metric_ok, format_duration, log_event, run_tiered_evaluation
 from training.pbt.config import contract_fingerprint, load_config, validate_inputs
 from training.pbt.models.manifest import PBTManifest
 from training.runtime import (

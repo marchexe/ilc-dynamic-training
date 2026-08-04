@@ -6,8 +6,8 @@ from pathlib import Path
 from tests.helpers import PROJECT_DIR, namespace, pbt_smoke_config
 from training.pbt import config as config_module
 from training.pbt import strategy
-from training.pbt.backend import LocalWeaverBackend, backend_from_config
-from training.pbt.ray_backend import RayWeaverBackend
+from training.pbt.execution.backend import LocalWeaverBackend, backend_from_config
+from training.pbt.execution.ray_backend import RayWeaverBackend
 from training.pbt.tune_runner import build_trial_specs, ray_runtime_env, small_tune_payload
 from training.pbt.tune_trainable import (
     TUNE_CONTROLLER_NAME,
@@ -48,7 +48,7 @@ class PBTLauncherTest(unittest.TestCase):
     def test_ray_backend_dependency_error_is_clear(self):
         if importlib.util.find_spec("ray") is not None:
             self.skipTest("Ray is installed in this environment")
-        from training.pbt.ray_backend import _ray_import
+        from training.pbt.execution.ray_backend import _ray_import
 
         with self.assertRaisesRegex(RuntimeError, "Ray backend requires"):
             _ray_import()

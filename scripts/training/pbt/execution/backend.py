@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from training.pbt.artifacts import refresh_metrics_csv, record_evaluation, record_train_finish, record_train_start
-from training.pbt.weaver import make_command, make_initial_evaluation_command, make_tiered_evaluation_command, slot_label
+from training.pbt.execution.weaver_command import make_command, make_initial_evaluation_command, make_tiered_evaluation_command, slot_label
 from training.runtime import PROJECT_DIR, atomic_json, read_metrics, terminate, utc_now
 
 
@@ -333,7 +333,7 @@ def backend_from_config(config):
     if backend_name == "local_weaver":
         return LocalWeaverBackend()
     if backend_name in {"ray_weaver", "ray_tune"}:
-        from training.pbt.ray_backend import RayWeaverBackend
+        from training.pbt.execution.ray_backend import RayWeaverBackend
 
         return RayWeaverBackend()
     raise ValueError(f"Unsupported PBT backend: {backend_name}")
