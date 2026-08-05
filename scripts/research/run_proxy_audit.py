@@ -200,84 +200,58 @@ def write_csv_rows(path, rows):
     tmp_path.replace(path)
 
 
-def main():
-    args = parse_args()
-    audit_config = load_audit_config(args.config)
-    run_id = args.run_id or utc_now().replace(":", "").replace("-", "").split(".")[0].replace("T", "_")
-    output_root = project_path(args.output_root or audit_config.get("output_root", "results/research"))
-    experiment_dir = output_root / run_id
-    experiment_dir.mkdir(parents=True, exist_ok=True)
-    (experiment_dir / "plots").mkdir(parents=True, exist_ok=True)
-    audit_log_path = experiment_dir / "logs" / "audit.log"
-
-    started_monotonic = time.monotonic()
-    log_event(audit_log_path, f"proxy audit started run_id={run_id} config={args.config}")
-
-    weaver_config = build_weaver_config(audit_config)
-    distinct_checkpoints, duplicates = dedupe_checkpoints(audit_config["checkpoints"])
-    duplicates_note = (
-        "; excluded: " + ", ".join(f"{dup['id']}->{dup.get('duplicate_of')} ({dup.get('reason')})" for dup in duplicates)
-        if duplicates
-        else ""
-    )
-    log_event(
-        audit_log_path,
-        f"checkpoints: {len(distinct_checkpoints)} distinct, {len(duplicates)} duplicate(s){duplicates_note}",
-    )
-
-    provenance_by_id = {entry["id"]: provenance_for(entry) for entry in distinct_checkpoints}
-    member_checkpoints = {entry["id"]: Path(entry["path"]) for entry in distinct_checkpoints}
-
-    dataset = str(project_path(audit_config["dataset"]))
-    control_suffix = audit_config["control_proxy_50k"]["suffix"]
-    full_suffix = audit_config["full_validation"]["suffix"]
-
-    log_event(audit_log_path, f"evaluating {len(member_checkpoints)} checkpoints on control_proxy_50k ({control_suffix})")
-    control_started = time.monotonic()
-    control_results = run_tiered_evaluation(
-        weaver_config, experiment_dir, 0, "control_proxy_50k", dataset, control_suffix, member_checkpoints, audit_log_path
-    )
-    control_elapsed = time.monotonic() - control_started
-    log_event(audit_log_path, f"control_proxy_50k evaluation finished in {format_duration(control_elapsed)}")
-
-    log_event(audit_log_path, f"evaluating {len(member_checkpoints)} checkpoints on full_validation ({full_suffix})")
-    full_started = time.monotonic()
-    full_results = run_tiered_evaluation(
-        weaver_config, experiment_dir, 0, "full_validation", dataset, full_suffix, member_checkpoints, audit_log_path
-    )
-    full_elapsed = time.monotonic() - full_started
-    log_event(audit_log_path, f"full_validation evaluation finished in {format_duration(full_elapsed)}")
-
-    metric_schema_version = audit_config.get("metric_schema_version", 1)
+def write_outputs(
+    experiment_dir,
+    args,
+    audit_config,
+    distinct_checkpoints,
+    duplicates,
+    provenance_by_id,
+    control_results,
+    full_results,
+    metric_schema_version,
+    metric_name,
+    metric_mode,
+    runtime_seconds,
+    run_status,
+    run_id,
+):
+    """Writes checkpoint_metrics.csv, summary.json, and proxy_vs_full.csv
+    from whatever results exist so far. Called after control_proxy_50k
+    completes (full_results={}, run_status="partial_control_only") AND
+    again after full_validation completes (run_status="completed") -- so a
+    process killed between the two tiers still leaves a real, readable
+    partial result on disk instead of only per-job logs. Every call
+    overwrites the previous one (atomic replace via write_csv_rows), so
+    there is only ever one, always-current checkpoint_metrics.csv/
+    summary.json per run, never stale partial files left behind after a
+    successful completion.
+    """
     rows = build_checkpoint_metrics_rows(distinct_checkpoints, provenance_by_id, control_results, full_results, metric_schema_version)
     write_csv_rows(experiment_dir / "checkpoint_metrics.csv", rows)
 
-    metric_name = audit_config.get("metric_name", "validation_working_point_mistag_percent")
-    metric_mode = audit_config.get("metric_mode", "min")
     statistics = full_summary(control_results, full_results, metric_name, metric_mode)
 
     manifest_path = project_path(audit_config.get("proxy_manifest", "datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json"))
     sanity = run_sanity_check(manifest_path) if manifest_path.is_file() else {"status": "unavailable", "reason": f"manifest not found: {manifest_path}"}
 
-    total_elapsed = time.monotonic() - started_monotonic
     summary = {
         "run_id": run_id,
-        "started_at": utc_now(),
+        "run_status": run_status,
+        "updated_at": utc_now(),
         "git": git_metadata(),
         "config_path": str(project_path(args.config)),
         "audit_config": audit_config,
         "checkpoints_requested": len(audit_config["checkpoints"]),
         "checkpoints_distinct": len(distinct_checkpoints),
         "checkpoints_duplicate": duplicates,
-        "runtime_seconds": {
-            "control_proxy_50k": control_elapsed,
-            "full_validation": full_elapsed,
-            "total": total_elapsed,
-        },
+        "runtime_seconds": runtime_seconds,
         "proxy_vs_full": statistics,
         "proxy_sanity_check": sanity,
     }
-    (experiment_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+    tmp_summary_path = (experiment_dir / "summary.json").with_suffix(".json.tmp")
+    tmp_summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+    tmp_summary_path.replace(experiment_dir / "summary.json")
 
     proxy_vs_full_rows = []
     for entry in distinct_checkpoints:
@@ -297,9 +271,88 @@ def main():
             }
         )
     write_csv_rows(experiment_dir / "proxy_vs_full.csv", proxy_vs_full_rows)
+    return summary
 
+
+def main():
+    args = parse_args()
+    audit_config = load_audit_config(args.config)
+    run_id = args.run_id or utc_now().replace(":", "").replace("-", "").split(".")[0].replace("T", "_")
+    output_root = project_path(args.output_root or audit_config.get("output_root", "results/research"))
+    experiment_dir = output_root / run_id
+    experiment_dir.mkdir(parents=True, exist_ok=True)
+    (experiment_dir / "plots").mkdir(parents=True, exist_ok=True)
+    audit_log_path = experiment_dir / "logs" / "audit.log"
+
+    started_monotonic = time.monotonic()
+    log_event(audit_log_path, f"proxy audit started run_id={run_id} config={args.config}")
+
+    # Written immediately, before any evaluation runs: neither depends on
+    # results, and having them on disk from the start means a run killed
+    # before a single checkpoint finishes still records what was launched.
     (experiment_dir / "resolved_config.yaml").write_text(yaml.safe_dump(audit_config, sort_keys=False), encoding="utf-8")
     (experiment_dir / "environment.json").write_text(json.dumps(environment_info(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    weaver_config = build_weaver_config(audit_config)
+    distinct_checkpoints, duplicates = dedupe_checkpoints(audit_config["checkpoints"])
+    duplicates_note = (
+        "; excluded: " + ", ".join(f"{dup['id']}->{dup.get('duplicate_of')} ({dup.get('reason')})" for dup in duplicates)
+        if duplicates
+        else ""
+    )
+    log_event(
+        audit_log_path,
+        f"checkpoints: {len(distinct_checkpoints)} distinct, {len(duplicates)} duplicate(s){duplicates_note}",
+    )
+
+    provenance_by_id = {entry["id"]: provenance_for(entry) for entry in distinct_checkpoints}
+    member_checkpoints = {entry["id"]: Path(entry["path"]) for entry in distinct_checkpoints}
+
+    dataset = str(project_path(audit_config["dataset"]))
+    control_suffix = audit_config["control_proxy_50k"]["suffix"]
+    full_suffix = audit_config["full_validation"]["suffix"]
+    metric_schema_version = audit_config.get("metric_schema_version", 1)
+    metric_name = audit_config.get("metric_name", "validation_working_point_mistag_percent")
+    metric_mode = audit_config.get("metric_mode", "min")
+
+    log_event(audit_log_path, f"evaluating {len(member_checkpoints)} checkpoints on control_proxy_50k ({control_suffix})")
+    control_started = time.monotonic()
+    control_results = run_tiered_evaluation(
+        weaver_config, experiment_dir, 0, "control_proxy_50k", dataset, control_suffix, member_checkpoints, audit_log_path
+    )
+    control_elapsed = time.monotonic() - control_started
+    log_event(audit_log_path, f"control_proxy_50k evaluation finished in {format_duration(control_elapsed)}")
+
+    # Incremental write #1: control_proxy_50k is done, full_validation
+    # hasn't started yet. If the process dies during full_validation (the
+    # much longer tier), this is what survives -- a complete, correct
+    # checkpoint_metrics.csv/summary.json with full_validation columns
+    # explicitly empty/status-less, not fabricated.
+    write_outputs(
+        experiment_dir, args, audit_config, distinct_checkpoints, duplicates, provenance_by_id,
+        control_results, {}, metric_schema_version, metric_name, metric_mode,
+        {"control_proxy_50k": control_elapsed, "full_validation": None, "total": time.monotonic() - started_monotonic},
+        "partial_control_only", run_id,
+    )
+
+    log_event(audit_log_path, f"evaluating {len(member_checkpoints)} checkpoints on full_validation ({full_suffix})")
+    full_started = time.monotonic()
+    full_results = run_tiered_evaluation(
+        weaver_config, experiment_dir, 0, "full_validation", dataset, full_suffix, member_checkpoints, audit_log_path
+    )
+    full_elapsed = time.monotonic() - full_started
+    log_event(audit_log_path, f"full_validation evaluation finished in {format_duration(full_elapsed)}")
+
+    total_elapsed = time.monotonic() - started_monotonic
+    # Incremental write #2 (final): both tiers done. Overwrites the
+    # partial write above with the complete result -- exactly one
+    # checkpoint_metrics.csv/summary.json exists at the end, not two.
+    write_outputs(
+        experiment_dir, args, audit_config, distinct_checkpoints, duplicates, provenance_by_id,
+        control_results, full_results, metric_schema_version, metric_name, metric_mode,
+        {"control_proxy_50k": control_elapsed, "full_validation": full_elapsed, "total": total_elapsed},
+        "completed", run_id,
+    )
 
     log_event(audit_log_path, f"proxy audit finished run_id={run_id} elapsed={format_duration(total_elapsed)} distinct_checkpoints={len(distinct_checkpoints)}")
     print(str(experiment_dir))

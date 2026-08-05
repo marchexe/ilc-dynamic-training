@@ -10,8 +10,10 @@ from research.run_proxy_audit import (
     dedupe_checkpoints,
     provenance_for,
     write_csv_rows,
+    write_outputs,
 )
 from training.runtime import sha256
+from tests.helpers import namespace
 
 
 class DedupeCheckpointsTest(unittest.TestCase):
@@ -196,6 +198,81 @@ class WriteCsvRowsTest(unittest.TestCase):
             write_csv_rows(path, rows)
             content = path.read_text()
         self.assertIn("a,b", content)
+
+
+class WriteOutputsIncrementalTest(unittest.TestCase):
+    """Covers the incremental-results safeguard: write_outputs must be
+    callable after control_proxy_50k alone (full_results={}) and produce a
+    real, readable partial checkpoint_metrics.csv/summary.json -- not just
+    at the very end after both tiers -- so a killed/crashed process still
+    leaves something recoverable."""
+
+    def setUp(self):
+        self.entry = {"id": "ckpt", "path": "x.pt", "sha256": "abc", "source_run": None}
+        self.provenance_by_id = {"ckpt": {"member": None, "epoch": 17, "generation": None, "lr": None, "pbt_recorded_metric_value": None}}
+        self.audit_config = {"checkpoints": [self.entry], "proxy_manifest": "/nonexistent/manifest.json"}
+        self.args = namespace(config=Path("configs/research/nightly_proxy_audit.yaml"))
+
+    def test_partial_write_after_control_only_has_no_full_validation_status(self):
+        control_results = {"ckpt": {"status": "completed", "metrics": {"validation_working_point_mistag_percent": 1.0}}}
+        with tempfile.TemporaryDirectory() as temporary:
+            experiment_dir = Path(temporary)
+            summary = write_outputs(
+                experiment_dir, self.args, self.audit_config, [self.entry], [], self.provenance_by_id,
+                control_results, {}, 1, "validation_working_point_mistag_percent", "min",
+                {"control_proxy_50k": 30.0, "full_validation": None, "total": 30.0},
+                "partial_control_only", "test_run",
+            )
+            self.assertTrue((experiment_dir / "checkpoint_metrics.csv").is_file())
+            self.assertTrue((experiment_dir / "summary.json").is_file())
+            rows = json.loads(json.dumps(summary))  # sanity: summary is JSON-serializable
+            csv_text = (experiment_dir / "checkpoint_metrics.csv").read_text()
+
+        self.assertEqual(summary["run_status"], "partial_control_only")
+        self.assertIsNone(summary["runtime_seconds"]["full_validation"])
+        self.assertIn("ckpt", csv_text)
+        self.assertIn(",,", csv_text)  # full_validation_status column empty for this row
+        self.assertIsInstance(rows, dict)
+
+    def test_final_write_overwrites_partial_write_not_appends(self):
+        """The second call (after full_validation completes) must replace
+        the partial file, not leave two files or stale rows behind."""
+        control_results = {"ckpt": {"status": "completed", "metrics": {"validation_working_point_mistag_percent": 1.0}}}
+        full_results = {"ckpt": {"status": "completed", "metrics": {"validation_working_point_mistag_percent": 1.1}}}
+        with tempfile.TemporaryDirectory() as temporary:
+            experiment_dir = Path(temporary)
+            write_outputs(
+                experiment_dir, self.args, self.audit_config, [self.entry], [], self.provenance_by_id,
+                control_results, {}, 1, "validation_working_point_mistag_percent", "min",
+                {"control_proxy_50k": 30.0, "full_validation": None, "total": 30.0},
+                "partial_control_only", "test_run",
+            )
+            final_summary = write_outputs(
+                experiment_dir, self.args, self.audit_config, [self.entry], [], self.provenance_by_id,
+                control_results, full_results, 1, "validation_working_point_mistag_percent", "min",
+                {"control_proxy_50k": 30.0, "full_validation": 200.0, "total": 230.0},
+                "completed", "test_run",
+            )
+            csv_files = list(experiment_dir.glob("checkpoint_metrics*.csv"))
+            summary_files = list(experiment_dir.glob("summary*.json"))
+
+        self.assertEqual(len(csv_files), 1)
+        self.assertEqual(len(summary_files), 1)
+        self.assertEqual(final_summary["run_status"], "completed")
+        self.assertAlmostEqual(final_summary["runtime_seconds"]["full_validation"], 200.0)
+
+    def test_no_leftover_tmp_files(self):
+        control_results = {"ckpt": {"status": "completed", "metrics": {"validation_working_point_mistag_percent": 1.0}}}
+        with tempfile.TemporaryDirectory() as temporary:
+            experiment_dir = Path(temporary)
+            write_outputs(
+                experiment_dir, self.args, self.audit_config, [self.entry], [], self.provenance_by_id,
+                control_results, {}, 1, "validation_working_point_mistag_percent", "min",
+                {"control_proxy_50k": 30.0, "full_validation": None, "total": 30.0},
+                "partial_control_only", "test_run",
+            )
+            tmp_files = list(experiment_dir.glob("*.tmp"))
+        self.assertEqual(tmp_files, [])
 
 
 if __name__ == "__main__":
