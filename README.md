@@ -180,13 +180,11 @@ scripts/
     pbt/                 the PBT engine, split by concern:
       models/              pydantic schema for config/manifest/controller/exploit-events
       planning/            population ranking + one module per pbt.strategy (exploit_mutate,
-                            anchored_lr_sweep, fixed_lr_grid) + rollback injection
+                            anchored_lr_sweep, fixed_lr_grid, population_lr_policy) + rollback injection
       controller/           the dynamic (fine-grained LR) controller: observation/decision/apply
       execution/            backend/ray_backend/weaver_command -- runs the actual Weaver subprocesses
       state/                 checkpoint paths, optimizer-state transforms, exploit-application
       reporting/            canonical run-directory artifacts: events, CSVs, plots, report.md
-      tune/                  Ray Tune Function API integration (separate from execution/ray_backend.py's
-                              task-based Ray path; reachable only via run_pbt_tune.py)
       runner.py             the generation-loop orchestrator (this package's entrypoint)
     comparison/            independent (non-PBT) baseline-vs-controller runner
     runtime.py             shared utilities (paths, data layout, Weaver log/metric parsing) used by
