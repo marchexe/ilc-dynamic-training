@@ -1,0 +1,118 @@
+schema_version: 1
+
+# Minimal proxy audit: evaluates each checkpoint below on exactly two
+# validation levels -- control_proxy_50k (val50k_tail, 150,000 events) and
+# full_validation (val_holdout, 2,825,125 events, disjoint from
+# control_proxy_50k by construction) -- to answer whether the 50k proxy
+# reproduces full-validation metrics and checkpoint ranking. Never evaluates
+# the legacy overlapping val1000k "full" tier. See docs/nightly_plan.md for
+# the full research context and runtime benchmark.
+
+dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+data_config: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
+network_config: networks/pretrained_sgv_particle_transformer.py
+data_extension: parquet
+
+control_proxy_50k:
+  suffix: val50k_tail
+  expected_rows_per_class: 50000
+full_validation:
+  suffix: val_holdout
+  expected_rows_per_class_avg: 941708
+
+metric_name: validation_working_point_mistag_percent
+metric_mode: min
+metric_schema_version: 1
+
+batch_size: 1024
+num_workers: 1
+fetch_step: "0.01"
+amp_dtype: fp16
+
+# One evaluation worker per free GPU on iutgpu01 (confirmed free via
+# scripts/cluster/check.sh before launch -- re-check immediately before
+# launching in case cluster state changed).
+slots:
+  - {host: iutgpu01, gpu: "0"}
+  - {host: iutgpu01, gpu: "1"}
+  - {host: iutgpu01, gpu: "2"}
+  - {host: iutgpu01, gpu: "3"}
+  - {host: iutgpu01, gpu: "4"}
+  - {host: iutgpu01, gpu: "5"}
+  - {host: iutgpu01, gpu: "6"}
+  - {host: iutgpu01, gpu: "7"}
+
+# 12 checkpoints (top of the task's suggested 6-12 range), all genuinely
+# distinct real checkpoints from completed runs -- no LR sweep needed (see
+# docs/nightly_plan.md for SHA256 verification and the full candidate
+# list). `global_best` entries pull provenance from their run's
+# checkpoints/global_best_metadata.json; `member` entries pull LR from
+# their run's manifest.json and epoch from the checkpoint filename.
+checkpoints:
+  - id: pretrained_base_epoch17
+    path: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+    source_run: null
+    provenance: null
+    note: canonical pretrained checkpoint, never fine-tuned by PBT
+
+  - id: long_controller_active_global_best
+    path: runs/pbt/pretrained_pbt_4gpu_long_controller_active_20260804_191709/checkpoints/global_best_state.pt
+    source_run: runs/pbt/pretrained_pbt_4gpu_long_controller_active_20260804_191709
+    provenance: {type: global_best_metadata, path: runs/pbt/pretrained_pbt_4gpu_long_controller_active_20260804_191709/checkpoints/global_best_metadata.json}
+
+  - id: long_controller_off_global_best
+    path: runs/pbt/pretrained_pbt_4gpu_long_controller_off_20260804_191709/checkpoints/global_best_state.pt
+    source_run: runs/pbt/pretrained_pbt_4gpu_long_controller_off_20260804_191709
+    provenance: {type: global_best_metadata, path: runs/pbt/pretrained_pbt_4gpu_long_controller_off_20260804_191709/checkpoints/global_best_metadata.json}
+
+  - id: night_controller_off_global_best
+    path: runs/pbt/pretrained_pbt_4gpu_night_controller_off_20260805_015318/checkpoints/global_best_state.pt
+    source_run: runs/pbt/pretrained_pbt_4gpu_night_controller_off_20260805_015318
+    provenance: {type: global_best_metadata, path: runs/pbt/pretrained_pbt_4gpu_night_controller_off_20260805_015318/checkpoints/global_best_metadata.json}
+
+  - id: night_controller_active_global_best
+    path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_state.pt
+    source_run: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318
+    provenance: {type: global_best_metadata, path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_metadata.json}
+
+  - id: exploit_mutate_tiered_pilot_bnfreeze_global_best
+    path: runs/pbt/pretrained_exploit_mutate_8gpu_10m_tiered_pilot_bnfreeze_20260804_034612/checkpoints/global_best_state.pt
+    source_run: runs/pbt/pretrained_exploit_mutate_8gpu_10m_tiered_pilot_bnfreeze_20260804_034612
+    provenance: {type: global_best_metadata, path: runs/pbt/pretrained_exploit_mutate_8gpu_10m_tiered_pilot_bnfreeze_20260804_034612/checkpoints/global_best_metadata.json}
+
+  - id: legacy_guarded_resume_global_best
+    path: runs/archive/pbt_pre_canonical_artifacts_20260803/guarded_resume_8gpu_iutgpu01_20260802/global_best_state.pt
+    source_run: runs/archive/pbt_pre_canonical_artifacts_20260803/guarded_resume_8gpu_iutgpu01_20260802
+    provenance: {type: global_best_metadata, path: runs/archive/pbt_pre_canonical_artifacts_20260803/guarded_resume_8gpu_iutgpu01_20260802/global_best_metadata.json}
+    note: legacy run predating the canonical-artifacts convention; also matches smooth_lr_8gpu_iutgpu01_01234567_20260801's global_best (identical sha256, one entry kept)
+
+  - id: bn_freeze_diag_frozen_global_best
+    path: runs/dev/bn_freeze_diag_frozen_test/checkpoints/global_best_state.pt
+    source_run: runs/dev/bn_freeze_diag_frozen_test
+    provenance: {type: global_best_metadata, path: runs/dev/bn_freeze_diag_frozen_test/checkpoints/global_best_metadata.json}
+
+  - id: long_controller_active_lr14e6_epoch42
+    path: runs/pbt/pretrained_pbt_4gpu_long_controller_active_20260804_191709/lr_14e-6/net_epoch-42_state.pt
+    source_run: runs/pbt/pretrained_pbt_4gpu_long_controller_active_20260804_191709
+    provenance: {type: manifest_member, path: runs/pbt/pretrained_pbt_4gpu_long_controller_active_20260804_191709/manifest.json, member: lr_14e-6}
+    note: high-LR arm, diverged from this run's global_best
+
+  - id: long_controller_off_lr14e6_epoch43
+    path: runs/pbt/pretrained_pbt_4gpu_long_controller_off_20260804_191709/lr_14e-6/net_epoch-43_state.pt
+    source_run: runs/pbt/pretrained_pbt_4gpu_long_controller_off_20260804_191709
+    provenance: {type: manifest_member, path: runs/pbt/pretrained_pbt_4gpu_long_controller_off_20260804_191709/manifest.json, member: lr_14e-6}
+    note: high-LR arm, diverged from this run's global_best
+
+  - id: night_controller_off_lr14e6_epoch51
+    path: runs/pbt/pretrained_pbt_4gpu_night_controller_off_20260805_015318/lr_14e-6/net_epoch-51_state.pt
+    source_run: runs/pbt/pretrained_pbt_4gpu_night_controller_off_20260805_015318
+    provenance: {type: manifest_member, path: runs/pbt/pretrained_pbt_4gpu_night_controller_off_20260805_015318/manifest.json, member: lr_14e-6}
+    note: high-LR arm, diverged from this run's global_best
+
+  - id: night_controller_active_lr14e6_epoch107
+    path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/lr_14e-6/net_epoch-107_state.pt
+    source_run: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318
+    provenance: {type: manifest_member, path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/manifest.json, member: lr_14e-6}
+    note: high-LR arm, diverged from this run's global_best
+
+output_root: results/research

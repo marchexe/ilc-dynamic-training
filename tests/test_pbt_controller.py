@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from tests.helpers import pbt_smoke_config
@@ -405,6 +406,89 @@ class PBTDynamicControllerTest(unittest.TestCase):
 
         self.assertEqual(applied, {})
         self.assertAlmostEqual(manifest["members"]["member_00"]["lr"], 2.0e-5)
+
+    def test_nan_or_inf_metric_never_produces_an_active_controller_action(self):
+        """Defense in depth: `finite_metric_ok` (execution/backend.py) is what
+        actually keeps a non-finite metric from reaching the controller today
+        -- a worker whose metric is NaN/Inf is marked "failed" there and
+        never reaches `run_generation_controller`. But
+        `run_generation_controller`'s own guard (apply.py) only checks the
+        metric *key* is present, not that its value is finite, so if the
+        upstream guard were ever bypassed the controller needed its own
+        safeguard. NaN was already safe by accident (every `</>` comparison
+        against NaN is False, so it always fell through to "flat"), but Inf
+        was not: a finite baseline compared against a +inf current metric
+        produces a genuine -inf `baseline_delta`, and -inf < -tolerance is a
+        real True -- before the fix below, that classified as "unsafe" and
+        selected a real LR-decrease action from a garbage signal.
+        classify_observation now checks `math.isfinite(metric_value)` first
+        and returns "flat" immediately if it isn't, covering both cases
+        uniformly. This test locks that in for both member 00 (NaN) and
+        member 01 (Inf), with a real prior finite generation so the NaN/Inf
+        actually flows through a real delta computation (current - previous)
+        rather than the cold-start no-history path, where metric_delta would
+        be None regardless of the current value."""
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            metric="validation_working_point_mistag_percent",
+            mode="min",
+            min_lr=1.0e-5,
+            max_lr=4.0e-5,
+            baseline_metric_value=1.0,
+            dynamic_controller={
+                "mode": "active",
+                "allowed_actions": ["keep", "lr_mul_0_95", "lr_mul_0_9"],
+                "metric_delta_tolerance": 0.0,
+            },
+        )
+        manifest = {
+            "members": {
+                "member_00": {"name": "member_00", "lr": 2.0e-5, "parent": None},
+                "member_01": {"name": "member_01", "lr": 2.2e-5, "parent": None},
+            },
+            "generations": [
+                {
+                    "index": 0,
+                    "workers": {
+                        "member_00": {
+                            "status": "completed",
+                            "metrics": {"validation_working_point_mistag_percent": 0.95},
+                        },
+                        "member_01": {
+                            "status": "completed",
+                            "metrics": {"validation_working_point_mistag_percent": 0.98},
+                        },
+                    },
+                }
+            ],
+            "best": {"metric_value": 0.95},
+        }
+        generation = {
+            "index": 1,
+            "epoch": 2,
+            "workers": {
+                "member_00": {
+                    "status": "completed",
+                    "metrics": {"validation_working_point_mistag_percent": float("nan")},
+                },
+                "member_01": {
+                    "status": "completed",
+                    "metrics": {"validation_working_point_mistag_percent": float("inf")},
+                },
+            },
+        }
+        original_lrs = {name: dict(member) for name, member in manifest["members"].items()}
+
+        run_generation_controller(config, manifest, generation)
+        applied = apply_controller_actions_to_members(config, manifest, generation)
+
+        self.assertEqual(applied, {})
+        self.assertEqual(manifest["members"], original_lrs)
+        for member_name in ("member_00", "member_01"):
+            action = generation["controller_actions"][member_name]
+            self.assertEqual(action["state_label"], "flat")
+            self.assertEqual(action["action"], "keep")
+            self.assertTrue(math.isnan(action["proposed_lr"]) or action["proposed_lr"] == action["lr_before"])
 
 
 if __name__ == "__main__":

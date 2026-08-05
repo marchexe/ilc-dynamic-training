@@ -1,0 +1,48 @@
+schema_version: 1
+
+# Experiment-scoped override: repoints the tier that drives PBT
+# ranking/exploit/controller decisions ("control") from the base preset's
+# 5,000-events/class val5k_tail to the existing 50,000-events/class
+# val50k_tail (the "monitor" proxy's dataset, reused here -- no new dataset
+# is built). Composed AFTER pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+# in an experiment's `presets:` list; deep_merge only touches the four keys
+# below, so `manifest`, `control_dataset`, `monitor_*`, `full_holdout_*` are
+# still inherited unchanged from the base preset.
+#
+# Report/audit vocabulary (see docs/nightly_plan.md):
+#   control_proxy_50k = tier "control", now val50k_tail (150,000 events)
+#   full_validation    = tier "full_holdout", val_holdout (2,825,125 events,
+#                         disjoint from control_proxy_50k by construction)
+#
+# full_dataset/full_suffix are nulled here so the legacy overlapping
+# val1000k "full" tier is never evaluated by anything composing this
+# override: run_scheduled_tiered_evaluations still schedules a "full" slot
+# when full_interval_generations fires, but its per-tier loop skips
+# immediately (logs "no proxy_validation.full_dataset/full_suffix
+# configured") since dataset/suffix are absent -- val1000k is never touched.
+# full_holdout is unaffected by this (its own dataset/suffix stay set on the
+# base preset) and continues to evaluate normally.
+#
+# Only compose this into NEW, opt-in experiment configs. Do not add it to
+# the base shared preset or to any existing experiment config: doing so
+# would silently change the decision tier (and its ~10x per-generation eval
+# cost) for every other experiment that composes the base preset, including
+# the in-progress night controller A/B pair.
+#
+# samples_per_epoch_val must also move: Weaver only evaluates the *entire*
+# validation file per epoch when samples_per_epoch_val is unset or >= the
+# file's row count (weaver-core/weaver/train.py:142-148); otherwise it caps
+# each epoch to a random `steps_per_epoch_val = samples_per_epoch_val //
+# batch_size_val` subsample. The base preset sets 15000 to exactly cover
+# val5k_tail's full 15,000 events every generation -- left unchanged here,
+# each generation would silently evaluate only a ~10% random slice of the
+# new 150,000-event val50k_tail instead of the whole fixed proxy.
+shared:
+  validation_suffix: val50k_tail
+  samples_per_epoch_val: 150000
+  proxy_validation:
+    control_suffix: val50k_tail
+    control_rows_per_class: 50000
+    full_dataset: null
+    full_suffix: null
+    full_rows_per_class: null

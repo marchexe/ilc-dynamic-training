@@ -1,0 +1,44 @@
+schema_version: 1
+
+dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+data_config: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
+network_config: networks/pretrained_sgv_particle_transformer.py
+data_extension: parquet
+
+control_proxy_50k:
+  suffix: val50k_tail
+  expected_rows_per_class: 50000
+full_validation:
+  suffix: val_holdout
+  expected_rows_per_class_avg: 941708
+
+metric_name: validation_working_point_mistag_percent
+metric_mode: min
+metric_schema_version: 1
+
+batch_size: 1024
+num_workers: 1
+fetch_step: "0.01"
+amp_dtype: fp16
+
+slots:
+  - {host: iutgpu01, gpu: "0"}
+  - {host: iutgpu01, gpu: "1"}
+
+checkpoints:
+  - id: pretrained_base_epoch17
+    path: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+    source_run: null
+    provenance: null
+
+  - id: night_controller_active_global_best
+    path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_state.pt
+    source_run: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318
+    provenance: {type: global_best_metadata, path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_metadata.json}
+
+  - id: night_controller_active_lr14e6_epoch107
+    path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/lr_14e-6/net_epoch-107_state.pt
+    source_run: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318
+    provenance: {type: manifest_member, path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/manifest.json, member: lr_14e-6}
+
+output_root: runs/dev/proxy_audit_smoke

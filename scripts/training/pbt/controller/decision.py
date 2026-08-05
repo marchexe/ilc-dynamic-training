@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Turn a controller observation into a bounded LR action."""
 
+import math
+
 from training.pbt.metrics import clamp
 from training.pbt.models.controller import dump_controller_action
 
@@ -30,6 +32,20 @@ def oriented_delta(config, current, reference):
 
 
 def classify_observation(config, observation):
+    # `finite_metric_ok` (execution/backend.py) is what actually keeps a
+    # NaN/Inf metric from reaching this function today -- a worker with a
+    # non-finite metric is marked "failed" upstream and never gets an
+    # observation built at all. This is a second, independent guard: unlike
+    # NaN (whose `<`/`>` comparisons are always False, so it already falls
+    # through every branch below to "flat" harmlessly), +-Inf compares as a
+    # normal, genuine True/False -- e.g. baseline_delta of -inf trips the
+    # `< -tolerance` check just below and would select a real LR-decrease
+    # action from a garbage signal. Route any non-finite current metric
+    # straight to "flat" (-> "keep", never an active action) so this holds
+    # even if the upstream guard is ever bypassed by a future change.
+    metric_value = observation.get("metric_value")
+    if metric_value is None or not math.isfinite(float(metric_value)):
+        return "flat"
     controller = dynamic_controller_config(config) or {}
     tolerance = float(controller.get("metric_delta_tolerance", 0.0))
     noise_threshold = controller.get("noisy_metric_threshold")

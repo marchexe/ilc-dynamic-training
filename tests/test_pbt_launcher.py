@@ -307,6 +307,87 @@ class PBTLauncherTest(unittest.TestCase):
         self.assertAlmostEqual(config["population"][0]["start_lr"], 1.0e-5)
         self.assertAlmostEqual(config["population"][-1]["start_lr"], 6.0e-6)
 
+    def test_nightly_proxy_control50k_smoke_config_switches_to_val50k_tail_control(self):
+        """The 50k-control-proxy override is scoped to this one experiment
+        config only -- the base preset it composes must still resolve to
+        val5k_tail (checked above), proving this doesn't leak sideways into
+        the 11 other experiment configs that share that base preset."""
+        config = config_module.load_config(
+            namespace(
+                config=PROJECT_DIR / "configs/experiments/nightly_proxy_control50k_smoke.yaml",
+                experiment_name="unit_nightly_proxy_control50k_smoke",
+                gpus="0,1",
+                slots=None,
+                smoke=False,
+            )
+        )
+
+        shared = config["shared"]
+        self.assertEqual(shared["validation_suffix"], "val50k_tail")
+        proxy = shared["proxy_validation"]
+        self.assertEqual(proxy["control_suffix"], "val50k_tail")
+        self.assertEqual(proxy["control_rows_per_class"], 50000)
+        # monitor is untouched/inherited (still val50k_tail, unused since it
+        # isn't scheduled below) but full is explicitly retired for this
+        # experiment: the legacy overlapping val1000k tier must never be
+        # reachable through this config.
+        self.assertNotIn("full_dataset", proxy)
+        self.assertNotIn("full_suffix", proxy)
+        self.assertEqual(proxy["full_holdout_suffix"], "val_holdout")
+
+        tiered = config["pbt"]["tiered_validation"]
+        self.assertNotIn("monitor_interval_generations", tiered)
+
+    def test_proxy_control_50k_override_covers_full_val50k_tail_every_generation(self):
+        """The smoke experiment deliberately shrinks samples_per_epoch_val to
+        4500 for speed (checked above via its own resolved config), which
+        would mask a real bug: Weaver only evaluates an entire validation
+        file per epoch when samples_per_epoch_val is unset or >= the file's
+        row count (weaver-core/weaver/train.py:142-148) -- otherwise it caps
+        each epoch to a random subsample. This test composes the base preset
+        + proxy_control_50k_override.yaml alone, with nothing further
+        overriding samples_per_epoch_val, to confirm the override itself
+        sets it to 150000 (val50k_tail's exact full size), not just
+        val50k_tail's suffix -- so a real (non-smoke) experiment using this
+        override actually evaluates the whole fixed 50k proxy every
+        generation, not a random slice of it."""
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "proxy_control_50k_only.yaml"
+            base_preset = PROJECT_DIR / "configs/presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml"
+            override_preset = PROJECT_DIR / "configs/presets/shared/proxy_control_50k_override.yaml"
+            resources_preset = PROJECT_DIR / "configs/presets/resources/local_4gpu.yaml"
+            strategy_preset = PROJECT_DIR / "configs/presets/pbt/exploit_mutate_significance_tiered.yaml"
+            config_path.write_text(
+                "schema_version: 1\n"
+                "presets:\n"
+                f"  - {base_preset}\n"
+                f"  - {override_preset}\n"
+                f"  - {resources_preset}\n"
+                f"  - {strategy_preset}\n"
+                "experiment:\n"
+                "  output_root: runs/dev\n"
+                "  name: unit_proxy_control_50k_only\n"
+                "population:\n"
+                "  - name: unit_member_a\n"
+                "    start_lr: 6.0e-6\n"
+                "  - name: unit_member_b\n"
+                "    start_lr: 9.0e-6\n"
+            )
+            config = config_module.load_config(
+                namespace(
+                    config=config_path,
+                    experiment_name="unit_proxy_control_50k_only",
+                    gpus="0,1",
+                    slots=None,
+                    smoke=False,
+                )
+            )
+
+        shared = config["shared"]
+        self.assertEqual(shared["validation_suffix"], "val50k_tail")
+        self.assertEqual(shared["samples_per_epoch_val"], 150000)
+        self.assertEqual(shared["proxy_validation"]["control_rows_per_class"], 50000)
+
     def test_initial_evaluation_command_uses_initial_state_and_test_mode(self):
         config = pbt_smoke_config()
         config["shared"].update(
