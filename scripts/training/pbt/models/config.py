@@ -246,6 +246,20 @@ class PBTSection(StrictSectionModel):
     # *reporting* output, but that value was never actually consulted by the
     # runtime loop -- this field is what makes the interval real.
     exploit_interval_generations: int | None = Field(default=None, gt=0)
+    exploit_replacement_policy: Literal["fraction", "elitist"] = Field(
+        default="fraction",
+        description=(
+            "How ranking_and_plan() picks donors/recipients each exploit "
+            "cycle (exploit_mutate only). 'fraction' (default, unchanged "
+            "legacy behavior): classic truncation PBT -- the top "
+            "exploit_fraction of the ranking donates to the bottom "
+            "exploit_fraction; everyone else is left untouched. 'elitist': "
+            "the single best-ranked member donates to every other member "
+            "(each still independently LR-mutated and independently gated "
+            "by exploit_significance_sigma when set); exploit_fraction is "
+            "required by the schema but ignored under this policy."
+        ),
+    )
     anchored_weight_source: Literal["anchor", "self"] = "anchor"
     base_start_lr: float | None = None
     lr_factors: list[float] | None = None

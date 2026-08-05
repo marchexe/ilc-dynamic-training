@@ -141,6 +141,40 @@ class PBTAlgorithmTest(unittest.TestCase):
         self.assertEqual(len(plan), 1)
         self.assertIsNone(plan[0]["significance_margin_sigma"])
 
+    def test_elitist_replacement_policy_makes_best_donate_to_every_other_member(self):
+        config = pbt_smoke_config()
+        config["pbt"]["mode"] = "min"
+        config["pbt"]["metric"] = "validation_working_point_mistag_percent"
+        config["pbt"]["exploit_replacement_policy"] = "elitist"
+        generation = {
+            "index": 0,
+            "workers": {
+                "member_00": {"metrics": {"validation_working_point_mistag_percent": 1.20}},
+                "member_01": {"metrics": {"validation_working_point_mistag_percent": 0.90}},
+                "member_02": {"metrics": {"validation_working_point_mistag_percent": 1.10}},
+                "member_03": {"metrics": {"validation_working_point_mistag_percent": 1.05}},
+            },
+        }
+        members = {
+            "member_00": {"lr": 3.0e-6},
+            "member_01": {"lr": 6.0e-6},
+            "member_02": {"lr": 9.0e-6},
+            "member_03": {"lr": 1.4e-5},
+        }
+
+        ranking, plan = planning.ranking_and_plan(config, generation, members)
+
+        self.assertEqual(ranking[0], "member_01")
+        self.assertEqual(len(plan), 3)
+        self.assertEqual({entry["recipient"] for entry in plan}, {"member_00", "member_02", "member_03"})
+        for entry in plan:
+            self.assertEqual(entry["donor"], "member_01")
+            self.assertEqual(entry["donor_lr"], 6.0e-6)
+
+    def test_fraction_replacement_policy_stays_the_default(self):
+        config = pbt_smoke_config()
+        self.assertEqual(config["pbt"].get("exploit_replacement_policy"), "fraction")
+
     def test_raw_metric_ranking_is_a_plain_sort_unaffected_by_incumbent_persistence(self):
         config = pbt_smoke_config()
         config["pbt"]["mode"] = "max"
