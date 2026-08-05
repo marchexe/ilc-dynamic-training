@@ -21,6 +21,13 @@ from training.pbt.planning.anchored_lr_sweep import (
 from training.pbt.planning.dispatch import STRATEGY_PLANNERS, plan_for_strategy
 from training.pbt.planning.exploit_mutate import exploit_mutate_plan, exploit_significance, ranking_and_plan
 from training.pbt.planning.fixed_lr_grid import fixed_lr_grid_plan
+from training.pbt.planning.population_lr_policy import (
+    find_pending_decision,
+    infer_direction,
+    population_lr_policy_config,
+    population_lr_policy_plan,
+    tier_round_for_generation,
+)
 from training.pbt.planning.ranking import (
     confidence_aware_ranking,
     in_burn_in,
@@ -44,11 +51,15 @@ __all__ = [
     "exploit_mutate_plan",
     "exploit_significance",
     "factors_from_radius",
+    "find_pending_decision",
     "fixed_lr_grid_plan",
     "in_burn_in",
+    "infer_direction",
     "lr_factors_for_population",
     "metric_uncertainty",
     "plan_for_strategy",
+    "population_lr_policy_config",
+    "population_lr_policy_plan",
     "previous_lr_controller_record",
     "previous_lr_radius_record",
     "ranking_and_plan",
@@ -56,4 +67,5 @@ __all__ = [
     "should_apply_exploit",
     "smooth_lr_controller_state",
     "strategy_uses_population_rollbacks",
+    "tier_round_for_generation",
 ]

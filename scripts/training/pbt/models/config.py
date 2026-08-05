@@ -105,6 +105,38 @@ class DynamicControllerConfig(StrictSectionModel):
         return values
 
 
+class PopulationLrPolicyConfig(StrictSectionModel):
+    """Bidirectional, population-comparative LR policy (pbt.strategy ==
+    "population_lr_policy"): infer an up/down LR direction each time a fresh
+    proxy-tier round is available by comparing the best member above the
+    population's median LR against the best member below it, unconditionally
+    copy weights+optimizer from the winning half's best member to everyone
+    (no significance gate), and roll back to the pre-decision checkpoint if
+    the next round's best result is worse for the whole population than it
+    was before the change. Mutually exclusive with dynamic_controller/
+    exploit_mutate at runtime -- selecting this strategy leaves those
+    modules' code paths completely uninvoked, so the legacy
+    exploit_mutate + dynamic_controller behavior is unchanged when this
+    section is absent or mode: disabled.
+    """
+
+    mode: Literal["disabled", "active"] = "disabled"
+    # Which proxy_validation tier's already-scheduled tiered_evaluations
+    # round to decide on. "monitor" is the existing, much-larger-sample
+    # (e.g. 50k rows/class vs control's 5k) tier that this policy was
+    # designed around; using it costs nothing new -- it's already computed
+    # on tiered_validation.monitor_interval_generations cadence.
+    eval_tier: Literal["monitor", "full"] = "monitor"
+    up_factor: float = Field(default=1.1, gt=1.0)
+    down_factor: float = Field(default=0.9, gt=0.0, lt=1.0)
+    # Minimum combined-uncertainty sigma the winning half must clear before
+    # a direction is chosen; None disables the check (pure nominal
+    # comparison). Distinct from exploit_significance_sigma, which this
+    # strategy never reads -- the copy itself is never gated once a
+    # direction is chosen, only the direction choice is.
+    direction_sigma: float | None = Field(default=1.0, ge=0.0)
+
+
 class ProxyValidationConfig(StrictSectionModel):
     """Proxy-validation datasets used for physics-aware high-frequency control."""
 
@@ -224,7 +256,9 @@ class PBTSection(StrictSectionModel):
     rollback_fraction: float = Field(default=0.0, ge=0.0, le=0.5)
     controller_state_on_exploit: Literal["copy", "reset"] | None = None
     backend: Literal["local_weaver", "ray_weaver", "ray_tune"] | None = None
-    strategy: Literal["exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid"] | None = None
+    strategy: Literal[
+        "exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy"
+    ] | None = None
     confidence_aware_selection: bool = True
     selection_uncertainty_sigma: float | None = Field(default=1.0, gt=0.0)
     exploit_significance_sigma: float | None = Field(
@@ -266,6 +300,7 @@ class PBTSection(StrictSectionModel):
     lr_radius: LrRadiusConfig | None = None
     lr_controller: SmoothLrControllerConfig | None = None
     dynamic_controller: DynamicControllerConfig | None = None
+    population_lr_policy: PopulationLrPolicyConfig | None = None
     tiered_validation: TieredValidationConfig | None = None
     baseline_metric_value: float | None = None
     baseline_guard_tolerance: float | None = Field(default=None, ge=0.0, lt=1.0)
@@ -364,7 +399,9 @@ class ResolvedSharedSection(SharedSection):
 class ResolvedPBTSection(PBTSection):
     controller_state_on_exploit: Literal["copy", "reset"] = "copy"
     backend: Literal["local_weaver", "ray_weaver", "ray_tune"] = "local_weaver"
-    strategy: Literal["exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid"] = "exploit_mutate"
+    strategy: Literal[
+        "exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy"
+    ] = "exploit_mutate"
 
     @model_validator(mode="after")
     def validate_resolved_strategy_shape(self):

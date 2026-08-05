@@ -6,6 +6,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
+from training.pbt.state.checkpointing import population_lr_policy_snapshot_paths
+
 
 class ExploitEventBase(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -65,6 +67,65 @@ class GlobalBestRollbackEvent(ExploitEventBase):
         )
 
 
+class PopulationLrPolicyEvent(ExploitEventBase):
+    """One recipient's copy of a population_lr_policy directional decision:
+    weights+optimizer come from `donor` (the best member in the winning
+    LR-direction half), LR is the recipient's *own* previous LR scaled by
+    `factor` (not the donor's), so the population keeps a spread of LRs to
+    compare again at the next decision round. Every field needed to resolve
+    (accept/roll back) this decision later is carried here rather than in
+    separate mutable manifest state, so history can be reconstructed by
+    scanning `generation_record["exploit"]` the same way previous_anchor()/
+    last_action_epoch_fraction() already do for other planners.
+    """
+
+    source: Literal["population_lr_policy"] = "population_lr_policy"
+    direction: Literal["up", "down"]
+    factor: float
+    margin_sigma: float | None = None
+    decision_generation: int
+    decision_epoch: int
+    metric_before: float
+    eval_tier: str
+
+
+class PopulationLrPolicyResolutionEvent(ExploitEventBase):
+    """Resolves the population_lr_policy decision made at `decision_generation`:
+    "accepted" is a no-op copy (donor == recipient, same epoch) that just
+    confirms the LR already in effect; "rolled_back" restores the recipient's
+    own pre-decision checkpoint (`rollback_epoch`) and pre-decision LR.
+    """
+
+    source: Literal["population_lr_policy_resolution"] = "population_lr_policy_resolution"
+    outcome: Literal["accepted", "rolled_back"]
+    decision_generation: int
+    rollback_epoch: int
+    metric_before: float
+    metric_after: float
+
+    def donor_paths(self, experiment_dir, recipient_dir, epoch, manifest):
+        if self.outcome != "rolled_back":
+            return super().donor_paths(experiment_dir, recipient_dir, epoch, manifest)
+        # The plain net_epoch-{rollback_epoch}_* path is the *donor copy's*
+        # destination from the decision being undone, not the recipient's
+        # own pre-decision state -- that was snapshotted separately (see
+        # apply_exploit's population_lr_policy special case) precisely
+        # because this same path is what the forward decision overwrote.
+        snapshot_state, snapshot_optimizer = population_lr_policy_snapshot_paths(
+            Path(recipient_dir), self.rollback_epoch
+        )
+        return (
+            snapshot_state,
+            snapshot_optimizer,
+            Path(recipient_dir) / f"net_epoch-{self.rollback_epoch}_controller.pt",
+        )
+
+    def parent_update(self):
+        if self.outcome != "rolled_back":
+            return {"parent": self.donor, "parent_source": self.source}
+        return {"parent": None, "parent_source": "population_lr_policy_rollback"}
+
+
 class InitialResumeRollbackEvent(ExploitEventBase):
     source: Literal["initial_resume"]
     mutation_factor: float
@@ -95,7 +156,9 @@ ExploitEvent = Annotated[
     PopulationExploitEvent
     | AnchoredLrSweepEvent
     | GlobalBestRollbackEvent
-    | InitialResumeRollbackEvent,
+    | InitialResumeRollbackEvent
+    | PopulationLrPolicyEvent
+    | PopulationLrPolicyResolutionEvent,
     Field(discriminator="source"),
 ]
 ExploitEventAdapter = TypeAdapter(ExploitEvent)

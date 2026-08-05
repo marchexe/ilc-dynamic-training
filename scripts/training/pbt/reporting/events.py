@@ -254,6 +254,12 @@ def record_exploit_application(
         "reason": event.get("reason"),
         "source": event.get("source"),
         "applied": event.get("applied"),
+        # population_lr_policy-only fields; None for every other source.
+        "direction": event.get("direction"),
+        "margin_sigma": event.get("margin_sigma"),
+        "outcome": event.get("outcome"),
+        "metric_before": event.get("metric_before"),
+        "metric_after": event.get("metric_after"),
     }
     append_event(run_dir, "exploit", payload)
     append_event(

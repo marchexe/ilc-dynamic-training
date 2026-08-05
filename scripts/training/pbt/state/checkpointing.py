@@ -52,6 +52,17 @@ def checkpoint_paths(member_dir, epoch):
 def controller_checkpoint_path(member_dir, epoch):
     return member_dir / f"net_epoch-{epoch}_controller.pt"
 
+def population_lr_policy_snapshot_paths(member_dir, epoch):
+    """Path for a recipient's own pre-copy checkpoint, snapshotted right
+    before a population_lr_policy donor copy overwrites net_epoch-{epoch}_*
+    in place. Without this, a rollback would have nothing distinct from the
+    donor's state to restore -- the plain per-epoch path is the copy
+    destination itself, so it no longer holds the recipient's own state by
+    the time a rollback might need it.
+    """
+    prefix = member_dir / f"net_epoch-{epoch}_population_lr_policy_pre"
+    return Path(f"{prefix}_state.pt"), Path(f"{prefix}_optimizer.pt")
+
 def bootstrap_initial_checkpoint(config, member_dir):
     shared = config["shared"]
     if not shared.get("initial_state"):

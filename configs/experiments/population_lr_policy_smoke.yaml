@@ -1,0 +1,36 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/population_lr_policy_monitor.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: population_lr_policy_smoke
+
+# Real end-to-end verification run (not a unit test): small enough to
+# finish in minutes on 4 GPUs, but every phase (control eval every
+# generation, monitor eval -- the 50k-rows/class tier -- every other
+# generation, forward decision, accept/rollback resolution) is exercised for
+# real against the real proxy-validation datasets, not synthetic fixtures.
+shared:
+  generations: 7
+  samples_per_epoch: 4096
+  freeze_batch_norm: true
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5
+
+pbt:
+  burn_in_generations: 0
+  early_stop_degraded_generations: 0
+  tiered_validation:
+    monitor_interval_generations: 2
+    evaluate_initial_checkpoint_all_tiers: false

@@ -1,0 +1,57 @@
+schema_version: 1
+
+# Bidirectional, population-comparative LR policy (see
+# scripts/training/pbt/planning/population_lr_policy.py). Every time a fresh
+# monitor-tier round is available (50k rows/class via
+# proxy_validation.monitor_rows_per_class in the shared proxy-control
+# preset -- see monitor_interval_generations below), this strategy:
+#   1. resolves the previous decision: if the population's best monitor
+#      result is no worse than it was right before that decision, confirms
+#      it (no-op); if every member is now worse, rolls every member back to
+#      its own pre-decision checkpoint + LR;
+#   2. only then, using this same round, compares the best member above the
+#      population's median LR against the best member below it and, if the
+#      gap clears direction_sigma combined uncertainty, scales every
+#      member's own LR up or down and copies weights+optimizer from the
+#      winning half's best member to everyone -- unconditionally, with no
+#      significance gate on the copy itself (unlike exploit_mutate).
+#
+# This replaces exploit_mutate + dynamic_controller entirely when active;
+# neither is read by this strategy. exploit_fraction/mutation_factors below
+# are unused placeholders -- the PBT config schema still requires them
+# regardless of pbt.strategy.
+pbt:
+  backend: local_weaver
+  strategy: population_lr_policy
+  exploit_fraction: 0.25
+  mutation_factors: [1.0]
+
+  metric: validation_working_point_mistag_percent
+  mode: min
+  baseline_metric_value: 1.1400000057487494
+  baseline_guard_tolerance: 0.0
+  baseline_guard_action: observe
+  baseline_guard_reject_global_best: true
+  baseline_guard_seed_initial_best: true
+
+  min_lr: 3.0e-6
+  max_lr: 1.4e-5
+  degradation_tolerance: 0.01
+  degradation_window: 2
+  rollback_fraction: 0.0
+  early_stop_degraded_generations: 6
+
+  burn_in_generations: 2
+  seed: 2026
+
+  population_lr_policy:
+    mode: active
+    eval_tier: monitor
+    up_factor: 1.1
+    down_factor: 0.9
+    direction_sigma: 1.0
+
+  tiered_validation:
+    monitor_interval_generations: 4
+    full_interval_generations: 16
+    evaluate_initial_checkpoint_all_tiers: true
