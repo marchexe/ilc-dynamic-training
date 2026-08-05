@@ -1,0 +1,368 @@
+{
+  "controller_path": "/data/suehara/part/march/runs/pbt/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_controller.pt",
+  "epoch": 85,
+  "generation": 67,
+  "lr": 7.91914493770312e-06,
+  "member": "lr_6e-6",
+  "metadata_path": "/data/suehara/part/march/runs/pbt/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_metadata.json",
+  "metric": "validation_working_point_mistag_percent",
+  "metric_value": 0.9542436148038465,
+  "metrics": {
+    "train_accuracy": 0.89016,
+    "train_amp_skipped_optimizer_steps": 0,
+    "train_loaded_optimizer_lr": 7.91914e-06,
+    "train_loss": 0.29056,
+    "train_max_cuda_memory_mb": 21493.0,
+    "train_max_grad_norm": 0.38806,
+    "validation_accuracy": 0.89104,
+    "validation_auc": 0.9723670403822956,
+    "validation_b_tag_rejection_score": 6.96058034439331,
+    "validation_bc_mistag_eff_0.80_percent": 0.166631951676734,
+    "validation_bc_mistag_eff_0.90_percent": 2.999375053919048,
+    "validation_bd_mistag_eff_0.80_percent": 0.04194630872483222,
+    "validation_bd_mistag_eff_0.90_percent": 0.16778523489932887,
+    "validation_bkg_rejection_at_eff": {
+      "efficiencies": [
+        0.2,
+        0.3,
+        0.4,
+        0.5,
+        0.6,
+        0.7,
+        0.8,
+        0.9,
+        1.0
+      ],
+      "pairs": {
+        "bc": [
+          4802.0,
+          4802.0,
+          4802.0,
+          4802.0,
+          4801.0,
+          2400.5,
+          600.125,
+          33.34027862548828,
+          1.1784486770629883
+        ],
+        "bd": [
+          4769.0,
+          4769.0,
+          4769.0,
+          4769.0,
+          4768.0,
+          4768.0,
+          2384.0,
+          596.0,
+          1.0719424486160278
+        ],
+        "cb": [
+          2383.5,
+          681.0,
+          317.79998779296875,
+          227.0,
+          148.96875,
+          67.1408462524414,
+          36.953487396240234,
+          18.05681800842285,
+          2.4997377395629883
+        ],
+        "cd": [
+          4769.0,
+          4769.0,
+          4769.0,
+          4768.0,
+          953.5999755859375,
+          366.76922607421875,
+          91.69230651855469,
+          6.930232524871826,
+          1.0460728406906128
+        ]
+      }
+    },
+    "validation_bkg_rejection_at_eff_counts": {
+      "bc": [
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 4801,
+          "signal_efficiency": 0.20000000298023224
+        },
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 4801,
+          "signal_efficiency": 0.30000001192092896
+        },
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 4801,
+          "signal_efficiency": 0.4000000059604645
+        },
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 4801,
+          "signal_efficiency": 0.5
+        },
+        {
+          "background_efficiency": 0.00020828993959591752,
+          "background_passed": 1,
+          "background_total": 4801,
+          "signal_efficiency": 0.6000000238418579
+        },
+        {
+          "background_efficiency": 0.00041657987919183504,
+          "background_passed": 2,
+          "background_total": 4801,
+          "signal_efficiency": 0.699999988079071
+        },
+        {
+          "background_efficiency": 0.0016663195167673402,
+          "background_passed": 8,
+          "background_total": 4801,
+          "signal_efficiency": 0.800000011920929
+        },
+        {
+          "background_efficiency": 0.029993751301812123,
+          "background_passed": 144,
+          "background_total": 4801,
+          "signal_efficiency": 0.8999999761581421
+        },
+        {
+          "background_efficiency": 0.8485732139137679,
+          "background_passed": 4074,
+          "background_total": 4801,
+          "signal_efficiency": 1.0
+        }
+      ],
+      "bd": [
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 4768,
+          "signal_efficiency": 0.20000000298023224
+        },
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 4768,
+          "signal_efficiency": 0.30000001192092896
+        },
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 4768,
+          "signal_efficiency": 0.4000000059604645
+        },
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 4768,
+          "signal_efficiency": 0.5
+        },
+        {
+          "background_efficiency": 0.00020973154362416107,
+          "background_passed": 1,
+          "background_total": 4768,
+          "signal_efficiency": 0.6000000238418579
+        },
+        {
+          "background_efficiency": 0.00020973154362416107,
+          "background_passed": 1,
+          "background_total": 4768,
+          "signal_efficiency": 0.699999988079071
+        },
+        {
+          "background_efficiency": 0.00041946308724832214,
+          "background_passed": 2,
+          "background_total": 4768,
+          "signal_efficiency": 0.800000011920929
+        },
+        {
+          "background_efficiency": 0.0016778523489932886,
+          "background_passed": 8,
+          "background_total": 4768,
+          "signal_efficiency": 0.8999999761581421
+        },
+        {
+          "background_efficiency": 0.9328859060402684,
+          "background_passed": 4448,
+          "background_total": 4768,
+          "signal_efficiency": 1.0
+        }
+      ],
+      "cb": [
+        {
+          "background_efficiency": 0.0004195510803440319,
+          "background_passed": 2,
+          "background_total": 4767,
+          "signal_efficiency": 0.20000000298023224
+        },
+        {
+          "background_efficiency": 0.0014684287812041115,
+          "background_passed": 7,
+          "background_total": 4767,
+          "signal_efficiency": 0.30000001192092896
+        },
+        {
+          "background_efficiency": 0.0031466331025802393,
+          "background_passed": 15,
+          "background_total": 4767,
+          "signal_efficiency": 0.4000000059604645
+        },
+        {
+          "background_efficiency": 0.004405286343612335,
+          "background_passed": 21,
+          "background_total": 4767,
+          "signal_efficiency": 0.5
+        },
+        {
+          "background_efficiency": 0.00671281728550451,
+          "background_passed": 32,
+          "background_total": 4767,
+          "signal_efficiency": 0.6000000238418579
+        },
+        {
+          "background_efficiency": 0.014894063352213133,
+          "background_passed": 71,
+          "background_total": 4767,
+          "signal_efficiency": 0.699999988079071
+        },
+        {
+          "background_efficiency": 0.027061044682190057,
+          "background_passed": 129,
+          "background_total": 4767,
+          "signal_efficiency": 0.800000011920929
+        },
+        {
+          "background_efficiency": 0.05538074260541221,
+          "background_passed": 264,
+          "background_total": 4767,
+          "signal_efficiency": 0.8999999761581421
+        },
+        {
+          "background_efficiency": 0.4000419551080344,
+          "background_passed": 1907,
+          "background_total": 4767,
+          "signal_efficiency": 1.0
+        }
+      ],
+      "cd": [
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 4768,
+          "signal_efficiency": 0.20000000298023224
+        },
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 4768,
+          "signal_efficiency": 0.30000001192092896
+        },
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 4768,
+          "signal_efficiency": 0.4000000059604645
+        },
+        {
+          "background_efficiency": 0.00020973154362416107,
+          "background_passed": 1,
+          "background_total": 4768,
+          "signal_efficiency": 0.5
+        },
+        {
+          "background_efficiency": 0.0010486577181208054,
+          "background_passed": 5,
+          "background_total": 4768,
+          "signal_efficiency": 0.6000000238418579
+        },
+        {
+          "background_efficiency": 0.002726510067114094,
+          "background_passed": 13,
+          "background_total": 4768,
+          "signal_efficiency": 0.699999988079071
+        },
+        {
+          "background_efficiency": 0.010906040268456376,
+          "background_passed": 52,
+          "background_total": 4768,
+          "signal_efficiency": 0.800000011920929
+        },
+        {
+          "background_efficiency": 0.14429530201342283,
+          "background_passed": 688,
+          "background_total": 4768,
+          "signal_efficiency": 0.8999999761581421
+        },
+        {
+          "background_efficiency": 0.9559563758389261,
+          "background_passed": 4558,
+          "background_total": 4768,
+          "signal_efficiency": 1.0
+        }
+      ]
+    },
+    "validation_bkg_rejection_at_eff_lookup": {
+      "b_tag_eff_0.50": {
+        "c_bkg_rejection": 4802.0,
+        "d_bkg_rejection": 4769.0
+      },
+      "b_tag_eff_0.80": {
+        "c_bkg_rejection": 600.125,
+        "d_bkg_rejection": 2384.0
+      },
+      "b_tag_eff_0.90": {
+        "c_bkg_rejection": 33.34027862548828,
+        "d_bkg_rejection": 596.0
+      },
+      "b_tag_eff_1.00": {
+        "c_bkg_rejection": 1.1784486770629883,
+        "d_bkg_rejection": 1.0719424486160278
+      },
+      "c_tag_eff_0.50": {
+        "b_bkg_rejection": 227.0,
+        "d_bkg_rejection": 4768.0
+      },
+      "c_tag_eff_0.80": {
+        "b_bkg_rejection": 36.953487396240234,
+        "d_bkg_rejection": 91.69230651855469
+      },
+      "c_tag_eff_0.90": {
+        "b_bkg_rejection": 18.05681800842285,
+        "d_bkg_rejection": 6.930232524871826
+      },
+      "c_tag_eff_1.00": {
+        "b_bkg_rejection": 2.4997377395629883,
+        "d_bkg_rejection": 1.0460728406906128
+      }
+    },
+    "validation_bkg_rejection_bc_score": 6.692807337547861,
+    "validation_bkg_rejection_bd_score": 7.2283533512387566,
+    "validation_bkg_rejection_cb_score": 4.679573127914319,
+    "validation_bkg_rejection_cd_score": 5.904856657421723,
+    "validation_bkg_rejection_score": 6.126397618530665,
+    "validation_c_tag_rejection_score": 5.292214892668021,
+    "validation_cb_mistag_eff_0.50_percent": 0.44052863436123346,
+    "validation_cb_mistag_eff_0.80_percent": 2.706104539680721,
+    "validation_cd_mistag_eff_0.50_percent": 0.02097315436241611,
+    "validation_cd_mistag_eff_0.80_percent": 1.0906040408064572,
+    "validation_ctag_reference_mistag_percent": 1.0645525923027068,
+    "validation_ctag_reference_mistag_percent_uncertainty": 0.07394909498129366,
+    "validation_ctag_reference_mistag_percent_uncertainty_points": 4,
+    "validation_loss": 0.29,
+    "validation_shutdown_warning": false,
+    "validation_working_point_mistag_percent": 0.9542436148038465,
+    "validation_working_point_mistag_percent_uncertainty": 0.04936362011355291,
+    "validation_working_point_mistag_percent_uncertainty_points": 8
+  },
+  "optimizer_path": "/data/suehara/part/march/runs/pbt/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_optimizer.pt",
+  "source_controller_path": null,
+  "source_optimizer_path": "/data/suehara/part/march/runs/pbt/pretrained_pbt_4gpu_night_controller_active_20260805_015318/lr_6e-6/net_epoch-85_optimizer.pt",
+  "source_state_path": "/data/suehara/part/march/runs/pbt/pretrained_pbt_4gpu_night_controller_active_20260805_015318/lr_6e-6/net_epoch-85_state.pt",
+  "state_path": "/data/suehara/part/march/runs/pbt/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_state.pt",
+  "updated_at": "2026-08-04T20:28:18.157825+00:00"
+}

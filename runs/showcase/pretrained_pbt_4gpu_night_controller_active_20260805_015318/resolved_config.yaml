@@ -1,0 +1,133 @@
+schema_version: 1
+config_path: /data/suehara/part/march/configs/experiments/pretrained_pbt_4gpu_night_controller_active.yaml
+experiment_name: pretrained_pbt_4gpu_night_controller_active_20260805_015318
+output_root: /data/suehara/part/march/runs/pbt
+shared:
+  dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  validation_dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  checkpoint: /data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+  data_config: /data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
+  network_config: /data/suehara/part/march/networks/pretrained_sgv_particle_transformer.py
+  seed: 12345
+  generations: 266
+  epochs_per_generation: 1
+  samples_per_epoch: 20000
+  samples_per_epoch_val: 15000
+  batch_size: 1024
+  optimizer: ranger
+  lr_scheduler: none
+  num_workers: 1
+  fetch_step: 0.01
+  use_amp: true
+  amp_dtype: fp16
+  no_remake_weights: true
+  freeze_batch_norm: true
+  proxy_validation:
+    manifest: /data/suehara/part/march/datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json
+    active_subset: control
+    control_dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    monitor_dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    full_dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    full_holdout_dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    train_suffix: train800k
+    control_suffix: val5k_tail
+    monitor_suffix: val50k_tail
+    full_suffix: val1000k
+    full_holdout_suffix: val_holdout
+    control_rows_per_class: 5000
+    monitor_rows_per_class: 50000
+    full_rows_per_class: 1000000
+    full_holdout_rows_per_class: 941708
+    strategy: disjoint_tail_windows_from_full_validation
+  data_extension: parquet
+  train_suffix: train800k
+  validation_suffix: val5k_tail
+  initial_epoch: 17
+  initial_state: /data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+  initial_optimizer: /data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
+  initial_optimizer_mode: damped
+  initial_optimizer_damping: 0.25
+  prefetch_factor: 4
+gpus:
+- '4'
+- '5'
+- '6'
+- '7'
+slots:
+- host: iutgpu01
+  gpu: '4'
+  label: iutgpu01:4
+- host: iutgpu01
+  gpu: '5'
+  label: iutgpu01:5
+- host: iutgpu01
+  gpu: '6'
+  label: iutgpu01:6
+- host: iutgpu01
+  gpu: '7'
+  label: iutgpu01:7
+population:
+- name: lr_3e-6
+  start_lr: 3.0e-06
+- name: lr_6e-6
+  start_lr: 6.0e-06
+- name: lr_9e-6
+  start_lr: 9.0e-06
+- name: lr_14e-6
+  start_lr: 1.4e-05
+pbt:
+  metric: validation_working_point_mistag_percent
+  mode: min
+  exploit_fraction: 0.25
+  mutation_factors:
+  - 0.8
+  - 0.9
+  - 1.1
+  - 1.2
+  min_lr: 3.0e-06
+  max_lr: 1.4e-05
+  seed: 2026
+  degradation_tolerance: 0.01
+  degradation_window: 2
+  early_stop_degraded_generations: 22
+  rollback_fraction: 0.0
+  controller_state_on_exploit: reset
+  backend: local_weaver
+  strategy: exploit_mutate
+  confidence_aware_selection: true
+  selection_uncertainty_sigma: 1.0
+  exploit_significance_sigma: 1.0
+  burn_in_generations: 2
+  exploit_interval_generations: 3
+  anchored_weight_source: anchor
+  dynamic_controller:
+    mode: active
+    evaluate_initial_checkpoint: true
+    allowed_actions:
+    - keep
+    - lr_mul_0_95
+    - lr_mul_0_9
+    - lr_mul_1_05
+    - lr_mul_1_1
+    - flag_review
+    metric_delta_tolerance: 0.0
+    ema_beta: 0.7
+    trend_window: 3
+    noisy_metric_threshold: 0.04
+    min_delta_sigma_for_action: 0.5
+    eval_interval_fraction: 0.2
+    action_interval_fraction: 0.2
+    generation_epoch_fraction: 0.2
+    max_cumulative_lr_factor_per_epoch: 2.0
+  tiered_validation:
+    monitor_interval_generations: 2
+    full_interval_generations: 6
+    evaluate_initial_checkpoint_all_tiers: true
+  baseline_metric_value: 1.1400000057487494
+  baseline_guard_tolerance: 0.0
+  baseline_guard_action: observe
+  baseline_guard_reject_global_best: true
+  baseline_guard_seed_initial_best: true
+  configured_baseline_metric_value: 1.1400000057487494
+  runtime_baseline_metric_value: 1.1400000057487494
+smoke: false

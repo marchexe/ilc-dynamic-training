@@ -1,0 +1,8 @@
+{
+  "damping_factor": 0.25,
+  "destination_optimizer": "/data/suehara/part/march/runs/pbt/pretrained_pbt_4gpu_night_controller_active_20260805_015318/lr_6e-6/net_epoch-17_optimizer.pt",
+  "initial_epoch": 17,
+  "mode": "damped",
+  "source_optimizer": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt",
+  "transformed": true
+}

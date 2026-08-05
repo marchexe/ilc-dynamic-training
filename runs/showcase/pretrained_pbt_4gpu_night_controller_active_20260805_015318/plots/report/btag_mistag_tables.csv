@@ -1,0 +1,3 @@
+fixed_tag,label,generation,member,c_bkg_percent,d_bkg_percent
+b_eff_0.80,pretrained_pbt_4gpu_night_controller_active_20260805_015318,67,lr_6e-6,0.166631951676734,0.04194630872483222
+b_eff_0.90,pretrained_pbt_4gpu_night_controller_active_20260805_015318,67,lr_6e-6,2.999375053919048,0.16778523489932887
