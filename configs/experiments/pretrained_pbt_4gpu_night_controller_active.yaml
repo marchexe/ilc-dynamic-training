@@ -1,0 +1,42 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/exploit_mutate_significance_tiered.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: pretrained_pbt_4gpu_night_controller_active
+
+# A/B pair with pretrained_pbt_4gpu_night_controller_off.yaml -- see that
+# file for the full rationale (why the daytime run's controller was inert,
+# the measured metric_delta_sigma/metric_noise distributions that motivated
+# min_delta_sigma_for_action/noisy_metric_threshold, and the generations=266
+# / ~10h timing derivation from today's actual 4-GPU measurements). The ONLY
+# intended semantic difference between the two resolved configs remains
+# pbt.dynamic_controller.mode (active here, disabled in the *_off sibling);
+# `mode: active` is explicit here purely so the two files read symmetrically.
+shared:
+  generations: 266
+  samples_per_epoch: 20000
+  freeze_batch_norm: true
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5
+
+pbt:
+  early_stop_degraded_generations: 22
+  dynamic_controller:
+    mode: active
+    min_delta_sigma_for_action: 0.5
+    noisy_metric_threshold: 0.04
+  tiered_validation:
+    monitor_interval_generations: 2
+    full_interval_generations: 6

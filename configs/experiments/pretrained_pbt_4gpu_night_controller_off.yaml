@@ -1,0 +1,77 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/exploit_mutate_significance_tiered.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: pretrained_pbt_4gpu_night_controller_off
+
+# Follow-up to the daytime A/B pair (pretrained_pbt_4gpu_long_controller_off/
+# active.yaml, run 20260804_191709). That run finished in ~62 minutes instead
+# of the targeted ~4h -- early_stop_degraded_generations=6 fired in both legs
+# around generation 25 -- and, more importantly, the active leg's
+# dynamic_controller made ZERO real LR interventions the entire run
+# (controller_lr_change count = 0): from generation ~8 onward every member's
+# state_label was "noisy" every generation, because min_delta_sigma_for_action
+# (1.0) and noisy_metric_threshold (0.02) were both stricter than the actual
+# observed values on this proxy metric. Measured directly from that run's
+# controller_observations: metric_delta_sigma clustered mostly in [-0.7, 0.7]
+# (rarely reaching 1.0), and metric_noise mostly in [0.01, 0.045] (frequently
+# above 0.02). So today's A/B did not actually test "controller on vs off" --
+# it tested two PBT runs on different physical GPUs with an inert controller.
+#
+# This pair (A/B with pretrained_pbt_4gpu_night_controller_active.yaml) tunes
+# exactly three fields relative to the daytime configs, all inherited
+# identically between this file and its *_active sibling except
+# dynamic_controller.mode (same invariant as the daytime pair -- verify with
+# a resolved-config diff before launching):
+#   - pbt.dynamic_controller.min_delta_sigma_for_action: 1.0 -> 0.5
+#   - pbt.dynamic_controller.noisy_metric_threshold: 0.02 -> 0.04
+#     (both loosened so real single-generation deltas actually clear the gate
+#     on this proxy metric's real noise floor, based on tonight's measured
+#     distributions above -- not a guess)
+#   - pbt.early_stop_degraded_generations: 6 -> 22
+#     (a real safety net against genuine divergence, not a trip-wire that
+#     ends an overnight run after one noisy hour, as happened today)
+# Population, checkpoint/optimizer resume, freeze_batch_norm, seed,
+# samples_per_epoch, datasets, validation tiers, PBT strategy/exploit
+# cadence/mutation factors/uncertainty settings, and baseline guard are all
+# unchanged from the daytime pair.
+#
+# generations=266 is sized from the ACTUAL measured 4-GPU/4-member timing of
+# today's daytime run (not an 8-GPU extrapolation this time): mean 131.2s/gen
+# (off) and 136.6s/gen (active), average ~134s/gen, including the periodic
+# full/full_holdout tiered-eval rounds at the same cadence kept below;
+# ~281s average one-time bootstrap/initial-evaluation overhead; +60s buffer
+# for canonical-artifact writeout at 266 generations' worth of rows:
+# 282 + 266*134 + 60 =~ 35984s =~ 10.0h. Target duration (10h) is an
+# assumption, not a spec -- scale `generations` linearly for a different
+# overnight length. Raising early_stop_degraded_generations to 22 makes it
+# far less likely to cut the run short again, but does not guarantee all 266
+# generations run if the population genuinely never recovers.
+shared:
+  generations: 266
+  samples_per_epoch: 20000
+  freeze_batch_norm: true
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5
+
+pbt:
+  early_stop_degraded_generations: 22
+  dynamic_controller:
+    mode: disabled
+    min_delta_sigma_for_action: 0.5
+    noisy_metric_threshold: 0.04
+  tiered_validation:
+    monitor_interval_generations: 2
+    full_interval_generations: 6
