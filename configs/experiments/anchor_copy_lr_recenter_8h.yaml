@@ -1,0 +1,43 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/shared/proxy_control_50k_override.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/anchor_copy_lr_recenter.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: anchor_copy_lr_recenter_8h
+
+# 8-hour-budget variant of anchor_copy_lr_recenter_50k.yaml: identical in
+# every respect (full samples_per_epoch, full fixed control_proxy_50k every
+# generation, full_interval_generations: 16) except shared.generations,
+# which is lowered from 96 to 48 so the run fits inside an ~8h compute
+# window. 48 is a clean multiple of full_interval_generations (16), so
+# full_holdout fires at generations 16/32/48 (3 periodic rounds) plus the
+# evaluate_initial_checkpoint_all_tiers initial-checkpoint round -- 4
+# full_holdout evaluations total, with no partial trailing cycle.
+#
+# Sizing basis: pretrained_pbt_4gpu_night_controller_off_20260805_015318
+# (same iutgpu01 4x A100-SXM4-40GB hardware) measured a ~65s median
+# non-tiered generation at samples_per_epoch=20000/samples_per_epoch_val=
+# 15000. Scaling linearly by total per-generation event count to this
+# config's samples_per_epoch=120000/samples_per_epoch_val=150000
+# (270000/35000 ~= 7.7x) gives ~500s/generation, plus ~223s for each
+# full_holdout round (measured: 2,825,125-event val_holdout pass takes
+# ~223s). 48 * 500s + 3 * 223s =~ 24,700s (~6.9h) -- comfortably inside
+# the 8h budget with headroom for subprocess/data-loading overhead this
+# linear estimate doesn't capture. For the full 96-generation run instead,
+# see anchor_copy_lr_recenter_50k.yaml.
+shared:
+  generations: 48
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5
