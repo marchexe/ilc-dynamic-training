@@ -266,6 +266,38 @@ def _bkg_rejection_lookup(curves):
     return lookup or None
 
 
+def geometric_mistag_score(x1, x2, x3, x4):
+    """(x1 * x2 * x3 * x4) ** 0.25 -- the four-case geometric-mean mistag
+    score used by anchor_copy_lr_recenter's model selection. Lower is
+    better, same convention as every other mistag-percent metric in this
+    file. All four inputs must be finite, non-negative numbers (a mistag
+    percentage is never negative and never inf/NaN in a valid result) --
+    reject anything else rather than silently coercing it. Zero is a
+    legitimate input (a perfect working point) and needs no epsilon
+    substitution: plain multiplication makes the product (and therefore the
+    score) exactly 0.0 without ever dividing by or taking the log of an
+    input, so there is no zero-related singularity to guard against here.
+    """
+    values = (x1, x2, x3, x4)
+    if any(value is None for value in values):
+        raise ValueError("geometric_mistag_score requires four non-None values")
+    numeric = [float(value) for value in values]
+    for value in numeric:
+        if not math.isfinite(value):
+            raise ValueError("geometric_mistag_score inputs must be finite (no NaN/inf)")
+        if value < 0:
+            raise ValueError("geometric_mistag_score inputs must be non-negative")
+    product = numeric[0] * numeric[1] * numeric[2] * numeric[3]
+    return product, product ** 0.25
+
+
+# The four working points anchor_copy_lr_recenter's mistag_score is built
+# from, in x1..x4 order -- a subset of CTAG_REFERENCE_WORKING_POINTS below,
+# all c-tag mistag percentages (same unit, same tagger), never mixed with
+# b-tag values.
+GEOMETRIC_MISTAG_WORKING_POINTS = (("cb", 0.5), ("cd", 0.5), ("cb", 0.8), ("cd", 0.8))
+
+
 def _mistags_for_working_points(curves, working_points):
     pairs = curves["pairs"]
     efficiencies = curves["efficiencies"]
@@ -300,6 +332,28 @@ def _working_point_metrics(curves):
     out["validation_ctag_reference_mistag_percent"] = (
         sum(ctag_mistags) / len(ctag_mistags) if ctag_mistags else None
     )
+
+    # x1..x4 for anchor_copy_lr_recenter's geometric mistag_score, aliased
+    # from the per-point values already computed above (GEOMETRIC_MISTAG_
+    # WORKING_POINTS is a subset of WORKING_POINT_DEFINITION) so the x1-x4
+    # mapping is self-documenting in the metrics dict itself, not something
+    # a reader has to cross-reference against WORKING_POINT_DEFINITION's
+    # ordering to recover. A working point genuinely absent from this
+    # checkpoint's curves (out[key] is None) is a normal partial-eval
+    # outcome here, not invalid input -- skip the score rather than raise.
+    x_keys = [
+        f"validation_{pair}_mistag_eff_{eff:.2f}_percent" for pair, eff in GEOMETRIC_MISTAG_WORKING_POINTS
+    ]
+    x_values = [out.get(key) for key in x_keys]
+    for label, value in zip(("x1", "x2", "x3", "x4"), x_values):
+        out[f"validation_mistag_geometric_score_{label}_percent"] = value
+    if all(value is not None for value in x_values):
+        product, score = geometric_mistag_score(*x_values)
+        out["validation_mistag_geometric_score_product"] = product
+        out["validation_mistag_geometric_score_percent"] = score
+    else:
+        out["validation_mistag_geometric_score_product"] = None
+        out["validation_mistag_geometric_score_percent"] = None
     return out
 
 

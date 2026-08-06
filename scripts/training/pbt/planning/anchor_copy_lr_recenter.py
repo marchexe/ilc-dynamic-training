@@ -120,11 +120,13 @@ def assign_lr_spread(center, multipliers, min_lr, max_lr, member_order):
     """Deterministic per-member LR = clamp(center * multiplier). Never a
     per-member scale of that member's own previous LR -- every stream's
     next LR is derived from the one shared center, matching the "true
-    common LR center" requirement."""
-    return {
-        name: clamp(center * multiplier, min_lr, max_lr)
-        for name, multiplier in zip(member_order, multipliers)
-    }
+    common LR center" requirement. Returns (clamped, unclamped) dicts --
+    both recorded so a collapsed spread (see detect_spread_collapse) can be
+    explained from the manifest alone, without cross-referencing
+    spread_multipliers/min_lr/max_lr from the resolved config."""
+    unclamped = {name: center * multiplier for name, multiplier in zip(member_order, multipliers)}
+    clamped = {name: clamp(value, min_lr, max_lr) for name, value in unclamped.items()}
+    return clamped, unclamped
 
 
 def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=None):
@@ -155,18 +157,18 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
 
     min_lr = float(config["pbt"]["min_lr"])
     max_lr = float(config["pbt"]["max_lr"])
-    center_step_fraction = float(policy.get("center_step_fraction", 0.3))
 
     if decision == "rewound_to_previous_anchor":
         # Restored, not moved: this generation's result carries no
         # information we act on for the center when it's being rejected.
         new_center = float(anchor["lr_center"])
     else:
-        # accepted_new_anchor and reused_previous_anchor move the center
-        # identically -- the winner's LR still carries information about
-        # which LR performed best even when its checkpoint isn't (yet)
-        # better enough to replace the anchor outright.
-        new_center = clamp(prev_center + center_step_fraction * (winner_lr - prev_center), min_lr, max_lr)
+        # accepted_new_anchor and reused_previous_anchor both set the
+        # center to exactly the winner's own LR -- no damping/blending
+        # toward it. Direction is never inferred separately: it falls out
+        # naturally from whether winner_lr sits above, below, or at the
+        # old center.
+        new_center = clamp(winner_lr, min_lr, max_lr)
 
     if decision == "accepted_new_anchor":
         anchor_donor_label = winner_name
@@ -182,7 +184,7 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
         anchor_metric_for_events = winner_metric
 
     member_order = list(members)
-    spread = assign_lr_spread(new_center, policy["spread_multipliers"], min_lr, max_lr, member_order)
+    spread, unclamped_spread = assign_lr_spread(new_center, policy["spread_multipliers"], min_lr, max_lr, member_order)
     spread_collapsed, duplicate_lr_groups = detect_spread_collapse(spread)
 
     common_fields = {
@@ -192,6 +194,7 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
         "anchor_metric_value": anchor_metric_for_events,
         "winner": winner_name,
         "winner_metric_value": winner_metric,
+        "winner_lr": winner_lr,
         "lr_center": new_center,
         "spread_collapsed": spread_collapsed,
     }
@@ -205,7 +208,9 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
         **common_fields,
         "recipient": ANCHOR_PSEUDO_RECIPIENT,
         "donor": anchor_donor_label,
+        "recipient_lr": prev_center,
         "new_lr": new_center,
+        "unclamped_lr": new_center,
     }
 
     plan = [anchor_event]
@@ -215,7 +220,9 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
                 **common_fields,
                 "recipient": name,
                 "donor": anchor_donor_label,
+                "recipient_lr": float(members[name]["lr"]),
                 "new_lr": spread[name],
+                "unclamped_lr": unclamped_spread[name],
             }
         )
 
@@ -223,10 +230,12 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
         "decision": decision,
         "winner": winner_name,
         "winner_metric_value": winner_metric,
+        "winner_lr": winner_lr,
         "anchor_metric_value": anchor_metric_for_events,
         "previous_lr_center": prev_center,
         "new_lr_center": new_center,
         "assigned_lrs": spread,
+        "unclamped_lrs": unclamped_spread,
         "eval_tier": EVAL_TIER,
         # min_lr/max_lr clamping can collapse two or more members onto the
         # exact same LR (e.g. center near a bound with a wide multiplier

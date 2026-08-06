@@ -27,7 +27,11 @@ pbt:
   exploit_fraction: 0.25
   mutation_factors: [1.0]
 
-  metric: validation_working_point_mistag_percent
+  # Four-case geometric mistag score (c-tag reference working points cb@0.5,
+  # cd@0.5, cb@0.8, cd@0.8 -- see GEOMETRIC_MISTAG_WORKING_POINTS in
+  # scripts/training/runtime.py), not the older 8-point arithmetic-mean
+  # validation_working_point_mistag_percent.
+  metric: validation_mistag_geometric_score_percent
   mode: min
   min_lr: 3.0e-6
   max_lr: 1.4e-5
@@ -58,9 +62,10 @@ pbt:
 
   anchor_copy_lr_recenter:
     mode: active
-    center_step_fraction: 0.3
     accept_tolerance: 0.01
-    spread_multipliers: [0.80, 0.95, 1.05, 1.20]
+    # 4 members: exactly one 1.0 (so one member continues at the exact
+    # winning LR), values both below and above it.
+    spread_multipliers: [0.80, 0.90, 1.00, 1.20]
 
   # Rare full_holdout verification only -- no monitor tier at all (this
   # strategy's control-tier metric already comes from val50k_tail via the

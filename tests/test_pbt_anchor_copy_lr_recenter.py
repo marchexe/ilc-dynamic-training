@@ -1,6 +1,9 @@
+import math
 import tempfile
 import unittest
 from pathlib import Path
+
+import torch
 
 from tests.helpers import pbt_smoke_config, PROJECT_DIR, namespace
 from training.pbt import config as config_module
@@ -47,12 +50,23 @@ def _anchor(member, metric_value, lr_center, generation=-1):
     }
 
 
+def _write_optimizer_state(path, *, lr, marker):
+    """A minimal, genuinely torch-serializable optimizer checkpoint --
+    real content is required now that apply_exploit's anchor_copy_lr_recenter
+    path loads and rewrites param_groups[*]['lr'] on every copy (see
+    optimizer_state.py::atomic_set_optimizer_lr), not just raw bytes."""
+    torch.save({"marker": marker, "state": {}, "param_groups": [{"lr": lr}]}, path)
+
+
+def _read_optimizer_state(path):
+    return torch.load(path, map_location="cpu", weights_only=False)
+
+
 def _policy_config(**overrides):
     policy = {
         "mode": "active",
-        "center_step_fraction": 0.3,
         "accept_tolerance": 0.01,
-        "spread_multipliers": [0.80, 0.95, 1.05, 1.20],
+        "spread_multipliers": [0.80, 0.90, 1.00, 1.20],
     }
     policy.update(overrides)
     return policy
@@ -79,7 +93,7 @@ def _config(**policy_overrides):
 
 class AnchorCopyLrRecenterPlannerTest(unittest.TestCase):
     def test_highest_lr_stream_wins_moves_center_upward(self):
-        config = _config(center_step_fraction=0.5)
+        config = _config()
         members = _members({"m_low": 1.0e-5, "m_mid": 5.0e-5, "m_high": 9.0e-5})
         generation = _generation_record(1, 6, {"m_low": 1.2, "m_mid": 1.1, "m_high": 0.9})  # min mode: m_high has best (lowest) metric
         manifest = {"members": members, "generations": [], "anchor": _anchor("m_mid", 1.15, 5.0e-5)}
@@ -90,14 +104,16 @@ class AnchorCopyLrRecenterPlannerTest(unittest.TestCase):
         info = generation["anchor_copy_lr_recenter"]
         self.assertEqual(info["decision"], "accepted_new_anchor")
         self.assertAlmostEqual(info["previous_lr_center"], 5.0e-5)
-        self.assertAlmostEqual(info["new_lr_center"], 5.0e-5 + 0.5 * (9.0e-5 - 5.0e-5))
+        # new_lr_center = winner_lr exactly -- no damping toward it.
+        self.assertAlmostEqual(info["new_lr_center"], 9.0e-5)
+        self.assertAlmostEqual(info["winner_lr"], 9.0e-5)
         self.assertGreater(info["new_lr_center"], info["previous_lr_center"])
         recipients = {event["recipient"] for event in plan if event["recipient"] != "__anchor__"}
         self.assertEqual(recipients, set(members))
         self.assertTrue(all(event["donor"] == "m_high" for event in plan))
 
     def test_lowest_lr_stream_wins_moves_center_downward(self):
-        config = _config(center_step_fraction=0.5)
+        config = _config()
         members = _members({"m_low": 1.0e-5, "m_mid": 5.0e-5, "m_high": 9.0e-5})
         generation = _generation_record(1, 6, {"m_low": 0.9, "m_mid": 1.1, "m_high": 1.2})  # m_low wins
         manifest = {"members": members, "generations": [], "anchor": _anchor("m_mid", 1.15, 5.0e-5)}
@@ -107,25 +123,24 @@ class AnchorCopyLrRecenterPlannerTest(unittest.TestCase):
         self.assertEqual(ranking[0], "m_low")
         info = generation["anchor_copy_lr_recenter"]
         self.assertEqual(info["decision"], "accepted_new_anchor")
-        self.assertAlmostEqual(info["new_lr_center"], 5.0e-5 + 0.5 * (1.0e-5 - 5.0e-5))
+        self.assertAlmostEqual(info["new_lr_center"], 1.0e-5)
         self.assertLess(info["new_lr_center"], info["previous_lr_center"])
 
-    def test_middle_stream_wins_moves_center_toward_it(self):
-        config = _config(center_step_fraction=0.5)
+    def test_middle_stream_wins_center_lands_exactly_on_winner_lr(self):
+        config = _config()
         members = _members({"m_low": 1.0e-5, "m_mid": 5.0e-5, "m_high": 9.0e-5})
         generation = _generation_record(1, 6, {"m_low": 1.2, "m_mid": 0.9, "m_high": 1.1})  # m_mid wins
-        # Prior center far below the winner's LR: center must move toward
-        # (not away from, not past) m_mid's own LR.
+        # Prior center far below the winner's LR: the new center must land
+        # exactly on m_mid's own LR, not partway there -- no damping
+        # fraction exists in this strategy's spec.
         manifest = {"members": members, "generations": [], "anchor": _anchor("m_low", 1.15, 1.0e-6)}
 
         ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
 
         self.assertEqual(ranking[0], "m_mid")
         info = generation["anchor_copy_lr_recenter"]
-        expected = 1.0e-6 + 0.5 * (5.0e-5 - 1.0e-6)
-        self.assertAlmostEqual(info["new_lr_center"], expected)
-        self.assertLess(info["new_lr_center"], 5.0e-5)  # moved toward, not past, the winner's LR
-        self.assertGreater(info["new_lr_center"], 1.0e-6)
+        self.assertAlmostEqual(info["new_lr_center"], 5.0e-5)
+        self.assertAlmostEqual(info["winner_lr"], 5.0e-5)
 
     def test_small_metric_difference_still_selects_a_winner_and_still_copies(self):
         """No significance gate: even a tie-zone (within accept_tolerance)
@@ -147,7 +162,7 @@ class AnchorCopyLrRecenterPlannerTest(unittest.TestCase):
         self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "reused_previous_anchor")
 
     def test_reused_previous_anchor_keeps_old_anchor_metric_but_still_moves_center(self):
-        config = _config(center_step_fraction=0.5, accept_tolerance=0.05)
+        config = _config(accept_tolerance=0.05)
         members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
         generation = _generation_record(1, 6, {"m_a": 1.02, "m_b": 0.99})  # m_b wins, within 5% of anchor's 1.0
         manifest = {"members": members, "generations": [], "anchor": _anchor("m_a", 1.0, 2.0e-5)}
@@ -157,7 +172,7 @@ class AnchorCopyLrRecenterPlannerTest(unittest.TestCase):
         info = generation["anchor_copy_lr_recenter"]
         self.assertEqual(info["decision"], "reused_previous_anchor")
         self.assertAlmostEqual(info["anchor_metric_value"], 1.0)  # old anchor's metric preserved, not the winner's 0.99
-        self.assertAlmostEqual(info["new_lr_center"], 2.0e-5 + 0.5 * (8.0e-5 - 2.0e-5))
+        self.assertAlmostEqual(info["new_lr_center"], 8.0e-5)  # == winner_lr exactly, no damping
         self.assertGreater(info["new_lr_center"], info["previous_lr_center"])  # center still moves despite reuse
         # manifest["anchor"] itself is untouched by the planner (only apply_exploit's
         # special case mutates it) -- confirmed unchanged here.
@@ -244,7 +259,7 @@ class AnchorCopyLrRecenterPlannerTest(unittest.TestCase):
         self.assertEqual(ranking, ["m_ok"])
 
     def test_every_stream_receives_a_new_lr_around_the_common_center(self):
-        multipliers = [0.80, 0.95, 1.05, 1.20]
+        multipliers = [0.80, 0.90, 1.00, 1.20]
         config = _config(spread_multipliers=multipliers)
         members = _members({"m_a": 1.0e-5, "m_b": 5.0e-5, "m_c": 8.0e-5, "m_d": 9.0e-5})
         generation = _generation_record(0, 5, {"m_a": 1.0, "m_b": 1.1, "m_c": 1.2, "m_d": 1.3})
@@ -258,7 +273,10 @@ class AnchorCopyLrRecenterPlannerTest(unittest.TestCase):
         for name, multiplier in zip(members, multipliers):
             self.assertAlmostEqual(member_events[name]["new_lr"], center * multiplier)
         assigned = [event["new_lr"] for event in member_events.values()]
+        # Spread must include values below center, exactly at center (the
+        # 1.0 multiplier), and above center.
         self.assertTrue(any(lr < center for lr in assigned))
+        self.assertTrue(any(math.isclose(lr, center) for lr in assigned))
         self.assertTrue(any(lr > center for lr in assigned))
 
     def test_lr_bounds_are_respected(self):
@@ -281,13 +299,13 @@ class AnchorCopyLrRecenterPlannerTest(unittest.TestCase):
 
 class AnchorCopyLrRecenterApplyTest(unittest.TestCase):
     def _config(self):
-        return _config(center_step_fraction=0.5, accept_tolerance=0.01)
+        return _config(accept_tolerance=0.01)
 
-    def _write_member_checkpoint(self, root, name, epoch, state_bytes, optimizer_bytes):
+    def _write_member_checkpoint(self, root, name, epoch, state_bytes, optimizer_lr):
         (root / name).mkdir(exist_ok=True)
         state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, epoch)
         state_path.write_bytes(state_bytes)
-        optimizer_path.write_bytes(optimizer_bytes)
+        _write_optimizer_state(optimizer_path, lr=optimizer_lr, marker=name)
         return state_path, optimizer_path
 
     def test_accepted_decision_copies_winner_weights_and_optimizer_to_every_stream(self):
@@ -299,21 +317,33 @@ class AnchorCopyLrRecenterApplyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for name in members:
-                self._write_member_checkpoint(root, name, 5, f"{name}-state".encode(), f"{name}-optimizer".encode())
+                self._write_member_checkpoint(root, name, 5, f"{name}-state".encode(), members[name]["lr"])
 
             ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
             generation["exploit"] = plan
             manifest_path = root / "manifest.json"
             transitions.apply_exploit(root, manifest, generation, manifest_path)
 
+            assigned = generation["anchor_copy_lr_recenter"]["assigned_lrs"]
             for name in members:
                 state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 5)
                 self.assertEqual(state_path.read_bytes(), b"m_b-state")
-                self.assertEqual(optimizer_path.read_bytes(), b"m_b-optimizer")
+                optimizer_state = _read_optimizer_state(optimizer_path)
+                # Weights/optimizer both genuinely sourced from the winner...
+                self.assertEqual(optimizer_state["marker"], "m_b")
+                # ...but every member's own optimizer LR matches *its own*
+                # newly assigned spread LR, not the donor's original 8.0e-5
+                # (requirement: a copied optimizer must not keep the donor
+                # LR while the manifest reports a different member LR).
+                self.assertAlmostEqual(optimizer_state["param_groups"][0]["lr"], assigned[name])
 
             paths = anchor_module.anchor_paths(root)
             self.assertEqual(Path(paths["state_path"]).read_bytes(), b"m_b-state")
-            self.assertEqual(Path(paths["optimizer_path"]).read_bytes(), b"m_b-optimizer")
+            anchor_optimizer_state = _read_optimizer_state(Path(paths["optimizer_path"]))
+            self.assertEqual(anchor_optimizer_state["marker"], "m_b")
+            # The anchor bundle itself is never LR-patched -- it's a direct
+            # snapshot of the winner's own real optimizer, LR included.
+            self.assertAlmostEqual(anchor_optimizer_state["param_groups"][0]["lr"], 8.0e-5)
             self.assertEqual(manifest["anchor"]["member"], "m_b")
             self.assertEqual(manifest["anchor"]["metric_value"], 0.5)
             self.assertTrue(all(event["applied"] for event in generation["exploit"]))
@@ -327,7 +357,7 @@ class AnchorCopyLrRecenterApplyTest(unittest.TestCase):
             # Pre-existing anchor already on disk (as if accepted at an earlier generation).
             paths = anchor_module.anchor_paths(root)
             Path(paths["state_path"]).write_bytes(b"anchor-state")
-            Path(paths["optimizer_path"]).write_bytes(b"anchor-optimizer")
+            _write_optimizer_state(Path(paths["optimizer_path"]), lr=3.0e-5, marker="anchor")
             manifest = {
                 "config": config,
                 "members": members,
@@ -335,7 +365,7 @@ class AnchorCopyLrRecenterApplyTest(unittest.TestCase):
                 "anchor": _anchor("m_prev", metric_value=0.5, lr_center=3.0e-5),
             }
             for name in members:
-                self._write_member_checkpoint(root, name, 6, f"{name}-diverged-state".encode(), f"{name}-diverged-optimizer".encode())
+                self._write_member_checkpoint(root, name, 6, f"{name}-diverged-state".encode(), members[name]["lr"])
 
             generation = _generation_record(1, 6, {"m_a": 2.0, "m_b": 1.8})  # both much worse than anchor
             ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
@@ -344,14 +374,19 @@ class AnchorCopyLrRecenterApplyTest(unittest.TestCase):
             manifest_path = root / "manifest.json"
             transitions.apply_exploit(root, manifest, generation, manifest_path)
 
+            assigned = generation["anchor_copy_lr_recenter"]["assigned_lrs"]
             for name in members:
                 state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 6)
                 self.assertEqual(state_path.read_bytes(), b"anchor-state")
-                self.assertEqual(optimizer_path.read_bytes(), b"anchor-optimizer")
+                optimizer_state = _read_optimizer_state(optimizer_path)
+                self.assertEqual(optimizer_state["marker"], "anchor")
+                self.assertAlmostEqual(optimizer_state["param_groups"][0]["lr"], assigned[name])
 
             # Anchor bundle and record are byte-for-byte/value-for-value unchanged.
             self.assertEqual(Path(paths["state_path"]).read_bytes(), b"anchor-state")
-            self.assertEqual(Path(paths["optimizer_path"]).read_bytes(), b"anchor-optimizer")
+            anchor_optimizer_state = _read_optimizer_state(Path(paths["optimizer_path"]))
+            self.assertEqual(anchor_optimizer_state["marker"], "anchor")
+            self.assertAlmostEqual(anchor_optimizer_state["param_groups"][0]["lr"], 3.0e-5)
             self.assertEqual(manifest["anchor"]["member"], "m_prev")
             self.assertEqual(manifest["anchor"]["metric_value"], 0.5)
             self.assertEqual(manifest["anchor"]["lr_center"], 3.0e-5)
@@ -359,7 +394,7 @@ class AnchorCopyLrRecenterApplyTest(unittest.TestCase):
 
 class AnchorCopyLrRecenterResumeTest(unittest.TestCase):
     def test_resume_reproduces_the_same_anchor_lr_center_and_next_plan(self):
-        config = _config(center_step_fraction=0.4, accept_tolerance=0.01)
+        config = _config(accept_tolerance=0.01)
         members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
         generation = _generation_record(1, 6, {"m_a": 1.5, "m_b": 0.5})
 
@@ -500,15 +535,15 @@ class AnchorCopyLrRecenterFinalGenerationApplyTest(unittest.TestCase):
     actually reaches this point on a real final generation)."""
 
     def _config(self):
-        config = _config(center_step_fraction=0.5, accept_tolerance=0.01)
+        config = _config(accept_tolerance=0.01)
         config["pbt"]["strategy"] = "anchor_copy_lr_recenter"
         return config
 
-    def _write_member_checkpoint(self, root, name, epoch, state_bytes, optimizer_bytes):
+    def _write_member_checkpoint(self, root, name, epoch, state_bytes, optimizer_lr):
         (root / name).mkdir(exist_ok=True)
         state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, epoch)
         state_path.write_bytes(state_bytes)
-        optimizer_path.write_bytes(optimizer_bytes)
+        _write_optimizer_state(optimizer_path, lr=optimizer_lr, marker=name)
         return state_path, optimizer_path
 
     def _apply_and_assert_complete(self, config, manifest, generation, root):
@@ -534,10 +569,10 @@ class AnchorCopyLrRecenterFinalGenerationApplyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for name in members:
-                self._write_member_checkpoint(root, name, 7, f"{name}-state".encode(), f"{name}-optimizer".encode())
+                self._write_member_checkpoint(root, name, 7, f"{name}-state".encode(), members[name]["lr"])
             paths = anchor_module.anchor_paths(root)
             Path(paths["state_path"]).write_bytes(b"prev-anchor-state")
-            Path(paths["optimizer_path"]).write_bytes(b"prev-anchor-optimizer")
+            _write_optimizer_state(Path(paths["optimizer_path"]), lr=3.0e-5, marker="prev-anchor")
 
             ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
             self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "accepted_new_anchor")
@@ -545,10 +580,13 @@ class AnchorCopyLrRecenterFinalGenerationApplyTest(unittest.TestCase):
 
             self._apply_and_assert_complete(config, manifest, generation, root)
 
+            assigned = generation["anchor_copy_lr_recenter"]["assigned_lrs"]
             for name in members:
                 state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 7)
                 self.assertEqual(state_path.read_bytes(), b"m_b-state")
-                self.assertEqual(optimizer_path.read_bytes(), b"m_b-optimizer")
+                optimizer_state = _read_optimizer_state(optimizer_path)
+                self.assertEqual(optimizer_state["marker"], "m_b")
+                self.assertAlmostEqual(optimizer_state["param_groups"][0]["lr"], assigned[name])
             self.assertEqual(manifest["anchor"]["member"], "m_b")
             self.assertAlmostEqual(manifest["anchor"]["metric_value"], 0.5)
             self.assertAlmostEqual(manifest["anchor"]["lr_center"], generation["anchor_copy_lr_recenter"]["new_lr_center"])
@@ -563,10 +601,10 @@ class AnchorCopyLrRecenterFinalGenerationApplyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for name in members:
-                self._write_member_checkpoint(root, name, 7, f"{name}-state".encode(), f"{name}-optimizer".encode())
+                self._write_member_checkpoint(root, name, 7, f"{name}-state".encode(), members[name]["lr"])
             paths = anchor_module.anchor_paths(root)
             Path(paths["state_path"]).write_bytes(b"prev-anchor-state")
-            Path(paths["optimizer_path"]).write_bytes(b"prev-anchor-optimizer")
+            _write_optimizer_state(Path(paths["optimizer_path"]), lr=2.0e-5, marker="prev-anchor")
 
             ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
             self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "reused_previous_anchor")
@@ -574,16 +612,22 @@ class AnchorCopyLrRecenterFinalGenerationApplyTest(unittest.TestCase):
 
             self._apply_and_assert_complete(config, manifest, generation, root)
 
-            # Anchor bundle unchanged (still the *previous* anchor's bytes)...
+            # Anchor bundle unchanged (still the *previous* anchor's content)...
             self.assertEqual(Path(paths["state_path"]).read_bytes(), b"prev-anchor-state")
-            self.assertEqual(Path(paths["optimizer_path"]).read_bytes(), b"prev-anchor-optimizer")
+            anchor_optimizer_state = _read_optimizer_state(Path(paths["optimizer_path"]))
+            self.assertEqual(anchor_optimizer_state["marker"], "prev-anchor")
+            self.assertAlmostEqual(anchor_optimizer_state["param_groups"][0]["lr"], 2.0e-5)
             self.assertEqual(manifest["anchor"]["member"], "m_prev")
             self.assertAlmostEqual(manifest["anchor"]["metric_value"], 1.0)
-            # ...but every member was still physically copied from it, and lr_center still moved.
+            # ...but every member was still physically copied from it (with
+            # its own LR patched in), and lr_center still moved.
+            assigned = generation["anchor_copy_lr_recenter"]["assigned_lrs"]
             for name in members:
                 state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 7)
                 self.assertEqual(state_path.read_bytes(), b"prev-anchor-state")
-                self.assertEqual(optimizer_path.read_bytes(), b"prev-anchor-optimizer")
+                optimizer_state = _read_optimizer_state(optimizer_path)
+                self.assertEqual(optimizer_state["marker"], "prev-anchor")
+                self.assertAlmostEqual(optimizer_state["param_groups"][0]["lr"], assigned[name])
             self.assertAlmostEqual(manifest["anchor"]["lr_center"], generation["anchor_copy_lr_recenter"]["new_lr_center"])
             self.assertNotAlmostEqual(manifest["anchor"]["lr_center"], 2.0e-5)
 
@@ -596,10 +640,10 @@ class AnchorCopyLrRecenterFinalGenerationApplyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for name in members:
-                self._write_member_checkpoint(root, name, 7, f"{name}-diverged-state".encode(), f"{name}-diverged-optimizer".encode())
+                self._write_member_checkpoint(root, name, 7, f"{name}-diverged-state".encode(), members[name]["lr"])
             paths = anchor_module.anchor_paths(root)
             Path(paths["state_path"]).write_bytes(b"prev-anchor-state")
-            Path(paths["optimizer_path"]).write_bytes(b"prev-anchor-optimizer")
+            _write_optimizer_state(Path(paths["optimizer_path"]), lr=3.0e-5, marker="prev-anchor")
 
             ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
             self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "rewound_to_previous_anchor")
@@ -607,10 +651,13 @@ class AnchorCopyLrRecenterFinalGenerationApplyTest(unittest.TestCase):
 
             self._apply_and_assert_complete(config, manifest, generation, root)
 
+            assigned = generation["anchor_copy_lr_recenter"]["assigned_lrs"]
             for name in members:
                 state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 7)
                 self.assertEqual(state_path.read_bytes(), b"prev-anchor-state")
-                self.assertEqual(optimizer_path.read_bytes(), b"prev-anchor-optimizer")
+                optimizer_state = _read_optimizer_state(optimizer_path)
+                self.assertEqual(optimizer_state["marker"], "prev-anchor")
+                self.assertAlmostEqual(optimizer_state["param_groups"][0]["lr"], assigned[name])
             self.assertEqual(manifest["anchor"]["member"], "m_prev")
             self.assertAlmostEqual(manifest["anchor"]["lr_center"], 3.0e-5)  # restored, not moved
             self.assertAlmostEqual(generation["anchor_copy_lr_recenter"]["new_lr_center"], 3.0e-5)
@@ -687,7 +734,7 @@ class ControllerStateCopyTest(unittest.TestCase):
     way update_global_best's own controller handling is generic)."""
 
     def test_controller_state_is_copied_atomically_alongside_state_and_optimizer(self):
-        config = _config(center_step_fraction=0.5, accept_tolerance=0.01)
+        config = _config(accept_tolerance=0.01)
         config["shared"]["training_controller"] = "configs/controllers/linucb_lr_pp_active.yaml"
         members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
         generation = _generation_record(0, 5, {"m_a": 1.5, "m_b": 0.5})
@@ -699,7 +746,7 @@ class ControllerStateCopyTest(unittest.TestCase):
                 (root / name).mkdir()
                 state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 5)
                 state_path.write_bytes(f"{name}-state".encode())
-                optimizer_path.write_bytes(f"{name}-optimizer".encode())
+                _write_optimizer_state(optimizer_path, lr=members[name]["lr"], marker=name)
                 controller_path = checkpointing.controller_checkpoint_path(root / name, 5)
                 controller_path.write_bytes(f"{name}-controller".encode())
 
@@ -762,6 +809,77 @@ class SpreadCollapseTest(unittest.TestCase):
         self.assertEqual(info["duplicate_lr_groups"], [])
         for event in plan:
             self.assertFalse(event["spread_collapsed"])
+
+
+class SpreadMultiplierValidatorTest(unittest.TestCase):
+    """anchor_copy_lr_recenter.spread_multipliers must include exactly one
+    1.0 (so exactly one member continues at the exact new_lr_center), plus
+    the pre-existing positive/below-and-above-1.0 checks."""
+
+    def _build(self, multipliers):
+        from training.pbt.models.config import AnchorCopyLrRecenterConfig
+
+        return AnchorCopyLrRecenterConfig(mode="active", spread_multipliers=multipliers)
+
+    def test_accepts_a_valid_spread_with_exactly_one_1_0(self):
+        self._build([0.80, 0.90, 1.00, 1.20])
+
+    def test_rejects_a_spread_with_no_1_0(self):
+        with self.assertRaises(ValueError):
+            self._build([0.80, 0.95, 1.05, 1.20])
+
+    def test_rejects_a_spread_with_1_0_repeated(self):
+        with self.assertRaises(ValueError):
+            self._build([1.00, 1.00, 0.80, 1.20])
+
+    def test_rejects_a_spread_with_no_value_below_1_0(self):
+        with self.assertRaises(ValueError):
+            self._build([1.00, 1.05, 1.20])
+
+    def test_rejects_a_spread_with_no_value_above_1_0(self):
+        with self.assertRaises(ValueError):
+            self._build([0.80, 0.90, 1.00])
+
+    def test_rejects_a_non_positive_multiplier(self):
+        with self.assertRaises(ValueError):
+            self._build([-0.1, 1.00, 1.20])
+
+
+class OptimizerLrPatchTest(unittest.TestCase):
+    """Requirement: a copied optimizer must not keep the donor LR internally
+    while the manifest reports a different member LR -- verifies the patch
+    helper directly (state/optimizer_state.py::set_optimizer_state_lr /
+    atomic_set_optimizer_lr), independent of the apply_exploit integration
+    already covered by AnchorCopyLrRecenterApplyTest /
+    AnchorCopyLrRecenterFinalGenerationApplyTest."""
+
+    def test_set_optimizer_state_lr_rewrites_every_param_group(self):
+        from training.pbt.state.optimizer_state import set_optimizer_state_lr
+
+        state = {"state": {}, "param_groups": [{"lr": 8.0e-5}, {"lr": 8.0e-5}]}
+        set_optimizer_state_lr(state, 1.12e-5)
+        self.assertAlmostEqual(state["param_groups"][0]["lr"], 1.12e-5)
+        self.assertAlmostEqual(state["param_groups"][1]["lr"], 1.12e-5)
+
+    def test_set_optimizer_state_lr_handles_tensor_valued_lr(self):
+        from training.pbt.state.optimizer_state import set_optimizer_state_lr
+
+        state = {"state": {}, "param_groups": [{"lr": torch.tensor(8.0e-5)}]}
+        set_optimizer_state_lr(state, 1.12e-5)
+        self.assertAlmostEqual(float(state["param_groups"][0]["lr"]), 1.12e-5, places=9)
+
+    def test_atomic_set_optimizer_lr_round_trips_through_disk(self):
+        from training.pbt.state.optimizer_state import atomic_set_optimizer_lr
+
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "optimizer.pt"
+            _write_optimizer_state(path, lr=8.0e-5, marker="donor")
+
+            atomic_set_optimizer_lr(path, 1.12e-5)
+
+            state = _read_optimizer_state(path)
+            self.assertEqual(state["marker"], "donor")  # only lr changes, nothing else
+            self.assertAlmostEqual(state["param_groups"][0]["lr"], 1.12e-5)
 
 
 if __name__ == "__main__":

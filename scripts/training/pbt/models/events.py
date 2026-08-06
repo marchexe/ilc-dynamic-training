@@ -149,7 +149,13 @@ class AnchorCopyEvent(ExploitEventBase):
     anchor_metric_value: float
     winner: str
     winner_metric_value: float
+    winner_lr: float
     lr_center: float
+    # The pre-clamp value of `new_lr` (== new_lr when clamping was a
+    # no-op) -- recorded per event so a collapsed spread can be explained
+    # from any single event/the manifest alone, without recomputing
+    # center * multiplier from the resolved config.
+    unclamped_lr: float
     # True when min_lr/max_lr clamping collapsed two or more members onto
     # the exact same assigned LR this generation -- see
     # planning/anchor_copy_lr_recenter.py::detect_spread_collapse. Recorded

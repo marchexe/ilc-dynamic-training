@@ -10,6 +10,7 @@ from training.pbt.state.checkpointing import (
     controller_checkpoint_path,
     population_lr_policy_snapshot_paths,
 )
+from training.pbt.state.optimizer_state import atomic_set_optimizer_lr
 from training.pbt.models.events import dump_exploit_event, parse_exploit_event
 from training.runtime import atomic_json, utc_now
 
@@ -86,6 +87,20 @@ def apply_exploit(experiment_dir, manifest, generation_record, manifest_path):
             pairs.append((donor_optimizer, recipient_optimizer))
         if pairs:
             atomic_copy_pair(pairs)
+
+        if event_model.source == "anchor_copy_lr_recenter":
+            # The copied optimizer.pt is a raw byte copy of the anchor's own
+            # file, so its param_groups still hold whichever LR the anchor
+            # donor was training at -- never this recipient's newly
+            # assigned spread LR. Weaver's own --override-load-lr fixes
+            # this in memory at the *next* training resume regardless (see
+            # weaver-core/weaver/train.py:806-831), but the file would
+            # briefly hold a stale LR at rest between this copy and that
+            # resume. Patch it now so the persisted invariant ("a copied
+            # optimizer must not keep the donor LR while the manifest
+            # reports a different member LR") holds without depending on
+            # that override flag always being correctly wired.
+            atomic_set_optimizer_lr(recipient_optimizer, event_model.new_lr)
 
         shared_config = manifest.get("config", {}).get("shared", {})
         config_payload = manifest.get("config", {}).get("pbt", {})

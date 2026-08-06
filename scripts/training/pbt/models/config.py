@@ -25,6 +25,7 @@ PBT_METRICS = {
     "validation_bkg_rejection_score",
     "validation_working_point_mistag_percent",
     "validation_ctag_reference_mistag_percent",
+    "validation_mistag_geometric_score_percent",
 }
 
 
@@ -161,10 +162,12 @@ class AnchorCopyLrRecenterConfig(StrictSectionModel):
     # population_lr_policy.eval_tier: this strategy is defined around
     # consuming the metric every worker already produces every generation,
     # never a periodic separate tiered_evaluations round.
-    center_step_fraction: float = Field(
-        default=0.3, gt=0.0, le=1.0,
-        description="new_center = prev_center + center_step_fraction * (winner_lr - prev_center)",
-    )
+    #
+    # No damping field here: new_lr_center is always exactly the winner's
+    # own LR (never a blend toward it) -- direction (up/down/flat) emerges
+    # naturally from where that LR sits relative to the old center, per the
+    # strategy's canonical spec. A previous center_step_fraction field that
+    # damped this movement has been removed rather than left unused.
     # Relative/fractional, exactly like degradation_tolerance -- reuses
     # metrics.py::metric_is_worse_than_reference's existing orientation-safe
     # comparison (current worse-than-reference by more than this fraction),
@@ -176,7 +179,7 @@ class AnchorCopyLrRecenterConfig(StrictSectionModel):
     )
     spread_multipliers: list[float] = Field(
         min_length=1,
-        description="Deterministic per-member LR multipliers applied to the new center, e.g. [0.80, 0.95, 1.05, 1.20] for 4 members. Length must equal the population size.",
+        description="Deterministic per-member LR multipliers applied to the new center, e.g. [0.80, 0.90, 1.00, 1.20] for 4 members. Length must equal the population size; must include exactly one 1.0 so exactly one member continues at the exact winning LR.",
     )
 
     @field_validator("spread_multipliers")
@@ -188,6 +191,12 @@ class AnchorCopyLrRecenterConfig(StrictSectionModel):
             raise ValueError(
                 "anchor_copy_lr_recenter.spread_multipliers must include values both below and above 1.0 "
                 "so the spread has at least one member below and one above the center"
+            )
+        if values.count(1.0) != 1:
+            raise ValueError(
+                "anchor_copy_lr_recenter.spread_multipliers must include exactly one 1.0 entry, "
+                "so exactly one member continues at the exact new_lr_center -- "
+                f"got {values.count(1.0)}"
             )
         return values
 

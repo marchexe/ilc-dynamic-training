@@ -53,7 +53,40 @@ def atomic_torch_save(payload, destination):
 
 def load_optimizer_state(path):
     _torch = _require_torch()
-    return _torch.load(path, map_location="cpu")
+    # weights_only=False: PyTorch 2.6 defaults to True, which real Weaver
+    # optimizer checkpoints do not satisfy (confirmed against an actual
+    # checkpoint -- see tests/test_pbt_anchor_copy_lr_recenter.py's
+    # WeaverCheckpointFormatTest). These are locally-produced training
+    # checkpoints, not untrusted third-party files.
+    return _torch.load(path, map_location="cpu", weights_only=False)
+
+
+def set_optimizer_state_lr(state, new_lr):
+    """Rewrite every param_group's `lr` in-place to `new_lr`, mirroring what
+    Weaver's own `--override-load-lr` does to an in-memory optimizer at
+    resume time (weaver-core/weaver/train.py:806-831) -- except applied
+    directly to the persisted checkpoint, so a copied optimizer.pt never
+    holds a donor's stale LR at rest between the copy and the member's next
+    training run. Flat-sets every group to the same value rather than
+    Weaver's proportional rescale: this project's own optimizer setup
+    (weaver-core train.py's decay/no-decay param groups) always starts
+    every group at the identical LR, so the two are equivalent here, and a
+    flat set is simpler. Handles both plain-float and tensor LR storage,
+    same as Weaver's own override code.
+    """
+    for group in state.get("param_groups", []):
+        current_lr = group.get("lr")
+        if hasattr(current_lr, "fill_"):
+            current_lr.fill_(float(new_lr))
+        else:
+            group["lr"] = float(new_lr)
+    return state
+
+
+def atomic_set_optimizer_lr(path, new_lr):
+    state = load_optimizer_state(path)
+    set_optimizer_state_lr(state, new_lr)
+    atomic_torch_save(state, path)
 
 
 def _zero_like_scalar_or_tensor(value):
