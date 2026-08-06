@@ -2,6 +2,7 @@
 """Apply typed PBT exploit events to checkpoints and member state."""
 
 from training.pbt.reporting import record_exploit_application
+from training.pbt.state.anchor import update_anchor, update_anchor_lr_center
 from training.pbt.state.checkpointing import (
     atomic_copy,
     atomic_copy_pair,
@@ -12,6 +13,32 @@ from training.pbt.state.checkpointing import (
 from training.pbt.models.events import dump_exploit_event, parse_exploit_event
 from training.runtime import atomic_json, utc_now
 
+ANCHOR_PSEUDO_RECIPIENT = "__anchor__"
+
+
+def _apply_anchor_bundle_update(experiment_dir, manifest, generation_record, event_model):
+    """anchor_copy_lr_recenter's once-per-generation anchor bookkeeping.
+    Intercepted before the generic per-member copy loop below -- there is
+    no real "__anchor__" member directory to resolve donor/recipient paths
+    against, so this never reaches that code. accepted_new_anchor copies
+    the winner's checkpoint into dedicated anchor storage (state/anchor.py,
+    atomic across the whole bundle); reused_previous_anchor only moves
+    lr_center (weights/optimizer/metric stay exactly as they were);
+    rewound_to_previous_anchor is a pure no-op here, since the anchor is by
+    definition already the state every member is about to be restored to.
+    """
+    if event_model.decision == "accepted_new_anchor":
+        winner_lr = float(manifest["members"][event_model.winner]["lr"])
+        update_anchor(
+            experiment_dir, manifest, generation_record,
+            event_model.winner, event_model.winner_metric_value, winner_lr,
+            event_model.lr_center, "control",
+        )
+    elif event_model.decision == "reused_previous_anchor":
+        update_anchor_lr_center(manifest, event_model.lr_center)
+    # rewound_to_previous_anchor: nothing to write -- the anchor already is
+    # the state every member's event below will restore.
+
 
 def apply_exploit(experiment_dir, manifest, generation_record, manifest_path):
     epoch = generation_record["epoch"]
@@ -20,6 +47,13 @@ def apply_exploit(experiment_dir, manifest, generation_record, manifest_path):
         event.clear()
         event.update(dump_exploit_event(event_model))
         if event_model.applied:
+            continue
+
+        if event_model.source == "anchor_copy_lr_recenter" and event_model.recipient == ANCHOR_PSEUDO_RECIPIENT:
+            _apply_anchor_bundle_update(experiment_dir, manifest, generation_record, event_model)
+            event["applied"] = True
+            manifest["updated_at"] = utc_now()
+            atomic_json(manifest_path, manifest)
             continue
 
         recipient_dir = experiment_dir / event_model.recipient

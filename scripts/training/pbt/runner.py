@@ -13,6 +13,7 @@ import yaml
 
 from training.pbt.reporting import (
     ensure_run_layout,
+    record_anchor_decision,
     record_controller_lr_change,
     record_initial_evaluation,
     record_skipped_exploit,
@@ -488,6 +489,9 @@ def _plan_generation_exploit(config, manifest, existing, generation, is_final_ge
     existing["raw_ranking"] = raw_metric_ranking(config, existing, manifest["members"])
     for skipped_event in existing.get("skipped_exploits") or []:
         record_skipped_exploit(experiment_dir, existing, skipped_event)
+    anchor_decision = existing.get("anchor_copy_lr_recenter")
+    if anchor_decision:
+        record_anchor_decision(experiment_dir, existing, anchor_decision)
     improved = update_global_best(
         experiment_dir, manifest, existing, manifest_path
     )

@@ -1,0 +1,451 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+from tests.helpers import pbt_smoke_config, PROJECT_DIR, namespace
+from training.pbt import config as config_module
+from training.pbt.planning import dispatch
+from training.pbt.planning.anchor_copy_lr_recenter import anchor_copy_lr_recenter_config, anchor_copy_lr_recenter_plan
+from training.pbt.planning.rollbacks import strategy_uses_population_rollbacks
+from training.pbt.models.manifest import PBTManifest
+from training.pbt.state import anchor as anchor_module
+from training.pbt.state import checkpointing, transitions
+
+METRIC = "validation_working_point_mistag_percent"
+
+
+def _members(lrs):
+    return {name: {"name": name, "lr": lr, "parent": None} for name, lr in lrs.items()}
+
+
+def _generation_record(index, epoch, metrics_by_member):
+    return {
+        "index": index,
+        "epoch": epoch,
+        "workers": {
+            name: {"status": "completed", "metrics": {METRIC: value}}
+            for name, value in metrics_by_member.items()
+        },
+        "ranking": None,
+    }
+
+
+def _anchor(member, metric_value, lr_center, generation=-1):
+    return {
+        "member": member,
+        "generation": generation,
+        "metric": METRIC,
+        "mode": "min",
+        "metric_value": metric_value,
+        "lr_center": lr_center,
+        "eval_tier": "control",
+    }
+
+
+def _policy_config(**overrides):
+    policy = {
+        "mode": "active",
+        "center_step_fraction": 0.3,
+        "accept_tolerance": 0.01,
+        "spread_multipliers": [0.80, 0.95, 1.05, 1.20],
+    }
+    policy.update(overrides)
+    return policy
+
+
+def _config(**policy_overrides):
+    config = pbt_smoke_config()
+    # This strategy's real preset never sets training_controller (matching
+    # the base 10m proxy-control shared preset) -- pbt_smoke_config()'s
+    # default is a real, truthy path, which would make apply_exploit's
+    # generic per-member logic expect a controller checkpoint file no test
+    # here creates. Match real usage instead of adding unrelated fixture
+    # files.
+    config["shared"]["training_controller"] = None
+    config["pbt"].update(
+        metric=METRIC,
+        mode="min",
+        min_lr=1.0e-6,
+        max_lr=1.0e-3,
+        anchor_copy_lr_recenter=_policy_config(**policy_overrides),
+    )
+    return config
+
+
+class AnchorCopyLrRecenterPlannerTest(unittest.TestCase):
+    def test_highest_lr_stream_wins_moves_center_upward(self):
+        config = _config(center_step_fraction=0.5)
+        members = _members({"m_low": 1.0e-5, "m_mid": 5.0e-5, "m_high": 9.0e-5})
+        generation = _generation_record(1, 6, {"m_low": 1.2, "m_mid": 1.1, "m_high": 0.9})  # min mode: m_high has best (lowest) metric
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_mid", 1.15, 5.0e-5)}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertEqual(ranking[0], "m_high")
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertEqual(info["decision"], "accepted_new_anchor")
+        self.assertAlmostEqual(info["previous_lr_center"], 5.0e-5)
+        self.assertAlmostEqual(info["new_lr_center"], 5.0e-5 + 0.5 * (9.0e-5 - 5.0e-5))
+        self.assertGreater(info["new_lr_center"], info["previous_lr_center"])
+        recipients = {event["recipient"] for event in plan if event["recipient"] != "__anchor__"}
+        self.assertEqual(recipients, set(members))
+        self.assertTrue(all(event["donor"] == "m_high" for event in plan))
+
+    def test_lowest_lr_stream_wins_moves_center_downward(self):
+        config = _config(center_step_fraction=0.5)
+        members = _members({"m_low": 1.0e-5, "m_mid": 5.0e-5, "m_high": 9.0e-5})
+        generation = _generation_record(1, 6, {"m_low": 0.9, "m_mid": 1.1, "m_high": 1.2})  # m_low wins
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_mid", 1.15, 5.0e-5)}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertEqual(ranking[0], "m_low")
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertEqual(info["decision"], "accepted_new_anchor")
+        self.assertAlmostEqual(info["new_lr_center"], 5.0e-5 + 0.5 * (1.0e-5 - 5.0e-5))
+        self.assertLess(info["new_lr_center"], info["previous_lr_center"])
+
+    def test_middle_stream_wins_moves_center_toward_it(self):
+        config = _config(center_step_fraction=0.5)
+        members = _members({"m_low": 1.0e-5, "m_mid": 5.0e-5, "m_high": 9.0e-5})
+        generation = _generation_record(1, 6, {"m_low": 1.2, "m_mid": 0.9, "m_high": 1.1})  # m_mid wins
+        # Prior center far below the winner's LR: center must move toward
+        # (not away from, not past) m_mid's own LR.
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_low", 1.15, 1.0e-6)}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertEqual(ranking[0], "m_mid")
+        info = generation["anchor_copy_lr_recenter"]
+        expected = 1.0e-6 + 0.5 * (5.0e-5 - 1.0e-6)
+        self.assertAlmostEqual(info["new_lr_center"], expected)
+        self.assertLess(info["new_lr_center"], 5.0e-5)  # moved toward, not past, the winner's LR
+        self.assertGreater(info["new_lr_center"], 1.0e-6)
+
+    def test_small_metric_difference_still_selects_a_winner_and_still_copies(self):
+        """No significance gate: even a tie-zone (within accept_tolerance)
+        result must still select a single winner and still build a copy
+        event for every member -- distribution is never conditional on the
+        margin being large."""
+        config = _config(accept_tolerance=0.05)
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(1, 6, {"m_a": 1.001, "m_b": 1.000})  # tiny difference
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_a", 1.0005, 3.0e-5)}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertEqual(ranking[0], "m_b")
+        recipients = {event["recipient"] for event in plan if event["recipient"] != "__anchor__"}
+        self.assertEqual(recipients, set(members))
+        # within tolerance of the anchor -> reused, not accepted -- but the
+        # copy still happens identically either way.
+        self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "reused_previous_anchor")
+
+    def test_reused_previous_anchor_keeps_old_anchor_metric_but_still_moves_center(self):
+        config = _config(center_step_fraction=0.5, accept_tolerance=0.05)
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(1, 6, {"m_a": 1.02, "m_b": 0.99})  # m_b wins, within 5% of anchor's 1.0
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_a", 1.0, 2.0e-5)}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertEqual(info["decision"], "reused_previous_anchor")
+        self.assertAlmostEqual(info["anchor_metric_value"], 1.0)  # old anchor's metric preserved, not the winner's 0.99
+        self.assertAlmostEqual(info["new_lr_center"], 2.0e-5 + 0.5 * (8.0e-5 - 2.0e-5))
+        self.assertGreater(info["new_lr_center"], info["previous_lr_center"])  # center still moves despite reuse
+        # manifest["anchor"] itself is untouched by the planner (only apply_exploit's
+        # special case mutates it) -- confirmed unchanged here.
+        self.assertEqual(manifest["anchor"]["metric_value"], 1.0)
+        self.assertEqual(manifest["anchor"]["lr_center"], 2.0e-5)
+
+    def test_all_streams_worse_than_anchor_rewinds_and_restores_center(self):
+        config = _config(accept_tolerance=0.01)
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(1, 6, {"m_a": 2.0, "m_b": 1.8})  # both much worse than anchor's 1.0
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 3.0e-5)}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertEqual(info["decision"], "rewound_to_previous_anchor")
+        self.assertAlmostEqual(info["new_lr_center"], 3.0e-5)  # restored, not moved
+        self.assertAlmostEqual(info["previous_lr_center"], 3.0e-5)
+        recipients = {event["recipient"] for event in plan if event["recipient"] != "__anchor__"}
+        self.assertEqual(recipients, set(members))
+        self.assertTrue(all(event["donor"] == "m_prev" for event in plan))
+        # not just the whole-population fraction -- every member is a recipient.
+        self.assertEqual(len(recipients), len(members))
+
+    def test_stream_better_than_anchor_becomes_new_anchor(self):
+        config = _config(accept_tolerance=0.01)
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(1, 6, {"m_a": 1.5, "m_b": 0.5})  # m_b clearly better than anchor's 1.0
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 3.0e-5)}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertEqual(ranking[0], "m_b")
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertEqual(info["decision"], "accepted_new_anchor")
+        self.assertAlmostEqual(info["anchor_metric_value"], 0.5)
+        recipients = {event["recipient"] for event in plan if event["recipient"] != "__anchor__"}
+        self.assertEqual(recipients, set(members))
+        self.assertTrue(all(event["donor"] == "m_b" for event in plan))
+
+    def test_nan_or_inf_stream_excluded_and_cannot_win(self):
+        config = _config()
+        members = _members({"m_nan": 1.0e-5, "m_inf": 5.0e-5, "m_ok": 9.0e-5})
+        generation = _generation_record(0, 5, {"m_nan": float("nan"), "m_inf": float("inf"), "m_ok": 1.0})
+        manifest = {"members": members, "generations": [], "anchor": None}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertEqual(ranking, ["m_ok"])
+        self.assertNotIn("m_nan", ranking)
+        self.assertNotIn("m_inf", ranking)
+        self.assertEqual(generation["anchor_copy_lr_recenter"]["winner"], "m_ok")
+
+    def test_all_streams_non_finite_triggers_no_action_and_leaves_anchor_untouched(self):
+        config = _config()
+        members = _members({"m_nan": 1.0e-5, "m_inf": 5.0e-5})
+        generation = _generation_record(0, 5, {"m_nan": float("nan"), "m_inf": float("inf")})
+        existing_anchor = _anchor("someone", 1.0, 3.0e-5)
+        manifest = {"members": members, "generations": [], "anchor": dict(existing_anchor)}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertEqual(ranking, [])
+        self.assertEqual(plan, [])
+        self.assertEqual(manifest["anchor"], existing_anchor)
+        self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "no_finite_metric")
+
+    def test_missing_worker_metric_excluded_same_as_nan(self):
+        config = _config()
+        members = _members({"m_missing": 1.0e-5, "m_ok": 5.0e-5})
+        generation = {
+            "index": 0,
+            "epoch": 5,
+            "workers": {
+                "m_missing": {"status": "failed", "metrics": None},
+                "m_ok": {"status": "completed", "metrics": {METRIC: 1.0}},
+            },
+            "ranking": None,
+        }
+        manifest = {"members": members, "generations": [], "anchor": None}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertEqual(ranking, ["m_ok"])
+
+    def test_every_stream_receives_a_new_lr_around_the_common_center(self):
+        multipliers = [0.80, 0.95, 1.05, 1.20]
+        config = _config(spread_multipliers=multipliers)
+        members = _members({"m_a": 1.0e-5, "m_b": 5.0e-5, "m_c": 8.0e-5, "m_d": 9.0e-5})
+        generation = _generation_record(0, 5, {"m_a": 1.0, "m_b": 1.1, "m_c": 1.2, "m_d": 1.3})
+        manifest = {"members": members, "generations": [], "anchor": None}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        center = generation["anchor_copy_lr_recenter"]["new_lr_center"]
+        member_events = {event["recipient"]: event for event in plan if event["recipient"] != "__anchor__"}
+        self.assertEqual(len(member_events), len(members))
+        for name, multiplier in zip(members, multipliers):
+            self.assertAlmostEqual(member_events[name]["new_lr"], center * multiplier)
+        assigned = [event["new_lr"] for event in member_events.values()]
+        self.assertTrue(any(lr < center for lr in assigned))
+        self.assertTrue(any(lr > center for lr in assigned))
+
+    def test_lr_bounds_are_respected(self):
+        config = _config(spread_multipliers=[0.1, 5.0])
+        config["pbt"].update(min_lr=1.0e-5, max_lr=1.0e-4)
+        members = _members({"m_a": 5.0e-5, "m_b": 6.0e-5})
+        generation = _generation_record(0, 5, {"m_a": 1.0, "m_b": 1.1})
+        manifest = {"members": members, "generations": [], "anchor": None}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        member_events = [event for event in plan if event["recipient"] != "__anchor__"]
+        for event in member_events:
+            self.assertGreaterEqual(event["new_lr"], 1.0e-5)
+            self.assertLessEqual(event["new_lr"], 1.0e-4)
+        anchor_event = next(event for event in plan if event["recipient"] == "__anchor__")
+        self.assertGreaterEqual(anchor_event["lr_center"], 1.0e-5)
+        self.assertLessEqual(anchor_event["lr_center"], 1.0e-4)
+
+
+class AnchorCopyLrRecenterApplyTest(unittest.TestCase):
+    def _config(self):
+        return _config(center_step_fraction=0.5, accept_tolerance=0.01)
+
+    def _write_member_checkpoint(self, root, name, epoch, state_bytes, optimizer_bytes):
+        (root / name).mkdir(exist_ok=True)
+        state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, epoch)
+        state_path.write_bytes(state_bytes)
+        optimizer_path.write_bytes(optimizer_bytes)
+        return state_path, optimizer_path
+
+    def test_accepted_decision_copies_winner_weights_and_optimizer_to_every_stream(self):
+        config = self._config()
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(0, 5, {"m_a": 1.5, "m_b": 0.5})  # m_b wins
+        manifest = {"config": config, "members": members, "generations": [], "anchor": None}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in members:
+                self._write_member_checkpoint(root, name, 5, f"{name}-state".encode(), f"{name}-optimizer".encode())
+
+            ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+            generation["exploit"] = plan
+            manifest_path = root / "manifest.json"
+            transitions.apply_exploit(root, manifest, generation, manifest_path)
+
+            for name in members:
+                state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 5)
+                self.assertEqual(state_path.read_bytes(), b"m_b-state")
+                self.assertEqual(optimizer_path.read_bytes(), b"m_b-optimizer")
+
+            paths = anchor_module.anchor_paths(root)
+            self.assertEqual(Path(paths["state_path"]).read_bytes(), b"m_b-state")
+            self.assertEqual(Path(paths["optimizer_path"]).read_bytes(), b"m_b-optimizer")
+            self.assertEqual(manifest["anchor"]["member"], "m_b")
+            self.assertEqual(manifest["anchor"]["metric_value"], 0.5)
+            self.assertTrue(all(event["applied"] for event in generation["exploit"]))
+
+    def test_rewind_restores_saved_anchor_to_every_stream_without_touching_anchor_files(self):
+        config = self._config()
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            # Pre-existing anchor already on disk (as if accepted at an earlier generation).
+            paths = anchor_module.anchor_paths(root)
+            Path(paths["state_path"]).write_bytes(b"anchor-state")
+            Path(paths["optimizer_path"]).write_bytes(b"anchor-optimizer")
+            manifest = {
+                "config": config,
+                "members": members,
+                "generations": [],
+                "anchor": _anchor("m_prev", metric_value=0.5, lr_center=3.0e-5),
+            }
+            for name in members:
+                self._write_member_checkpoint(root, name, 6, f"{name}-diverged-state".encode(), f"{name}-diverged-optimizer".encode())
+
+            generation = _generation_record(1, 6, {"m_a": 2.0, "m_b": 1.8})  # both much worse than anchor
+            ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+            self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "rewound_to_previous_anchor")
+            generation["exploit"] = plan
+            manifest_path = root / "manifest.json"
+            transitions.apply_exploit(root, manifest, generation, manifest_path)
+
+            for name in members:
+                state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 6)
+                self.assertEqual(state_path.read_bytes(), b"anchor-state")
+                self.assertEqual(optimizer_path.read_bytes(), b"anchor-optimizer")
+
+            # Anchor bundle and record are byte-for-byte/value-for-value unchanged.
+            self.assertEqual(Path(paths["state_path"]).read_bytes(), b"anchor-state")
+            self.assertEqual(Path(paths["optimizer_path"]).read_bytes(), b"anchor-optimizer")
+            self.assertEqual(manifest["anchor"]["member"], "m_prev")
+            self.assertEqual(manifest["anchor"]["metric_value"], 0.5)
+            self.assertEqual(manifest["anchor"]["lr_center"], 3.0e-5)
+
+
+class AnchorCopyLrRecenterResumeTest(unittest.TestCase):
+    def test_resume_reproduces_the_same_anchor_lr_center_and_next_plan(self):
+        config = _config(center_step_fraction=0.4, accept_tolerance=0.01)
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(1, 6, {"m_a": 1.5, "m_b": 0.5})
+
+        manifest_before = {
+            "schema_version": 1,
+            "experiment": "unit_anchor_resume",
+            "fingerprint": "abc",
+            "status": "running",
+            "next_generation": 1,
+            "config": config,
+            "members": members,
+            "generations": [],
+            "best": None,
+            "anchor": _anchor("m_prev", metric_value=1.0, lr_center=3.0e-5),
+        }
+
+        # Simulate exactly what runner.py's resume path does: round-trip the
+        # whole manifest through the typed model.
+        resumed = PBTManifest.parse_payload(manifest_before).to_runtime_dict()
+
+        ranking_direct, plan_direct = anchor_copy_lr_recenter_plan(
+            config, dict(generation), dict(members), manifest_before
+        )
+        ranking_resumed, plan_resumed = anchor_copy_lr_recenter_plan(
+            config, dict(generation), dict(resumed["members"]), resumed
+        )
+
+        self.assertEqual(ranking_direct, ranking_resumed)
+        self.assertEqual(
+            [{"recipient": e["recipient"], "donor": e["donor"], "new_lr": e["new_lr"], "decision": e["decision"]} for e in plan_direct],
+            [{"recipient": e["recipient"], "donor": e["donor"], "new_lr": e["new_lr"], "decision": e["decision"]} for e in plan_resumed],
+        )
+        self.assertEqual(resumed["anchor"], manifest_before["anchor"])
+
+
+class ExistingStrategiesUnchangedTest(unittest.TestCase):
+    def test_disabled_by_default_and_dispatch_unchanged_for_other_strategies(self):
+        config = pbt_smoke_config()
+        self.assertIsNone(anchor_copy_lr_recenter_config(config))
+
+        config["pbt"]["anchor_copy_lr_recenter"] = {"mode": "disabled"}
+        self.assertIsNone(anchor_copy_lr_recenter_config(config))
+
+    def test_all_previously_existing_strategies_still_dispatch(self):
+        for name in ("exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy"):
+            self.assertIn(name, dispatch.STRATEGY_PLANNERS)
+        self.assertIn("anchor_copy_lr_recenter", dispatch.STRATEGY_PLANNERS)
+
+    def test_population_rollbacks_unchanged_for_every_other_strategy(self):
+        for name in ("exploit_mutate", "anchored_lr_sweep", "population_lr_policy"):
+            config = pbt_smoke_config()
+            config["pbt"]["strategy"] = name
+            self.assertTrue(strategy_uses_population_rollbacks(config))
+        config = pbt_smoke_config()
+        config["pbt"]["strategy"] = "fixed_lr_grid"
+        self.assertFalse(strategy_uses_population_rollbacks(config))
+        config["pbt"]["strategy"] = "anchor_copy_lr_recenter"
+        self.assertFalse(strategy_uses_population_rollbacks(config))
+
+
+class ExperimentConfigResolutionTest(unittest.TestCase):
+    def test_anchor_copy_lr_recenter_50k_config_resolves_correctly(self):
+        config = config_module.load_config(
+            namespace(
+                config=PROJECT_DIR / "configs/experiments/anchor_copy_lr_recenter_50k.yaml",
+                experiment_name="unit_anchor_copy_lr_recenter_50k",
+                gpus="0,1,2,3",
+                slots=None,
+                smoke=False,
+            )
+        )
+
+        shared = config["shared"]
+        self.assertEqual(shared["validation_suffix"], "val50k_tail")
+        self.assertEqual(shared["samples_per_epoch_val"], 150000)
+        proxy = shared["proxy_validation"]
+        self.assertEqual(proxy["control_rows_per_class"], 50000)
+        self.assertNotIn("full_dataset", proxy)
+        self.assertNotIn("full_suffix", proxy)
+        self.assertEqual(proxy["full_holdout_suffix"], "val_holdout")
+
+        pbt = config["pbt"]
+        self.assertEqual(pbt["strategy"], "anchor_copy_lr_recenter")
+        self.assertEqual(pbt["burn_in_generations"], 0)
+        self.assertEqual(pbt["exploit_interval_generations"], 1)
+        self.assertEqual(pbt["rollback_fraction"], 0.0)
+        self.assertEqual(pbt["dynamic_controller"]["mode"], "disabled")
+        tiered = pbt["tiered_validation"]
+        self.assertNotIn("monitor_interval_generations", tiered)
+        self.assertEqual(tiered["full_interval_generations"], 16)
+
+
+if __name__ == "__main__":
+    unittest.main()

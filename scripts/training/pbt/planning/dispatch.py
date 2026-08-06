@@ -2,6 +2,7 @@
 """Strategy-name -> planner dispatch."""
 
 from training.pbt.models.events import normalize_exploit_plan
+from training.pbt.planning.anchor_copy_lr_recenter import anchor_copy_lr_recenter_plan
 from training.pbt.planning.anchored_lr_sweep import anchored_lr_sweep_plan
 from training.pbt.planning.exploit_mutate import exploit_mutate_plan
 from training.pbt.planning.fixed_lr_grid import fixed_lr_grid_plan
@@ -12,6 +13,7 @@ STRATEGY_PLANNERS = {
     "fixed_lr_grid": fixed_lr_grid_plan,
     "exploit_mutate": exploit_mutate_plan,
     "population_lr_policy": population_lr_policy_plan,
+    "anchor_copy_lr_recenter": anchor_copy_lr_recenter_plan,
 }
 
 

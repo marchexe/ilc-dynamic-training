@@ -1,0 +1,71 @@
+schema_version: 1
+
+# Isolated strategy: anchor_copy_lr_recenter. Every generation (no
+# burn-in, no significance gate, no exploit-interval throttling -- see
+# burn_in_generations/exploit_interval_generations below): select the
+# best-finite-metric stream on the per-generation control-tier metric,
+# classify it against the single persisted population anchor within
+# accept_tolerance, move (or restore) a single shared LR center, copy the
+# resulting anchor state to every stream including the winner, and assign a
+# deterministic LR spread around the new center.
+#
+# Explicitly NOT population_lr_policy's algorithm (median-LR-half split,
+# per-member own-LR*factor scaling, periodic-tier-gated decisions,
+# per-recipient snapshot rollback) -- see
+# scripts/training/pbt/planning/anchor_copy_lr_recenter.py's module
+# docstring. dynamic_controller is fully disabled (this strategy owns all
+# population LR movement); population rollback injection
+# (add_global_best_rollbacks) is excluded for this strategy at the code
+# level (planning/rollbacks.py::strategy_uses_population_rollbacks), with
+# rollback_fraction: 0.0 below as a second, config-level guarantee.
+pbt:
+  backend: local_weaver
+  strategy: anchor_copy_lr_recenter
+
+  # Required by the config schema regardless of strategy; unused by this
+  # strategy's planner (exploit_mutate only).
+  exploit_fraction: 0.25
+  mutation_factors: [1.0]
+
+  metric: validation_working_point_mistag_percent
+  mode: min
+  min_lr: 3.0e-6
+  max_lr: 1.4e-5
+
+  # Copy execution enabled every generation, from generation 0: no
+  # observe-only warmup period, no every-Nth-generation throttling.
+  burn_in_generations: 0
+  exploit_interval_generations: 1
+
+  # Defense in depth alongside the code-level exclusion in rollbacks.py --
+  # even if that exclusion were ever removed, a 0.0 fraction makes
+  # add_global_best_rollbacks a mathematical no-op (floor(N * 0.0) == 0).
+  rollback_fraction: 0.0
+  # Anything other than "rollback_to_initial" makes add_baseline_guard_rollbacks
+  # a no-op too (rollbacks.py checks for that exact value) -- stated
+  # explicitly rather than left to the None default for the same reason.
+  baseline_guard_action: observe
+
+  seed: 2026
+
+  # Completely disabled: this strategy owns all population LR movement.
+  # (Omitting the block entirely would have the same effect --
+  # dynamic_controller_config() returns None either way -- explicit here
+  # so the intent is visible in the config itself, not just implied by
+  # absence.)
+  dynamic_controller:
+    mode: disabled
+
+  anchor_copy_lr_recenter:
+    mode: active
+    center_step_fraction: 0.3
+    accept_tolerance: 0.01
+    spread_multipliers: [0.80, 0.95, 1.05, 1.20]
+
+  # Rare full_holdout verification only -- no monitor tier at all (this
+  # strategy's control-tier metric already comes from val50k_tail via the
+  # experiment-scoped 50k override, so a separate "monitor" round on the
+  # same data would just be duplicate compute for no new information).
+  tiered_validation:
+    full_interval_generations: 16
+    evaluate_initial_checkpoint_all_tiers: true

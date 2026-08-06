@@ -35,6 +35,12 @@ class PBTManifest(ManifestSectionModel):
     members: dict[str, ManifestMemberState]
     generations: list[dict[str, Any]]
     best: dict[str, Any] | None = None
+    # anchor_copy_lr_recenter's single persisted population anchor (weights
+    # + optimizer + controller + lr_center + metric provenance). Kept
+    # loosely typed as dict[str, Any], matching `best` above -- both are
+    # fundamentally metadata records, not something validated field-by-field
+    # here. Absent/None for every other strategy.
+    anchor: dict[str, Any] | None = None
 
     @classmethod
     def parse_payload(cls, payload: Any):

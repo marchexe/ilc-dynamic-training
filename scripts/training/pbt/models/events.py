@@ -126,6 +126,41 @@ class PopulationLrPolicyResolutionEvent(ExploitEventBase):
         return {"parent": None, "parent_source": "population_lr_policy_rollback"}
 
 
+class AnchorCopyEvent(ExploitEventBase):
+    """One recipient's every-generation copy for the anchor_copy_lr_recenter
+    strategy: weights+optimizer+controller always come from the single
+    persisted population anchor (manifest["anchor"]), never from a member
+    directory -- `donor` here is a human-readable label (the member that
+    originally produced the current anchor state), not a path source; the
+    real source is resolved by donor_paths() below regardless of that
+    label's value, exactly like GlobalBestRollbackEvent resolves from
+    manifest["best"] rather than from `donor`. Emitted for every member
+    every generation, including the current winner -- unlike
+    population_lr_policy's two-phase decision/resolution split, this
+    strategy resolves accept-or-rewind within the same generation it
+    evaluates (the control-tier metric this decision needs already exists
+    every generation), so one event type is enough; `decision` records
+    which of the three outcomes produced this copy.
+    """
+
+    source: Literal["anchor_copy_lr_recenter"] = "anchor_copy_lr_recenter"
+    decision: Literal["accepted_new_anchor", "reused_previous_anchor", "rewound_to_previous_anchor"]
+    anchor_generation: int
+    anchor_metric_value: float
+    winner: str
+    winner_metric_value: float
+    lr_center: float
+
+    def donor_paths(self, experiment_dir, recipient_dir, epoch, manifest):
+        experiment_dir = Path(experiment_dir)
+        anchor = manifest.get("anchor") or {}
+        return (
+            Path(anchor.get("state_path") or experiment_dir / "checkpoints" / "anchor_state.pt"),
+            Path(anchor.get("optimizer_path") or experiment_dir / "checkpoints" / "anchor_optimizer.pt"),
+            Path(anchor.get("controller_path") or experiment_dir / "checkpoints" / "anchor_controller.pt"),
+        )
+
+
 class InitialResumeRollbackEvent(ExploitEventBase):
     source: Literal["initial_resume"]
     mutation_factor: float
@@ -158,7 +193,8 @@ ExploitEvent = Annotated[
     | GlobalBestRollbackEvent
     | InitialResumeRollbackEvent
     | PopulationLrPolicyEvent
-    | PopulationLrPolicyResolutionEvent,
+    | PopulationLrPolicyResolutionEvent
+    | AnchorCopyEvent,
     Field(discriminator="source"),
 ]
 ExploitEventAdapter = TypeAdapter(ExploitEvent)

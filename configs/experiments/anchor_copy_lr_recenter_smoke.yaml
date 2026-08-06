@@ -1,0 +1,37 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/shared/proxy_control_50k_override.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/anchor_copy_lr_recenter.yaml
+
+experiment:
+  output_root: runs/dev
+  name: anchor_copy_lr_recenter_smoke
+
+# Minimal live smoke: 4 streams, 3 generations, small samples_per_epoch for
+# training speed -- but samples_per_epoch_val is deliberately NOT shrunk
+# here (unlike nightly_proxy_control50k_smoke.yaml's speed-motivated
+# override): it stays at the full 150000 inherited from
+# proxy_control_50k_override.yaml, so every generation's control-tier
+# evaluation genuinely covers the complete, fixed 150,000-event
+# control_proxy_50k, exactly as this strategy requires.
+shared:
+  generations: 3
+  samples_per_epoch: 20000
+  batch_size: 512
+
+population:
+  - name: smoke_lr_3e-6
+    start_lr: 3.0e-6
+  - name: smoke_lr_6e-6
+    start_lr: 6.0e-6
+  - name: smoke_lr_9e-6
+    start_lr: 9.0e-6
+  - name: smoke_lr_14e-6
+    start_lr: 1.4e-5
+
+pbt:
+  tiered_validation:
+    full_interval_generations: 100
+    evaluate_initial_checkpoint_all_tiers: false

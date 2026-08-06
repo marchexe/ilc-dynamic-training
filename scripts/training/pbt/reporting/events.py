@@ -125,6 +125,30 @@ def record_skipped_exploit(run_dir, generation_record, skipped_event):
     )
 
 
+def record_anchor_decision(run_dir, generation_record, decision_record):
+    """Log anchor_copy_lr_recenter's once-per-generation accept/reuse/rewind
+    decision -- a distinct event type from "new_best"/"controller_lr_change"
+    so this strategy's own anchor bookkeeping stays separable in the event
+    log, matching the convention record_controller_lr_change already
+    established for keeping adaptation layers apart.
+    """
+    append_event(
+        run_dir,
+        "anchor_decision",
+        {
+            "generation": generation_record.get("index"),
+            "decision": decision_record.get("decision"),
+            "winner": decision_record.get("winner"),
+            "winner_metric_value": decision_record.get("winner_metric_value"),
+            "anchor_metric_value": decision_record.get("anchor_metric_value"),
+            "previous_lr_center": decision_record.get("previous_lr_center"),
+            "new_lr_center": decision_record.get("new_lr_center"),
+            "assigned_lrs": decision_record.get("assigned_lrs"),
+            "eval_tier": decision_record.get("eval_tier"),
+        },
+    )
+
+
 def record_controller_lr_change(run_dir, generation_record, member_name, change):
     """Log a fine dynamic-controller LR nudge applied directly to a member's
     own LR, independent of PBT exploit -- a distinct event type from

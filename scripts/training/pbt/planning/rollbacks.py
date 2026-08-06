@@ -9,7 +9,17 @@ from training.pbt.models.events import normalize_exploit_plan
 
 
 def strategy_uses_population_rollbacks(config):
-    return config["pbt"].get("strategy", "exploit_mutate") != "fixed_lr_grid"
+    # anchor_copy_lr_recenter owns its own accept/reuse/rewind cycle over
+    # the whole population every generation; add_global_best_rollbacks
+    # injecting a *different* rollback source on top of that (keyed off a
+    # separate global_best record this strategy doesn't otherwise use)
+    # would fight the strategy's own plan, so it's excluded here the same
+    # way fixed_lr_grid already is. (rollback_fraction: 0.0 in this
+    # strategy's own preset already makes add_global_best_rollbacks a
+    # structural no-op regardless -- this exclusion is a second, explicit,
+    # config-independent guarantee, not a behavior change for any other
+    # strategy.)
+    return config["pbt"].get("strategy", "exploit_mutate") not in ("fixed_lr_grid", "anchor_copy_lr_recenter")
 
 
 def add_global_best_rollbacks(config, manifest, generation_record, members, plan):

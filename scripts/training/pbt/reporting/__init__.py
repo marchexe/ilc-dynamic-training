@@ -13,6 +13,7 @@ ties all of the above together).
 
 from training.pbt.reporting.canonical import write_canonical_outputs
 from training.pbt.reporting.events import (
+    record_anchor_decision,
     record_controller_lr_change,
     record_evaluation,
     record_exploit_application,
@@ -54,6 +55,7 @@ __all__ = [
     "proxy_overfitting_cases",
     "proxy_selected_checkpoint_other_tiers",
     "ranking_agreement",
+    "record_anchor_decision",
     "record_controller_lr_change",
     "record_evaluation",
     "record_exploit_application",

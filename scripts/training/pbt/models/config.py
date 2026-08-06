@@ -137,6 +137,61 @@ class PopulationLrPolicyConfig(StrictSectionModel):
     direction_sigma: float | None = Field(default=1.0, ge=0.0)
 
 
+class AnchorCopyLrRecenterConfig(StrictSectionModel):
+    """Isolated strategy (pbt.strategy == "anchor_copy_lr_recenter"):
+    every generation, unconditionally (no significance gate) select the
+    best-finite-metric member as winner, classify it against the single
+    persisted population anchor within accept_tolerance (strictly better ->
+    accepted_new_anchor, persist winner's full state as the new anchor;
+    within tolerance -> reused_previous_anchor, keep the old anchor's
+    weights/optimizer but still move the LR center toward the winner's LR;
+    strictly worse -> rewound_to_previous_anchor, keep the old anchor AND
+    restore the old LR center, undoing this generation's LR movement), copy
+    the (possibly-just-updated) anchor to every stream including the
+    winner, and assign a fresh deterministic LR spread around the
+    resulting center. Mutually exclusive with dynamic_controller/
+    exploit_mutate/population_lr_policy at runtime, the same way
+    population_lr_policy is -- selecting this strategy leaves those
+    modules' code paths completely uninvoked.
+    """
+
+    mode: Literal["disabled", "active"] = "disabled"
+    # Always the per-generation control-tier metric (control_proxy_50k in
+    # this project's convention) -- deliberately not tier-selectable like
+    # population_lr_policy.eval_tier: this strategy is defined around
+    # consuming the metric every worker already produces every generation,
+    # never a periodic separate tiered_evaluations round.
+    center_step_fraction: float = Field(
+        default=0.3, gt=0.0, le=1.0,
+        description="new_center = prev_center + center_step_fraction * (winner_lr - prev_center)",
+    )
+    # Relative/fractional, exactly like degradation_tolerance -- reuses
+    # metrics.py::metric_is_worse_than_reference's existing orientation-safe
+    # comparison (current worse-than-reference by more than this fraction),
+    # applied symmetrically in both directions to get the three-way
+    # accept/reuse/rewind split, rather than a new absolute-units comparator.
+    accept_tolerance: float = Field(
+        default=0.0, ge=0.0, lt=1.0,
+        description="Fractional tolerance band for the accept/reuse/rewind classification (same convention as degradation_tolerance).",
+    )
+    spread_multipliers: list[float] = Field(
+        min_length=1,
+        description="Deterministic per-member LR multipliers applied to the new center, e.g. [0.80, 0.95, 1.05, 1.20] for 4 members. Length must equal the population size.",
+    )
+
+    @field_validator("spread_multipliers")
+    @classmethod
+    def validate_spread_multipliers(cls, values):
+        if any(value <= 0 for value in values):
+            raise ValueError("anchor_copy_lr_recenter.spread_multipliers must be positive")
+        if not (min(values) < 1.0 < max(values)):
+            raise ValueError(
+                "anchor_copy_lr_recenter.spread_multipliers must include values both below and above 1.0 "
+                "so the spread has at least one member below and one above the center"
+            )
+        return values
+
+
 class ProxyValidationConfig(StrictSectionModel):
     """Proxy-validation datasets used for physics-aware high-frequency control."""
 
@@ -257,7 +312,8 @@ class PBTSection(StrictSectionModel):
     controller_state_on_exploit: Literal["copy", "reset"] | None = None
     backend: Literal["local_weaver", "ray_weaver", "ray_tune"] | None = None
     strategy: Literal[
-        "exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy"
+        "exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy",
+        "anchor_copy_lr_recenter",
     ] | None = None
     confidence_aware_selection: bool = True
     selection_uncertainty_sigma: float | None = Field(default=1.0, gt=0.0)
@@ -301,6 +357,7 @@ class PBTSection(StrictSectionModel):
     lr_controller: SmoothLrControllerConfig | None = None
     dynamic_controller: DynamicControllerConfig | None = None
     population_lr_policy: PopulationLrPolicyConfig | None = None
+    anchor_copy_lr_recenter: AnchorCopyLrRecenterConfig | None = None
     tiered_validation: TieredValidationConfig | None = None
     baseline_metric_value: float | None = None
     baseline_guard_tolerance: float | None = Field(default=None, ge=0.0, lt=1.0)
@@ -400,7 +457,8 @@ class ResolvedPBTSection(PBTSection):
     controller_state_on_exploit: Literal["copy", "reset"] = "copy"
     backend: Literal["local_weaver", "ray_weaver", "ray_tune"] = "local_weaver"
     strategy: Literal[
-        "exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy"
+        "exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy",
+        "anchor_copy_lr_recenter",
     ] = "exploit_mutate"
 
     @model_validator(mode="after")
@@ -530,6 +588,13 @@ class ResolvedPBTConfig(StrictSectionModel):
                 raise ValueError("baseline_guard_seed_initial_best requires initial_state/initial_optimizer")
             if self.pbt.baseline_metric_value is None:
                 raise ValueError("baseline_guard_seed_initial_best requires baseline_metric_value")
+        policy = self.pbt.anchor_copy_lr_recenter
+        if policy is not None and policy.mode == "active":
+            if len(policy.spread_multipliers) != len(self.population):
+                raise ValueError(
+                    "anchor_copy_lr_recenter.spread_multipliers must have exactly one entry "
+                    f"per population member ({len(self.population)}), got {len(policy.spread_multipliers)}"
+                )
         return self
 
     def to_runtime_dict(self):
