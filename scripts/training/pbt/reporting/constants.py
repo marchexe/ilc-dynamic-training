@@ -14,42 +14,28 @@ SUMMARY_NAME = "summary.json"
 REPORT_NAME = "report.md"
 
 
-PLOT_NAMES = {
-    "training_evolution": "training_evolution.png",
-    "baseline_comparison": "baseline_vs_selected.png",
-    "proxy_diagnostics": "proxy_diagnostics.png",
+# Report-facing figures (reporting/report_plots.py) -- each name here maps
+# to a base filename, written as a single f"{base}.png" directly under
+# <run_dir>/plots/. This is the full standalone-figure set for a run's
+# report.md (background_efficiency_curves.png lives separately, under
+# plots/diagnostics/, alongside physics_performance.png -- see
+# write_existing_physics_reports in plots.py): population/winner overview,
+# LR lineage, physics-score evolution, and the conditional proxy-validation
+# check. Deliberately not combined into one contact-sheet/dashboard image --
+# each answers one specific question on its own (see each plot function's
+# docstring).
+REPORT_PLOT_NAMES = {
+    "pbt_population_selection": "pbt_population_selection",
+    "mistag_score_evolution": "mistag_score_evolution",
+    "learning_rate_lineage": "learning_rate_lineage",
+    "proxy_validation": "proxy_validation",
 }
 
 
-CONDITIONAL_PLOT_NAMES = ("baseline_comparison", "proxy_diagnostics")
-
-
-# Standalone research figures (reporting/research_plots.py) -- each name
-# here maps to a base filename, written as a single f"{base}.png" directly
-# under <run_dir>/plots/. Distinct from PLOT_NAMES above (the operational
-# run-dashboard plots) -- these follow a plain scientific style (white
-# background, restrained grid, colorblind-safe markers) rather than the
-# dashboard's accent styling, and are never combined into one
-# contact-sheet/dashboard image. The raw c-tag/b-tag working-point and
-# aggregate-score dashboard plots that used to live in PLOT_NAMES were
-# removed as redundant once these landed -- this is the only c-tag/b-tag
-# working-point and aggregate-score plot set now.
-RESEARCH_PLOT_NAMES = {
-    "ctag_working_points": "ctag_working_points_evolution",
-    "btag_working_points": "btag_working_points_evolution",
-    "aggregate_scores": "aggregate_mistag_score_evolution",
-    "tag_tradeoff": "ctag_vs_btag_tradeoff",
-    "score_vs_lr": "total_score_vs_learning_rate",
-    "lr_population": "learning_rate_population_evolution",
-    "baseline_ratio": "final_vs_baseline_mistag_ratio",
-    "decision_history": "pbt_decision_history",
-}
-
-
-# Only meaningful for pbt.strategy == "anchor_copy_lr_recenter" runs -- no
-# other strategy has a shared LR center or an accept/reuse/rewind decision
-# to show, so these two are skipped (not fabricated) otherwise.
-CONDITIONAL_RESEARCH_PLOT_NAMES = ("lr_population", "decision_history")
+# proxy_validation is the only genuinely conditional one -- it only exists
+# when the run recorded at least one monitor or full_holdout tiered
+# evaluation; skipped (not fabricated) otherwise.
+CONDITIONAL_REPORT_PLOT_NAMES = ("proxy_validation",)
 
 
 # Colorblind-safe categorical palette (Okabe-Ito), used throughout

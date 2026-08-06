@@ -24,7 +24,7 @@ from training.pbt.reporting import (
     write_canonical_outputs,
     write_tiered_metrics_csv,
 )
-from training.pbt.reporting.markdown_report import _proxy_diagnostics_report_lines
+from training.pbt.reporting.markdown_report import _proxy_validation_section_lines
 from training.pbt.execution.backend import finite_metric_ok
 
 
@@ -436,7 +436,7 @@ class FullHoldoutUsedNotPlainFullTest(unittest.TestCase):
         self.assertGreater(holdout_correlation["pearson_r"], 0.95)
         self.assertLess(full_correlation["pearson_r"], 0.5)
 
-        lines = _proxy_diagnostics_report_lines(manifest, {}, "plots/proxy_diagnostics.png")
+        lines = _proxy_validation_section_lines(manifest, {"proxy_validation": "plots/proxy_validation.png"})
         report_text = "\n".join(lines)
         self.assertIn("full_holdout", report_text)
         self.assertIn(f"n={holdout_correlation['n']}, Pearson r={holdout_correlation['pearson_r']:.3f}", report_text)
@@ -444,7 +444,7 @@ class FullHoldoutUsedNotPlainFullTest(unittest.TestCase):
 
 
 class EndToEndTieredArtifactsTest(unittest.TestCase):
-    def test_write_canonical_outputs_produces_proxy_diagnostics_when_tiers_present(self):
+    def test_write_canonical_outputs_produces_proxy_validation_when_tiers_present(self):
         manifest = base_manifest()
         record_tiered_evaluation_round(
             Path(tempfile.gettempdir()), manifest, {"index": -1}, "monitor", "monitor_ds", "val50k_tail",
@@ -467,23 +467,24 @@ class EndToEndTieredArtifactsTest(unittest.TestCase):
             artifacts = write_canonical_outputs(run_dir, manifest)
 
             self.assertTrue((run_dir / "tiered_metrics.csv").is_file())
-            self.assertTrue((run_dir / "plots" / "proxy_diagnostics.png").is_file())
+            self.assertTrue((run_dir / "plots" / "proxy_validation.png").is_file())
             self.assertTrue((run_dir / "plots" / "report" / "skipped_exploits.csv").is_file())
-            self.assertIn("proxy_diagnostics", artifacts["plots"])
+            self.assertIn("proxy_validation", artifacts["plots"])
             report = (run_dir / "report.md").read_text()
-            self.assertIn("## Proxy Validation Diagnostics", report)
+            self.assertIn("## Proxy Validation", report)
             self.assertIn("Corroboration status", report)
 
-    def test_no_proxy_diagnostics_plot_when_no_tiers_recorded(self):
+    def test_no_proxy_validation_plot_when_no_tiers_recorded(self):
         manifest = base_manifest()
         with tempfile.TemporaryDirectory() as temporary:
             run_dir = Path(temporary)
             artifacts = write_canonical_outputs(run_dir, manifest)
 
-            self.assertNotIn("proxy_diagnostics", artifacts["plots"])
-            self.assertFalse((run_dir / "plots" / "proxy_diagnostics.png").exists())
+            self.assertNotIn("proxy_validation", artifacts["plots"])
+            self.assertFalse((run_dir / "plots" / "proxy_validation.png").exists())
             report = (run_dir / "report.md").read_text()
-            self.assertNotIn("## Proxy Validation Diagnostics", report)
+            self.assertIn("## Proxy Validation", report)
+            self.assertIn("No corroboration-tier evaluation was scheduled during this short run.", report)
 
 
 if __name__ == "__main__":

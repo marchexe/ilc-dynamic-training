@@ -35,6 +35,15 @@ REFERENCE_WORKING_POINTS = {
     "b": (0.8, 0.9),
     "c": (0.5, 0.8),
 }
+# Short human-readable label per worker_for_report() role -- used in figure
+# titles so a reader never has to guess whether "best" means the PBT's own
+# selection or this reporting-only physics-score pick, which can disagree
+# (see worker_for_report's "best_physics" vs "global_best" branches).
+CHECKPOINT_ROLE_LABELS = {
+    "best_physics": "best physics (mean of 8 fixed WPs)",
+    "global_best": "global best (PBT selection)",
+    "best_final": "best of final generation",
+}
 
 
 def parse_args():
@@ -102,7 +111,20 @@ def worker_for_report(manifest, member):
         member_name = best.get("member")
         if generation_index is None or member_name is None:
             raise RuntimeError("manifest has no global best record")
-        generation = next(item for item in generations if item["index"] == generation_index)
+        generation = next((item for item in generations if item["index"] == generation_index), None)
+        # generation_index == -1 (member "initial_resume") means the
+        # baseline guard kept the pretrained checkpoint itself as global
+        # best -- it has no entry in `generations` (that's pre-training),
+        # so there is nothing to plot fixed-WP curves from here. Any other
+        # missing-generation case is equally unplottable. Raise the same
+        # RuntimeError family as the branches above so callers (e.g.
+        # reporting/plots.py::write_existing_physics_reports) can fall back
+        # to another role instead of crashing on an unhandled StopIteration.
+        if generation is None or member_name not in generation.get("workers", {}):
+            raise RuntimeError(
+                f"manifest's global best (generation {generation_index}, member {member_name!r}) "
+                "has no plottable worker -- likely the baseline-guard-kept pretrained checkpoint"
+            )
         worker = generation["workers"][member_name]
         return worker, generation, member_name, physics_mistag_score(worker.get("metrics") or {})
     if member == "best_final":
@@ -246,32 +268,6 @@ def collect_evolution_rows(manifest, tag):
 
 def default_output(manifest_path):
     return Path(manifest_path).parent / "plots" / "report" / "physics_performance.png"
-
-
-def compact_count(value):
-    if value is None:
-        return "?"
-    value = int(value)
-    if value >= 1_000_000:
-        number = value / 1_000_000
-        return f"{number:g}M"
-    if value >= 1_000:
-        number = value / 1_000
-        return f"{number:g}k"
-    return str(value)
-
-
-def sample_summary(manifest):
-    shared = manifest.get("config", {}).get("shared", {}) or {}
-    train = shared.get("samples_per_epoch")
-    validation = shared.get("samples_per_epoch_val")
-    dataset = Path(str(shared.get("dataset", ""))).name or "dataset"
-    parts = [dataset]
-    if train is not None:
-        parts.append(f"training chunk {compact_count(train)} events/trial")
-    if validation is not None:
-        parts.append(f"validation {compact_count(validation)}")
-    return " | ".join(parts)
 
 
 def log_tick_label(value, _position):
@@ -421,23 +417,19 @@ def plot_manifest(manifest_path, output=None, member="best_physics"):
     draw_table(fig.add_subplot(grid[0, 1]), metrics, "b")
     draw_mistag_bars(fig.add_subplot(grid[1, 0]), metrics, "c")
     draw_mistag_bars(fig.add_subplot(grid[1, 1]), metrics, "b")
-    score_text = "" if physics_score is None else f" | avg fixed-WP mistag {physics_score:.3f}%"
+    if member == "global_best":
+        best = manifest.get("best") or {}
+        score_text = "" if best.get("metric_value") is None else f" | {best.get('metric')} {best['metric_value']:.4g}"
+    else:
+        score_text = "" if physics_score is None else f" | avg fixed-WP mistag {physics_score:.3f}%"
+    role_label = CHECKPOINT_ROLE_LABELS.get(member, f"member `{member}`")
     fig.suptitle(
-        f"Selected model: {member_name}, generation {generation['index']}{score_text}",
+        f"Checkpoint: {role_label} ({member_name}, generation {generation['index']}){score_text}",
         x=0.06,
         y=0.975,
         ha="left",
-        fontsize=14,
+        fontsize=13,
         fontweight="bold",
-    )
-    fig.text(
-        0.06,
-        0.938,
-        f"{manifest.get('experiment', resolved_manifest_path.parent.name)} | {sample_summary(manifest)}",
-        ha="left",
-        va="top",
-        fontsize=9.5,
-        color="0.35",
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=180, bbox_inches="tight")

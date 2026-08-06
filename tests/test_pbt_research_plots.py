@@ -1,31 +1,13 @@
-import math
-import tempfile
 import unittest
-from pathlib import Path
 
 from tests.test_pbt_artifacts import fixed_curve_metrics, synthetic_manifest
-from training.pbt.reporting.constants import (
-    BTAG_SCORE_COLUMN,
-    BTAG_SCORE_WORKING_POINTS,
-    CONDITIONAL_RESEARCH_PLOT_NAMES,
-    CTAG_SCORE_COLUMN,
-    CTAG_SCORE_WORKING_POINTS,
-    RESEARCH_PLOT_NAMES,
-    TOTAL_SCORE_COLUMN,
-)
+from training.pbt.reporting.constants import TOTAL_SCORE_COLUMN
 from training.pbt.reporting.research_plots import (
     build_generation_decision_rows,
     build_member_metric_rows,
-    plot_aggregate_scores,
-    plot_baseline_ratio,
-    plot_btag_working_points,
-    plot_ctag_working_points,
-    plot_decision_history,
-    plot_lr_population,
-    plot_score_vs_lr,
-    plot_tag_tradeoff,
+    generation_winner_member,
+    shared_lr_center_series,
     validate_metric_rows,
-    write_research_plots,
 )
 from training.runtime import combine_group_scores
 
@@ -34,7 +16,8 @@ def _anchor_copy_manifest():
     """A small, fully hand-specified anchor_copy_lr_recenter manifest: 3
     generations, 2 members, one occurrence of each decision outcome, and
     known LR/metric values throughout -- so numeric-verification tests can
-    assert exact expected results rather than just "did not crash"."""
+    assert exact expected results rather than just "did not crash". Shared
+    with tests/test_pbt_report_plots.py."""
     manifest = synthetic_manifest()
     manifest["config"]["pbt"]["strategy"] = "anchor_copy_lr_recenter"
     manifest["config"]["pbt"]["min_lr"] = 3.0e-6
@@ -53,7 +36,10 @@ def _anchor_copy_manifest():
                 "m_b": {"status": "completed", "lr": 8.0e-6, "metrics": fixed_curve_metrics(1.1, 0.88, 0.96, 0.32)},
             },
             "ranking": ["m_a", "m_b"],
-            "exploit": [],
+            "exploit": [
+                {"source": "anchor_copy_lr_recenter", "recipient": "m_a", "donor": "m_a", "recipient_lr": 1.0e-5, "new_lr": 1.0e-5, "applied": True},
+                {"source": "anchor_copy_lr_recenter", "recipient": "m_b", "donor": "m_a", "recipient_lr": 8.0e-6, "new_lr": 9.0e-6, "applied": True},
+            ],
             "anchor_copy_lr_recenter": {
                 "decision": "accepted_new_anchor",
                 "winner": "m_a",
@@ -73,7 +59,10 @@ def _anchor_copy_manifest():
                 "m_b": {"status": "completed", "lr": 9.0e-6, "metrics": fixed_curve_metrics(0.85, 0.9, 0.98, 0.29)},
             },
             "ranking": ["m_b", "m_a"],
-            "exploit": [],
+            "exploit": [
+                {"source": "anchor_copy_lr_recenter", "recipient": "m_a", "donor": "m_b", "recipient_lr": 1.0e-5, "new_lr": 3.0e-6, "applied": True},
+                {"source": "anchor_copy_lr_recenter", "recipient": "m_b", "donor": "m_b", "recipient_lr": 9.0e-6, "new_lr": 1.4e-5, "applied": True},
+            ],
             "anchor_copy_lr_recenter": {
                 "decision": "reused_previous_anchor",
                 "winner": "m_b",
@@ -93,7 +82,10 @@ def _anchor_copy_manifest():
                 "m_b": {"status": "completed", "lr": 1.4e-5, "metrics": fixed_curve_metrics(1.4, 0.79, 0.89, 0.41)},
             },
             "ranking": ["m_a", "m_b"],
-            "exploit": [],
+            "exploit": [
+                {"source": "anchor_copy_lr_recenter", "recipient": "m_a", "donor": "m_b", "recipient_lr": 3.0e-6, "new_lr": 8.1e-6, "applied": True},
+                {"source": "anchor_copy_lr_recenter", "recipient": "m_b", "donor": "m_b", "recipient_lr": 1.4e-5, "new_lr": 9.9e-6, "applied": True},
+            ],
             "anchor_copy_lr_recenter": {
                 "decision": "rewound_to_previous_anchor",
                 "winner": "m_a",
@@ -108,6 +100,80 @@ def _anchor_copy_manifest():
     return manifest
 
 
+def _confidence_aware_manifest():
+    """A single-generation manifest where generation["ranking"] deliberately
+    disagrees with a plain sort by raw optimization_metric_value --
+    simulating confidence-aware incumbent persistence (m_a keeps winning
+    despite m_b's numerically better raw value this generation)."""
+    return {
+        "config": {
+            "shared": {"samples_per_epoch": 100, "epochs_per_generation": 1},
+            "pbt": {"metric": "validation_working_point_mistag_percent", "mode": "min"},
+        },
+        "initial_evaluation": {"status": "skipped", "metrics": {}},
+        "members": {
+            "m_a": {"name": "m_a", "lr": 1.0e-4, "parent": None},
+            "m_b": {"name": "m_b", "lr": 2.0e-4, "parent": None},
+        },
+        "generations": [
+            {
+                "index": 0,
+                "status": "completed",
+                "workers": {
+                    "m_a": {"status": "completed", "lr": 1.0e-4, "metrics": {"validation_working_point_mistag_percent": 1.0}},
+                    "m_b": {"status": "completed", "lr": 2.0e-4, "metrics": {"validation_working_point_mistag_percent": 0.5}},
+                },
+                "ranking": ["m_a", "m_b"],
+            }
+        ],
+    }
+
+
+def _old_max_mode_manifest():
+    """A run whose configured metric is a max-mode HEP score, not
+    total_mistag_score -- and where the true winner (by that real metric,
+    via the recorded ranking) has a numerically WORSE total_mistag_score
+    than the runner-up. A winner-selection implementation that (incorrectly)
+    minimized total_mistag_score would pick the wrong member here."""
+    strong_rejections = {
+        "bc": [800.0, 500.0, 40.0], "bd": [900.0, 700.0, 120.0],
+        "cb": [250.0, 80.0, 20.0], "cd": [900.0, 120.0, 12.0],
+    }
+    weak_rejections = {
+        "bc": [20.0, 15.0, 10.0], "bd": [25.0, 18.0, 12.0],
+        "cb": [15.0, 10.0, 8.0], "cd": [20.0, 14.0, 9.0],
+    }
+
+    def metrics_for(rejections, bkg_rejection_score):
+        return {
+            "validation_bkg_rejection_score": bkg_rejection_score,
+            "validation_bkg_rejection_at_eff": {"efficiencies": [0.5, 0.8, 0.9], "pairs": rejections},
+        }
+
+    return {
+        "config": {
+            "shared": {"samples_per_epoch": 100, "epochs_per_generation": 1},
+            "pbt": {"metric": "validation_bkg_rejection_score", "mode": "max"},
+        },
+        "initial_evaluation": {"status": "skipped", "metrics": {}},
+        "members": {
+            "trial_a": {"name": "trial_a", "lr": 1.0e-4, "parent": None},
+            "trial_b": {"name": "trial_b", "lr": 2.0e-4, "parent": None},
+        },
+        "generations": [
+            {
+                "index": 0,
+                "status": "completed",
+                "workers": {
+                    "trial_a": {"status": "completed", "lr": 1.0e-4, "metrics": metrics_for(weak_rejections, 9.0)},
+                    "trial_b": {"status": "completed", "lr": 2.0e-4, "metrics": metrics_for(strong_rejections, 5.0)},
+                },
+                "ranking": ["trial_a", "trial_b"],
+            }
+        ],
+    }
+
+
 class DataLayerTest(unittest.TestCase):
     def test_member_rows_flag_the_actual_configured_metric_winner(self):
         manifest = _anchor_copy_manifest()
@@ -116,6 +182,24 @@ class DataLayerTest(unittest.TestCase):
         winners = [row for row in generation_0 if row["is_winner"]]
         self.assertEqual(len(winners), 1)
         self.assertEqual(winners[0]["trial"], "m_a")  # 0.9 < 1.1, mode=min
+
+    def test_member_rows_winner_matches_confidence_aware_ranking_not_raw_value(self):
+        manifest = _confidence_aware_manifest()
+        rows = build_member_metric_rows(manifest)
+        winners = [row for row in rows if row["is_winner"]]
+        self.assertEqual(len(winners), 1)
+        self.assertEqual(winners[0]["trial"], "m_a")
+        raw_winner = min(rows, key=lambda row: row["optimization_metric_value"])
+        self.assertEqual(raw_winner["trial"], "m_b")
+
+    def test_old_max_mode_manifest_winner_is_not_total_mistag_score_derived(self):
+        manifest = _old_max_mode_manifest()
+        rows = build_member_metric_rows(manifest)
+        winners = [row for row in rows if row["is_winner"]]
+        self.assertEqual(len(winners), 1)
+        self.assertEqual(winners[0]["trial"], "trial_a")
+        total_score_winner = min(rows, key=lambda row: row[TOTAL_SCORE_COLUMN])
+        self.assertEqual(total_score_winner["trial"], "trial_b")
 
     def test_decision_rows_empty_for_non_anchor_copy_strategy(self):
         manifest = synthetic_manifest()  # strategy=anchored_lr_sweep
@@ -171,251 +255,53 @@ class DataLayerTest(unittest.TestCase):
         self.assertTrue(any("member=c" in warning and "non-finite" in warning for warning in warnings))
         self.assertTrue(any("member=d" in warning and "non-finite" in warning for warning in warnings))
 
-
-class PanelToMetricMappingTest(unittest.TestCase):
-    """Requirement: correct panel-to-metric mapping (c-tag plot uses only
-    c-tag columns, b-tag only b-tag columns)."""
-
-    def test_ctag_plot_metric_keys_are_exactly_the_ctag_working_points(self):
+    def test_total_score_equals_sqrt_ctag_times_btag_for_every_row(self):
         manifest = _anchor_copy_manifest()
         rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_ctag_working_points(temporary, manifest, rows, decisions)
-        self.assertEqual(set(result["metric_keys"]), {point["column"] for point in CTAG_SCORE_WORKING_POINTS})
+        from training.pbt.reporting.constants import BTAG_SCORE_COLUMN, CTAG_SCORE_COLUMN
 
-    def test_btag_plot_metric_keys_are_exactly_the_btag_working_points(self):
-        manifest = _anchor_copy_manifest()
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_btag_working_points(temporary, manifest, rows, decisions)
-        self.assertEqual(set(result["metric_keys"]), {point["column"] for point in BTAG_SCORE_WORKING_POINTS})
-
-
-class AggregateScoresPlotTest(unittest.TestCase):
-    def test_contains_all_three_group_score_columns(self):
-        manifest = _anchor_copy_manifest()
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_aggregate_scores(temporary, manifest, rows, decisions)
-        self.assertEqual(set(result["metric_keys"]), {CTAG_SCORE_COLUMN, BTAG_SCORE_COLUMN, TOTAL_SCORE_COLUMN})
-
-    def test_total_score_equals_sqrt_ctag_times_btag_for_every_plotted_row(self):
-        manifest = _anchor_copy_manifest()
-        rows = build_member_metric_rows(manifest)
         for row in rows:
             self.assertAlmostEqual(row[TOTAL_SCORE_COLUMN], combine_group_scores(row[CTAG_SCORE_COLUMN], row[BTAG_SCORE_COLUMN]))
 
-    def test_produces_a_png(self):
+
+class GenerationWinnerMemberTest(unittest.TestCase):
+    def test_returns_ranking_zero(self):
+        manifest = _confidence_aware_manifest()
+        self.assertEqual(generation_winner_member(manifest, 0), "m_a")
+
+    def test_falls_back_to_sorted_metric_when_no_ranking(self):
+        manifest = _confidence_aware_manifest()
+        del manifest["generations"][0]["ranking"]
+        # mode=min -> lower raw value wins: m_b (0.5) beats m_a (1.0).
+        self.assertEqual(generation_winner_member(manifest, 0), "m_b")
+
+    def test_none_for_missing_generation(self):
+        manifest = _confidence_aware_manifest()
+        self.assertIsNone(generation_winner_member(manifest, 5))
+
+
+class SharedLrCenterSeriesTest(unittest.TestCase):
+    def test_empty_for_non_center_strategies(self):
         manifest = _anchor_copy_manifest()
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_aggregate_scores(temporary, manifest, rows, decisions)
-            self.assertTrue(Path(result["png"]).is_file())
-            self.assertEqual(Path(result["png"]).suffix, ".png")
-            self.assertNotIn("pdf", result)
+        manifest["config"]["pbt"]["strategy"] = "exploit_mutate"
+        self.assertEqual(shared_lr_center_series(manifest), [])
 
-
-class TagTradeoffPlotTest(unittest.TestCase):
-    """Requirement: tag-tradeoff coordinates are exactly (ctag_score,
-    btag_score) per row -- not swapped, not re-derived."""
-
-    def test_metric_keys_are_ctag_then_btag(self):
+    def test_reads_anchor_copy_lr_recenter_field(self):
         manifest = _anchor_copy_manifest()
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_tag_tradeoff(temporary, manifest, rows, decisions)
-        self.assertEqual(result["metric_keys"], [CTAG_SCORE_COLUMN, BTAG_SCORE_COLUMN])
+        expected = [(generation["index"], generation["anchor_copy_lr_recenter"]["new_lr_center"]) for generation in manifest["generations"]]
+        self.assertEqual(shared_lr_center_series(manifest), expected)
 
-    def test_covers_every_generation_and_member(self):
-        manifest = _anchor_copy_manifest()
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_tag_tradeoff(temporary, manifest, rows, decisions)
-        self.assertEqual(result["generations"], 3)
-        self.assertEqual(result["members"], 2)
-
-
-class ScoreVsLrPlotTest(unittest.TestCase):
-    def test_uses_total_score_and_lr_columns(self):
-        manifest = _anchor_copy_manifest()
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_score_vs_lr(temporary, manifest, rows, decisions)
-        self.assertEqual(result["metric_keys"], [TOTAL_SCORE_COLUMN, "LR"])
-
-    def test_generation_subsetting_warns_when_over_the_limit(self):
-        manifest = _anchor_copy_manifest()
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_score_vs_lr(temporary, manifest, rows, decisions, max_generations=2)
-        self.assertEqual(result["generations"], 2)
-        self.assertTrue(any("omitted" in warning for warning in result["warnings"]))
-
-
-class LrPopulationPlotTest(unittest.TestCase):
-    """Requirements: LR center matches persisted new_lr_center; member LR
-    points match persisted assigned LRs; returns None outside
-    anchor_copy_lr_recenter."""
-
-    def test_none_for_non_anchor_copy_strategy(self):
-        manifest = synthetic_manifest()
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        self.assertEqual(decisions, [])
-        self.assertIsNone(plot_lr_population("/nonexistent", manifest, rows, decisions))
-
-    def test_lr_center_values_match_the_persisted_new_lr_center(self):
-        manifest = _anchor_copy_manifest()
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        expected_centers = [generation["anchor_copy_lr_recenter"]["new_lr_center"] for generation in manifest["generations"]]
-        actual_centers = [decision["new_lr_center"] for decision in decisions]
-        self.assertEqual(actual_centers, expected_centers)
-
-    def test_member_lr_values_match_the_persisted_assigned_lrs(self):
-        manifest = _anchor_copy_manifest()
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        for generation, decision in zip(manifest["generations"], decisions):
-            self.assertEqual(decision["assigned_lrs"], generation["anchor_copy_lr_recenter"]["assigned_lrs"])
-
-    def test_renders_a_real_figure_with_a_spread_collapsed_generation_present(self):
-        manifest = _anchor_copy_manifest()  # generation 1 has spread_collapsed=True
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_lr_population(temporary, manifest, rows, decisions)
-            self.assertTrue(Path(result["png"]).is_file())
-
-
-class DecisionHistoryPlotTest(unittest.TestCase):
-    def test_none_for_non_anchor_copy_strategy(self):
-        self.assertIsNone(plot_decision_history("/nonexistent", synthetic_manifest(), []))
-
-    def test_covers_all_three_decision_types(self):
-        manifest = _anchor_copy_manifest()
-        rows = build_member_metric_rows(manifest)
-        decisions = build_generation_decision_rows(manifest, rows)
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_decision_history(temporary, manifest, decisions)
-            self.assertEqual(result["generations"], 3)
-            self.assertTrue(Path(result["png"]).is_file())
-
-
-class BaselineRatioPlotTest(unittest.TestCase):
-    """Requirement: baseline ratios use the same baseline checkpoint for
-    every metric (all ratios computed against the one measured-baseline
-    evaluation, never mixed sources)."""
-
-    def test_ratio_uses_the_same_baseline_source_for_every_metric(self):
-        manifest = _anchor_copy_manifest()
-        manifest["best"] = {
-            "generation": 2, "member": "m_a", "metrics": fixed_curve_metrics(0.5, 0.95, 0.99, 0.1), "lr": 3.0e-6,
-        }
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_baseline_ratio(temporary, manifest)
-            self.assertTrue(Path(result["png"]).is_file())
-            self.assertIn(TOTAL_SCORE_COLUMN, result["metric_keys"])
-        # 8 raw + 3 aggregate columns, all sourced from the one baseline
-        # evaluation and the one final-selected (manifest["best"]) evaluation.
-        self.assertEqual(len(result["metric_keys"]), 11)
-
-    def test_missing_baseline_or_final_produces_a_warning_not_a_crash(self):
-        manifest = synthetic_manifest(measured_baseline=False)
-        with tempfile.TemporaryDirectory() as temporary:
-            result = plot_baseline_ratio(temporary, manifest)
-        self.assertIsNone(result["png"])
-        self.assertTrue(result["warnings"])
-
-
-class DeterministicOutputTest(unittest.TestCase):
-    def test_research_plot_filenames_are_stable_across_two_runs(self):
-        manifest = _anchor_copy_manifest()
-        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
-            first_results = write_research_plots(first, manifest)
-            second_results = write_research_plots(second, manifest)
-            first_names = {key: Path(value["png"]).name for key, value in first_results.items()}
-            second_names = {key: Path(value["png"]).name for key, value in second_results.items()}
-            self.assertEqual(first_names, second_names)
-
-    def test_filenames_match_the_canonical_registry(self):
-        manifest = _anchor_copy_manifest()
-        with tempfile.TemporaryDirectory() as temporary:
-            results = write_research_plots(temporary, manifest)
-        for key, base in RESEARCH_PLOT_NAMES.items():
-            if key not in results:
-                self.assertIn(key, CONDITIONAL_RESEARCH_PLOT_NAMES)
-                continue
-            self.assertEqual(Path(results[key]["png"]).name, f"{base}.png")
-            self.assertNotIn("pdf", results[key])
-
-    def test_no_combined_contact_sheet_output_exists(self):
-        # Every research figure is its own standalone PNG; nothing in this
-        # repo combines them into one image.
-        for base in RESEARCH_PLOT_NAMES.values():
-            self.assertNotIn("contact", base.lower())
-            self.assertNotIn("sheet", base.lower())
-            self.assertNotIn("dashboard", base.lower())
-
-
-class LongRunReadabilityTest(unittest.TestCase):
-    """Requirement: figures remain readable for long runs (many
-    generations) without crashing or producing an unreadable
-    small-multiples layout."""
-
-    def _many_generation_manifest(self, n):
-        manifest = _anchor_copy_manifest()
-        base_generation = manifest["generations"][0]
-        generations = []
-        for index in range(n):
-            generation = {
-                **base_generation,
-                "index": index,
-                "epoch": 20 + index,
-                "anchor_copy_lr_recenter": {**base_generation["anchor_copy_lr_recenter"]},
-            }
-            generations.append(generation)
-        manifest["generations"] = generations
-        return manifest
-
-    def test_twenty_generations_render_without_error(self):
-        manifest = self._many_generation_manifest(20)
-        with tempfile.TemporaryDirectory() as temporary:
-            results = write_research_plots(temporary, manifest)
-            self.assertTrue(Path(results["score_vs_lr"]["png"]).is_file())
-        self.assertLessEqual(results["score_vs_lr"]["generations"], 12)  # default max_generations subset
-
-    def test_three_members_up_to_ten_supported(self):
-        manifest = _anchor_copy_manifest()
-        manifest["members"]["m_c"] = {"name": "m_c", "lr": 5.0e-6, "parent": None}
-        for generation in manifest["generations"]:
-            generation["workers"]["m_c"] = {"status": "completed", "lr": 5.0e-6, "metrics": fixed_curve_metrics(1.2, 0.85, 0.95, 0.35)}
-            generation["anchor_copy_lr_recenter"]["assigned_lrs"]["m_c"] = 5.0e-6
-        with tempfile.TemporaryDirectory() as temporary:
-            results = write_research_plots(temporary, manifest)
-        self.assertEqual(results["ctag_working_points"]["members"], 3)
-
-
-class OldFormatManifestTest(unittest.TestCase):
-    """Requirement: old manifests (predating the aggregate score fields,
-    but with full raw curve data) still produce every figure via
-    reconstruction, with no warnings when reconstruction succeeds."""
-
-    def test_old_format_manifest_reconstructs_and_renders_every_figure(self):
-        manifest = synthetic_manifest()  # fixed_curve_metrics never sets the aggregate keys
-        with tempfile.TemporaryDirectory() as temporary:
-            results = write_research_plots(temporary, manifest)
-            for key in ("ctag_working_points", "btag_working_points", "aggregate_scores", "tag_tradeoff", "score_vs_lr"):
-                self.assertTrue(Path(results[key]["png"]).is_file(), key)
-                self.assertEqual(results[key]["warnings"], [], key)
+    def test_reads_anchored_lr_sweep_field(self):
+        manifest = synthetic_manifest()  # strategy=anchored_lr_sweep by default
+        manifest["generations"][0]["exploit"] = [
+            {"source": "anchored_lr_sweep", "recipient": "trial_a", "donor": "trial_a", "new_lr": 1.0e-4, "lr_center": 1.2e-4},
+            {"source": "anchored_lr_sweep", "recipient": "trial_b", "donor": "trial_a", "new_lr": 1.1e-4, "lr_center": 1.2e-4},
+        ]
+        manifest["generations"][1]["exploit"] = [
+            {"source": "anchored_lr_sweep", "recipient": "trial_a", "donor": "trial_b", "new_lr": 9.0e-5, "lr_center": 1.0e-4},
+            {"source": "anchored_lr_sweep", "recipient": "trial_b", "donor": "trial_b", "new_lr": 1.0e-4, "lr_center": 1.0e-4},
+        ]
+        self.assertEqual(shared_lr_center_series(manifest), [(0, 1.2e-4), (1, 1.0e-4)])
 
 
 if __name__ == "__main__":

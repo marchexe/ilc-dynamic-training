@@ -84,6 +84,20 @@ class PlotPhysicsPerformanceTest(unittest.TestCase):
             self.assertEqual(output, Path(temporary) / "plots/report/physics_performance.png")
             self.assertTrue(output.exists())
 
+    def test_checkpoint_role_labels_cover_every_worker_for_report_role(self):
+        for role in ("best_physics", "global_best", "best_final"):
+            self.assertIn(role, plot_physics_performance.CHECKPOINT_ROLE_LABELS)
+
+    def test_dataset_path_helpers_removed_from_the_figure_title_path(self):
+        # sample_summary()/compact_count() used to feed a dataset-path/
+        # sample-count subtitle into the figure -- that metadata now lives
+        # in the report.md caption instead (see
+        # reporting/plots.py::write_existing_physics_reports and
+        # markdown_report.py::_final_physics_performance_section_lines),
+        # never in the plot title/subtitle itself.
+        self.assertFalse(hasattr(plot_physics_performance, "sample_summary"))
+        self.assertFalse(hasattr(plot_physics_performance, "compact_count"))
+
 
 if __name__ == "__main__":
     unittest.main()

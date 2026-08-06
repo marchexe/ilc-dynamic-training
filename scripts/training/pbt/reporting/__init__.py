@@ -35,7 +35,6 @@ from training.pbt.reporting.metrics_rows import (
     wilson_interval,
     write_tiered_metrics_csv,
 )
-from training.pbt.reporting.plots import selected_generation_rows
 from training.pbt.reporting.statistics import (
     best_checkpoint_by_tier,
     corroboration_status,
@@ -69,7 +68,6 @@ __all__ = [
     "record_train_start",
     "refresh_metrics_csv",
     "run_contract",
-    "selected_generation_rows",
     "tier_correlation",
     "tiered_evaluation_rows",
     "wilson_interval",

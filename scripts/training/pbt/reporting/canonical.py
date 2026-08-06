@@ -19,8 +19,8 @@ from training.pbt.reporting.metrics_rows import (
     write_skipped_exploits_table,
     write_tiered_metrics_csv,
 )
-from training.pbt.reporting.plots import write_existing_physics_reports, write_plots
-from training.pbt.reporting.research_plots import write_research_plots
+from training.pbt.reporting.plots import write_existing_physics_reports
+from training.pbt.reporting.report_plots import write_report_plots
 
 def write_canonical_outputs(run_dir, manifest):
     ensure_run_layout(run_dir)
@@ -33,26 +33,25 @@ def write_canonical_outputs(run_dir, manifest):
     events = read_events(run_dir)
     exploit_table = write_exploit_table(run_dir, events)
     skipped_exploit_table = write_skipped_exploits_table(run_dir, events)
-    plots = write_plots(run_dir, manifest)
-    research_plots = write_research_plots(run_dir, manifest)
+    report_plots = write_report_plots(run_dir, manifest)
     manifest["canonical_artifacts"] = {
         "events": str(run_dir / EVENTS_NAME),
         "metrics": str(run_dir / METRICS_NAME),
         "tiered_metrics": str(tiered_metrics_path),
         "summary": str(run_dir / SUMMARY_NAME),
         "report": str(run_dir / REPORT_NAME),
+        # Heterogeneous by design: report_plots's values are result dicts
+        # ({"png", "warnings", "generations", "members", "metric_keys"});
+        # physics_outputs's values (and the two table csv paths) are bare
+        # path strings. Nothing downstream depends on uniform shape here --
+        # build_summary() reconstructs summary["plots"] independently from
+        # REPORT_PLOT_NAMES + fixed paths, never reads this dict directly.
         "plots": {
-            **plots,
+            **report_plots,
             **physics_outputs,
             "exploit_table_csv": str(exploit_table),
             "skipped_exploit_table_csv": str(skipped_exploit_table),
         },
-        # Standalone publication-quality research figures (PDF+PNG pairs,
-        # reporting/research_plots.py) -- kept separate from the "plots"
-        # dashboard set above rather than flattened into it, since each
-        # entry carries warnings/generations/members metadata alongside
-        # the two output paths, not just a single path string.
-        "research_plots": research_plots,
         "resolved_config": str(run_dir / "resolved_config.yaml"),
     }
     manifest["updated_at"] = utc_now()

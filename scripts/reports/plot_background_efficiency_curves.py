@@ -14,12 +14,12 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from reports.plot_physics_performance import (  # noqa: E402
+    CHECKPOINT_ROLE_LABELS,
     FLAVOR_COLORS,
     REFERENCE_WORKING_POINTS,
     TAG_PAIRS,
     load_manifest,
     log_tick_label,
-    sample_summary,
     worker_for_report,
 )
 
@@ -116,23 +116,19 @@ def plot_manifest(manifest_path, output=None, member="best_physics"):
     fig.subplots_adjust(left=0.07, right=0.98, bottom=0.13, top=0.78, wspace=0.18)
     draw_efficiency(axes[0], metrics, "c")
     draw_efficiency(axes[1], metrics, "b")
-    score_text = "" if physics_score is None else f" | avg fixed-WP mistag {physics_score:.3f}%"
+    if member == "global_best":
+        best = manifest.get("best") or {}
+        score_text = "" if best.get("metric_value") is None else f" | {best.get('metric')} {best['metric_value']:.4g}"
+    else:
+        score_text = "" if physics_score is None else f" | avg fixed-WP mistag {physics_score:.3f}%"
+    role_label = CHECKPOINT_ROLE_LABELS.get(member, f"member `{member}`")
     fig.suptitle(
-        f"Background efficiency curves: {member_name}, generation {generation['index']}{score_text}",
+        f"Background efficiency curves -- {role_label} ({member_name}, generation {generation['index']}){score_text}",
         x=0.07,
         y=0.965,
         ha="left",
-        fontsize=13,
+        fontsize=12.5,
         fontweight="bold",
-    )
-    fig.text(
-        0.07,
-        0.905,
-        f"{manifest.get('experiment', resolved_manifest_path.parent.name)} | {sample_summary(manifest)}",
-        ha="left",
-        va="top",
-        fontsize=9,
-        color="0.35",
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=180, bbox_inches="tight")

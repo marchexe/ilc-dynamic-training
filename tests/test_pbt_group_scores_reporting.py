@@ -154,9 +154,9 @@ class ReportRerunStabilityTest(unittest.TestCase):
 
             self.assertEqual(first_listing, second_listing)
             for expected in (
-                "ctag_working_points_evolution.png",
-                "btag_working_points_evolution.png",
-                "aggregate_mistag_score_evolution.png",
+                "pbt_population_selection.png",
+                "learning_rate_lineage.png",
+                "mistag_score_evolution.png",
             ):
                 self.assertIn(expected, second_listing)
 

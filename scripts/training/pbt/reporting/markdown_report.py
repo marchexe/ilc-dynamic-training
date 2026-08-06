@@ -2,23 +2,20 @@
 """The human-readable run report (report.md) and its JSON summary
 (summary.json)."""
 
-import csv
 import json
 from pathlib import Path
-
-import yaml
 
 from training.runtime import atomic_json
 from training.pbt.reporting.constants import (
     BTAG_SCORE_COLUMN,
-    CONDITIONAL_PLOT_NAMES,
+    CONDITIONAL_REPORT_PLOT_NAMES,
     CONTROLLER_OBJECTIVE_COLUMN,
     CTAG_SCORE_COLUMN,
     EXPLOIT_TABLE_NAME,
     FIXED_WORKING_POINTS,
     GROUP_SCORE_WARNING_COLUMN,
-    PLOT_NAMES,
     REPORT_NAME,
+    REPORT_PLOT_NAMES,
     SKIPPED_EXPLOIT_TABLE_NAME,
     SUMMARY_NAME,
     TOTAL_GEOMEAN_METRIC_KEY,
@@ -104,11 +101,12 @@ def build_summary(run_dir, manifest):
             for event_type in sorted({event.get("event_type") for event in events})
         },
         "evaluation": evaluation_metadata(manifest),
+        "checkpoint_selection": manifest.get("checkpoint_selection_for_report"),
         "plots": {
             **{
-                name: str(Path("plots") / filename)
-                for name, filename in PLOT_NAMES.items()
-                if name not in CONDITIONAL_PLOT_NAMES or (Path(run_dir) / "plots" / filename).is_file()
+                name: str(Path("plots") / f"{filename}.png")
+                for name, filename in REPORT_PLOT_NAMES.items()
+                if name not in CONDITIONAL_REPORT_PLOT_NAMES or (Path(run_dir) / "plots" / f"{filename}.png").is_file()
             },
             "physics_performance": str(Path("plots") / "report" / "physics_performance.png"),
             "background_efficiency_curves": str(Path("plots") / "diagnostics" / "background_efficiency_curves.png"),
@@ -140,8 +138,150 @@ def _fmt(value, digits=6):
     return str(value)
 
 
-def _proxy_diagnostics_report_lines(manifest, plots, proxy_diagnostics_path):
-    lines = ["", "## Proxy Validation Diagnostics", f"- [Proxy validation diagnostics]({proxy_diagnostics_path})"]
+def _report_plot_result(manifest, key):
+    return ((manifest.get("canonical_artifacts") or {}).get("plots") or {}).get(key) or {}
+
+
+def _final_physics_performance_section_lines(manifest, plots):
+    """## Final Physics Performance -- background_efficiency_curves.png (the
+    required report-facing figure) plus physics_performance.png and the two
+    mistag CSVs, all resolved to the same checkpoint role
+    (write_existing_physics_reports / manifest["checkpoint_selection_for_report"]).
+    States the role/member/generation/selection-metric explicitly -- never
+    a bare "best" -- and, when it differs, names the best-physics-score
+    checkpoint separately so the two are never conflated."""
+    selection = manifest.get("checkpoint_selection_for_report") or {}
+    lines = ["", "## Final Physics Performance"]
+    lines.append(f"- [Background efficiency curves]({plots.get('background_efficiency_curves', 'plots/diagnostics/background_efficiency_curves.png')})")
+    if selection:
+        lines.append(
+            f"- Checkpoint: **{selection.get('role_label', selection.get('role', 'n/a'))}** "
+            f"(`{selection.get('member', 'n/a')}`, generation {selection.get('generation', 'n/a')}), "
+            f"selection metric: `{selection.get('selection_metric_name', 'n/a')}` ({selection.get('selection_metric_mode', 'n/a')})"
+        )
+        if selection.get("fallback_reason"):
+            lines.append(
+                f"  - Using `{selection.get('role')}` instead of the global-selected checkpoint: {selection['fallback_reason']}"
+            )
+        elif selection.get("agrees_with_best_physics") is False:
+            lines.append(
+                f"  - Differs from the separate best-physics-score checkpoint (`{selection.get('best_physics_member', 'n/a')}`, "
+                f"generation {selection.get('best_physics_generation', 'n/a')}) -- these are two distinct selection criteria, "
+                "not the same checkpoint."
+            )
+        dataset = selection.get("validation_dataset")
+        if dataset:
+            lines.append(
+                f"  - Validation: `{dataset}` (`{selection.get('validation_suffix', 'n/a')}`), "
+                f"{_fmt(selection.get('validation_sample_count'))} samples"
+            )
+    lines.append(f"- [Physics performance]({plots.get('physics_performance', 'plots/report/physics_performance.png')})")
+    lines.append(f"- [C-tag mistag CSV]({plots.get('ctag_mistag_table_csv', 'plots/report/ctag_mistag_tables.csv')})")
+    lines.append(f"- [B-tag mistag CSV]({plots.get('btag_mistag_table_csv', 'plots/report/btag_mistag_tables.csv')})")
+    return lines
+
+
+def _pbt_population_selection_section_lines(manifest, plots):
+    """## PBT Population and Selection -- pbt_population_selection.png:
+    every member's trajectory plus each generation's winner, both by the
+    run's actual configured selection metric."""
+    result = _report_plot_result(manifest, "pbt_population_selection")
+    png = plots.get("pbt_population_selection") or result.get("png")
+    lines = ["", "## PBT Population and Selection"]
+    if not png:
+        lines.append("- No completed generations to plot yet.")
+        return lines
+    pbt_config = manifest.get("config", {}).get("pbt", {})
+    lines.append(f"- [Population and selection]({png})")
+    lines.append(
+        f"- Ranking metric: `{pbt_config.get('metric', 'n/a')}` ({pbt_config.get('mode', 'n/a')}); "
+        "winner = each generation's authoritative decision winner (the member that actually drove that generation's "
+        "exploit/anchor/global-best outcome), never re-derived from total_mistag_score."
+    )
+    if pbt_config.get("strategy") == "anchor_copy_lr_recenter":
+        lines.append(
+            "- Winner-timeline decision markers: `^` accepted_new_anchor, `o` reused_previous_anchor, "
+            "`v` rewound_to_previous_anchor."
+        )
+    if result.get("warnings"):
+        lines.extend(["", "**Data-quality warnings:**"])
+        lines.extend(f"- {warning}" for warning in result["warnings"])
+    return lines
+
+
+def _mistag_score_evolution_section_lines(manifest, plots):
+    """## Mistag Score Evolution -- mistag_score_evolution.png: ctag_score /
+    btag_score / total_mistag_score for the generation winner, with the
+    total line always the dominant visual accent."""
+    result = _report_plot_result(manifest, "mistag_score_evolution")
+    png = plots.get("mistag_score_evolution") or result.get("png")
+    lines = ["", "## Mistag Score Evolution"]
+    if not png:
+        lines.append("- No completed generations to plot yet.")
+        return lines
+    lines.append(f"- [Mistag score evolution]({png})")
+    if result.get("ranking_metric_is_total_score"):
+        lines.append(
+            "- **`total_mistag_score` (sqrt(ctag_score * btag_score)) is this run's PBT ranking metric** -- "
+            "the thick line above is the ranking metric itself, not just a diagnostic summary."
+        )
+    else:
+        metric_name = manifest.get("config", {}).get("pbt", {}).get("metric", "n/a")
+        lines.append(
+            f"- Physics score summary; PBT ranking metric: `{metric_name}`. The winner marked on each line is still "
+            "selected by that real configured metric, never by total_mistag_score."
+        )
+    lines.append(
+        "- Baseline point: "
+        + ("shown (measured pretrained baseline available)." if result.get("has_baseline_point") else "not available for this run.")
+    )
+    if result.get("warnings"):
+        lines.extend(["", "**Data-quality warnings:**"])
+        lines.extend(f"- {warning}" for warning in result["warnings"])
+    return lines
+
+
+def _learning_rate_lineage_section_lines(manifest, plots):
+    """## Learning-Rate Lineage -- learning_rate_lineage.png: which branch
+    each next-generation member descended from and what LR it got."""
+    result = _report_plot_result(manifest, "learning_rate_lineage")
+    png = plots.get("learning_rate_lineage") or result.get("png")
+    lines = ["", "## Learning-Rate Lineage"]
+    if not png:
+        lines.append("- No learning-rate data to plot yet.")
+        return lines
+    lines.append(f"- [Learning-rate lineage]({png})")
+    lines.append(
+        "- Heavy edge = an applied donor->recipient checkpoint copy (events.jsonl, applied=True only); "
+        "light edge = a member continuing its own branch."
+    )
+    strategy = manifest.get("config", {}).get("pbt", {}).get("strategy")
+    if strategy == "fixed_lr_grid":
+        lines.append("- `fixed_lr_grid`: independent branches, no copy events -- by design, not a data gap.")
+    if result.get("warnings"):
+        lines.extend(["", "**Data-quality warnings:**"])
+        lines.extend(f"- {warning}" for warning in result["warnings"])
+    return lines
+
+
+def _proxy_validation_section_lines(manifest, plots):
+    """## Proxy Validation -- proxy_validation.png (only when a monitor or
+    full_holdout tiered evaluation was actually recorded) plus the existing
+    cross-tier correlation/ranking-agreement/overfitting-case diagnostics.
+    The header is always emitted; runs with no corroboration-tier data get
+    an explicit one-line explanation instead of a broken image link."""
+    result = _report_plot_result(manifest, "proxy_validation")
+    png = plots.get("proxy_validation") or result.get("png")
+    lines = ["", "## Proxy Validation"]
+    if not png:
+        lines.append("No corroboration-tier evaluation was scheduled during this short run.")
+        return lines
+    lines.append(f"- [Proxy validation]({png})")
+    if result.get("independent") is False:
+        lines.append(
+            "- Shown against `monitor`, not `full_holdout` -- this is a partial check, not a final independent verification."
+        )
+
     for label, correlation in (
         ("control vs. monitor", tier_correlation(manifest, "control", "monitor")),
         ("control vs. full_holdout (independent, excludes control+monitor)", tier_correlation(manifest, "control", "full_holdout")),
@@ -294,8 +434,7 @@ def _model_selection_score_table_lines(manifest, rows):
 
 def _pbt_decision_summary_lines(manifest, rows):
     """Generation-by-generation decision summary for anchor_copy_lr_recenter
-    runs only -- empty for every other strategy (see
-    plot_pbt_decision_evolution's identical strategy gate). Consumes
+    runs only -- empty for every other strategy. Consumes
     generation_record["anchor_copy_lr_recenter"] (already computed by the
     planner) and `rows`' already-computed scores; no recomputation."""
     if manifest.get("config", {}).get("pbt", {}).get("strategy") != "anchor_copy_lr_recenter":
@@ -343,48 +482,6 @@ def _pbt_decision_summary_lines(manifest, rows):
     return lines
 
 
-_RESEARCH_FIGURE_ORDER = (
-    ("aggregate_scores", "Aggregate score evolution"),
-    ("tag_tradeoff", "C-tag vs. B-tag trade-off"),
-    ("score_vs_lr", "Total score vs. learning rate"),
-    ("lr_population", "Learning-rate population evolution"),
-    ("ctag_working_points", "C-tag raw working points"),
-    ("btag_working_points", "B-tag raw working points"),
-    ("baseline_ratio", "Final vs. baseline ratio"),
-    ("decision_history", "PBT decision history"),
-)
-
-
-def _research_figures_section_lines(manifest):
-    """Standalone research figures (PNG, reporting/research_plots.py) in
-    the required review order -- distinct from the "Training Evolution"
-    operational dashboard plot above. Figures the current strategy has
-    nothing to show for (lr_population/decision_history outside
-    anchor_copy_lr_recenter) are simply absent and skipped here, never
-    linked as broken."""
-    research_plots = (manifest.get("canonical_artifacts") or {}).get("research_plots") or {}
-    if not research_plots:
-        return []
-    lines = ["", "## Research Figures"]
-    all_warnings = []
-    for key, title in _RESEARCH_FIGURE_ORDER:
-        result = research_plots.get(key)
-        if not result:
-            continue
-        png = result.get("png")
-        all_warnings.extend(f"{title}: {warning}" for warning in result.get("warnings", []))
-        if not png:
-            continue
-        lines.append(
-            f"- **{title}**: [{png}]({png}) -- "
-            f"{result.get('generations', 0)} generation(s), {result.get('members', 0)} member(s)"
-        )
-    if all_warnings:
-        lines.extend(["", "**Research figure data-quality warnings** (points omitted; no value fabricated):"])
-        lines.extend(f"- {warning}" for warning in all_warnings)
-    return lines
-
-
 def write_report(run_dir, manifest, summary):
     path = Path(run_dir) / REPORT_NAME
     metric = summary["metric"]
@@ -425,16 +522,14 @@ def write_report(run_dir, manifest, summary):
             f"- Global best configured metric: {_fmt(best.get('metric_value'))} by `{best.get('member', 'n/a')}`",
             f"- Delta vs measured baseline: {_fmt(None if improvement is None else 100.0 * improvement)}%",
             f"- Best checkpoint: `{(summary.get('checkpoints') or {}).get('global_best_state')}`",
-            "",
-            "## Training Evolution",
-            f"- [Training evolution]({plots.get('training_evolution', 'plots/training_evolution.png')})",
         ]
     )
-    for trial, values in (summary.get("lr_trajectory") or {}).items():
-        rendered = ", ".join(f"{item['samples_seen']}:{_fmt(item['LR'], 3)}" for item in values)
-        lines.append(f"- `{trial}` samples_seen:LR = {rendered}")
 
-    lines.extend(_research_figures_section_lines(manifest))
+    lines.extend(_final_physics_performance_section_lines(manifest, plots))
+    lines.extend(_pbt_population_selection_section_lines(manifest, plots))
+    lines.extend(_mistag_score_evolution_section_lines(manifest, plots))
+    lines.extend(_learning_rate_lineage_section_lines(manifest, plots))
+    lines.extend(_proxy_validation_section_lines(manifest, plots))
 
     rows = read_metrics_rows(run_dir)
     lines.extend(_model_selection_score_table_lines(manifest, rows))
@@ -465,29 +560,6 @@ def write_report(run_dir, manifest, summary):
         f"- [Skipped exploits (significance gating)]({plots.get('skipped_exploit_table_csv', SKIPPED_EXPLOIT_TABLE_NAME)}) -- {len(skipped)} donor->recipient replacement(s) declined for insufficient significance"
     )
 
-    proxy_diagnostics_path = plots.get("proxy_diagnostics")
-    if proxy_diagnostics_path:
-        lines.extend(_proxy_diagnostics_report_lines(manifest, plots, proxy_diagnostics_path))
-
-    lines.extend(
-        [
-            "",
-            "## Physics Performance",
-            f"- [Physics performance]({plots.get('physics_performance', 'plots/report/physics_performance.png')})",
-            f"- [Background efficiency curves]({plots.get('background_efficiency_curves', 'plots/diagnostics/background_efficiency_curves.png')})",
-            f"- [B-tag mistag CSV]({plots.get('btag_mistag_table_csv', 'plots/report/btag_mistag_tables.csv')})",
-            f"- [C-tag mistag CSV]({plots.get('ctag_mistag_table_csv', 'plots/report/ctag_mistag_tables.csv')})",
-        ]
-    )
-    baseline_comparison_path = plots.get("baseline_comparison")
-    if baseline_comparison_path:
-        lines.extend(
-            [
-                "",
-                "## Baseline vs. Selected Model",
-                f"- [Baseline vs. selected mistag]({baseline_comparison_path})",
-            ]
-        )
     pbt_config = manifest.get("config", {}).get("pbt", {})
     significance_sigma = pbt_config.get("exploit_significance_sigma")
     burn_in = pbt_config.get("burn_in_generations", 0)
@@ -521,7 +593,7 @@ def write_report(run_dir, manifest, summary):
             "## Caveats",
             "- Proxy, smoke, and full validation results are reported as distinct evaluation types and should not be mixed in one scorecard.",
             "- Configured reference values are not treated as measured baselines unless a successful runtime initial evaluation exists.",
-            "- Control-tier evidence alone is 'provisional' -- see Proxy Validation Diagnostics above. It is never a substitute for monitor/full corroboration.",
+            "- Control-tier evidence alone is 'provisional' -- see Proxy Validation above. It is never a substitute for monitor/full corroboration.",
             f"- {_shutdown_warning_summary(manifest)}",
         ]
     )

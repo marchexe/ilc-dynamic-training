@@ -1,6 +1,7 @@
 import csv
 import json
 import math
+import re
 import subprocess
 import sys
 import tempfile
@@ -12,14 +13,13 @@ from training.pbt.state import checkpointing
 from training.pbt.state import transitions
 from training.pbt.reporting import (
     append_event,
-    evaluation_rows,
     fixed_working_point_uncertainty,
     format_mistag_value,
     run_contract,
-    selected_generation_rows,
     wilson_interval,
     write_canonical_outputs,
 )
+from training.pbt.reporting.constants import METRICS_COLUMNS, TIERED_METRICS_COLUMNS
 from training.pbt.reporting.plots import _baseline_fixed_working_point_values
 
 
@@ -232,17 +232,30 @@ class PBTArtifactsTest(unittest.TestCase):
             ):
                 self.assertTrue((run_dir / relative).is_file(), relative)
             for name in (
-                "training_evolution.png",
-                "ctag_working_points_evolution.png",
-                "btag_working_points_evolution.png",
-                "aggregate_mistag_score_evolution.png",
-                "baseline_vs_selected.png",
+                "pbt_population_selection.png",
+                "mistag_score_evolution.png",
+                "learning_rate_lineage.png",
                 "report/physics_performance.png",
                 "diagnostics/background_efficiency_curves.png",
                 "report/btag_mistag_tables.csv",
                 "report/ctag_mistag_tables.csv",
             ):
                 self.assertTrue((run_dir / "plots" / name).is_file(), name)
+            for removed in (
+                "training_evolution.png",
+                "ctag_working_points_evolution.png",
+                "btag_working_points_evolution.png",
+                "aggregate_mistag_score_evolution.png",
+                "ctag_vs_btag_tradeoff.png",
+                "total_score_vs_learning_rate.png",
+                "learning_rate_population_evolution.png",
+                "final_vs_baseline_mistag_ratio.png",
+                "pbt_decision_history.png",
+                "baseline_vs_selected.png",
+                "proxy_diagnostics.png",
+            ):
+                self.assertFalse((run_dir / "plots" / removed).exists(), removed)
+            self.assertFalse(any(path.suffix == ".pdf" for path in (run_dir / "plots").rglob("*")))
             self.assertEqual(artifacts["report"], str(run_dir / "report.md"))
 
             with (run_dir / "metrics.csv").open() as stream:
@@ -284,27 +297,136 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertAlmostEqual(summary["best_improvement_vs_baseline"], (1.5 - 0.9) / 1.5)
             self.assertEqual(summary["evaluation"]["evaluation_type"], "proxy")
             self.assertIn("physics_performance", summary["plots"])
-            self.assertIn("training_evolution", summary["plots"])
-            self.assertIn("baseline_comparison", summary["plots"])
+            self.assertIn("pbt_population_selection", summary["plots"])
+            self.assertIn("mistag_score_evolution", summary["plots"])
+            self.assertIn("learning_rate_lineage", summary["plots"])
+            self.assertNotIn("training_evolution", summary["plots"])
+            self.assertNotIn("baseline_comparison", summary["plots"])
             self.assertNotIn("working_point_evolution", summary["plots"])
             self.assertNotIn("lr_vs_metric", summary["plots"])
-            # The standalone research figures (ctag/btag working points,
-            # aggregate scores, ...) live under a separate manifest key,
-            # not flattened into summary["plots"] -- see
-            # canonical.py/write_canonical_outputs.
-            research_plots = manifest["canonical_artifacts"]["research_plots"]
-            for key in ("ctag_working_points", "btag_working_points", "aggregate_scores"):
-                self.assertIn(key, research_plots)
-                self.assertTrue(Path(research_plots[key]["png"]).is_file())
+            # The report-facing plots (population/selection, mistag score
+            # evolution, LR lineage, ...) live under the same manifest key
+            # as the physics-performance bridge outputs now -- see
+            # canonical.py/write_canonical_outputs -- each carrying its
+            # richer {png, warnings, generations, members, metric_keys}
+            # result dict, not just a path string.
+            plots_artifacts = manifest["canonical_artifacts"]["plots"]
+            for key in ("pbt_population_selection", "mistag_score_evolution", "learning_rate_lineage"):
+                self.assertIn(key, plots_artifacts)
+                self.assertTrue(Path(plots_artifacts[key]["png"]).is_file())
+            self.assertNotIn("research_plots", manifest["canonical_artifacts"])
+
+            # synthetic_manifest()'s fixed_curve_metrics() reuses the exact
+            # same rejection curves for every generation/member, so
+            # "best_physics" (first-seen tie-break) resolves to trial_a/gen
+            # 0 while manifest["best"] (the real PBT selection) is
+            # trial_b/gen 1 -- this deliberately exercises the
+            # global_best-vs-best_physics disagreement the report-facing
+            # checkpoint-role fix must surface, not hide.
+            selection = manifest["checkpoint_selection_for_report"]
+            self.assertEqual(selection["role"], "global_best")
+            self.assertEqual(selection["member"], "trial_b")
+            self.assertEqual(selection["generation"], 1)
+            self.assertEqual(selection["best_physics_member"], "trial_a")
+            self.assertIs(selection["agrees_with_best_physics"], False)
+
             report = (run_dir / "report.md").read_text()
             self.assertLess(report.index("## Results"), report.index("## Method"))
+            self.assertLess(report.index("## Final Physics Performance"), report.index("## PBT Population and Selection"))
+            self.assertLess(report.index("## PBT Population and Selection"), report.index("## Mistag Score Evolution"))
+            self.assertLess(report.index("## Mistag Score Evolution"), report.index("## Learning-Rate Lineage"))
+            self.assertLess(report.index("## Learning-Rate Lineage"), report.index("## Proxy Validation"))
+            self.assertLess(report.index("## Proxy Validation"), report.index("## Model Selection Scores"))
             self.assertIn("anchored_lr_sweep", report)
             self.assertIn("Controller objective: mean predefined fixed-WP mistag percent", report)
-            self.assertIn("Training evolution", report)
-            self.assertIn("## Baseline vs. Selected Model", report)
+            self.assertNotIn("## Training Evolution", report)
+            self.assertNotIn("## Research Figures", report)
+            self.assertNotIn("## Baseline vs. Selected Model", report)
+            self.assertNotIn("samples_seen:LR =", report)
+            self.assertIn("global best (PBT selection)", report)
+            self.assertIn("Differs from the separate best-physics-score checkpoint", report)
             self.assertNotIn("LR vs metric", report)
             self.assertIn("samples/trial chunk", report)
             self.assertNotIn("epoch(s)", report)
+
+    def test_report_links_only_to_pngs_that_exist_on_disk(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            manifest = synthetic_manifest()
+
+            write_canonical_outputs(run_dir, manifest)
+
+            report = (run_dir / "report.md").read_text()
+            for match in re.finditer(r"\]\((plots/[^)]+\.png)\)", report):
+                relative = match.group(1)
+                self.assertTrue((run_dir / relative).is_file(), relative)
+
+    def test_metrics_columns_and_tiered_metrics_columns_constants_unchanged(self):
+        # The plot-set redesign must not touch the CSV schema -- pin the
+        # exact column tuples so any accidental drift fails loudly here.
+        self.assertEqual(
+            METRICS_COLUMNS,
+            (
+                "generation", "training_chunk", "samples_seen", "epoch_fraction", "trial", "LR",
+                "optimization_metric_name", "optimization_metric_value", "optimization_metric_mode",
+                "controller_objective_mistag_percent",
+                "validation_working_point_mistag_percent",
+                "ctag_score", "btag_score", "total_mistag_score", "group_score_warning",
+                "btag_c_mistag_percent_at_0p80", "btag_d_mistag_percent_at_0p80",
+                "btag_c_mistag_percent_at_0p90", "btag_d_mistag_percent_at_0p90",
+                "ctag_b_mistag_percent_at_0p50", "ctag_d_mistag_percent_at_0p50",
+                "ctag_b_mistag_percent_at_0p80", "ctag_d_mistag_percent_at_0p80",
+                "btag_c_mistag_percent_at_0p80_err_low", "btag_c_mistag_percent_at_0p80_err_high",
+                "btag_c_mistag_percent_at_0p80_passed", "btag_c_mistag_percent_at_0p80_total",
+                "btag_d_mistag_percent_at_0p80_err_low", "btag_d_mistag_percent_at_0p80_err_high",
+                "btag_d_mistag_percent_at_0p80_passed", "btag_d_mistag_percent_at_0p80_total",
+                "btag_c_mistag_percent_at_0p90_err_low", "btag_c_mistag_percent_at_0p90_err_high",
+                "btag_c_mistag_percent_at_0p90_passed", "btag_c_mistag_percent_at_0p90_total",
+                "btag_d_mistag_percent_at_0p90_err_low", "btag_d_mistag_percent_at_0p90_err_high",
+                "btag_d_mistag_percent_at_0p90_passed", "btag_d_mistag_percent_at_0p90_total",
+                "ctag_b_mistag_percent_at_0p50_err_low", "ctag_b_mistag_percent_at_0p50_err_high",
+                "ctag_b_mistag_percent_at_0p50_passed", "ctag_b_mistag_percent_at_0p50_total",
+                "ctag_d_mistag_percent_at_0p50_err_low", "ctag_d_mistag_percent_at_0p50_err_high",
+                "ctag_d_mistag_percent_at_0p50_passed", "ctag_d_mistag_percent_at_0p50_total",
+                "ctag_b_mistag_percent_at_0p80_err_low", "ctag_b_mistag_percent_at_0p80_err_high",
+                "ctag_b_mistag_percent_at_0p80_passed", "ctag_b_mistag_percent_at_0p80_total",
+                "ctag_d_mistag_percent_at_0p80_err_low", "ctag_d_mistag_percent_at_0p80_err_high",
+                "ctag_d_mistag_percent_at_0p80_passed", "ctag_d_mistag_percent_at_0p80_total",
+                "validation_accuracy", "validation_auc", "validation_loss", "best_so_far", "training_loss",
+                "validation_shutdown_warning", "validation_dataset", "validation_suffix",
+                "validation_sample_count", "evaluation_type",
+            ),
+        )
+        self.assertEqual(
+            TIERED_METRICS_COLUMNS,
+            (
+                "generation", "samples_seen", "tier", "member", "dataset", "suffix", "status", "rank",
+                "population_size", "metric_name", "metric_value",
+                "controller_objective_mistag_percent",
+                "validation_working_point_mistag_percent",
+                "ctag_score", "btag_score", "total_mistag_score", "group_score_warning",
+                "btag_c_mistag_percent_at_0p80", "btag_d_mistag_percent_at_0p80",
+                "btag_c_mistag_percent_at_0p90", "btag_d_mistag_percent_at_0p90",
+                "ctag_b_mistag_percent_at_0p50", "ctag_d_mistag_percent_at_0p50",
+                "ctag_b_mistag_percent_at_0p80", "ctag_d_mistag_percent_at_0p80",
+                "btag_c_mistag_percent_at_0p80_err_low", "btag_c_mistag_percent_at_0p80_err_high",
+                "btag_c_mistag_percent_at_0p80_passed", "btag_c_mistag_percent_at_0p80_total",
+                "btag_d_mistag_percent_at_0p80_err_low", "btag_d_mistag_percent_at_0p80_err_high",
+                "btag_d_mistag_percent_at_0p80_passed", "btag_d_mistag_percent_at_0p80_total",
+                "btag_c_mistag_percent_at_0p90_err_low", "btag_c_mistag_percent_at_0p90_err_high",
+                "btag_c_mistag_percent_at_0p90_passed", "btag_c_mistag_percent_at_0p90_total",
+                "btag_d_mistag_percent_at_0p90_err_low", "btag_d_mistag_percent_at_0p90_err_high",
+                "btag_d_mistag_percent_at_0p90_passed", "btag_d_mistag_percent_at_0p90_total",
+                "ctag_b_mistag_percent_at_0p50_err_low", "ctag_b_mistag_percent_at_0p50_err_high",
+                "ctag_b_mistag_percent_at_0p50_passed", "ctag_b_mistag_percent_at_0p50_total",
+                "ctag_d_mistag_percent_at_0p50_err_low", "ctag_d_mistag_percent_at_0p50_err_high",
+                "ctag_d_mistag_percent_at_0p50_passed", "ctag_d_mistag_percent_at_0p50_total",
+                "ctag_b_mistag_percent_at_0p80_err_low", "ctag_b_mistag_percent_at_0p80_err_high",
+                "ctag_b_mistag_percent_at_0p80_passed", "ctag_b_mistag_percent_at_0p80_total",
+                "ctag_d_mistag_percent_at_0p80_err_low", "ctag_d_mistag_percent_at_0p80_err_high",
+                "ctag_d_mistag_percent_at_0p80_passed", "ctag_d_mistag_percent_at_0p80_total",
+            ),
+        )
 
     def test_baseline_evaluation_feeds_working_point_plot_start(self):
         manifest = synthetic_manifest()
@@ -319,67 +441,6 @@ class PBTArtifactsTest(unittest.TestCase):
         manifest = synthetic_manifest(measured_baseline=False)
 
         self.assertIsNone(_baseline_fixed_working_point_values(manifest))
-
-    def test_selected_generation_rows_follows_configured_metric_not_controller_objective(self):
-        # member_00 has the worse (higher) controller objective (mean fixed-WP
-        # mistag) but the better (higher) validation_bkg_rejection_score, the
-        # metric this historical run actually selected on (mode=max). The
-        # plotted "selected trial" must therefore be member_00, not whichever
-        # trial happens to have the best HEP-presentation mistag mean.
-        manifest = {
-            "config": {
-                "shared": {"samples_per_epoch": 100, "epochs_per_generation": 1},
-                "pbt": {"metric": "validation_bkg_rejection_score", "mode": "max"},
-            },
-            "initial_evaluation": {"status": "skipped", "metrics": {}},
-            "generations": [
-                {
-                    "index": 0,
-                    "workers": {
-                        "member_00": {
-                            "lr": 1.0e-4,
-                            "metrics": {
-                                "validation_bkg_rejection_score": 9.0,
-                                "validation_bkg_rejection_at_eff": {
-                                    "efficiencies": [0.5, 0.8, 0.9],
-                                    "pairs": {
-                                        "bc": [10.0] * 3,
-                                        "bd": [10.0] * 3,
-                                        "cb": [10.0] * 3,
-                                        "cd": [10.0] * 3,
-                                    },
-                                },
-                            },
-                        },
-                        "member_01": {
-                            "lr": 2.0e-4,
-                            "metrics": {
-                                "validation_bkg_rejection_score": 5.0,
-                                "validation_bkg_rejection_at_eff": {
-                                    "efficiencies": [0.5, 0.8, 0.9],
-                                    "pairs": {
-                                        "bc": [1000.0] * 3,
-                                        "bd": [1000.0] * 3,
-                                        "cb": [1000.0] * 3,
-                                        "cd": [1000.0] * 3,
-                                    },
-                                },
-                            },
-                        },
-                    },
-                }
-            ],
-        }
-
-        rows = evaluation_rows(manifest)
-        selected = selected_generation_rows(rows, "max")
-
-        self.assertEqual(len(selected), 1)
-        self.assertEqual(selected[0]["trial"], "member_00")
-        # Confirm the scenario is meaningful: the controller objective alone
-        # would have picked the other trial.
-        objective_winner = min(rows, key=lambda row: row["controller_objective_mistag_percent"])
-        self.assertEqual(objective_winner["trial"], "member_01")
 
     def test_wilson_interval_is_bounded_and_asymmetric_for_rare_mistags(self):
         # A tiny observed rate (2 passes out of 100000) is the regime fixed-WP
@@ -474,8 +535,8 @@ class PBTArtifactsTest(unittest.TestCase):
             with (run_dir / "metrics.csv").open() as stream:
                 rows = list(csv.DictReader(stream))
             self.assertEqual(len(rows), 8)
-            self.assertTrue((run_dir / "plots" / "ctag_working_points_evolution.png").is_file())
-            self.assertTrue((run_dir / "plots" / "btag_working_points_evolution.png").is_file())
+            self.assertTrue((run_dir / "plots" / "pbt_population_selection.png").is_file())
+            self.assertTrue((run_dir / "plots" / "learning_rate_lineage.png").is_file())
 
     def test_rebuild_command_regenerates_report_without_training(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -513,6 +574,10 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertIn("Configured reference: 1.5", report)
             self.assertNotIn("## Baseline vs. Selected Model", report)
             self.assertFalse((run_dir / "plots" / "baseline_vs_selected.png").exists())
+            self.assertIn("No corroboration-tier evaluation was scheduled during this short run.", report)
+            mistag_evolution = manifest["canonical_artifacts"]["plots"]["mistag_score_evolution"]
+            self.assertIs(mistag_evolution["has_baseline_point"], False)
+            self.assertIn("not available for this run", report)
 
     def test_epoch_fraction_is_null_when_training_dataset_size_is_unknown(self):
         with tempfile.TemporaryDirectory() as temporary:
