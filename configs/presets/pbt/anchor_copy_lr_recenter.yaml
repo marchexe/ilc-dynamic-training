@@ -27,11 +27,12 @@ pbt:
   exploit_fraction: 0.25
   mutation_factors: [1.0]
 
-  # Four-case geometric mistag score (c-tag reference working points cb@0.5,
-  # cd@0.5, cb@0.8, cd@0.8 -- see GEOMETRIC_MISTAG_WORKING_POINTS in
-  # scripts/training/runtime.py), not the older 8-point arithmetic-mean
+  # Canonical combined ranking score: total_mistag_score =
+  # sqrt(ctag_score * btag_score), each a 4-case geometric mean (see
+  # CTAG_REFERENCE_WORKING_POINTS / BTAG_REFERENCE_WORKING_POINTS in
+  # scripts/training/runtime.py). Not the older 8-point arithmetic-mean
   # validation_working_point_mistag_percent.
-  metric: validation_mistag_geometric_score_percent
+  metric: validation_total_reference_mistag_geomean_percent
   mode: min
   min_lr: 3.0e-6
   max_lr: 1.4e-5

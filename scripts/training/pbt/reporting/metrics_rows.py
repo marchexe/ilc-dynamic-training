@@ -8,19 +8,29 @@ import csv
 import math
 from pathlib import Path
 
+from training.runtime import combine_group_scores, geometric_mean_of_four
 from training.pbt.reporting.constants import (
+    BTAG_GEOMEAN_METRIC_KEY,
+    BTAG_SCORE_COLUMN,
+    BTAG_SCORE_WORKING_POINTS,
     CONTROLLER_OBJECTIVE_COLUMN,
+    CTAG_GEOMEAN_METRIC_KEY,
+    CTAG_SCORE_COLUMN,
+    CTAG_SCORE_WORKING_POINTS,
     EXPLOIT_TABLE_NAME,
     FIXED_WORKING_POINTS,
     FIXED_WORKING_POINT_COLUMNS,
     FIXED_WORKING_POINT_COUNT_COLUMNS,
     FIXED_WORKING_POINT_ERROR_COLUMNS,
+    GROUP_SCORE_WARNING_COLUMN,
     METRICS_COLUMNS,
     METRICS_NAME,
     SKIPPED_EXPLOIT_TABLE_NAME,
     TIERED_METRICS_COLUMNS,
     TIERED_METRICS_NAME,
     TIER_ORDER,
+    TOTAL_GEOMEAN_METRIC_KEY,
+    TOTAL_SCORE_COLUMN,
 )
 from training.pbt.reporting.io import ensure_run_layout, write_atomic_csv
 
@@ -70,6 +80,56 @@ def fixed_working_point_values(metrics):
         point["column"]: _mistag_percent(metrics, point["tag"], point["efficiency"], point["background"])
         for point in FIXED_WORKING_POINTS
     }
+
+
+def _reconstruct_group_score(values, working_points, missing):
+    """geometric_mean_of_four over one group's 4 already-computed raw
+    values (`values`, from fixed_working_point_values -- never re-derived
+    from rejection curves a second time). Appends each unavailable working
+    point's canonical "pair@eff" label to `missing` and returns None if any
+    of the 4 required inputs isn't there; never fabricates a value for a
+    missing input."""
+    group_missing = [point["score_label"] for point in working_points if values.get(point["column"]) is None]
+    if group_missing:
+        missing.extend(group_missing)
+        return None
+    raw = [values[point["column"]] for point in working_points]
+    _, score = geometric_mean_of_four(*raw)
+    return score
+
+
+def group_score_row(metrics):
+    """(ctag_score, btag_score, total_score, missing_labels) for one
+    checkpoint's metrics dict -- the one authoritative place this repo
+    computes the three canonical aggregate scores for reporting/plotting.
+
+    Uses the already-computed CTAG_GEOMEAN_METRIC_KEY / BTAG_GEOMEAN_METRIC_KEY
+    / TOTAL_GEOMEAN_METRIC_KEY directly when present (new-format runs,
+    written once by training.runtime._working_point_metrics at evaluation
+    time). For older manifests that predate those fields, reconstructs from
+    fixed_working_point_values(metrics) -- the same already-computed 8 raw
+    values this module already produces for metrics.csv/plots -- via
+    training.runtime.geometric_mean_of_four/combine_group_scores (imported,
+    never re-implemented here). `missing_labels` names exactly which
+    canonical working point(s) (e.g. "cb@0.50") were unavailable; a
+    group/total score is None, never a fabricated value, whenever its
+    required inputs aren't all present.
+    """
+    ctag_score = metrics.get(CTAG_GEOMEAN_METRIC_KEY)
+    btag_score = metrics.get(BTAG_GEOMEAN_METRIC_KEY)
+    total_score = metrics.get(TOTAL_GEOMEAN_METRIC_KEY)
+    if ctag_score is not None and btag_score is not None and total_score is not None:
+        return ctag_score, btag_score, total_score, []
+
+    missing = []
+    values = fixed_working_point_values(metrics)
+    if ctag_score is None:
+        ctag_score = _reconstruct_group_score(values, CTAG_SCORE_WORKING_POINTS, missing)
+    if btag_score is None:
+        btag_score = _reconstruct_group_score(values, BTAG_SCORE_WORKING_POINTS, missing)
+    if total_score is None:
+        total_score = combine_group_scores(ctag_score, btag_score)
+    return ctag_score, btag_score, total_score, missing
 
 
 def _working_point_counts(metrics, tag, eff, background):
@@ -244,6 +304,7 @@ def evaluation_rows(manifest):
             epoch_fraction = None if dataset_size is None else samples_seen / dataset_size
             if _better(mode, value, best):
                 best = value
+            ctag_score, btag_score, total_score, missing_labels = group_score_row(metrics)
             rows.append(
                 {
                     "generation": training_chunk,
@@ -257,6 +318,15 @@ def evaluation_rows(manifest):
                     "optimization_metric_mode": mode,
                     CONTROLLER_OBJECTIVE_COLUMN: controller_objective_mistag(metrics),
                     "validation_working_point_mistag_percent": metrics.get("validation_working_point_mistag_percent"),
+                    CTAG_SCORE_COLUMN: ctag_score,
+                    BTAG_SCORE_COLUMN: btag_score,
+                    TOTAL_SCORE_COLUMN: total_score,
+                    GROUP_SCORE_WARNING_COLUMN: (
+                        f"run={manifest.get('experiment', 'n/a')} member={trial} generation={training_chunk} "
+                        f"missing={','.join(missing_labels)}"
+                        if missing_labels
+                        else ""
+                    ),
                     **fixed_working_point_values(metrics),
                     **fixed_working_point_uncertainties(metrics),
                     "validation_accuracy": metrics.get("validation_accuracy"),
@@ -300,6 +370,9 @@ def read_metrics_rows(run_dir):
                 "optimization_metric_value",
                 CONTROLLER_OBJECTIVE_COLUMN,
                 "validation_working_point_mistag_percent",
+                CTAG_SCORE_COLUMN,
+                BTAG_SCORE_COLUMN,
+                TOTAL_SCORE_COLUMN,
                 *FIXED_WORKING_POINT_COLUMNS,
                 *FIXED_WORKING_POINT_ERROR_COLUMNS,
                 "validation_accuracy",
@@ -431,6 +504,7 @@ def tiered_evaluation_rows(manifest):
         rank_by_member = {name: index + 1 for index, name in enumerate(ranking)}
         for member, record in members.items():
             metrics = record.get("metrics") or {}
+            ctag_score, btag_score, total_score, missing_labels = group_score_row(metrics) if metrics else (None, None, None, [])
             rows.append(
                 {
                     "generation": generation,
@@ -446,6 +520,15 @@ def tiered_evaluation_rows(manifest):
                     "metric_value": metrics.get(metric_name),
                     CONTROLLER_OBJECTIVE_COLUMN: controller_objective_mistag(metrics) if metrics else None,
                     "validation_working_point_mistag_percent": metrics.get("validation_working_point_mistag_percent"),
+                    CTAG_SCORE_COLUMN: ctag_score,
+                    BTAG_SCORE_COLUMN: btag_score,
+                    TOTAL_SCORE_COLUMN: total_score,
+                    GROUP_SCORE_WARNING_COLUMN: (
+                        f"run={manifest.get('experiment', 'n/a')} member={member} generation={generation} tier={tier} "
+                        f"missing={','.join(missing_labels)}"
+                        if missing_labels
+                        else ""
+                    ),
                     **fixed_working_point_values(metrics),
                     **fixed_working_point_uncertainties(metrics),
                 }

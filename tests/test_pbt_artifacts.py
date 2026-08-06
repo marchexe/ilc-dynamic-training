@@ -233,7 +233,9 @@ class PBTArtifactsTest(unittest.TestCase):
                 self.assertTrue((run_dir / relative).is_file(), relative)
             for name in (
                 "training_evolution.png",
-                "working_point_evolution.png",
+                "ctag_fixed_efficiency_mistag.png",
+                "btag_fixed_efficiency_mistag.png",
+                "geometric_mistag_scores.png",
                 "baseline_vs_selected.png",
                 "report/physics_performance.png",
                 "diagnostics/background_efficiency_curves.png",
@@ -283,8 +285,11 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertEqual(summary["evaluation"]["evaluation_type"], "proxy")
             self.assertIn("physics_performance", summary["plots"])
             self.assertIn("training_evolution", summary["plots"])
-            self.assertIn("working_point_evolution", summary["plots"])
+            self.assertIn("ctag_fixed_efficiency_mistag", summary["plots"])
+            self.assertIn("btag_fixed_efficiency_mistag", summary["plots"])
+            self.assertIn("geometric_mistag_scores", summary["plots"])
             self.assertIn("baseline_comparison", summary["plots"])
+            self.assertNotIn("working_point_evolution", summary["plots"])
             self.assertNotIn("lr_vs_metric", summary["plots"])
             report = (run_dir / "report.md").read_text()
             self.assertLess(report.index("## Results"), report.index("## Method"))
@@ -432,7 +437,7 @@ class PBTArtifactsTest(unittest.TestCase):
     def test_format_mistag_value_handles_missing_value(self):
         self.assertEqual(format_mistag_value(None), "n/a")
 
-    def test_working_point_evolution_plot_supports_many_generations(self):
+    def test_fixed_efficiency_mistag_plots_support_many_generations(self):
         # The evolution plots must not be hard-coded around the two-point
         # smoke-test shape; verify a longer, single-trial run round-trips
         # cleanly through the full canonical-artifact pipeline.
@@ -464,7 +469,8 @@ class PBTArtifactsTest(unittest.TestCase):
             with (run_dir / "metrics.csv").open() as stream:
                 rows = list(csv.DictReader(stream))
             self.assertEqual(len(rows), 8)
-            self.assertTrue((run_dir / "plots" / "working_point_evolution.png").is_file())
+            self.assertTrue((run_dir / "plots" / "ctag_fixed_efficiency_mistag.png").is_file())
+            self.assertTrue((run_dir / "plots" / "btag_fixed_efficiency_mistag.png").is_file())
 
     def test_rebuild_command_regenerates_report_without_training(self):
         with tempfile.TemporaryDirectory() as temporary:

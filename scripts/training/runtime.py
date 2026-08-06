@@ -266,36 +266,60 @@ def _bkg_rejection_lookup(curves):
     return lookup or None
 
 
-def geometric_mistag_score(x1, x2, x3, x4):
-    """(x1 * x2 * x3 * x4) ** 0.25 -- the four-case geometric-mean mistag
-    score used by anchor_copy_lr_recenter's model selection. Lower is
-    better, same convention as every other mistag-percent metric in this
-    file. All four inputs must be finite, non-negative numbers (a mistag
-    percentage is never negative and never inf/NaN in a valid result) --
-    reject anything else rather than silently coercing it. Zero is a
-    legitimate input (a perfect working point) and needs no epsilon
+def mistag_percent_key(pair, eff):
+    """The one canonical key format for a raw per-working-point mistag
+    percent value -- used both when writing it (here) and when a
+    reconstruction path (reporting/metrics_rows.py, for old manifests that
+    predate the aggregate score fields) needs to look the same value back
+    up, so the two can never drift out of sync with each other."""
+    return f"validation_{pair}_mistag_eff_{eff:.2f}_percent"
+
+
+def geometric_mean_of_four(x1, x2, x3, x4):
+    """(x1 * x2 * x3 * x4) ** 0.25 -- the shared four-case geometric-mean
+    building block for both ctag_score and btag_score (see
+    CTAG_REFERENCE_WORKING_POINTS / BTAG_REFERENCE_WORKING_POINTS below).
+    Lower is better, same convention as every other mistag-percent metric in
+    this file. All four inputs must be finite, non-negative numbers (a
+    mistag percentage is never negative and never inf/NaN in a valid
+    result) -- reject anything else rather than silently coercing it. Zero
+    is a legitimate input (a perfect working point) and needs no epsilon
     substitution: plain multiplication makes the product (and therefore the
     score) exactly 0.0 without ever dividing by or taking the log of an
     input, so there is no zero-related singularity to guard against here.
     """
     values = (x1, x2, x3, x4)
     if any(value is None for value in values):
-        raise ValueError("geometric_mistag_score requires four non-None values")
+        raise ValueError("geometric_mean_of_four requires four non-None values")
     numeric = [float(value) for value in values]
     for value in numeric:
         if not math.isfinite(value):
-            raise ValueError("geometric_mistag_score inputs must be finite (no NaN/inf)")
+            raise ValueError("geometric_mean_of_four inputs must be finite (no NaN/inf)")
         if value < 0:
-            raise ValueError("geometric_mistag_score inputs must be non-negative")
+            raise ValueError("geometric_mean_of_four inputs must be non-negative")
     product = numeric[0] * numeric[1] * numeric[2] * numeric[3]
     return product, product ** 0.25
 
 
-# The four working points anchor_copy_lr_recenter's mistag_score is built
-# from, in x1..x4 order -- a subset of CTAG_REFERENCE_WORKING_POINTS below,
-# all c-tag mistag percentages (same unit, same tagger), never mixed with
-# b-tag values.
-GEOMETRIC_MISTAG_WORKING_POINTS = (("cb", 0.5), ("cd", 0.5), ("cb", 0.8), ("cd", 0.8))
+def combine_group_scores(ctag_score, btag_score):
+    """total_mistag_score = sqrt(ctag_score * btag_score) -- the canonical
+    combined PBT ranking score. Deliberately built from the two already-
+    computed group scores (never a fresh 8-way product) so there is exactly
+    one place ctag_score/btag_score are computed; mathematically equivalent
+    to (product of all 8 raw values) ** 0.125 (8 = 4 c-tag * 4 b-tag
+    entries), since (a**4 * b**4) ** (1/8) == (a * b) ** 0.5. None if
+    either input is unavailable -- never silently substituted."""
+    if ctag_score is None or btag_score is None:
+        return None
+    return (ctag_score * btag_score) ** 0.5
+
+
+# The b-tag half of WORKING_POINT_DEFINITION, in x1..x4 order for
+# geometric_mean_of_four -- kept as its own named tuple (not re-sliced from
+# WORKING_POINT_DEFINITION at call time) so it is independently readable
+# and independently importable by the reporting layer, the same way
+# CTAG_REFERENCE_WORKING_POINTS already is.
+BTAG_REFERENCE_WORKING_POINTS = (("bc", 0.8), ("bd", 0.8), ("bc", 0.9), ("bd", 0.9))
 
 
 def _mistags_for_working_points(curves, working_points):
@@ -308,7 +332,7 @@ def _mistags_for_working_points(curves, working_points):
             continue
         index = efficiencies.index(eff)
         rejection = _curve_value(pairs, pair, index)
-        key = f"validation_{pair}_mistag_eff_{eff:.2f}_percent"
+        key = mistag_percent_key(pair, eff)
         if rejection is None or rejection <= 0 or not math.isfinite(rejection):
             out[key] = None
             continue
@@ -319,6 +343,16 @@ def _mistags_for_working_points(curves, working_points):
         out[key] = mistag
         mistags.append(mistag)
     return out, mistags
+
+
+def _group_geomean(out, working_points):
+    """geometric_mean_of_four over `working_points`' already-computed
+    per-pair values in `out` -- None (not a crash, not a fabricated value)
+    if any of the four is missing/non-finite/negative for this checkpoint."""
+    values = [out.get(mistag_percent_key(pair, eff)) for pair, eff in working_points]
+    if any(value is None for value in values):
+        return None, None
+    return geometric_mean_of_four(*values)
 
 
 def _working_point_metrics(curves):
@@ -333,27 +367,16 @@ def _working_point_metrics(curves):
         sum(ctag_mistags) / len(ctag_mistags) if ctag_mistags else None
     )
 
-    # x1..x4 for anchor_copy_lr_recenter's geometric mistag_score, aliased
-    # from the per-point values already computed above (GEOMETRIC_MISTAG_
-    # WORKING_POINTS is a subset of WORKING_POINT_DEFINITION) so the x1-x4
-    # mapping is self-documenting in the metrics dict itself, not something
-    # a reader has to cross-reference against WORKING_POINT_DEFINITION's
-    # ordering to recover. A working point genuinely absent from this
-    # checkpoint's curves (out[key] is None) is a normal partial-eval
-    # outcome here, not invalid input -- skip the score rather than raise.
-    x_keys = [
-        f"validation_{pair}_mistag_eff_{eff:.2f}_percent" for pair, eff in GEOMETRIC_MISTAG_WORKING_POINTS
-    ]
-    x_values = [out.get(key) for key in x_keys]
-    for label, value in zip(("x1", "x2", "x3", "x4"), x_values):
-        out[f"validation_mistag_geometric_score_{label}_percent"] = value
-    if all(value is not None for value in x_values):
-        product, score = geometric_mistag_score(*x_values)
-        out["validation_mistag_geometric_score_product"] = product
-        out["validation_mistag_geometric_score_percent"] = score
-    else:
-        out["validation_mistag_geometric_score_product"] = None
-        out["validation_mistag_geometric_score_percent"] = None
+    # The three canonical geometric-mean scores: ctag_score, btag_score
+    # (each a geometric_mean_of_four over its own 4 working points, already
+    # computed above in `out`), and total_mistag_score = sqrt(ctag*btag) --
+    # the canonical PBT ranking metric. None (not 0, not NaN) when any
+    # required input is unavailable for this checkpoint.
+    _, ctag_score = _group_geomean(out, CTAG_REFERENCE_WORKING_POINTS)
+    _, btag_score = _group_geomean(out, BTAG_REFERENCE_WORKING_POINTS)
+    out["validation_ctag_reference_mistag_geomean_percent"] = ctag_score
+    out["validation_btag_reference_mistag_geomean_percent"] = btag_score
+    out["validation_total_reference_mistag_geomean_percent"] = combine_group_scores(ctag_score, btag_score)
     return out
 
 

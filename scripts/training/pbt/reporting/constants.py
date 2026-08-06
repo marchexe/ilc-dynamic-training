@@ -16,13 +16,19 @@ REPORT_NAME = "report.md"
 
 PLOT_NAMES = {
     "training_evolution": "training_evolution.png",
-    "working_point_evolution": "working_point_evolution.png",
+    "ctag_fixed_efficiency_mistag": "ctag_fixed_efficiency_mistag.png",
+    "btag_fixed_efficiency_mistag": "btag_fixed_efficiency_mistag.png",
+    "geometric_mistag_scores": "geometric_mistag_scores.png",
     "baseline_comparison": "baseline_vs_selected.png",
     "proxy_diagnostics": "proxy_diagnostics.png",
+    # Only produced for pbt.strategy == "anchor_copy_lr_recenter" runs (see
+    # reporting/plots.py::plot_pbt_decision_evolution) -- every other
+    # strategy has no anchor/decision state to show.
+    "pbt_decision": "pbt_total_score_and_lr_evolution.png",
 }
 
 
-CONDITIONAL_PLOT_NAMES = ("baseline_comparison", "proxy_diagnostics")
+CONDITIONAL_PLOT_NAMES = ("baseline_comparison", "proxy_diagnostics", "pbt_decision")
 
 
 EXPLOIT_TABLE_NAME = "plots/report/exploit_table.csv"
@@ -34,7 +40,7 @@ SKIPPED_EXPLOIT_TABLE_NAME = "plots/report/skipped_exploits.csv"
 TIERED_METRICS_NAME = "tiered_metrics.csv"
 
 
-FIXED_WORKING_POINTS = (
+_FIXED_WORKING_POINTS_BASE = (
     {"tag": "b", "efficiency": 0.80, "background": "c", "column": "btag_c_mistag_percent_at_0p80", "label": "c bkg, b-eff 80%"},
     {"tag": "b", "efficiency": 0.80, "background": "d", "column": "btag_d_mistag_percent_at_0p80", "label": "d bkg, b-eff 80%"},
     {"tag": "b", "efficiency": 0.90, "background": "c", "column": "btag_c_mistag_percent_at_0p90", "label": "c bkg, b-eff 90%"},
@@ -44,6 +50,43 @@ FIXED_WORKING_POINTS = (
     {"tag": "c", "efficiency": 0.80, "background": "b", "column": "ctag_b_mistag_percent_at_0p80", "label": "b bkg, c-eff 80%"},
     {"tag": "c", "efficiency": 0.80, "background": "d", "column": "ctag_d_mistag_percent_at_0p80", "label": "d bkg, c-eff 80%"},
 )
+
+
+def _with_canonical_labels(point):
+    # "pair" is tag+background (e.g. tag="c", background="b" -> "cb" --
+    # matches training.runtime.WORKING_POINT_DEFINITION's convention
+    # exactly: cb is a *c-tag* working point evaluated against b
+    # background, never to be confused with bc, a *b-tag* working point
+    # evaluated against c background). "score_label" is the canonical
+    # "cb@0.5"-style display label -- derived here, not hand-duplicated
+    # anywhere else, so pair/label/efficiency can never drift apart.
+    pair = f"{point['tag']}{point['background']}"
+    return {**point, "pair": pair, "score_label": f"{pair}@{point['efficiency']:g}"}
+
+
+# The one canonical, shared definition of every fixed working point used
+# anywhere in PBT reporting -- CSV columns, plot labels, and the
+# ctag_score/btag_score groupings below are all derived from this single
+# tuple, never redefined independently.
+FIXED_WORKING_POINTS = tuple(_with_canonical_labels(point) for point in _FIXED_WORKING_POINTS_BASE)
+
+
+# The four working points behind ctag_score / btag_score respectively --
+# exactly training.runtime.CTAG_REFERENCE_WORKING_POINTS /
+# BTAG_REFERENCE_WORKING_POINTS, expressed as the same FIXED_WORKING_POINTS
+# entries (so callers get column/label/score_label for free) rather than as
+# a second, separately-maintained list of (pair, efficiency) tuples.
+CTAG_SCORE_WORKING_POINTS = tuple(point for point in FIXED_WORKING_POINTS if point["tag"] == "c")
+BTAG_SCORE_WORKING_POINTS = tuple(point for point in FIXED_WORKING_POINTS if point["tag"] == "b")
+
+
+# Canonical aggregate-score metric keys -- the one place these strings are
+# spelled out; every consumer (runtime.py's live computation, the
+# reporting-layer reconstruction path, plots, reports) imports them rather
+# than re-typing the key name.
+CTAG_GEOMEAN_METRIC_KEY = "validation_ctag_reference_mistag_geomean_percent"
+BTAG_GEOMEAN_METRIC_KEY = "validation_btag_reference_mistag_geomean_percent"
+TOTAL_GEOMEAN_METRIC_KEY = "validation_total_reference_mistag_geomean_percent"
 
 
 FIXED_WORKING_POINT_COLUMNS = tuple(point["column"] for point in FIXED_WORKING_POINTS)
@@ -97,6 +140,18 @@ WORKING_POINT_LINESTYLES = ("-", "--")
 CONTROLLER_OBJECTIVE_COLUMN = "controller_objective_mistag_percent"
 
 
+# The three canonical geometric-mean scores (see
+# reporting/metrics_rows.py::group_score_row) plus a warning column that is
+# empty when the row is complete and otherwise names exactly which raw
+# working-point value(s) were missing/invalid for this row -- never a
+# silently-invented 0/NaN/other-metric substitute.
+CTAG_SCORE_COLUMN = "ctag_score"
+BTAG_SCORE_COLUMN = "btag_score"
+TOTAL_SCORE_COLUMN = "total_mistag_score"
+GROUP_SCORE_WARNING_COLUMN = "group_score_warning"
+GROUP_SCORE_COLUMNS = (CTAG_SCORE_COLUMN, BTAG_SCORE_COLUMN, TOTAL_SCORE_COLUMN, GROUP_SCORE_WARNING_COLUMN)
+
+
 METRICS_COLUMNS = (
     "generation",
     "training_chunk",
@@ -109,6 +164,7 @@ METRICS_COLUMNS = (
     "optimization_metric_mode",
     CONTROLLER_OBJECTIVE_COLUMN,
     "validation_working_point_mistag_percent",
+    *GROUP_SCORE_COLUMNS,
     *FIXED_WORKING_POINT_COLUMNS,
     *FIXED_WORKING_POINT_UNCERTAINTY_COLUMNS,
     "validation_accuracy",
@@ -138,6 +194,7 @@ TIERED_METRICS_COLUMNS = (
     "metric_value",
     CONTROLLER_OBJECTIVE_COLUMN,
     "validation_working_point_mistag_percent",
+    *GROUP_SCORE_COLUMNS,
     *FIXED_WORKING_POINT_COLUMNS,
     *FIXED_WORKING_POINT_UNCERTAINTY_COLUMNS,
 )

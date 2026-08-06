@@ -10,13 +10,19 @@ import yaml
 
 from training.runtime import atomic_json
 from training.pbt.reporting.constants import (
+    BTAG_SCORE_COLUMN,
     CONDITIONAL_PLOT_NAMES,
     CONTROLLER_OBJECTIVE_COLUMN,
+    CTAG_SCORE_COLUMN,
     EXPLOIT_TABLE_NAME,
+    FIXED_WORKING_POINTS,
+    GROUP_SCORE_WARNING_COLUMN,
     PLOT_NAMES,
     REPORT_NAME,
     SKIPPED_EXPLOIT_TABLE_NAME,
     SUMMARY_NAME,
+    TOTAL_GEOMEAN_METRIC_KEY,
+    TOTAL_SCORE_COLUMN,
 )
 from training.pbt.reporting.io import atomic_text, ensure_run_layout, metric_definition, read_events
 from training.pbt.reporting.metrics_rows import (
@@ -228,6 +234,115 @@ def _shutdown_warning_summary(manifest):
     )
 
 
+def _model_selection_score_table_lines(manifest, rows):
+    """Per-member summary table for the final generation: all 8 raw
+    working-point mistag values, the 3 canonical aggregate scores, LR, and
+    winner/anchor status. Consumes `rows` (already built by
+    evaluation_rows/group_score_row) directly -- no metric is recomputed
+    here. Deterministic member ordering (alphabetical by trial name)."""
+    if not manifest.get("generations"):
+        return []
+    final_generation = max(manifest["generations"], key=lambda item: item.get("index", -1))
+    final_index = final_generation.get("index")
+    final_rows = sorted(
+        (row for row in rows if row.get("generation") == final_index),
+        key=lambda row: row.get("trial") or "",
+    )
+    if not final_rows:
+        return []
+    winner_row = final_best_row(final_rows, _metric_mode(manifest))
+    winner_name = winner_row.get("trial") if winner_row else None
+    anchor_member = (manifest.get("anchor") or {}).get("member")
+
+    header = [
+        "member",
+        *(point["score_label"] for point in FIXED_WORKING_POINTS),
+        "ctag_score", "btag_score", "total_mistag_score", "LR", "status",
+    ]
+    lines = [
+        "",
+        "## Model Selection Scores",
+        f"- Final generation: {final_index}",
+        "- All mistag/score values in percent (lower is better); status marks the generation's winner and/or the persisted anchor member.",
+        "",
+        "| " + " | ".join(header) + " |",
+        "| " + " | ".join("---" for _ in header) + " |",
+    ]
+    for row in final_rows:
+        status_bits = []
+        if row.get("trial") == winner_name:
+            status_bits.append("winner")
+        if row.get("trial") == anchor_member:
+            status_bits.append("anchor")
+        cells = [
+            row.get("trial", "n/a"),
+            *(_fmt(row.get(point["column"]), 4) for point in FIXED_WORKING_POINTS),
+            _fmt(row.get(CTAG_SCORE_COLUMN), 4),
+            _fmt(row.get(BTAG_SCORE_COLUMN), 4),
+            _fmt(row.get(TOTAL_SCORE_COLUMN), 4),
+            _fmt(row.get("LR"), 3),
+            ", ".join(status_bits) if status_bits else "-",
+        ]
+        lines.append("| " + " | ".join(str(cell) for cell in cells) + " |")
+
+    warnings = sorted({row[GROUP_SCORE_WARNING_COLUMN] for row in final_rows if row.get(GROUP_SCORE_WARNING_COLUMN)})
+    if warnings:
+        lines.extend(["", "**Score data quality warnings** (aggregate score excluded/reconstructed with missing inputs):"])
+        lines.extend(f"- {warning}" for warning in warnings)
+    return lines
+
+
+def _pbt_decision_summary_lines(manifest, rows):
+    """Generation-by-generation decision summary for anchor_copy_lr_recenter
+    runs only -- empty for every other strategy (see
+    plot_pbt_decision_evolution's identical strategy gate). Consumes
+    generation_record["anchor_copy_lr_recenter"] (already computed by the
+    planner) and `rows`' already-computed scores; no recomputation."""
+    if manifest.get("config", {}).get("pbt", {}).get("strategy") != "anchor_copy_lr_recenter":
+        return []
+    decisions = sorted(
+        (
+            (generation["index"], generation["anchor_copy_lr_recenter"])
+            for generation in manifest.get("generations", [])
+            if (generation.get("anchor_copy_lr_recenter") or {}).get("decision")
+            in ("accepted_new_anchor", "reused_previous_anchor", "rewound_to_previous_anchor")
+        ),
+        key=lambda item: item[0],
+    )
+    if not decisions:
+        return []
+    row_lookup = {(row.get("generation"), row.get("trial")): row for row in rows}
+    header = [
+        "generation", "winner", "winner total_mistag_score", "winner ctag_score", "winner btag_score",
+        "winner LR", "previous LR center", "new LR center", "decision", "spread_collapsed",
+    ]
+    lines = [
+        "",
+        "## PBT Decision Summary (anchor_copy_lr_recenter)",
+        "- `total_mistag_score` is this strategy's ranking metric; ctag_score/btag_score are shown for diagnosis only.",
+        "",
+        "| " + " | ".join(header) + " |",
+        "| " + " | ".join("---" for _ in header) + " |",
+    ]
+    for generation, info in decisions:
+        winner = info.get("winner")
+        winner_row = row_lookup.get((generation, winner)) or {}
+        cells = [
+            generation,
+            winner or "n/a",
+            _fmt(winner_row.get(TOTAL_SCORE_COLUMN), 4),
+            _fmt(winner_row.get(CTAG_SCORE_COLUMN), 4),
+            _fmt(winner_row.get(BTAG_SCORE_COLUMN), 4),
+            _fmt(info.get("winner_lr"), 4),
+            _fmt(info.get("previous_lr_center"), 4),
+            _fmt(info.get("new_lr_center"), 4),
+            info.get("decision", "n/a"),
+            "yes" if info.get("spread_collapsed") else "no",
+        ]
+        lines.append("| " + " | ".join(str(cell) for cell in cells) + " |")
+    return lines
+
+
 def write_report(run_dir, manifest, summary):
     path = Path(run_dir) / REPORT_NAME
     metric = summary["metric"]
@@ -254,20 +369,38 @@ def write_report(run_dir, manifest, summary):
         f"- Validation sample count: {_fmt(evaluation.get('validation_sample_count'))}",
         "- Controller objective: mean predefined fixed-WP mistag percent (lower is better; not a HEP metric)",
         f"- Configured PBT selection metric: `{metric['name']}` ({metric['mode']})",
-        f"- Measured baseline: {_fmt(baseline.get('metric_value'))}",
-        f"- Configured reference: {_fmt(configured_baseline.get('metric_value'))}",
-        f"- Final checkpoint controller objective: {_fmt(final_best.get(CONTROLLER_OBJECTIVE_COLUMN))} by `{final_best.get('trial', 'n/a')}`",
-        f"- Global best configured metric: {_fmt(best.get('metric_value'))} by `{best.get('member', 'n/a')}`",
-        f"- Delta vs measured baseline: {_fmt(None if improvement is None else 100.0 * improvement)}%",
-        f"- Best checkpoint: `{(summary.get('checkpoints') or {}).get('global_best_state')}`",
-        "",
-        "## Training Evolution",
-        f"- [Training evolution]({plots.get('training_evolution', 'plots/training_evolution.png')})",
-        f"- [Working-point evolution]({plots.get('working_point_evolution', 'plots/working_point_evolution.png')})",
     ]
+    if metric["name"] == TOTAL_GEOMEAN_METRIC_KEY:
+        lines.append(
+            "- **`total_mistag_score` (sqrt(ctag_score * btag_score)) is this run's PBT ranking metric** -- "
+            "ctag_score/btag_score are its two components, shown for diagnosis, never used for ranking on their own."
+        )
+    lines.extend(
+        [
+            f"- Measured baseline: {_fmt(baseline.get('metric_value'))}",
+            f"- Configured reference: {_fmt(configured_baseline.get('metric_value'))}",
+            f"- Final checkpoint controller objective: {_fmt(final_best.get(CONTROLLER_OBJECTIVE_COLUMN))} by `{final_best.get('trial', 'n/a')}`",
+            f"- Global best configured metric: {_fmt(best.get('metric_value'))} by `{best.get('member', 'n/a')}`",
+            f"- Delta vs measured baseline: {_fmt(None if improvement is None else 100.0 * improvement)}%",
+            f"- Best checkpoint: `{(summary.get('checkpoints') or {}).get('global_best_state')}`",
+            "",
+            "## Training Evolution",
+            f"- [Training evolution]({plots.get('training_evolution', 'plots/training_evolution.png')})",
+            f"- [C-tag fixed-efficiency mistag]({plots.get('ctag_fixed_efficiency_mistag', 'plots/ctag_fixed_efficiency_mistag.png')})",
+            f"- [B-tag fixed-efficiency mistag]({plots.get('btag_fixed_efficiency_mistag', 'plots/btag_fixed_efficiency_mistag.png')})",
+            f"- [Geometric mistag scores]({plots.get('geometric_mistag_scores', 'plots/geometric_mistag_scores.png')})",
+        ]
+    )
+    pbt_decision_path = plots.get("pbt_decision")
+    if pbt_decision_path:
+        lines.append(f"- [PBT total-score and LR evolution]({pbt_decision_path})")
     for trial, values in (summary.get("lr_trajectory") or {}).items():
         rendered = ", ".join(f"{item['samples_seen']}:{_fmt(item['LR'], 3)}" for item in values)
         lines.append(f"- `{trial}` samples_seen:LR = {rendered}")
+
+    rows = read_metrics_rows(run_dir)
+    lines.extend(_model_selection_score_table_lines(manifest, rows))
+    lines.extend(_pbt_decision_summary_lines(manifest, rows))
 
     lines.extend(["", "## Exploit History", f"- [Exploit table]({plots.get('exploit_table_csv', EXPLOIT_TABLE_NAME)})"])
     exploits = [event for event in summary.get("exploit_history", []) if event.get("event_type") == "exploit"]

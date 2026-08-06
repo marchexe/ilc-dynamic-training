@@ -25,7 +25,9 @@ PBT_METRICS = {
     "validation_bkg_rejection_score",
     "validation_working_point_mistag_percent",
     "validation_ctag_reference_mistag_percent",
-    "validation_mistag_geometric_score_percent",
+    "validation_ctag_reference_mistag_geomean_percent",
+    "validation_btag_reference_mistag_geomean_percent",
+    "validation_total_reference_mistag_geomean_percent",
 }
 
 

@@ -10,10 +10,15 @@ from pathlib import Path
 
 from training.runtime import atomic_json
 from training.pbt.reporting.constants import (
+    BTAG_SCORE_COLUMN,
+    BTAG_SCORE_WORKING_POINTS,
+    CTAG_SCORE_COLUMN,
+    CTAG_SCORE_WORKING_POINTS,
     FIXED_WORKING_POINTS,
     FLAVOR_COLORS,
     PLOT_NAMES,
     TIER_ORDER,
+    TOTAL_SCORE_COLUMN,
     WORKING_POINT_LINESTYLES,
     WORKING_POINT_MARKERS,
     WORKING_POINT_STYLE_RANK,
@@ -32,6 +37,15 @@ from training.pbt.reporting.metrics_rows import (
     read_metrics_rows,
 )
 from training.pbt.reporting.statistics import _paired_tier_values, ranking_agreement, tier_correlation
+
+# Group scores are visually distinct from the 8 raw working points: total is
+# the canonical PBT ranking metric (bold, black, on top), ctag/btag are its
+# two components (thinner, colored, never hidden).
+GROUP_SCORE_STYLE = {
+    TOTAL_SCORE_COLUMN: {"color": "black", "linewidth": 2.4, "marker": "D", "zorder": 6, "label": "total_mistag_score (PBT ranking metric)"},
+    CTAG_SCORE_COLUMN: {"color": "#59a14f", "linewidth": 1.3, "marker": "o", "zorder": 4, "label": "ctag_score"},
+    BTAG_SCORE_COLUMN: {"color": "#4c78a8", "linewidth": 1.3, "marker": "s", "zorder": 4, "label": "btag_score"},
+}
 
 # The four fixed working points shown individually (not blended into one
 # "mean of 8" number) in the top panel of training_evolution.png -- one
@@ -260,7 +274,70 @@ def plot_training_evolution(run_dir, manifest, rows, events):
     return path
 
 
-def plot_working_point_evolution(run_dir, manifest, rows):
+def _draw_fixed_efficiency_panel(ax, tag, selected, best_row, baseline_values, baseline_uncertainties):
+    """The one shared per-tag drawing routine behind both canonical raw
+    plots (plot_ctag_fixed_efficiency_mistag / plot_btag_fixed_efficiency_mistag)
+    -- consumes already-computed row/baseline dicts (fixed_working_point_values
+    output), never re-derives a rejection->mistag conversion itself. Members
+    iterated in FIXED_WORKING_POINTS' fixed, deterministic order, so legend
+    entries are always in the same order across runs.
+    """
+    plotted = []
+    for point in FIXED_WORKING_POINTS:
+        if point["tag"] != tag:
+            continue
+        column = point["column"]
+        rank = WORKING_POINT_STYLE_RANK[(tag, point["efficiency"])]
+        marker = WORKING_POINT_MARKERS[rank]
+        linestyle = WORKING_POINT_LINESTYLES[rank]
+        color = FLAVOR_COLORS[point["background"]]
+
+        xs = [row["samples_seen"] for row in selected if row.get(column) is not None]
+        ys = [row[column] for row in selected if row.get(column) is not None]
+        lower = [row.get(f"{column}_err_low") or 0.0 for row in selected if row.get(column) is not None]
+        upper = [row.get(f"{column}_err_high") or 0.0 for row in selected if row.get(column) is not None]
+
+        baseline_value = (baseline_values or {}).get(column)
+        if baseline_value is not None:
+            baseline_lower = (baseline_uncertainties or {}).get(f"{column}_err_low") or 0.0
+            baseline_upper = (baseline_uncertainties or {}).get(f"{column}_err_high") or 0.0
+            xs = [0, *xs]
+            ys = [baseline_value, *ys]
+            lower = [baseline_lower, *lower]
+            upper = [baseline_upper, *upper]
+
+        if not xs:
+            continue
+        plotted.extend(ys)
+        ax.errorbar(
+            xs,
+            ys,
+            yerr=[lower, upper],
+            marker=marker,
+            markersize=5.5,
+            linestyle=linestyle,
+            linewidth=1.1,
+            color=color,
+            ecolor=color,
+            elinewidth=0.9,
+            capsize=2.5,
+            alpha=0.92,
+            label=f"{point['score_label']} ({point['label']})",
+        )
+    if best_row and best_row.get("samples_seen") is not None:
+        ax.axvline(best_row["samples_seen"], color="0.3", linestyle=":", linewidth=1.0, alpha=0.6)
+    # Preserve the existing appropriate log scaling for raw mistag values
+    # (they can span orders of magnitude); never applied to the aggregate
+    # score plot below, where it would reduce interpretability of a single
+    # bounded ranking curve.
+    _set_log_if_positive(ax, plotted)
+    ax.set_ylabel("mistag [%]")
+    ax.set_xlabel("samples seen")
+    ax.grid(True, color="0.9", linewidth=0.6)
+    ax.legend(frameon=False, fontsize=8.4, loc="upper left", bbox_to_anchor=(1.01, 1.03), borderaxespad=0.0, handlelength=2.2)
+
+
+def _plot_fixed_efficiency_mistag(run_dir, manifest, rows, tag, title, plot_name_key):
     plt = _plot_setup()
     mode = _metric_mode(manifest)
     selected = selected_generation_rows(rows, mode)
@@ -269,68 +346,15 @@ def plot_working_point_evolution(run_dir, manifest, rows):
     baseline_uncertainties = _baseline_fixed_working_point_uncertainties(manifest)
     evaluation = evaluation_metadata(manifest)
 
-    fig, axes = plt.subplots(2, 1, figsize=(10.5, 7.6), sharex=True)
-    fig.subplots_adjust(left=0.08, right=0.79, top=0.85, bottom=0.08, hspace=0.32)
-    groups = (
-        ("b", "b-tag fixed-efficiency mistag", axes[0]),
-        ("c", "c-tag fixed-efficiency mistag", axes[1]),
-    )
-    for tag, title, ax in groups:
-        plotted = []
-        for point in FIXED_WORKING_POINTS:
-            if point["tag"] != tag:
-                continue
-            column = point["column"]
-            rank = WORKING_POINT_STYLE_RANK[(tag, point["efficiency"])]
-            marker = WORKING_POINT_MARKERS[rank]
-            linestyle = WORKING_POINT_LINESTYLES[rank]
-            color = FLAVOR_COLORS[point["background"]]
+    fig, ax = plt.subplots(1, 1, figsize=(9.5, 5.2))
+    fig.subplots_adjust(left=0.09, right=0.75, top=0.83, bottom=0.13)
+    _draw_fixed_efficiency_panel(ax, tag, selected, best_row, baseline_values, baseline_uncertainties)
+    ax.set_title(title, loc="left", fontsize=12.5, fontweight="bold")
 
-            xs = [row["samples_seen"] for row in selected if row.get(column) is not None]
-            ys = [row[column] for row in selected if row.get(column) is not None]
-            lower = [row.get(f"{column}_err_low") or 0.0 for row in selected if row.get(column) is not None]
-            upper = [row.get(f"{column}_err_high") or 0.0 for row in selected if row.get(column) is not None]
-
-            baseline_value = (baseline_values or {}).get(column)
-            if baseline_value is not None:
-                baseline_lower = (baseline_uncertainties or {}).get(f"{column}_err_low") or 0.0
-                baseline_upper = (baseline_uncertainties or {}).get(f"{column}_err_high") or 0.0
-                xs = [0, *xs]
-                ys = [baseline_value, *ys]
-                lower = [baseline_lower, *lower]
-                upper = [baseline_upper, *upper]
-
-            if not xs:
-                continue
-            plotted.extend(ys)
-            ax.errorbar(
-                xs,
-                ys,
-                yerr=[lower, upper],
-                marker=marker,
-                markersize=5.5,
-                linestyle=linestyle,
-                linewidth=1.1,
-                color=color,
-                ecolor=color,
-                elinewidth=0.9,
-                capsize=2.5,
-                alpha=0.92,
-                label=point["label"],
-            )
-        if best_row and best_row.get("samples_seen") is not None:
-            ax.axvline(best_row["samples_seen"], color="0.3", linestyle=":", linewidth=1.0, alpha=0.6)
-        _set_log_if_positive(ax, plotted)
-        ax.set_ylabel("mistag [%]")
-        ax.set_title(title, loc="left", fontsize=11, fontweight="bold")
-        ax.grid(True, color="0.9", linewidth=0.6)
-        ax.legend(frameon=False, fontsize=8.2, loc="upper left", bbox_to_anchor=(1.01, 1.03), borderaxespad=0.0, handlelength=2.2)
-    axes[-1].set_xlabel("samples seen")
-
-    fig.suptitle("Fixed working-point mistag evolution", x=0.02, y=0.975, ha="left", fontsize=14, fontweight="bold")
+    fig.suptitle(title, x=0.02, y=0.975, ha="left", fontsize=14, fontweight="bold")
     fig.text(
         0.02,
-        0.935,
+        0.90,
         f"{manifest.get('experiment', Path(run_dir).name)} | evaluation: {evaluation.get('evaluation_type', 'n/a')}\n"
         "Markers = measured checkpoints; error bars = 68% Wilson interval; lines guide the eye only; "
         "dotted vertical line = selected/global-best checkpoint.",
@@ -339,7 +363,201 @@ def plot_working_point_evolution(run_dir, manifest, rows):
         fontsize=8.6,
         color="0.35",
     )
-    path = Path(run_dir) / "plots" / PLOT_NAMES["working_point_evolution"]
+    path = Path(run_dir) / "plots" / PLOT_NAMES[plot_name_key]
+    fig.savefig(path, dpi=170)
+    plt.close(fig)
+    return path
+
+
+def plot_ctag_fixed_efficiency_mistag(run_dir, manifest, rows):
+    return _plot_fixed_efficiency_mistag(run_dir, manifest, rows, "c", "C-tag fixed-efficiency mistag", "ctag_fixed_efficiency_mistag")
+
+
+def plot_btag_fixed_efficiency_mistag(run_dir, manifest, rows):
+    return _plot_fixed_efficiency_mistag(run_dir, manifest, rows, "b", "B-tag fixed-efficiency mistag", "btag_fixed_efficiency_mistag")
+
+
+def plot_geometric_mistag_scores(run_dir, manifest, rows):
+    """The three canonical aggregate scores together -- ctag_score,
+    btag_score, and total_mistag_score (the canonical PBT ranking metric,
+    drawn bold/black/on-top so it's visually identifiable without hiding
+    the two component curves). Consumes only already-computed
+    ctag_score/btag_score/total_mistag_score row columns (see
+    metrics_rows.py::group_score_row) -- no formula is reimplemented here.
+    """
+    plt = _plot_setup()
+    mode = _metric_mode(manifest)
+    selected = selected_generation_rows(rows, mode)
+    best_row = _row_for_checkpoint(rows, manifest.get("best") or {})
+    evaluation = evaluation_metadata(manifest)
+
+    fig, ax = plt.subplots(1, 1, figsize=(9.5, 5.2))
+    fig.subplots_adjust(left=0.09, right=0.78, top=0.83, bottom=0.13)
+
+    plotted = []
+    # Deterministic series order: total first (drawn last/on top via
+    # zorder, but always listed first here and therefore first in the
+    # legend), then ctag, then btag.
+    for column in (TOTAL_SCORE_COLUMN, CTAG_SCORE_COLUMN, BTAG_SCORE_COLUMN):
+        style = GROUP_SCORE_STYLE[column]
+        xs = [row["samples_seen"] for row in selected if row.get(column) is not None]
+        ys = [row[column] for row in selected if row.get(column) is not None]
+        if not xs:
+            continue
+        plotted.extend(ys)
+        ax.plot(
+            xs, ys,
+            marker=style["marker"], markersize=6 if column == TOTAL_SCORE_COLUMN else 5,
+            linestyle="-", linewidth=style["linewidth"], color=style["color"],
+            alpha=0.95, zorder=style["zorder"], label=style["label"],
+        )
+    if best_row and best_row.get("samples_seen") is not None:
+        ax.axvline(best_row["samples_seen"], color="0.3", linestyle=":", linewidth=1.0, alpha=0.6)
+    # Deliberately no log scale here: total_mistag_score is a single
+    # bounded ranking curve, not a multi-order-of-magnitude raw quantity --
+    # log scaling would reduce, not improve, interpretability.
+    ax.set_ylabel("mistag score [%]")
+    ax.set_xlabel("samples seen")
+    ax.set_title("Geometric mistag scores", loc="left", fontsize=12.5, fontweight="bold")
+    ax.grid(True, color="0.9", linewidth=0.6)
+    ax.legend(frameon=False, fontsize=8.6, loc="upper left", bbox_to_anchor=(1.01, 1.03), borderaxespad=0.0)
+
+    fig.suptitle("Geometric mistag scores", x=0.02, y=0.975, ha="left", fontsize=14, fontweight="bold")
+    fig.text(
+        0.02,
+        0.90,
+        f"{manifest.get('experiment', Path(run_dir).name)} | evaluation: {evaluation.get('evaluation_type', 'n/a')}\n"
+        "total_mistag_score = sqrt(ctag_score * btag_score) is the canonical PBT ranking metric (bold); "
+        "ctag_score/btag_score are its two components, shown for diagnosis, never used for ranking themselves "
+        "unless a legacy configuration explicitly selects one of them.",
+        ha="left",
+        va="top",
+        fontsize=8.6,
+        color="0.35",
+    )
+    path = Path(run_dir) / "plots" / PLOT_NAMES["geometric_mistag_scores"]
+    fig.savefig(path, dpi=170)
+    plt.close(fig)
+    return path
+
+
+_ANCHOR_DECISION_STYLE = {
+    "accepted_new_anchor": {"marker": "^", "color": "#2ca02c", "label": "winner (accepted_new_anchor)"},
+    "reused_previous_anchor": {"marker": "o", "color": "0.35", "label": "winner (reused_previous_anchor)"},
+    "rewound_to_previous_anchor": {"marker": "v", "color": "#d62728", "label": "winner (rewound_to_previous_anchor)"},
+}
+
+
+def plot_pbt_decision_evolution(run_dir, manifest, rows):
+    """The anchor_copy_lr_recenter "PBT decision plot": for every
+    generation, every member's total_mistag_score, the winner (marker shape
+    tied to the accept/reuse/rewind decision), the LR center, and every
+    member's respread LR -- so the causal chain (why a member won -> what
+    became the anchor -> how the center moved -> how the next population
+    was assigned) is visible in one figure. Strategy-specific by nature
+    (only this strategy has anchor/decision state to show), but consumes
+    only already-computed manifest/row data -- generation_record
+    ["anchor_copy_lr_recenter"] (written once by the planner) and `rows`'
+    already-computed total_mistag_score column -- never recomputing a
+    metric or a decision here. Returns None (no plot) for every other
+    strategy or a run with no recorded decisions yet, the same
+    "skip, don't fail" convention as plot_baseline_comparison/
+    plot_proxy_diagnostics.
+
+    x-axis is "generation", not "samples seen": the decision, LR center,
+    and respread LR values are all inherently one-per-generation quantities
+    (never a within-generation checkpoint quantity), so generation is the
+    correct axis per this plot's own data granularity, not samples seen.
+    """
+    if manifest.get("config", {}).get("pbt", {}).get("strategy") != "anchor_copy_lr_recenter":
+        return None
+    decisions = sorted(
+        (
+            (generation["index"], generation["anchor_copy_lr_recenter"])
+            for generation in manifest.get("generations", [])
+            if (generation.get("anchor_copy_lr_recenter") or {}).get("decision") in _ANCHOR_DECISION_STYLE
+        ),
+        key=lambda item: item[0],
+    )
+    if not decisions:
+        return None
+
+    plt = _plot_setup()
+    fig, (ax_score, ax_lr) = plt.subplots(
+        2, 1, figsize=(11.0, 7.6), sharex=True, gridspec_kw={"height_ratios": [1.15, 1.0]}
+    )
+    fig.subplots_adjust(left=0.08, right=0.80, top=0.86, bottom=0.08, hspace=0.30)
+
+    # Deterministic member order/colors: alphabetical, same convention as
+    # plot_training_evolution's per-trial LR series.
+    members = sorted({name for _, info in decisions for name in (info.get("assigned_lrs") or {})})
+    member_colors = ("#4c78a8", "#e15759", "#59a14f", "#f28e2b", "#b07aa1", "#76b7b2")
+    color_by_member = {name: member_colors[index % len(member_colors)] for index, name in enumerate(members)}
+    row_lookup = {(row.get("generation"), row.get("trial")): row for row in rows}
+
+    for member in members:
+        xs = [g for g, _ in decisions if row_lookup.get((g, member), {}).get(TOTAL_SCORE_COLUMN) is not None]
+        ys = [row_lookup[(g, member)][TOTAL_SCORE_COLUMN] for g in xs]
+        if xs:
+            ax_score.plot(
+                xs, ys, marker="o", markersize=4.2, linestyle="-", linewidth=1.0, alpha=0.7,
+                color=color_by_member[member], label=_compact_trial(member),
+            )
+
+    plotted_decision_labels = set()
+    for generation, info in decisions:
+        winner = info.get("winner")
+        row = row_lookup.get((generation, winner))
+        if row is None or row.get(TOTAL_SCORE_COLUMN) is None:
+            continue
+        style = _ANCHOR_DECISION_STYLE[info["decision"]]
+        label = style["label"] if style["label"] not in plotted_decision_labels else None
+        plotted_decision_labels.add(style["label"])
+        ax_score.scatter(
+            [generation], [row[TOTAL_SCORE_COLUMN]], marker=style["marker"], s=130,
+            color=style["color"], edgecolor="black", linewidth=0.7, zorder=6, label=label,
+        )
+    ax_score.set_ylabel("total_mistag_score [%]")
+    ax_score.set_title("Winner selection and anchor decision, per generation", loc="left", fontsize=11, fontweight="bold")
+    ax_score.grid(True, color="0.9", linewidth=0.6)
+    ax_score.legend(frameon=False, fontsize=8, loc="upper left", bbox_to_anchor=(1.01, 1.03), borderaxespad=0.0)
+
+    center_xs = [generation for generation, _ in decisions]
+    center_ys = [info.get("new_lr_center") for _, info in decisions]
+    ax_lr.plot(center_xs, center_ys, marker="D", markersize=6, linestyle="-", linewidth=2.2, color="black", zorder=6, label="LR center")
+    decision_by_generation = dict(decisions)
+    for member in members:
+        xs = [g for g, info in decisions if (info.get("assigned_lrs") or {}).get(member) is not None]
+        ys = [decision_by_generation[g]["assigned_lrs"][member] for g in xs]
+        if xs:
+            ax_lr.plot(
+                xs, ys, marker="o", markersize=3.8, linestyle=":", linewidth=1.0, alpha=0.7,
+                color=color_by_member[member], label=_compact_trial(member),
+            )
+    collapsed_generations = [generation for generation, info in decisions if info.get("spread_collapsed")]
+    for generation in collapsed_generations:
+        ax_lr.axvline(generation, color="#d62728", linestyle=":", linewidth=1.0, alpha=0.45, zorder=1)
+    ax_lr.set_yscale("log")
+    ax_lr.set_ylabel("LR")
+    ax_lr.set_xlabel("generation")
+    ax_lr.set_title("LR center and per-member respreading", loc="left", fontsize=11, fontweight="bold")
+    ax_lr.grid(True, color="0.9", linewidth=0.6)
+    ax_lr.legend(frameon=False, fontsize=8, loc="upper left", bbox_to_anchor=(1.01, 1.03), borderaxespad=0.0)
+
+    fig.suptitle("PBT total-score and LR evolution (anchor_copy_lr_recenter)", x=0.02, y=0.975, ha="left", fontsize=14, fontweight="bold")
+    fig.text(
+        0.02,
+        0.90,
+        f"{manifest.get('experiment', Path(run_dir).name)}\n"
+        "Top: every member's total_mistag_score; marker shape/color at the winner = this generation's anchor "
+        "decision. Bottom: LR center (bold black) and every member's respread LR; dotted red vertical line = "
+        "a generation where min_lr/max_lr clamping collapsed two or more members onto the same LR.",
+        ha="left",
+        va="top",
+        fontsize=8.6,
+        color="0.35",
+    )
+    path = Path(run_dir) / "plots" / PLOT_NAMES["pbt_decision"]
     fig.savefig(path, dpi=170)
     plt.close(fig)
     return path
@@ -670,7 +888,9 @@ def write_plots(run_dir, manifest):
     events = read_events(run_dir)
     plots = {
         "training_evolution": str(plot_training_evolution(run_dir, manifest, rows, events)),
-        "working_point_evolution": str(plot_working_point_evolution(run_dir, manifest, rows)),
+        "ctag_fixed_efficiency_mistag": str(plot_ctag_fixed_efficiency_mistag(run_dir, manifest, rows)),
+        "btag_fixed_efficiency_mistag": str(plot_btag_fixed_efficiency_mistag(run_dir, manifest, rows)),
+        "geometric_mistag_scores": str(plot_geometric_mistag_scores(run_dir, manifest, rows)),
     }
     diagnostics_path = plot_proxy_diagnostics(run_dir, manifest)
     if diagnostics_path is not None:
@@ -678,4 +898,7 @@ def write_plots(run_dir, manifest):
     comparison_path = plot_baseline_comparison(run_dir, manifest)
     if comparison_path is not None:
         plots["baseline_comparison"] = str(comparison_path)
+    decision_path = plot_pbt_decision_evolution(run_dir, manifest, rows)
+    if decision_path is not None:
+        plots["pbt_decision"] = str(decision_path)
     return plots
