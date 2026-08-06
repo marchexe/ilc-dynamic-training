@@ -47,7 +47,7 @@ from training.pbt.planning import (
     in_burn_in,
     plan_for_strategy,
     raw_metric_ranking,
-    should_apply_exploit,
+    should_apply_exploit_for_strategy,
     strategy_uses_population_rollbacks,
 )
 from training.pbt.state.transitions import apply_exploit
@@ -523,7 +523,7 @@ def _plan_generation_exploit(config, manifest, existing, generation, is_final_ge
     )
     existing["early_stop_triggered"] = early_stop_triggered
     existing["burn_in"] = in_burn_in(config, generation)
-    will_exploit = should_apply_exploit(config, generation, is_final_generation, early_stop_triggered)
+    will_exploit = should_apply_exploit_for_strategy(config, generation, is_final_generation, early_stop_triggered)
     if existing["burn_in"]:
         log_event(
             pbt_log_path,

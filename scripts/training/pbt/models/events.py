@@ -150,6 +150,13 @@ class AnchorCopyEvent(ExploitEventBase):
     winner: str
     winner_metric_value: float
     lr_center: float
+    # True when min_lr/max_lr clamping collapsed two or more members onto
+    # the exact same assigned LR this generation -- see
+    # planning/anchor_copy_lr_recenter.py::detect_spread_collapse. Recorded
+    # on every event of the generation (not just a summary field) so it
+    # survives being read back from any single event during
+    # history-reconstruction, the same way decision/lr_center do.
+    spread_collapsed: bool = False
 
     def donor_paths(self, experiment_dir, recipient_dir, epoch, manifest):
         experiment_dir = Path(experiment_dir)

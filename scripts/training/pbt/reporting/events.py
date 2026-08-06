@@ -145,6 +145,8 @@ def record_anchor_decision(run_dir, generation_record, decision_record):
             "new_lr_center": decision_record.get("new_lr_center"),
             "assigned_lrs": decision_record.get("assigned_lrs"),
             "eval_tier": decision_record.get("eval_tier"),
+            "spread_collapsed": decision_record.get("spread_collapsed"),
+            "duplicate_lr_groups": decision_record.get("duplicate_lr_groups"),
         },
     )
 

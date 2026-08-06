@@ -30,10 +30,11 @@ restored to everyone on regression, never per-recipient snapshots.
 
 from training.pbt.execution.backend import finite_metric_ok
 from training.pbt.metrics import clamp, metric_is_worse_than_reference
-from training.pbt.planning.ranking import member_metric_value, raw_metric_ranking
+from training.pbt.planning.ranking import member_metric_value, raw_metric_ranking, should_apply_exploit
 
 ANCHOR_PSEUDO_RECIPIENT = "__anchor__"
 EVAL_TIER = "control"  # always the per-generation control-tier metric (control_proxy_50k); never a separate periodic tier
+STRATEGY_NAME = "anchor_copy_lr_recenter"
 
 
 def anchor_copy_lr_recenter_config(config):
@@ -41,6 +42,46 @@ def anchor_copy_lr_recenter_config(config):
     if not policy or policy.get("mode") == "disabled":
         return None
     return policy
+
+
+def should_apply_exploit_for_strategy(config, generation, is_final_generation, early_stop_triggered):
+    """should_apply_exploit (planning/ranking.py, unmodified) skips applying
+    the exploit plan on the run's final generation for every strategy --
+    correct for exploit_mutate/population_lr_policy/anchored_lr_sweep,
+    where nothing trains after a copy that would otherwise happen there, so
+    skipping it is harmless. anchor_copy_lr_recenter's spec requires the
+    complete plan (the "__anchor__" bundle update/reuse/rewind AND every
+    member's copy) to apply on every generation including the last one, so
+    this strategy alone gets is_final_generation forced to False before
+    delegating to the real, untouched should_apply_exploit -- burn-in,
+    early-stop, and cadence-interval gating all still apply to it exactly
+    as before (this strategy's own preset already sets burn_in_generations:
+    0 and exploit_interval_generations: 1, so those gates are no-ops for it
+    in practice, but they are not bypassed here)."""
+    if config.get("pbt", {}).get("strategy") == STRATEGY_NAME:
+        is_final_generation = False
+    return should_apply_exploit(config, generation, is_final_generation, early_stop_triggered)
+
+
+def detect_spread_collapse(spread):
+    """min_lr/max_lr clamping can push two or more members' otherwise-
+    distinct multiplier*center values onto the exact same bound, silently
+    collapsing what looks like a full distinct LR grid into fewer genuinely
+    different values. clamp() returns the bound itself exactly (no
+    floating-point fuzz) when it clamps, so exact equality is the correct,
+    sufficient check -- never treat a collapsed spread as if every member
+    still got a distinct LR. Returns (collapsed: bool, duplicate_groups:
+    list[list[str]]) -- duplicate_groups lists only the member-name groups
+    that actually share a value, sorted for deterministic output; empty
+    when nothing collapsed."""
+    by_value = {}
+    for name, lr in spread.items():
+        by_value.setdefault(lr, []).append(name)
+    duplicate_groups = sorted(
+        (sorted(names) for names in by_value.values() if len(names) > 1),
+        key=lambda group: group[0],
+    )
+    return bool(duplicate_groups), duplicate_groups
 
 
 def _finite_members(config, generation_record, members):
@@ -140,6 +181,10 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
         anchor_generation = generation_record["index"]
         anchor_metric_for_events = winner_metric
 
+    member_order = list(members)
+    spread = assign_lr_spread(new_center, policy["spread_multipliers"], min_lr, max_lr, member_order)
+    spread_collapsed, duplicate_lr_groups = detect_spread_collapse(spread)
+
     common_fields = {
         "source": "anchor_copy_lr_recenter",
         "decision": decision,
@@ -148,6 +193,7 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
         "winner": winner_name,
         "winner_metric_value": winner_metric,
         "lr_center": new_center,
+        "spread_collapsed": spread_collapsed,
     }
 
     # The special "__anchor__" event must be first: apply_exploit processes
@@ -161,9 +207,6 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
         "donor": anchor_donor_label,
         "new_lr": new_center,
     }
-
-    member_order = list(members)
-    spread = assign_lr_spread(new_center, policy["spread_multipliers"], min_lr, max_lr, member_order)
 
     plan = [anchor_event]
     for name in member_order:
@@ -185,6 +228,13 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
         "new_lr_center": new_center,
         "assigned_lrs": spread,
         "eval_tier": EVAL_TIER,
+        # min_lr/max_lr clamping can collapse two or more members onto the
+        # exact same LR (e.g. center near a bound with a wide multiplier
+        # spread) -- recorded explicitly here rather than silently letting
+        # the assigned_lrs dict look like a full distinct grid when it
+        # isn't. See detect_spread_collapse's docstring.
+        "spread_collapsed": spread_collapsed,
+        "duplicate_lr_groups": duplicate_lr_groups,
     }
 
     return ranking, plan

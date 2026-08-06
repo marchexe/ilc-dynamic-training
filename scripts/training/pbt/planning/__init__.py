@@ -9,6 +9,13 @@ planner), and `rollbacks` (population/baseline-guard rollback injection,
 applied after the strategy planner runs).
 """
 
+from training.pbt.planning.anchor_copy_lr_recenter import (
+    anchor_copy_lr_recenter_config,
+    anchor_copy_lr_recenter_plan,
+    classify_anchor_decision,
+    detect_spread_collapse,
+    should_apply_exploit_for_strategy,
+)
 from training.pbt.planning.anchored_lr_sweep import (
     adaptive_lr_radius_state,
     anchored_lr_sweep_plan,
@@ -46,8 +53,12 @@ __all__ = [
     "adaptive_lr_radius_state",
     "add_baseline_guard_rollbacks",
     "add_global_best_rollbacks",
+    "anchor_copy_lr_recenter_config",
+    "anchor_copy_lr_recenter_plan",
     "anchored_lr_sweep_plan",
+    "classify_anchor_decision",
     "confidence_aware_ranking",
+    "detect_spread_collapse",
     "exploit_mutate_plan",
     "exploit_significance",
     "factors_from_radius",
@@ -65,6 +76,7 @@ __all__ = [
     "ranking_and_plan",
     "raw_metric_ranking",
     "should_apply_exploit",
+    "should_apply_exploit_for_strategy",
     "smooth_lr_controller_state",
     "strategy_uses_population_rollbacks",
     "tier_round_for_generation",

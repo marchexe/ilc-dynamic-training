@@ -5,7 +5,12 @@ from pathlib import Path
 from tests.helpers import pbt_smoke_config, PROJECT_DIR, namespace
 from training.pbt import config as config_module
 from training.pbt.planning import dispatch
-from training.pbt.planning.anchor_copy_lr_recenter import anchor_copy_lr_recenter_config, anchor_copy_lr_recenter_plan
+from training.pbt.planning.anchor_copy_lr_recenter import (
+    anchor_copy_lr_recenter_config,
+    anchor_copy_lr_recenter_plan,
+    detect_spread_collapse,
+    should_apply_exploit_for_strategy,
+)
 from training.pbt.planning.rollbacks import strategy_uses_population_rollbacks
 from training.pbt.models.manifest import PBTManifest
 from training.pbt.state import anchor as anchor_module
@@ -445,6 +450,318 @@ class ExperimentConfigResolutionTest(unittest.TestCase):
         tiered = pbt["tiered_validation"]
         self.assertNotIn("monitor_interval_generations", tiered)
         self.assertEqual(tiered["full_interval_generations"], 16)
+
+
+class FinalGenerationOverrideTest(unittest.TestCase):
+    """should_apply_exploit_for_strategy: the final-generation exception is
+    scoped to anchor_copy_lr_recenter only -- every other strategy must see
+    should_apply_exploit's original, unmodified behavior (skip on the final
+    generation)."""
+
+    def test_anchor_copy_lr_recenter_applies_on_final_generation(self):
+        config = _config()
+        config["pbt"]["strategy"] = "anchor_copy_lr_recenter"
+        self.assertTrue(
+            should_apply_exploit_for_strategy(config, 2, is_final_generation=True, early_stop_triggered=False)
+        )
+
+    def test_other_strategies_still_skip_the_final_generation(self):
+        for name in ("exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy"):
+            config = _config()
+            config["pbt"]["strategy"] = name
+            self.assertFalse(
+                should_apply_exploit_for_strategy(config, 2, is_final_generation=True, early_stop_triggered=False),
+                msg=f"strategy={name} should still skip the final generation",
+            )
+
+    def test_burn_in_still_blocks_anchor_copy_lr_recenter_on_the_final_generation(self):
+        config = _config()
+        config["pbt"]["strategy"] = "anchor_copy_lr_recenter"
+        config["pbt"]["burn_in_generations"] = 5
+        self.assertFalse(
+            should_apply_exploit_for_strategy(config, 0, is_final_generation=True, early_stop_triggered=False)
+        )
+
+    def test_early_stop_still_blocks_anchor_copy_lr_recenter_on_the_final_generation(self):
+        config = _config()
+        config["pbt"]["strategy"] = "anchor_copy_lr_recenter"
+        self.assertFalse(
+            should_apply_exploit_for_strategy(config, 2, is_final_generation=True, early_stop_triggered=True)
+        )
+
+
+class AnchorCopyLrRecenterFinalGenerationApplyTest(unittest.TestCase):
+    """Requirement: the complete plan (the "__anchor__" event AND every
+    member's event) must physically apply on the run's final generation,
+    unlike every other strategy. Exercises apply_exploit directly against a
+    plan built exactly as runner.py would build it once
+    should_apply_exploit_for_strategy has told it will_exploit=True (the
+    live smoke test separately confirms runner.py's own generation loop
+    actually reaches this point on a real final generation)."""
+
+    def _config(self):
+        config = _config(center_step_fraction=0.5, accept_tolerance=0.01)
+        config["pbt"]["strategy"] = "anchor_copy_lr_recenter"
+        return config
+
+    def _write_member_checkpoint(self, root, name, epoch, state_bytes, optimizer_bytes):
+        (root / name).mkdir(exist_ok=True)
+        state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, epoch)
+        state_path.write_bytes(state_bytes)
+        optimizer_path.write_bytes(optimizer_bytes)
+        return state_path, optimizer_path
+
+    def _apply_and_assert_complete(self, config, manifest, generation, root):
+        self.assertTrue(
+            should_apply_exploit_for_strategy(config, generation["index"], is_final_generation=True, early_stop_triggered=False),
+            msg="should_apply_exploit_for_strategy must say yes on the final generation for this strategy",
+        )
+        manifest_path = root / "manifest.json"
+        transitions.apply_exploit(root, manifest, generation, manifest_path)
+
+        anchor_events = [e for e in generation["exploit"] if e["recipient"] == "__anchor__"]
+        member_events = [e for e in generation["exploit"] if e["recipient"] != "__anchor__"]
+        self.assertEqual(len(anchor_events), 1)
+        self.assertEqual(len(member_events), len(manifest["members"]))
+        self.assertTrue(all(event["applied"] for event in generation["exploit"]))
+
+    def test_accepted_decision_on_final_generation_applies_completely(self):
+        config = self._config()
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(2, 7, {"m_a": 1.5, "m_b": 0.5})  # m_b beats the prior anchor
+        manifest = {"config": config, "members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 3.0e-5)}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in members:
+                self._write_member_checkpoint(root, name, 7, f"{name}-state".encode(), f"{name}-optimizer".encode())
+            paths = anchor_module.anchor_paths(root)
+            Path(paths["state_path"]).write_bytes(b"prev-anchor-state")
+            Path(paths["optimizer_path"]).write_bytes(b"prev-anchor-optimizer")
+
+            ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+            self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "accepted_new_anchor")
+            generation["exploit"] = plan
+
+            self._apply_and_assert_complete(config, manifest, generation, root)
+
+            for name in members:
+                state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 7)
+                self.assertEqual(state_path.read_bytes(), b"m_b-state")
+                self.assertEqual(optimizer_path.read_bytes(), b"m_b-optimizer")
+            self.assertEqual(manifest["anchor"]["member"], "m_b")
+            self.assertAlmostEqual(manifest["anchor"]["metric_value"], 0.5)
+            self.assertAlmostEqual(manifest["anchor"]["lr_center"], generation["anchor_copy_lr_recenter"]["new_lr_center"])
+
+    def test_reused_decision_on_final_generation_applies_completely(self):
+        config = self._config()
+        config["pbt"]["anchor_copy_lr_recenter"]["accept_tolerance"] = 0.05
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(2, 7, {"m_a": 1.02, "m_b": 0.99})  # within tolerance of anchor's 1.0
+        manifest = {"config": config, "members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 2.0e-5)}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in members:
+                self._write_member_checkpoint(root, name, 7, f"{name}-state".encode(), f"{name}-optimizer".encode())
+            paths = anchor_module.anchor_paths(root)
+            Path(paths["state_path"]).write_bytes(b"prev-anchor-state")
+            Path(paths["optimizer_path"]).write_bytes(b"prev-anchor-optimizer")
+
+            ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+            self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "reused_previous_anchor")
+            generation["exploit"] = plan
+
+            self._apply_and_assert_complete(config, manifest, generation, root)
+
+            # Anchor bundle unchanged (still the *previous* anchor's bytes)...
+            self.assertEqual(Path(paths["state_path"]).read_bytes(), b"prev-anchor-state")
+            self.assertEqual(Path(paths["optimizer_path"]).read_bytes(), b"prev-anchor-optimizer")
+            self.assertEqual(manifest["anchor"]["member"], "m_prev")
+            self.assertAlmostEqual(manifest["anchor"]["metric_value"], 1.0)
+            # ...but every member was still physically copied from it, and lr_center still moved.
+            for name in members:
+                state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 7)
+                self.assertEqual(state_path.read_bytes(), b"prev-anchor-state")
+                self.assertEqual(optimizer_path.read_bytes(), b"prev-anchor-optimizer")
+            self.assertAlmostEqual(manifest["anchor"]["lr_center"], generation["anchor_copy_lr_recenter"]["new_lr_center"])
+            self.assertNotAlmostEqual(manifest["anchor"]["lr_center"], 2.0e-5)
+
+    def test_rewound_decision_on_final_generation_applies_completely(self):
+        config = self._config()
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(2, 7, {"m_a": 2.0, "m_b": 1.8})  # both much worse than the anchor
+        manifest = {"config": config, "members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 3.0e-5)}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in members:
+                self._write_member_checkpoint(root, name, 7, f"{name}-diverged-state".encode(), f"{name}-diverged-optimizer".encode())
+            paths = anchor_module.anchor_paths(root)
+            Path(paths["state_path"]).write_bytes(b"prev-anchor-state")
+            Path(paths["optimizer_path"]).write_bytes(b"prev-anchor-optimizer")
+
+            ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+            self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "rewound_to_previous_anchor")
+            generation["exploit"] = plan
+
+            self._apply_and_assert_complete(config, manifest, generation, root)
+
+            for name in members:
+                state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 7)
+                self.assertEqual(state_path.read_bytes(), b"prev-anchor-state")
+                self.assertEqual(optimizer_path.read_bytes(), b"prev-anchor-optimizer")
+            self.assertEqual(manifest["anchor"]["member"], "m_prev")
+            self.assertAlmostEqual(manifest["anchor"]["lr_center"], 3.0e-5)  # restored, not moved
+            self.assertAlmostEqual(generation["anchor_copy_lr_recenter"]["new_lr_center"], 3.0e-5)
+
+
+class WeaverCheckpointFormatTest(unittest.TestCase):
+    """Verify -- against a real on-disk checkpoint and against Weaver's own
+    save/load source -- exactly what the copied bundle contains. Do not
+    claim complete state restoration (scaler/scheduler/step) unless the
+    serialized content proves it: one test per separately-stored state
+    component, plus explicit checks for the components that do NOT exist
+    anywhere in this codebase's checkpoint format."""
+
+    STATE_PATH = PROJECT_DIR / "checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt"
+    OPTIMIZER_PATH = PROJECT_DIR / "checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt"
+    WEAVER_TRAIN_PY = PROJECT_DIR / "weaver-core/weaver/train.py"
+
+    def test_model_state_component_is_present_and_is_a_plain_state_dict(self):
+        import torch
+
+        state = torch.load(self.STATE_PATH, map_location="cpu", weights_only=False)
+        self.assertGreater(len(state), 0)
+        self.assertTrue(all(hasattr(value, "shape") for value in state.values()))
+
+    def test_optimizer_state_component_is_present_with_the_standard_pytorch_shape(self):
+        import torch
+
+        optimizer_state = torch.load(self.OPTIMIZER_PATH, map_location="cpu", weights_only=False)
+        self.assertIn("state", optimizer_state)
+        self.assertIn("param_groups", optimizer_state)
+        self.assertIn("lr", optimizer_state["param_groups"][0])
+
+    def test_optimizer_state_component_contains_no_scaler_or_scheduler_key(self):
+        import torch
+
+        optimizer_state = torch.load(self.OPTIMIZER_PATH, map_location="cpu", weights_only=False)
+        self.assertEqual(set(optimizer_state.keys()), {"state", "param_groups"})
+
+    def test_no_separate_scaler_scheduler_or_step_checkpoint_file_exists(self):
+        checkpoint_dir = self.STATE_PATH.parent
+        for pattern in ("*_scaler.pt", "*_scheduler.pt", "*_step.pt", "*_global_step.pt"):
+            matches = list(checkpoint_dir.glob(pattern))
+            self.assertEqual(matches, [], f"unexpected {pattern} file(s): {matches}")
+
+    def test_weaver_save_code_only_persists_state_optimizer_and_optional_controller(self):
+        """Regression guard: if a future Weaver change starts persisting
+        scaler/scheduler state, this is the test that should catch it,
+        since the anchor/exploit copy code would otherwise silently
+        continue to not copy it."""
+        source = self.WEAVER_TRAIN_PY.read_text()
+        self.assertIn('torch.save(unwrap_model(model).state_dict(), f"{ckpt_base_name}_state.pt")', source)
+        self.assertIn('torch.save(opt.state_dict(), f"{ckpt_base_name}_optimizer.pt")', source)
+        self.assertIn('torch.save(training_controller.state_dict(), f"{ckpt_base_name}_controller.pt")', source)
+        self.assertNotIn("grad_scaler.state_dict()", source)
+        self.assertNotIn("scaler.state_dict()", source)
+        self.assertNotIn("scheduler.state_dict()", source)
+
+    def test_weaver_load_code_only_restores_model_and_optimizer_state(self):
+        source = self.WEAVER_TRAIN_PY.read_text()
+        start = source.index("def load_checkpoint(")
+        end = source.index("\ndef ", start + 1)
+        load_checkpoint_source = source[start:end]
+        self.assertIn("model.load_state_dict", load_checkpoint_source)
+        self.assertIn("opt.load_state_dict", load_checkpoint_source)
+        self.assertNotIn("scaler", load_checkpoint_source.lower())
+        self.assertNotIn("scheduler.load_state_dict", load_checkpoint_source)
+
+
+class ControllerStateCopyTest(unittest.TestCase):
+    """The third (optional) state component: controller.pt, copied
+    alongside state+optimizer as one atomic bundle when
+    shared.training_controller is configured (this strategy's real preset
+    leaves it unset, so this exercises the code path generically, the same
+    way update_global_best's own controller handling is generic)."""
+
+    def test_controller_state_is_copied_atomically_alongside_state_and_optimizer(self):
+        config = _config(center_step_fraction=0.5, accept_tolerance=0.01)
+        config["shared"]["training_controller"] = "configs/controllers/linucb_lr_pp_active.yaml"
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(0, 5, {"m_a": 1.5, "m_b": 0.5})
+        manifest = {"config": config, "members": members, "generations": [], "anchor": None}
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in members:
+                (root / name).mkdir()
+                state_path, optimizer_path = checkpointing.checkpoint_paths(root / name, 5)
+                state_path.write_bytes(f"{name}-state".encode())
+                optimizer_path.write_bytes(f"{name}-optimizer".encode())
+                controller_path = checkpointing.controller_checkpoint_path(root / name, 5)
+                controller_path.write_bytes(f"{name}-controller".encode())
+
+            ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+            generation["exploit"] = plan
+            manifest_path = root / "manifest.json"
+            transitions.apply_exploit(root, manifest, generation, manifest_path)
+
+            for name in members:
+                controller_path = checkpointing.controller_checkpoint_path(root / name, 5)
+                self.assertEqual(controller_path.read_bytes(), b"m_b-controller")
+            paths = anchor_module.anchor_paths(root)
+            self.assertEqual(Path(paths["controller_path"]).read_bytes(), b"m_b-controller")
+            self.assertIsNotNone(manifest["anchor"]["sha256_controller"])
+
+
+class SpreadCollapseTest(unittest.TestCase):
+    def test_no_collapse_when_every_assigned_lr_is_distinct(self):
+        collapsed, groups = detect_spread_collapse({"a": 1e-5, "b": 2e-5, "c": 3e-5})
+        self.assertFalse(collapsed)
+        self.assertEqual(groups, [])
+
+    def test_collapse_detected_for_one_duplicate_pair(self):
+        collapsed, groups = detect_spread_collapse({"a": 1e-5, "b": 1e-5, "c": 3e-5})
+        self.assertTrue(collapsed)
+        self.assertEqual(groups, [["a", "b"]])
+
+    def test_collapse_detected_for_multiple_duplicate_groups(self):
+        collapsed, groups = detect_spread_collapse({"a": 1e-5, "b": 1e-5, "c": 3e-5, "d": 3e-5, "e": 5e-5})
+        self.assertTrue(collapsed)
+        self.assertEqual(groups, [["a", "b"], ["c", "d"]])
+
+    def test_planner_records_collapse_when_clamping_collapses_the_grid(self):
+        # min_lr/max_lr are narrow enough that the extreme multipliers all
+        # clamp onto the same two bounds.
+        config = _config(spread_multipliers=[0.1, 0.2, 5.0, 6.0])
+        config["pbt"].update(min_lr=1.0e-5, max_lr=1.0e-4)
+        members = _members({"m_a": 5.0e-5, "m_b": 6.0e-5, "m_c": 7.0e-5, "m_d": 8.0e-5})
+        generation = _generation_record(0, 5, {"m_a": 1.0, "m_b": 1.1, "m_c": 1.2, "m_d": 1.3})  # m_a wins -> center = 5.0e-5
+        manifest = {"members": members, "generations": [], "anchor": None}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertTrue(info["spread_collapsed"])
+        self.assertEqual(info["duplicate_lr_groups"], [["m_a", "m_b"], ["m_c", "m_d"]])
+        for event in plan:
+            self.assertTrue(event["spread_collapsed"])
+
+    def test_planner_records_no_collapse_for_a_healthy_spread(self):
+        config = _config(spread_multipliers=[0.80, 0.95, 1.05, 1.20])
+        members = _members({"m_a": 5.0e-5, "m_b": 6.0e-5, "m_c": 7.0e-5, "m_d": 8.0e-5})
+        generation = _generation_record(0, 5, {"m_a": 1.0, "m_b": 1.1, "m_c": 1.2, "m_d": 1.3})
+        manifest = {"members": members, "generations": [], "anchor": None}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertFalse(info["spread_collapsed"])
+        self.assertEqual(info["duplicate_lr_groups"], [])
+        for event in plan:
+            self.assertFalse(event["spread_collapsed"])
 
 
 if __name__ == "__main__":
