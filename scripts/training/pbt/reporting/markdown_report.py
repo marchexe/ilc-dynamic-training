@@ -343,6 +343,52 @@ def _pbt_decision_summary_lines(manifest, rows):
     return lines
 
 
+_RESEARCH_FIGURE_ORDER = (
+    ("aggregate_scores", "Aggregate score evolution"),
+    ("tag_tradeoff", "C-tag vs. B-tag trade-off"),
+    ("score_vs_lr", "Total score vs. learning rate"),
+    ("lr_population", "Learning-rate population evolution"),
+    ("ctag_working_points", "C-tag raw working points"),
+    ("btag_working_points", "B-tag raw working points"),
+    ("baseline_ratio", "Final vs. baseline ratio"),
+    ("decision_history", "PBT decision history"),
+)
+
+
+def _research_figures_section_lines(manifest):
+    """Standalone publication-quality research figures (PDF+PNG pairs,
+    reporting/research_plots.py) in the required review order -- distinct
+    from the "Training Evolution" operational dashboard plots above.
+    Figures the current strategy has nothing to show for
+    (lr_population/decision_history outside anchor_copy_lr_recenter) are
+    simply absent and skipped here, never linked as broken."""
+    research_plots = (manifest.get("canonical_artifacts") or {}).get("research_plots") or {}
+    if not research_plots:
+        return []
+    lines = [
+        "",
+        "## Research Figures",
+        "- Standalone PDF (vector, for papers/notes) + PNG (raster, for quick inspection) pairs.",
+    ]
+    all_warnings = []
+    for key, title in _RESEARCH_FIGURE_ORDER:
+        result = research_plots.get(key)
+        if not result:
+            continue
+        pdf, png = result.get("pdf"), result.get("png")
+        all_warnings.extend(f"{title}: {warning}" for warning in result.get("warnings", []))
+        if not pdf and not png:
+            continue
+        lines.append(
+            f"- **{title}**: [PDF]({pdf}) / [PNG]({png}) -- "
+            f"{result.get('generations', 0)} generation(s), {result.get('members', 0)} member(s)"
+        )
+    if all_warnings:
+        lines.extend(["", "**Research figure data-quality warnings** (points omitted; no value fabricated):"])
+        lines.extend(f"- {warning}" for warning in all_warnings)
+    return lines
+
+
 def write_report(run_dir, manifest, summary):
     path = Path(run_dir) / REPORT_NAME
     metric = summary["metric"]
@@ -391,12 +437,11 @@ def write_report(run_dir, manifest, summary):
             f"- [Geometric mistag scores]({plots.get('geometric_mistag_scores', 'plots/geometric_mistag_scores.png')})",
         ]
     )
-    pbt_decision_path = plots.get("pbt_decision")
-    if pbt_decision_path:
-        lines.append(f"- [PBT total-score and LR evolution]({pbt_decision_path})")
     for trial, values in (summary.get("lr_trajectory") or {}).items():
         rendered = ", ".join(f"{item['samples_seen']}:{_fmt(item['LR'], 3)}" for item in values)
         lines.append(f"- `{trial}` samples_seen:LR = {rendered}")
+
+    lines.extend(_research_figures_section_lines(manifest))
 
     rows = read_metrics_rows(run_dir)
     lines.extend(_model_selection_score_table_lines(manifest, rows))

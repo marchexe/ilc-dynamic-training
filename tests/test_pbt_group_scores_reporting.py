@@ -18,12 +18,7 @@ from training.pbt.reporting.constants import (
     TOTAL_GEOMEAN_METRIC_KEY,
     TOTAL_SCORE_COLUMN,
 )
-from training.pbt.reporting.metrics_rows import final_best_row
-from training.pbt.reporting.plots import (
-    _draw_fixed_efficiency_panel,
-    plot_geometric_mistag_scores,
-    plot_pbt_decision_evolution,
-)
+from training.pbt.reporting.plots import _draw_fixed_efficiency_panel, plot_geometric_mistag_scores
 from training.runtime import combine_group_scores
 
 
@@ -191,51 +186,6 @@ class DeterministicOrderingTest(unittest.TestCase):
             [point["score_label"] for point in FIXED_WORKING_POINTS],
             [point["score_label"] for point in constants_module.FIXED_WORKING_POINTS],
         )
-
-
-class AnchorCopyDecisionPlotTest(unittest.TestCase):
-    """Requirements 7/8/9: the PBT decision plot only exists for
-    anchor_copy_lr_recenter runs, and the winner it would mark is the row
-    with the lowest total_mistag_score -- exactly what generation_record
-    ["anchor_copy_lr_recenter"]["winner"] already recorded."""
-
-    def _manifest(self):
-        manifest = synthetic_manifest()
-        manifest["config"]["pbt"]["strategy"] = "anchor_copy_lr_recenter"
-        manifest["generations"][0]["anchor_copy_lr_recenter"] = {
-            "decision": "accepted_new_anchor",
-            "winner": "trial_a",
-            "winner_lr": 1.0e-4,
-            "previous_lr_center": 1.0e-4,
-            "new_lr_center": 1.0e-4,
-            "assigned_lrs": {"trial_a": 1.0e-4, "trial_b": 8.0e-5},
-            "spread_collapsed": False,
-        }
-        return manifest
-
-    def test_returns_none_for_non_anchor_copy_strategy(self):
-        manifest = synthetic_manifest()  # strategy=anchored_lr_sweep
-        rows = evaluation_rows(manifest)
-        self.assertIsNone(plot_pbt_decision_evolution("/nonexistent", manifest, rows))
-
-    def test_returns_a_real_plot_for_anchor_copy_lr_recenter_with_decisions(self):
-        manifest = self._manifest()
-        with tempfile.TemporaryDirectory() as temporary:
-            run_dir = Path(temporary)
-            (run_dir / "plots").mkdir()
-            rows = evaluation_rows(manifest)
-            path = plot_pbt_decision_evolution(run_dir, manifest, rows)
-            self.assertIsNotNone(path)
-            self.assertTrue(Path(path).is_file())
-            self.assertEqual(Path(path).name, PLOT_NAMES["pbt_decision"])
-
-    def test_recorded_winner_has_the_lowest_total_score_that_generation(self):
-        manifest = self._manifest()
-        rows = evaluation_rows(manifest)
-        generation_0 = [row for row in rows if row["generation"] == 0]
-        best = final_best_row(generation_0, "min")
-        recorded_winner = manifest["generations"][0]["anchor_copy_lr_recenter"]["winner"]
-        self.assertEqual(best["trial"], recorded_winner)
 
 
 class ReportRerunStabilityTest(unittest.TestCase):

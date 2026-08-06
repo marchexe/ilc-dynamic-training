@@ -21,14 +21,78 @@ PLOT_NAMES = {
     "geometric_mistag_scores": "geometric_mistag_scores.png",
     "baseline_comparison": "baseline_vs_selected.png",
     "proxy_diagnostics": "proxy_diagnostics.png",
-    # Only produced for pbt.strategy == "anchor_copy_lr_recenter" runs (see
-    # reporting/plots.py::plot_pbt_decision_evolution) -- every other
-    # strategy has no anchor/decision state to show.
-    "pbt_decision": "pbt_total_score_and_lr_evolution.png",
 }
 
 
-CONDITIONAL_PLOT_NAMES = ("baseline_comparison", "proxy_diagnostics", "pbt_decision")
+CONDITIONAL_PLOT_NAMES = ("baseline_comparison", "proxy_diagnostics")
+
+
+# Standalone, publication-quality research figures (reporting/research_plots.py)
+# -- each name here maps to a base filename; every figure is written twice, as
+# f"{base}.pdf" (vector, for papers/notes) and f"{base}.png" (raster, for
+# quick inspection), under RESEARCH_PLOTS_SUBDIR. Distinct from PLOT_NAMES
+# above (the operational run-dashboard plots) -- these follow a plain
+# scientific style (white background, restrained grid, colorblind-safe
+# markers) rather than the dashboard's accent styling, and are never
+# combined into one contact-sheet/dashboard image.
+RESEARCH_PLOTS_SUBDIR = "research"
+
+
+RESEARCH_PLOT_NAMES = {
+    "ctag_working_points": "ctag_working_points_evolution",
+    "btag_working_points": "btag_working_points_evolution",
+    "aggregate_scores": "aggregate_mistag_score_evolution",
+    "tag_tradeoff": "ctag_vs_btag_tradeoff",
+    "score_vs_lr": "total_score_vs_learning_rate",
+    "lr_population": "learning_rate_population_evolution",
+    "baseline_ratio": "final_vs_baseline_mistag_ratio",
+    "decision_history": "pbt_decision_history",
+}
+
+
+# Only meaningful for pbt.strategy == "anchor_copy_lr_recenter" runs -- no
+# other strategy has a shared LR center or an accept/reuse/rewind decision
+# to show, so these two are skipped (not fabricated) otherwise.
+CONDITIONAL_RESEARCH_PLOT_NAMES = ("lr_population", "decision_history")
+
+
+# Colorblind-safe categorical palette (Okabe-Ito), used throughout
+# research_plots.py instead of the dashboard's accent-heavy FLAVOR_COLORS --
+# distinguishable in both color and grayscale printing.
+CB_PALETTE = {
+    "orange": "#E69F00",
+    "sky_blue": "#56B4E9",
+    "green": "#009E73",
+    "yellow": "#F0E442",
+    "blue": "#0072B2",
+    "vermillion": "#D55E00",
+    "purple": "#CC79A7",
+    "black": "#000000",
+    "grey": "#999999",
+}
+
+
+# Marker SHAPE (not just color) for the three accept/reuse/rewind outcomes,
+# so decisions remain distinguishable in grayscale. Reused by both
+# plot_aggregate_scores and plot_decision_history so the same decision
+# always reads the same way across figures.
+DECISION_MARKER_STYLE = {
+    "accepted_new_anchor": {"marker": "^", "color": CB_PALETTE["green"], "label": "accepted_new_anchor"},
+    "reused_previous_anchor": {"marker": "o", "color": CB_PALETTE["grey"], "label": "reused_previous_anchor"},
+    "rewound_to_previous_anchor": {"marker": "v", "color": CB_PALETTE["vermillion"], "label": "rewound_to_previous_anchor"},
+}
+
+
+# Marker shape for the other recurring semantic roles across research
+# figures -- winner, anchor, baseline, final selected model -- kept in one
+# place so, e.g., "winner" always means a star everywhere it appears.
+ROLE_MARKER_STYLE = {
+    "member": {"marker": ".", "color": CB_PALETTE["grey"], "label": "population member"},
+    "winner": {"marker": "*", "color": CB_PALETTE["black"], "label": "generation winner"},
+    "anchor": {"marker": "D", "color": CB_PALETTE["blue"], "label": "active anchor"},
+    "baseline": {"marker": "X", "color": CB_PALETTE["vermillion"], "label": "baseline"},
+    "final": {"marker": "s", "color": CB_PALETTE["purple"], "label": "final selected model"},
+}
 
 
 EXPLOIT_TABLE_NAME = "plots/report/exploit_table.csv"
