@@ -208,16 +208,15 @@ class AggregateScoresPlotTest(unittest.TestCase):
         for row in rows:
             self.assertAlmostEqual(row[TOTAL_SCORE_COLUMN], combine_group_scores(row[CTAG_SCORE_COLUMN], row[BTAG_SCORE_COLUMN]))
 
-    def test_produces_pdf_and_png(self):
+    def test_produces_a_png(self):
         manifest = _anchor_copy_manifest()
         rows = build_member_metric_rows(manifest)
         decisions = build_generation_decision_rows(manifest, rows)
         with tempfile.TemporaryDirectory() as temporary:
             result = plot_aggregate_scores(temporary, manifest, rows, decisions)
-            self.assertTrue(Path(result["pdf"]).is_file())
             self.assertTrue(Path(result["png"]).is_file())
-            self.assertEqual(Path(result["pdf"]).suffix, ".pdf")
             self.assertEqual(Path(result["png"]).suffix, ".png")
+            self.assertNotIn("pdf", result)
 
 
 class TagTradeoffPlotTest(unittest.TestCase):
@@ -294,7 +293,6 @@ class LrPopulationPlotTest(unittest.TestCase):
         decisions = build_generation_decision_rows(manifest, rows)
         with tempfile.TemporaryDirectory() as temporary:
             result = plot_lr_population(temporary, manifest, rows, decisions)
-            self.assertTrue(Path(result["pdf"]).is_file())
             self.assertTrue(Path(result["png"]).is_file())
 
 
@@ -309,7 +307,6 @@ class DecisionHistoryPlotTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             result = plot_decision_history(temporary, manifest, decisions)
             self.assertEqual(result["generations"], 3)
-            self.assertTrue(Path(result["pdf"]).is_file())
             self.assertTrue(Path(result["png"]).is_file())
 
 
@@ -325,7 +322,7 @@ class BaselineRatioPlotTest(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as temporary:
             result = plot_baseline_ratio(temporary, manifest)
-            self.assertTrue(Path(result["pdf"]).is_file())
+            self.assertTrue(Path(result["png"]).is_file())
             self.assertIn(TOTAL_SCORE_COLUMN, result["metric_keys"])
         # 8 raw + 3 aggregate columns, all sourced from the one baseline
         # evaluation and the one final-selected (manifest["best"]) evaluation.
@@ -335,7 +332,6 @@ class BaselineRatioPlotTest(unittest.TestCase):
         manifest = synthetic_manifest(measured_baseline=False)
         with tempfile.TemporaryDirectory() as temporary:
             result = plot_baseline_ratio(temporary, manifest)
-        self.assertIsNone(result["pdf"])
         self.assertIsNone(result["png"])
         self.assertTrue(result["warnings"])
 
@@ -346,8 +342,8 @@ class DeterministicOutputTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
             first_results = write_research_plots(first, manifest)
             second_results = write_research_plots(second, manifest)
-            first_names = {key: (Path(value["pdf"]).name, Path(value["png"]).name) for key, value in first_results.items()}
-            second_names = {key: (Path(value["pdf"]).name, Path(value["png"]).name) for key, value in second_results.items()}
+            first_names = {key: Path(value["png"]).name for key, value in first_results.items()}
+            second_names = {key: Path(value["png"]).name for key, value in second_results.items()}
             self.assertEqual(first_names, second_names)
 
     def test_filenames_match_the_canonical_registry(self):
@@ -358,12 +354,12 @@ class DeterministicOutputTest(unittest.TestCase):
             if key not in results:
                 self.assertIn(key, CONDITIONAL_RESEARCH_PLOT_NAMES)
                 continue
-            self.assertEqual(Path(results[key]["pdf"]).name, f"{base}.pdf")
             self.assertEqual(Path(results[key]["png"]).name, f"{base}.png")
+            self.assertNotIn("pdf", results[key])
 
     def test_no_combined_contact_sheet_output_exists(self):
-        # Every research figure is its own standalone PDF+PNG pair; nothing
-        # in this repo combines them into one image.
+        # Every research figure is its own standalone PNG; nothing in this
+        # repo combines them into one image.
         for base in RESEARCH_PLOT_NAMES.values():
             self.assertNotIn("contact", base.lower())
             self.assertNotIn("sheet", base.lower())
@@ -394,7 +390,7 @@ class LongRunReadabilityTest(unittest.TestCase):
         manifest = self._many_generation_manifest(20)
         with tempfile.TemporaryDirectory() as temporary:
             results = write_research_plots(temporary, manifest)
-            self.assertTrue(Path(results["score_vs_lr"]["pdf"]).is_file())
+            self.assertTrue(Path(results["score_vs_lr"]["png"]).is_file())
         self.assertLessEqual(results["score_vs_lr"]["generations"], 12)  # default max_generations subset
 
     def test_three_members_up_to_ten_supported(self):
@@ -418,7 +414,7 @@ class OldFormatManifestTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             results = write_research_plots(temporary, manifest)
             for key in ("ctag_working_points", "btag_working_points", "aggregate_scores", "tag_tradeoff", "score_vs_lr"):
-                self.assertTrue(Path(results[key]["pdf"]).is_file(), key)
+                self.assertTrue(Path(results[key]["png"]).is_file(), key)
                 self.assertEqual(results[key]["warnings"], [], key)
 
 

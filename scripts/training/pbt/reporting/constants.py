@@ -16,9 +16,6 @@ REPORT_NAME = "report.md"
 
 PLOT_NAMES = {
     "training_evolution": "training_evolution.png",
-    "ctag_fixed_efficiency_mistag": "ctag_fixed_efficiency_mistag.png",
-    "btag_fixed_efficiency_mistag": "btag_fixed_efficiency_mistag.png",
-    "geometric_mistag_scores": "geometric_mistag_scores.png",
     "baseline_comparison": "baseline_vs_selected.png",
     "proxy_diagnostics": "proxy_diagnostics.png",
 }
@@ -27,17 +24,16 @@ PLOT_NAMES = {
 CONDITIONAL_PLOT_NAMES = ("baseline_comparison", "proxy_diagnostics")
 
 
-# Standalone, publication-quality research figures (reporting/research_plots.py)
-# -- each name here maps to a base filename; every figure is written twice, as
-# f"{base}.pdf" (vector, for papers/notes) and f"{base}.png" (raster, for
-# quick inspection), under RESEARCH_PLOTS_SUBDIR. Distinct from PLOT_NAMES
-# above (the operational run-dashboard plots) -- these follow a plain
-# scientific style (white background, restrained grid, colorblind-safe
-# markers) rather than the dashboard's accent styling, and are never
-# combined into one contact-sheet/dashboard image.
-RESEARCH_PLOTS_SUBDIR = "research"
-
-
+# Standalone research figures (reporting/research_plots.py) -- each name
+# here maps to a base filename, written as a single f"{base}.png" directly
+# under <run_dir>/plots/. Distinct from PLOT_NAMES above (the operational
+# run-dashboard plots) -- these follow a plain scientific style (white
+# background, restrained grid, colorblind-safe markers) rather than the
+# dashboard's accent styling, and are never combined into one
+# contact-sheet/dashboard image. The raw c-tag/b-tag working-point and
+# aggregate-score dashboard plots that used to live in PLOT_NAMES were
+# removed as redundant once these landed -- this is the only c-tag/b-tag
+# working-point and aggregate-score plot set now.
 RESEARCH_PLOT_NAMES = {
     "ctag_working_points": "ctag_working_points_evolution",
     "btag_working_points": "btag_working_points_evolution",

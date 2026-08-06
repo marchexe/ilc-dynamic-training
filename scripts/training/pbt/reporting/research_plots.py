@@ -15,15 +15,18 @@ Three layers, kept strictly separate:
 
     plot_* functions
         -- pure rendering. Every plot_* function takes already-built,
-        already-validated rows and returns {"pdf": path, "png": path,
-        "warnings": [...], "generations": n, "members": n} -- never a bare
-        path, so callers (report generation, tests) can inspect what was
-        actually plotted without re-deriving it.
+        already-validated rows and returns {"png": path, "warnings": [...],
+        "generations": n, "members": n} -- never a bare path, so callers
+        (report generation, tests) can inspect what was actually plotted
+        without re-deriving it.
 
-Every figure is written as both a vector PDF (papers/notes) and a raster
-PNG (quick inspection), under <run_dir>/plots/research/. Deliberately not
-combined into one contact-sheet or dashboard image -- each answers one
-specific research question on its own (see each function's docstring).
+Every figure is written as a single PNG directly under <run_dir>/plots/
+-- these are the only standalone figures in the run directory (the older
+dashboard equivalents for raw c-tag/b-tag working points and the
+aggregate-score plot were removed as redundant once these landed; see
+git history). Deliberately not combined into one contact-sheet or
+dashboard image -- each answers one specific research question on its own
+(see each function's docstring).
 
 Plain scientific style throughout: white background, restrained grid,
 colorblind-safe (Okabe-Ito) markers with shape distinguishing every
@@ -43,7 +46,6 @@ from training.pbt.reporting.constants import (
     DECISION_MARKER_STYLE,
     FIXED_WORKING_POINTS,
     RESEARCH_PLOT_NAMES,
-    RESEARCH_PLOTS_SUBDIR,
     ROLE_MARKER_STYLE,
     TOTAL_SCORE_COLUMN,
 )
@@ -235,15 +237,13 @@ def _run_caption(manifest):
     )
 
 
-def _save_both(fig, run_dir, plot_name_key):
+def _save_png(fig, run_dir, plot_name_key):
     base = RESEARCH_PLOT_NAMES[plot_name_key]
-    directory = Path(run_dir) / "plots" / RESEARCH_PLOTS_SUBDIR
+    directory = Path(run_dir) / "plots"
     directory.mkdir(parents=True, exist_ok=True)
-    pdf_path = directory / f"{base}.pdf"
     png_path = directory / f"{base}.png"
-    fig.savefig(pdf_path)
     fig.savefig(png_path, dpi=300)
-    return {"pdf": str(pdf_path), "png": str(png_path)}
+    return {"png": str(png_path)}
 
 
 def _dedup_legend(ax, **kwargs):
@@ -337,7 +337,7 @@ def _plot_working_point_group(run_dir, manifest, member_rows, decision_rows, wor
     fig.suptitle(title, x=0.02, y=0.975, ha="left", fontsize=13, fontweight="bold")
     fig.text(0.02, 0.005, _run_caption(manifest), ha="left", va="bottom", fontsize=7.4, color="0.3")
 
-    paths = _save_both(fig, run_dir, plot_name_key)
+    paths = _save_png(fig, run_dir, plot_name_key)
     plt.close(fig)
     return {
         **paths,
@@ -447,7 +447,7 @@ def plot_aggregate_scores(run_dir, manifest, member_rows, decision_rows):
     fig.suptitle("Geometric mistag score evolution", x=0.02, y=0.975, ha="left", fontsize=13, fontweight="bold")
     fig.text(0.02, 0.005, _run_caption(manifest) + "  |  total_mistag_score = sqrt(ctag_score * btag_score)", ha="left", va="bottom", fontsize=7.4, color="0.3")
 
-    paths = _save_both(fig, run_dir, "aggregate_scores")
+    paths = _save_png(fig, run_dir, "aggregate_scores")
     plt.close(fig)
     return {
         **paths, "warnings": warnings,
@@ -548,7 +548,7 @@ def plot_tag_tradeoff(run_dir, manifest, member_rows, decision_rows):
     _dedup_legend(ax, loc="upper left", bbox_to_anchor=(1.01, 1.0), borderaxespad=0.0)
     fig.text(0.02, 0.01, _run_caption(manifest) + "  |  point color = generation (viridis)  |  dotted = constant total_mistag_score", ha="left", va="bottom", fontsize=7.2, color="0.3")
 
-    paths = _save_both(fig, run_dir, "tag_tradeoff")
+    paths = _save_png(fig, run_dir, "tag_tradeoff")
     plt.close(fig)
     return {
         **paths, "warnings": warnings,
@@ -620,7 +620,7 @@ def plot_score_vs_lr(run_dir, manifest, member_rows, decision_rows, max_generati
         ha="left", va="bottom", fontsize=7.2, color="0.3",
     )
 
-    paths = _save_both(fig, run_dir, "score_vs_lr")
+    paths = _save_png(fig, run_dir, "score_vs_lr")
     plt.close(fig)
     return {
         **paths, "warnings": warnings,
@@ -701,7 +701,7 @@ def plot_lr_population(run_dir, manifest, member_rows, decision_rows):
     _dedup_legend(ax, loc="upper left", bbox_to_anchor=(1.01, 1.0), borderaxespad=0.0)
     fig.text(0.02, 0.01, _run_caption(manifest), ha="left", va="bottom", fontsize=7.4, color="0.3")
 
-    paths = _save_both(fig, run_dir, "lr_population")
+    paths = _save_png(fig, run_dir, "lr_population")
     plt.close(fig)
     return {
         **paths, "warnings": [],
@@ -727,7 +727,7 @@ def plot_baseline_ratio(run_dir, manifest):
     warnings.extend(f"final selected: {label} unavailable" for label in final_missing)
     if baseline_row is None or final_row is None:
         warnings.append("baseline and/or final selected model unavailable -- ratio plot not produced")
-        return {"pdf": None, "png": None, "warnings": warnings, "generations": 0, "members": 0, "metric_keys": []}
+        return {"png": None, "warnings": warnings, "generations": 0, "members": 0, "metric_keys": []}
 
     raw_points = list(FIXED_WORKING_POINTS)
     labels, ratios, omitted = [], [], []
@@ -771,7 +771,7 @@ def plot_baseline_ratio(run_dir, manifest):
     fig.suptitle("Final selected model vs. baseline", x=0.02, y=0.975, ha="left", fontsize=13, fontweight="bold")
     fig.text(0.02, 0.02, _run_caption(manifest) + "  |  ratio < 1 = improvement (lower-is-better metrics), > 1 = degradation", ha="left", va="bottom", fontsize=7.4, color="0.3")
 
-    paths = _save_both(fig, run_dir, "baseline_ratio")
+    paths = _save_png(fig, run_dir, "baseline_ratio")
     plt.close(fig)
     return {
         **paths, "warnings": warnings, "generations": 1, "members": 1,
@@ -840,7 +840,7 @@ def plot_decision_history(run_dir, manifest, decision_rows):
     fig.suptitle("PBT decision history", x=0.02, y=0.975, ha="left", fontsize=13, fontweight="bold")
     fig.text(0.02, 0.005, _run_caption(manifest), ha="left", va="bottom", fontsize=7.4, color="0.3")
 
-    paths = _save_both(fig, run_dir, "decision_history")
+    paths = _save_png(fig, run_dir, "decision_history")
     plt.close(fig)
     return {
         **paths, "warnings": [], "generations": len(decision_rows),

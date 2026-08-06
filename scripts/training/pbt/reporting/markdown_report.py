@@ -356,31 +356,27 @@ _RESEARCH_FIGURE_ORDER = (
 
 
 def _research_figures_section_lines(manifest):
-    """Standalone publication-quality research figures (PDF+PNG pairs,
-    reporting/research_plots.py) in the required review order -- distinct
-    from the "Training Evolution" operational dashboard plots above.
-    Figures the current strategy has nothing to show for
-    (lr_population/decision_history outside anchor_copy_lr_recenter) are
-    simply absent and skipped here, never linked as broken."""
+    """Standalone research figures (PNG, reporting/research_plots.py) in
+    the required review order -- distinct from the "Training Evolution"
+    operational dashboard plot above. Figures the current strategy has
+    nothing to show for (lr_population/decision_history outside
+    anchor_copy_lr_recenter) are simply absent and skipped here, never
+    linked as broken."""
     research_plots = (manifest.get("canonical_artifacts") or {}).get("research_plots") or {}
     if not research_plots:
         return []
-    lines = [
-        "",
-        "## Research Figures",
-        "- Standalone PDF (vector, for papers/notes) + PNG (raster, for quick inspection) pairs.",
-    ]
+    lines = ["", "## Research Figures"]
     all_warnings = []
     for key, title in _RESEARCH_FIGURE_ORDER:
         result = research_plots.get(key)
         if not result:
             continue
-        pdf, png = result.get("pdf"), result.get("png")
+        png = result.get("png")
         all_warnings.extend(f"{title}: {warning}" for warning in result.get("warnings", []))
-        if not pdf and not png:
+        if not png:
             continue
         lines.append(
-            f"- **{title}**: [PDF]({pdf}) / [PNG]({png}) -- "
+            f"- **{title}**: [{png}]({png}) -- "
             f"{result.get('generations', 0)} generation(s), {result.get('members', 0)} member(s)"
         )
     if all_warnings:
@@ -432,9 +428,6 @@ def write_report(run_dir, manifest, summary):
             "",
             "## Training Evolution",
             f"- [Training evolution]({plots.get('training_evolution', 'plots/training_evolution.png')})",
-            f"- [C-tag fixed-efficiency mistag]({plots.get('ctag_fixed_efficiency_mistag', 'plots/ctag_fixed_efficiency_mistag.png')})",
-            f"- [B-tag fixed-efficiency mistag]({plots.get('btag_fixed_efficiency_mistag', 'plots/btag_fixed_efficiency_mistag.png')})",
-            f"- [Geometric mistag scores]({plots.get('geometric_mistag_scores', 'plots/geometric_mistag_scores.png')})",
         ]
     )
     for trial, values in (summary.get("lr_trajectory") or {}).items():

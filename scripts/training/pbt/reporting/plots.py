@@ -10,15 +10,10 @@ from pathlib import Path
 
 from training.runtime import atomic_json
 from training.pbt.reporting.constants import (
-    BTAG_SCORE_COLUMN,
-    BTAG_SCORE_WORKING_POINTS,
-    CTAG_SCORE_COLUMN,
-    CTAG_SCORE_WORKING_POINTS,
     FIXED_WORKING_POINTS,
     FLAVOR_COLORS,
     PLOT_NAMES,
     TIER_ORDER,
-    TOTAL_SCORE_COLUMN,
     WORKING_POINT_LINESTYLES,
     WORKING_POINT_MARKERS,
     WORKING_POINT_STYLE_RANK,
@@ -37,15 +32,6 @@ from training.pbt.reporting.metrics_rows import (
     read_metrics_rows,
 )
 from training.pbt.reporting.statistics import _paired_tier_values, ranking_agreement, tier_correlation
-
-# Group scores are visually distinct from the 8 raw working points: total is
-# the canonical PBT ranking metric (bold, black, on top), ctag/btag are its
-# two components (thinner, colored, never hidden).
-GROUP_SCORE_STYLE = {
-    TOTAL_SCORE_COLUMN: {"color": "black", "linewidth": 2.4, "marker": "D", "zorder": 6, "label": "total_mistag_score (PBT ranking metric)"},
-    CTAG_SCORE_COLUMN: {"color": "#59a14f", "linewidth": 1.3, "marker": "o", "zorder": 4, "label": "ctag_score"},
-    BTAG_SCORE_COLUMN: {"color": "#4c78a8", "linewidth": 1.3, "marker": "s", "zorder": 4, "label": "btag_score"},
-}
 
 # The four fixed working points shown individually (not blended into one
 # "mean of 8" number) in the top panel of training_evolution.png -- one
@@ -269,173 +255,6 @@ def plot_training_evolution(run_dir, manifest, rows, events):
         color="0.35",
     )
     path = Path(run_dir) / "plots" / PLOT_NAMES["training_evolution"]
-    fig.savefig(path, dpi=170)
-    plt.close(fig)
-    return path
-
-
-def _draw_fixed_efficiency_panel(ax, tag, selected, best_row, baseline_values, baseline_uncertainties):
-    """The one shared per-tag drawing routine behind both canonical raw
-    plots (plot_ctag_fixed_efficiency_mistag / plot_btag_fixed_efficiency_mistag)
-    -- consumes already-computed row/baseline dicts (fixed_working_point_values
-    output), never re-derives a rejection->mistag conversion itself. Members
-    iterated in FIXED_WORKING_POINTS' fixed, deterministic order, so legend
-    entries are always in the same order across runs.
-    """
-    plotted = []
-    for point in FIXED_WORKING_POINTS:
-        if point["tag"] != tag:
-            continue
-        column = point["column"]
-        rank = WORKING_POINT_STYLE_RANK[(tag, point["efficiency"])]
-        marker = WORKING_POINT_MARKERS[rank]
-        linestyle = WORKING_POINT_LINESTYLES[rank]
-        color = FLAVOR_COLORS[point["background"]]
-
-        xs = [row["samples_seen"] for row in selected if row.get(column) is not None]
-        ys = [row[column] for row in selected if row.get(column) is not None]
-        lower = [row.get(f"{column}_err_low") or 0.0 for row in selected if row.get(column) is not None]
-        upper = [row.get(f"{column}_err_high") or 0.0 for row in selected if row.get(column) is not None]
-
-        baseline_value = (baseline_values or {}).get(column)
-        if baseline_value is not None:
-            baseline_lower = (baseline_uncertainties or {}).get(f"{column}_err_low") or 0.0
-            baseline_upper = (baseline_uncertainties or {}).get(f"{column}_err_high") or 0.0
-            xs = [0, *xs]
-            ys = [baseline_value, *ys]
-            lower = [baseline_lower, *lower]
-            upper = [baseline_upper, *upper]
-
-        if not xs:
-            continue
-        plotted.extend(ys)
-        ax.errorbar(
-            xs,
-            ys,
-            yerr=[lower, upper],
-            marker=marker,
-            markersize=5.5,
-            linestyle=linestyle,
-            linewidth=1.1,
-            color=color,
-            ecolor=color,
-            elinewidth=0.9,
-            capsize=2.5,
-            alpha=0.92,
-            label=f"{point['score_label']} ({point['label']})",
-        )
-    if best_row and best_row.get("samples_seen") is not None:
-        ax.axvline(best_row["samples_seen"], color="0.3", linestyle=":", linewidth=1.0, alpha=0.6)
-    # Preserve the existing appropriate log scaling for raw mistag values
-    # (they can span orders of magnitude); never applied to the aggregate
-    # score plot below, where it would reduce interpretability of a single
-    # bounded ranking curve.
-    _set_log_if_positive(ax, plotted)
-    ax.set_ylabel("mistag [%]")
-    ax.set_xlabel("samples seen")
-    ax.grid(True, color="0.9", linewidth=0.6)
-    ax.legend(frameon=False, fontsize=8.4, loc="upper left", bbox_to_anchor=(1.01, 1.03), borderaxespad=0.0, handlelength=2.2)
-
-
-def _plot_fixed_efficiency_mistag(run_dir, manifest, rows, tag, title, plot_name_key):
-    plt = _plot_setup()
-    mode = _metric_mode(manifest)
-    selected = selected_generation_rows(rows, mode)
-    best_row = _row_for_checkpoint(rows, manifest.get("best") or {})
-    baseline_values = _baseline_fixed_working_point_values(manifest)
-    baseline_uncertainties = _baseline_fixed_working_point_uncertainties(manifest)
-    evaluation = evaluation_metadata(manifest)
-
-    fig, ax = plt.subplots(1, 1, figsize=(9.5, 5.2))
-    fig.subplots_adjust(left=0.09, right=0.75, top=0.83, bottom=0.13)
-    _draw_fixed_efficiency_panel(ax, tag, selected, best_row, baseline_values, baseline_uncertainties)
-    ax.set_title(title, loc="left", fontsize=12.5, fontweight="bold")
-
-    fig.suptitle(title, x=0.02, y=0.975, ha="left", fontsize=14, fontweight="bold")
-    fig.text(
-        0.02,
-        0.90,
-        f"{manifest.get('experiment', Path(run_dir).name)} | evaluation: {evaluation.get('evaluation_type', 'n/a')}\n"
-        "Markers = measured checkpoints; error bars = 68% Wilson interval; lines guide the eye only; "
-        "dotted vertical line = selected/global-best checkpoint.",
-        ha="left",
-        va="top",
-        fontsize=8.6,
-        color="0.35",
-    )
-    path = Path(run_dir) / "plots" / PLOT_NAMES[plot_name_key]
-    fig.savefig(path, dpi=170)
-    plt.close(fig)
-    return path
-
-
-def plot_ctag_fixed_efficiency_mistag(run_dir, manifest, rows):
-    return _plot_fixed_efficiency_mistag(run_dir, manifest, rows, "c", "C-tag fixed-efficiency mistag", "ctag_fixed_efficiency_mistag")
-
-
-def plot_btag_fixed_efficiency_mistag(run_dir, manifest, rows):
-    return _plot_fixed_efficiency_mistag(run_dir, manifest, rows, "b", "B-tag fixed-efficiency mistag", "btag_fixed_efficiency_mistag")
-
-
-def plot_geometric_mistag_scores(run_dir, manifest, rows):
-    """The three canonical aggregate scores together -- ctag_score,
-    btag_score, and total_mistag_score (the canonical PBT ranking metric,
-    drawn bold/black/on-top so it's visually identifiable without hiding
-    the two component curves). Consumes only already-computed
-    ctag_score/btag_score/total_mistag_score row columns (see
-    metrics_rows.py::group_score_row) -- no formula is reimplemented here.
-    """
-    plt = _plot_setup()
-    mode = _metric_mode(manifest)
-    selected = selected_generation_rows(rows, mode)
-    best_row = _row_for_checkpoint(rows, manifest.get("best") or {})
-    evaluation = evaluation_metadata(manifest)
-
-    fig, ax = plt.subplots(1, 1, figsize=(9.5, 5.2))
-    fig.subplots_adjust(left=0.09, right=0.78, top=0.83, bottom=0.13)
-
-    plotted = []
-    # Deterministic series order: total first (drawn last/on top via
-    # zorder, but always listed first here and therefore first in the
-    # legend), then ctag, then btag.
-    for column in (TOTAL_SCORE_COLUMN, CTAG_SCORE_COLUMN, BTAG_SCORE_COLUMN):
-        style = GROUP_SCORE_STYLE[column]
-        xs = [row["samples_seen"] for row in selected if row.get(column) is not None]
-        ys = [row[column] for row in selected if row.get(column) is not None]
-        if not xs:
-            continue
-        plotted.extend(ys)
-        ax.plot(
-            xs, ys,
-            marker=style["marker"], markersize=6 if column == TOTAL_SCORE_COLUMN else 5,
-            linestyle="-", linewidth=style["linewidth"], color=style["color"],
-            alpha=0.95, zorder=style["zorder"], label=style["label"],
-        )
-    if best_row and best_row.get("samples_seen") is not None:
-        ax.axvline(best_row["samples_seen"], color="0.3", linestyle=":", linewidth=1.0, alpha=0.6)
-    # Deliberately no log scale here: total_mistag_score is a single
-    # bounded ranking curve, not a multi-order-of-magnitude raw quantity --
-    # log scaling would reduce, not improve, interpretability.
-    ax.set_ylabel("mistag score [%]")
-    ax.set_xlabel("samples seen")
-    ax.set_title("Geometric mistag scores", loc="left", fontsize=12.5, fontweight="bold")
-    ax.grid(True, color="0.9", linewidth=0.6)
-    ax.legend(frameon=False, fontsize=8.6, loc="upper left", bbox_to_anchor=(1.01, 1.03), borderaxespad=0.0)
-
-    fig.suptitle("Geometric mistag scores", x=0.02, y=0.975, ha="left", fontsize=14, fontweight="bold")
-    fig.text(
-        0.02,
-        0.90,
-        f"{manifest.get('experiment', Path(run_dir).name)} | evaluation: {evaluation.get('evaluation_type', 'n/a')}\n"
-        "total_mistag_score = sqrt(ctag_score * btag_score) is the canonical PBT ranking metric (bold); "
-        "ctag_score/btag_score are its two components, shown for diagnosis, never used for ranking themselves "
-        "unless a legacy configuration explicitly selects one of them.",
-        ha="left",
-        va="top",
-        fontsize=8.6,
-        color="0.35",
-    )
-    path = Path(run_dir) / "plots" / PLOT_NAMES["geometric_mistag_scores"]
     fig.savefig(path, dpi=170)
     plt.close(fig)
     return path
@@ -767,9 +586,6 @@ def write_plots(run_dir, manifest):
     events = read_events(run_dir)
     plots = {
         "training_evolution": str(plot_training_evolution(run_dir, manifest, rows, events)),
-        "ctag_fixed_efficiency_mistag": str(plot_ctag_fixed_efficiency_mistag(run_dir, manifest, rows)),
-        "btag_fixed_efficiency_mistag": str(plot_btag_fixed_efficiency_mistag(run_dir, manifest, rows)),
-        "geometric_mistag_scores": str(plot_geometric_mistag_scores(run_dir, manifest, rows)),
     }
     diagnostics_path = plot_proxy_diagnostics(run_dir, manifest)
     if diagnostics_path is not None:

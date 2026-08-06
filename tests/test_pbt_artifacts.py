@@ -233,9 +233,9 @@ class PBTArtifactsTest(unittest.TestCase):
                 self.assertTrue((run_dir / relative).is_file(), relative)
             for name in (
                 "training_evolution.png",
-                "ctag_fixed_efficiency_mistag.png",
-                "btag_fixed_efficiency_mistag.png",
-                "geometric_mistag_scores.png",
+                "ctag_working_points_evolution.png",
+                "btag_working_points_evolution.png",
+                "aggregate_mistag_score_evolution.png",
                 "baseline_vs_selected.png",
                 "report/physics_performance.png",
                 "diagnostics/background_efficiency_curves.png",
@@ -285,12 +285,17 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertEqual(summary["evaluation"]["evaluation_type"], "proxy")
             self.assertIn("physics_performance", summary["plots"])
             self.assertIn("training_evolution", summary["plots"])
-            self.assertIn("ctag_fixed_efficiency_mistag", summary["plots"])
-            self.assertIn("btag_fixed_efficiency_mistag", summary["plots"])
-            self.assertIn("geometric_mistag_scores", summary["plots"])
             self.assertIn("baseline_comparison", summary["plots"])
             self.assertNotIn("working_point_evolution", summary["plots"])
             self.assertNotIn("lr_vs_metric", summary["plots"])
+            # The standalone research figures (ctag/btag working points,
+            # aggregate scores, ...) live under a separate manifest key,
+            # not flattened into summary["plots"] -- see
+            # canonical.py/write_canonical_outputs.
+            research_plots = manifest["canonical_artifacts"]["research_plots"]
+            for key in ("ctag_working_points", "btag_working_points", "aggregate_scores"):
+                self.assertIn(key, research_plots)
+                self.assertTrue(Path(research_plots[key]["png"]).is_file())
             report = (run_dir / "report.md").read_text()
             self.assertLess(report.index("## Results"), report.index("## Method"))
             self.assertIn("anchored_lr_sweep", report)
@@ -469,8 +474,8 @@ class PBTArtifactsTest(unittest.TestCase):
             with (run_dir / "metrics.csv").open() as stream:
                 rows = list(csv.DictReader(stream))
             self.assertEqual(len(rows), 8)
-            self.assertTrue((run_dir / "plots" / "ctag_fixed_efficiency_mistag.png").is_file())
-            self.assertTrue((run_dir / "plots" / "btag_fixed_efficiency_mistag.png").is_file())
+            self.assertTrue((run_dir / "plots" / "ctag_working_points_evolution.png").is_file())
+            self.assertTrue((run_dir / "plots" / "btag_working_points_evolution.png").is_file())
 
     def test_rebuild_command_regenerates_report_without_training(self):
         with tempfile.TemporaryDirectory() as temporary:

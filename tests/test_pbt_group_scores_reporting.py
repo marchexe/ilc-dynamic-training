@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.test_pbt_artifacts import CURVE_EFFICIENCIES, CURVE_REJECTIONS, fixed_curve_metrics, synthetic_manifest
+from tests.test_pbt_artifacts import CURVE_EFFICIENCIES, CURVE_REJECTIONS, synthetic_manifest
 from training.pbt.reporting import evaluation_rows, group_score_row, write_canonical_outputs
 from training.pbt.reporting.constants import (
     BTAG_GEOMEAN_METRIC_KEY,
@@ -13,22 +13,10 @@ from training.pbt.reporting.constants import (
     CTAG_SCORE_COLUMN,
     CTAG_SCORE_WORKING_POINTS,
     FIXED_WORKING_POINTS,
-    GROUP_SCORE_WARNING_COLUMN,
-    PLOT_NAMES,
     TOTAL_GEOMEAN_METRIC_KEY,
     TOTAL_SCORE_COLUMN,
 )
-from training.pbt.reporting.plots import _draw_fixed_efficiency_panel, plot_geometric_mistag_scores
 from training.runtime import combine_group_scores
-
-
-def _plt():
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    return plt
 
 
 class CanonicalWorkingPointPartitionTest(unittest.TestCase):
@@ -51,45 +39,6 @@ class CanonicalWorkingPointPartitionTest(unittest.TestCase):
         self.assertIn("bc@0.8", {point["score_label"] for point in BTAG_SCORE_WORKING_POINTS})
         self.assertNotIn("bc@0.8", {point["score_label"] for point in CTAG_SCORE_WORKING_POINTS})
         self.assertNotIn("cb@0.8", {point["score_label"] for point in BTAG_SCORE_WORKING_POINTS})
-
-
-class FixedEfficiencyPanelTest(unittest.TestCase):
-    """Draws the real _draw_fixed_efficiency_panel (the function both
-    canonical raw plots call), then inspects the actual matplotlib legend
-    -- proof of what was actually plotted, not just what the data layer
-    computed."""
-
-    def _rows(self):
-        metrics = fixed_curve_metrics(1.0, 0.9, 0.97, 0.3)
-        values = {point["column"]: None for point in FIXED_WORKING_POINTS}
-        from training.pbt.reporting.metrics_rows import fixed_working_point_values
-
-        values.update(fixed_working_point_values(metrics))
-        return [{"samples_seen": 100, **values}]
-
-    def test_ctag_panel_draws_exactly_the_four_ctag_series(self):
-        plt = _plt()
-        fig, ax = plt.subplots()
-        _draw_fixed_efficiency_panel(ax, "c", self._rows(), None, None, None)
-        _, labels = ax.get_legend_handles_labels()
-        self.assertEqual(len(labels), 4)
-        for point in CTAG_SCORE_WORKING_POINTS:
-            self.assertTrue(any(point["score_label"] in label for label in labels), point["score_label"])
-        for point in BTAG_SCORE_WORKING_POINTS:
-            self.assertFalse(any(point["score_label"] in label for label in labels), point["score_label"])
-        plt.close(fig)
-
-    def test_btag_panel_draws_exactly_the_four_btag_series(self):
-        plt = _plt()
-        fig, ax = plt.subplots()
-        _draw_fixed_efficiency_panel(ax, "b", self._rows(), None, None, None)
-        _, labels = ax.get_legend_handles_labels()
-        self.assertEqual(len(labels), 4)
-        for point in BTAG_SCORE_WORKING_POINTS:
-            self.assertTrue(any(point["score_label"] in label for label in labels), point["score_label"])
-        for point in CTAG_SCORE_WORKING_POINTS:
-            self.assertFalse(any(point["score_label"] in label for label in labels), point["score_label"])
-        plt.close(fig)
 
 
 class GroupScoreRowReconstructionTest(unittest.TestCase):
@@ -205,9 +154,9 @@ class ReportRerunStabilityTest(unittest.TestCase):
 
             self.assertEqual(first_listing, second_listing)
             for expected in (
-                "ctag_fixed_efficiency_mistag.png",
-                "btag_fixed_efficiency_mistag.png",
-                "geometric_mistag_scores.png",
+                "ctag_working_points_evolution.png",
+                "btag_working_points_evolution.png",
+                "aggregate_mistag_score_evolution.png",
             ):
                 self.assertIn(expected, second_listing)
 
