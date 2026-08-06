@@ -1,14 +1,20 @@
 import json
+import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
 from tests.helpers import SCRIPTS_DIR  # noqa: F401
 
+from research.process_cleanup import AuditShutdownRequested
 from research.run_proxy_audit import (
     build_checkpoint_metrics_rows,
     dedupe_checkpoints,
+    handle_shutdown,
+    poll_remote_processes_clear,
     provenance_for,
+    unique_hosts,
     write_csv_rows,
     write_outputs,
 )
@@ -273,6 +279,121 @@ class WriteOutputsIncrementalTest(unittest.TestCase):
             )
             tmp_files = list(experiment_dir.glob("*.tmp"))
         self.assertEqual(tmp_files, [])
+
+
+class HandleShutdownTest(unittest.TestCase):
+    """handle_shutdown is what main() calls on SIGTERM/SIGINT/timeout. Uses
+    a real, freshly-spawned, childless subprocess's own PID as the "owning
+    process" passed to terminate_child_processes -- it has zero children
+    of its own, so cleanup is a real, safe no-op here, and this stays
+    completely isolated from the actual test-runner process tree (we must
+    never call terminate_child_processes(os.getpid()) in these tests)."""
+
+    def setUp(self):
+        self.entry = {"id": "ckpt", "path": "x.pt", "sha256": "abc", "source_run": None}
+        self.provenance_by_id = {"ckpt": {"member": None, "epoch": 17, "generation": None, "lr": None, "pbt_recorded_metric_value": None}}
+        self.audit_config = {"checkpoints": [self.entry], "proxy_manifest": "/nonexistent/manifest.json", "slots": []}
+        self.args = namespace(config=Path("configs/research/nightly_proxy_audit.yaml"), termination_grace_period_seconds=1.0)
+        self.childless_proc = subprocess.Popen(["sleep", "20"], start_new_session=True)
+        time.sleep(0.2)
+
+    def tearDown(self):
+        self.childless_proc.kill()
+        self.childless_proc.wait()
+
+    def test_partial_outputs_remain_readable_after_simulated_sigterm(self):
+        control_results = {"ckpt": {"status": "completed", "metrics": {"validation_working_point_mistag_percent": 1.0}}}
+        with tempfile.TemporaryDirectory() as temporary:
+            experiment_dir = Path(temporary)
+            # Files main() writes before the try/except block, and which
+            # handle_shutdown must never touch.
+            (experiment_dir / "resolved_config.yaml").write_text("shared: {}\n")
+            (experiment_dir / "environment.json").write_text(json.dumps({"hostname": "test"}))
+            write_outputs(
+                experiment_dir, self.args, self.audit_config, [self.entry], [], self.provenance_by_id,
+                control_results, {}, 1, "validation_working_point_mistag_percent", "min",
+                {"control_proxy_50k": 30.0, "full_validation": None, "total": 30.0},
+                "partial_control_only", "test_run",
+            )
+            resolved_config_before = (experiment_dir / "resolved_config.yaml").read_text()
+            environment_before = (experiment_dir / "environment.json").read_text()
+
+            shutdown = AuditShutdownRequested("signal", signal_name="SIGTERM")
+            run_status = handle_shutdown(
+                shutdown, experiment_dir, experiment_dir / "logs" / "audit.log", self.args, self.audit_config,
+                "test_run", self.childless_proc.pid, [self.entry], [], self.provenance_by_id, control_results, {},
+                1, "validation_working_point_mistag_percent", "min", 30.0, time.monotonic() - 30.0,
+            )
+
+            resolved_config_after = (experiment_dir / "resolved_config.yaml").read_text()
+            environment_after = json.loads((experiment_dir / "environment.json").read_text())
+            summary = json.loads((experiment_dir / "summary.json").read_text())
+            csv_text = (experiment_dir / "checkpoint_metrics.csv").read_text()
+
+        self.assertEqual(run_status, "interrupted")
+        self.assertEqual(resolved_config_before, resolved_config_after)
+        self.assertEqual(environment_before, json.dumps(environment_after))
+        self.assertEqual(summary["run_status"], "interrupted")
+        self.assertEqual(summary["shutdown"]["received_signal"], "SIGTERM")
+        self.assertEqual(summary["shutdown"]["reason"], "signal")
+        self.assertTrue(summary["shutdown"]["cleanup_attempted"])
+        self.assertEqual(summary["shutdown"]["child_processes_terminated"], 0)
+        self.assertEqual(summary["shutdown"]["cleanup_failures"], [])
+        self.assertIn("ckpt", csv_text)
+
+    def test_timeout_reason_produces_timed_out_status(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            experiment_dir = Path(temporary)
+            shutdown = AuditShutdownRequested("timeout")
+            run_status = handle_shutdown(
+                shutdown, experiment_dir, experiment_dir / "logs" / "audit.log", self.args, self.audit_config,
+                "test_run", self.childless_proc.pid, [self.entry], [], self.provenance_by_id, {}, {},
+                1, "validation_working_point_mistag_percent", "min", None, time.monotonic() - 5,
+            )
+            summary = json.loads((experiment_dir / "summary.json").read_text())
+        self.assertEqual(run_status, "timed_out")
+        self.assertEqual(summary["run_status"], "timed_out")
+        self.assertIsNone(summary["shutdown"]["received_signal"])
+        self.assertEqual(summary["shutdown"]["reason"], "timeout")
+
+    def test_no_slots_means_no_remote_verification_attempted(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            experiment_dir = Path(temporary)
+            shutdown = AuditShutdownRequested("signal", signal_name="SIGINT")
+            handle_shutdown(
+                shutdown, experiment_dir, experiment_dir / "logs" / "audit.log", self.args, self.audit_config,
+                "test_run", self.childless_proc.pid, [self.entry], [], self.provenance_by_id, {}, {},
+                1, "validation_working_point_mistag_percent", "min", None, time.monotonic() - 5,
+            )
+            summary = json.loads((experiment_dir / "summary.json").read_text())
+        self.assertEqual(summary["shutdown"]["remote_verification"], [])
+
+
+class UniqueHostsTest(unittest.TestCase):
+    def test_deduplicates_hosts_across_slots(self):
+        audit_config = {"slots": [{"host": "iutgpu01", "gpu": "0"}, {"host": "iutgpu01", "gpu": "1"}, {"host": "iutgpu02", "gpu": "0"}]}
+        self.assertEqual(unique_hosts(audit_config), ["iutgpu01", "iutgpu02"])
+
+    def test_empty_slots_gives_empty_hosts(self):
+        self.assertEqual(unique_hosts({"slots": []}), [])
+        self.assertEqual(unique_hosts({}), [])
+
+
+class PollRemoteProcessesClearTest(unittest.TestCase):
+    def test_unreachable_host_reports_error_without_retrying_forever(self):
+        """An SSH/connection error is not the same as "confirmed clear" --
+        callers must be able to tell the difference (an empty result with
+        error=None means we checked and found nothing; a non-None error
+        means we couldn't check at all)."""
+        started = time.monotonic()
+        pids, error, retries_used = poll_remote_processes_clear(
+            "nonexistent-test-host-xyz.invalid", "some-run-id", max_retries=3, poll_interval_seconds=0.1
+        )
+        elapsed = time.monotonic() - started
+        self.assertIsNone(pids)
+        self.assertIsNotNone(error)
+        self.assertEqual(retries_used, 0)  # gives up immediately on a hard error, doesn't retry a broken connection
+        self.assertLess(elapsed, 5.0)
 
 
 if __name__ == "__main__":

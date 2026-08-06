@@ -15,6 +15,7 @@ it as if it were a population "member" for one synthetic generation.
 
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -30,6 +31,15 @@ from training.pbt.execution.backend import finite_metric_ok, format_duration, lo
 from training.runtime import git_metadata, project_path, sha256, utc_now
 from research.proxy_sanity_check import run_sanity_check
 from research.proxy_statistics import full_summary
+from research.process_cleanup import (
+    AuditShutdownRequested,
+    cancel_timeout,
+    install_shutdown_handlers,
+    install_timeout,
+    kill_remote_processes,
+    remote_processes_matching,
+    terminate_child_processes,
+)
 
 CHECKPOINT_EPOCH_RE = re.compile(r"net_epoch-(\d+)_state\.pt$")
 
@@ -39,6 +49,11 @@ def parse_args():
     parser.add_argument("--config", type=Path, default=Path("configs/research/nightly_proxy_audit.yaml"))
     parser.add_argument("--run-id", default=None, help="Defaults to a UTC timestamp")
     parser.add_argument("--output-root", type=Path, default=None, help="Overrides the config's output_root")
+    parser.add_argument("--timeout-seconds", type=float, default=None, help="Overall audit timeout; disabled by default")
+    parser.add_argument(
+        "--termination-grace-period-seconds", type=float, default=10.0,
+        help="On SIGTERM/SIGINT/timeout: seconds to wait for child processes to exit after SIGTERM before SIGKILL",
+    )
     return parser.parse_args()
 
 
@@ -215,6 +230,7 @@ def write_outputs(
     runtime_seconds,
     run_status,
     run_id,
+    shutdown_info=None,
 ):
     """Writes checkpoint_metrics.csv, summary.json, and proxy_vs_full.csv
     from whatever results exist so far. Called after control_proxy_50k
@@ -226,6 +242,13 @@ def write_outputs(
     there is only ever one, always-current checkpoint_metrics.csv/
     summary.json per run, never stale partial files left behind after a
     successful completion.
+
+    shutdown_info, when the run ended via SIGTERM/SIGINT/timeout rather
+    than completing normally, records: received_signal, reason
+    ("signal"/"timeout"), cleanup_attempted, child_processes_terminated,
+    cleanup_failures, and remote_verification -- everything needed to
+    know what was interrupted and whether cleanup actually succeeded,
+    without guessing.
     """
     rows = build_checkpoint_metrics_rows(distinct_checkpoints, provenance_by_id, control_results, full_results, metric_schema_version)
     write_csv_rows(experiment_dir / "checkpoint_metrics.csv", rows)
@@ -249,6 +272,8 @@ def write_outputs(
         "proxy_vs_full": statistics,
         "proxy_sanity_check": sanity,
     }
+    if shutdown_info is not None:
+        summary["shutdown"] = shutdown_info
     tmp_summary_path = (experiment_dir / "summary.json").with_suffix(".json.tmp")
     tmp_summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
     tmp_summary_path.replace(experiment_dir / "summary.json")
@@ -272,6 +297,113 @@ def write_outputs(
         )
     write_csv_rows(experiment_dir / "proxy_vs_full.csv", proxy_vs_full_rows)
     return summary
+
+
+def unique_hosts(audit_config):
+    hosts = []
+    for slot in audit_config.get("slots", []):
+        host = slot.get("host") if isinstance(slot, dict) else None
+        if host and host not in hosts:
+            hosts.append(host)
+    return hosts
+
+
+def poll_remote_processes_clear(host, match_substring, max_retries=5, poll_interval_seconds=1.0):
+    """Closing the local ssh client cleanly brings the remote Weaver job
+    down (verified live), but not instantly -- SSH connection teardown ->
+    SIGHUP -> Weaver's own shutdown (sometimes including an internal
+    worker subprocess) takes a few seconds. A single immediate check can
+    catch a job that is genuinely on its way out and misreport it as
+    "still running". Poll a few times before concluding either way, so
+    remote_verification in summary.json reflects real end state, not a
+    race. Returns (final_pids_or_None, error_or_None, retries_used)."""
+    for attempt in range(max_retries):
+        pids, error = remote_processes_matching(host, match_substring)
+        if not pids:
+            return pids, error, attempt
+        if attempt < max_retries - 1:
+            time.sleep(poll_interval_seconds)
+    return pids, error, max_retries - 1
+
+
+def handle_shutdown(shutdown, experiment_dir, audit_log_path, args, audit_config, run_id, own_pid,
+                     distinct_checkpoints, duplicates, provenance_by_id, control_results, full_results,
+                     metric_schema_version, metric_name, metric_mode, control_elapsed, started_monotonic):
+    """Runs on SIGTERM/SIGINT/timeout: terminate every child process this
+    audit spawned (never anything else -- see process_cleanup.py's
+    docstring), best-effort-verify no matching Weaver process survives on
+    each remote host, and write everything gathered so far as an
+    "interrupted"/"timed_out" summary.json without touching the
+    already-written checkpoint_metrics.csv/resolved_config.yaml/
+    environment.json from any prior successful incremental write."""
+    run_status = "timed_out" if shutdown.reason == "timeout" else "interrupted"
+    log_event(audit_log_path, f"shutdown requested reason={shutdown.reason} signal={shutdown.signal_name}")
+
+    terminated, failures = terminate_child_processes(own_pid, grace_period_seconds=args.termination_grace_period_seconds)
+    log_event(
+        audit_log_path,
+        f"cleanup: terminated {len(terminated)} child process(es), {len(failures)} failure(s)"
+        + (f" -- {failures}" if failures else ""),
+    )
+
+    remote_verification = []
+    for host in unique_hosts(audit_config):
+        pids, error, retries_used = poll_remote_processes_clear(host, str(experiment_dir))
+        if pids:
+            # Closing the local ssh client was verified (Phase 1's live
+            # test) to cleanly bring the remote Weaver job down, but it
+            # takes the remote side a few seconds (SSH connection teardown
+            # -> SIGHUP -> Weaver's own shutdown, sometimes including an
+            # internal worker subprocess) -- not instant. If it's still
+            # not clear after the poll window, this is the narrowly-scoped
+            # fallback: kill exactly these already-identified PIDs, never
+            # a broader pattern.
+            kill_ok, kill_error = kill_remote_processes(host, pids)
+            time.sleep(1.0)
+            pids_after, error_after, _ = poll_remote_processes_clear(host, str(experiment_dir), max_retries=1)
+            remote_verification.append({
+                "host": host, "remaining_pids_initial": pids, "retries_used": retries_used,
+                "fallback_kill_attempted": True, "fallback_kill_ok": kill_ok, "fallback_kill_error": kill_error,
+                "remaining_pids_final": pids_after, "error": error_after or error,
+            })
+            log_event(
+                audit_log_path,
+                f"remote verification host={host} initial_remaining={pids} fallback_kill_ok={kill_ok} final_remaining={pids_after}",
+            )
+        else:
+            remote_verification.append({
+                "host": host, "remaining_pids_initial": [], "retries_used": retries_used,
+                "fallback_kill_attempted": False, "fallback_kill_ok": None, "fallback_kill_error": None,
+                "remaining_pids_final": [], "error": error,
+            })
+            if error:
+                log_event(audit_log_path, f"remote verification host={host} unavailable: {error}")
+            else:
+                log_event(audit_log_path, f"remote verification host={host} confirmed clear after {retries_used} retries")
+
+    shutdown_info = {
+        "received_signal": shutdown.signal_name,
+        "reason": shutdown.reason,
+        "cleanup_attempted": True,
+        "child_processes_terminated": len(terminated),
+        "terminated_pids": terminated,
+        "cleanup_failures": failures,
+        "remote_verification": remote_verification,
+    }
+
+    write_outputs(
+        experiment_dir, args, audit_config, distinct_checkpoints, duplicates, provenance_by_id,
+        control_results, full_results, metric_schema_version, metric_name, metric_mode,
+        {
+            "control_proxy_50k": control_elapsed,
+            "full_validation": None if not full_results else time.monotonic() - started_monotonic,
+            "total": time.monotonic() - started_monotonic,
+        },
+        run_status, run_id, shutdown_info=shutdown_info,
+    )
+    log_event(audit_log_path, f"proxy audit {run_status} run_id={run_id}")
+    print(str(experiment_dir))
+    return run_status
 
 
 def main():
@@ -315,48 +447,69 @@ def main():
     metric_name = audit_config.get("metric_name", "validation_working_point_mistag_percent")
     metric_mode = audit_config.get("metric_mode", "min")
 
-    log_event(audit_log_path, f"evaluating {len(member_checkpoints)} checkpoints on control_proxy_50k ({control_suffix})")
-    control_started = time.monotonic()
-    control_results = run_tiered_evaluation(
-        weaver_config, experiment_dir, 0, "control_proxy_50k", dataset, control_suffix, member_checkpoints, audit_log_path
-    )
-    control_elapsed = time.monotonic() - control_started
-    log_event(audit_log_path, f"control_proxy_50k evaluation finished in {format_duration(control_elapsed)}")
+    own_pid = os.getpid()
+    control_results = {}
+    full_results = {}
+    control_elapsed = None
 
-    # Incremental write #1: control_proxy_50k is done, full_validation
-    # hasn't started yet. If the process dies during full_validation (the
-    # much longer tier), this is what survives -- a complete, correct
-    # checkpoint_metrics.csv/summary.json with full_validation columns
-    # explicitly empty/status-less, not fabricated.
-    write_outputs(
-        experiment_dir, args, audit_config, distinct_checkpoints, duplicates, provenance_by_id,
-        control_results, {}, metric_schema_version, metric_name, metric_mode,
-        {"control_proxy_50k": control_elapsed, "full_validation": None, "total": time.monotonic() - started_monotonic},
-        "partial_control_only", run_id,
-    )
+    install_shutdown_handlers()
+    install_timeout(args.timeout_seconds)
 
-    log_event(audit_log_path, f"evaluating {len(member_checkpoints)} checkpoints on full_validation ({full_suffix})")
-    full_started = time.monotonic()
-    full_results = run_tiered_evaluation(
-        weaver_config, experiment_dir, 0, "full_validation", dataset, full_suffix, member_checkpoints, audit_log_path
-    )
-    full_elapsed = time.monotonic() - full_started
-    log_event(audit_log_path, f"full_validation evaluation finished in {format_duration(full_elapsed)}")
+    try:
+        log_event(audit_log_path, f"evaluating {len(member_checkpoints)} checkpoints on control_proxy_50k ({control_suffix})")
+        control_started = time.monotonic()
+        control_results = run_tiered_evaluation(
+            weaver_config, experiment_dir, 0, "control_proxy_50k", dataset, control_suffix, member_checkpoints, audit_log_path
+        )
+        control_elapsed = time.monotonic() - control_started
+        log_event(audit_log_path, f"control_proxy_50k evaluation finished in {format_duration(control_elapsed)}")
 
-    total_elapsed = time.monotonic() - started_monotonic
-    # Incremental write #2 (final): both tiers done. Overwrites the
-    # partial write above with the complete result -- exactly one
-    # checkpoint_metrics.csv/summary.json exists at the end, not two.
-    write_outputs(
-        experiment_dir, args, audit_config, distinct_checkpoints, duplicates, provenance_by_id,
-        control_results, full_results, metric_schema_version, metric_name, metric_mode,
-        {"control_proxy_50k": control_elapsed, "full_validation": full_elapsed, "total": total_elapsed},
-        "completed", run_id,
-    )
+        # Incremental write #1: control_proxy_50k is done, full_validation
+        # hasn't started yet. If the process dies during full_validation (the
+        # much longer tier), this is what survives -- a complete, correct
+        # checkpoint_metrics.csv/summary.json with full_validation columns
+        # explicitly empty/status-less, not fabricated.
+        write_outputs(
+            experiment_dir, args, audit_config, distinct_checkpoints, duplicates, provenance_by_id,
+            control_results, {}, metric_schema_version, metric_name, metric_mode,
+            {"control_proxy_50k": control_elapsed, "full_validation": None, "total": time.monotonic() - started_monotonic},
+            "partial_control_only", run_id,
+        )
 
-    log_event(audit_log_path, f"proxy audit finished run_id={run_id} elapsed={format_duration(total_elapsed)} distinct_checkpoints={len(distinct_checkpoints)}")
-    print(str(experiment_dir))
-    return experiment_dir
+        log_event(audit_log_path, f"evaluating {len(member_checkpoints)} checkpoints on full_validation ({full_suffix})")
+        full_started = time.monotonic()
+        full_results = run_tiered_evaluation(
+            weaver_config, experiment_dir, 0, "full_validation", dataset, full_suffix, member_checkpoints, audit_log_path
+        )
+        full_elapsed = time.monotonic() - full_started
+        log_event(audit_log_path, f"full_validation evaluation finished in {format_duration(full_elapsed)}")
+
+        total_elapsed = time.monotonic() - started_monotonic
+        # Incremental write #2 (final): both tiers done. Overwrites the
+        # partial write above with the complete result -- exactly one
+        # checkpoint_metrics.csv/summary.json exists at the end, not two.
+        write_outputs(
+            experiment_dir, args, audit_config, distinct_checkpoints, duplicates, provenance_by_id,
+            control_results, full_results, metric_schema_version, metric_name, metric_mode,
+            {"control_proxy_50k": control_elapsed, "full_validation": full_elapsed, "total": total_elapsed},
+            "completed", run_id,
+        )
+
+        cancel_timeout()
+        log_event(audit_log_path, f"proxy audit finished run_id={run_id} elapsed={format_duration(total_elapsed)} distinct_checkpoints={len(distinct_checkpoints)}")
+        print(str(experiment_dir))
+        return experiment_dir
+
+    except AuditShutdownRequested as shutdown:
+        cancel_timeout()
+        handle_shutdown(
+            shutdown, experiment_dir, audit_log_path, args, audit_config, run_id, own_pid,
+            distinct_checkpoints, duplicates, provenance_by_id, control_results, full_results,
+            metric_schema_version, metric_name, metric_mode, control_elapsed, started_monotonic,
+        )
+        if shutdown.reason == "timeout":
+            sys.exit(124)  # conventional "command timed out" exit code
+        sys.exit(130 if shutdown.signal_name == "SIGINT" else 143)
 
 
 def environment_info():
