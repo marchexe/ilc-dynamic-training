@@ -1,0 +1,22 @@
+{
+  "controller_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/checkpoints/anchor_controller.pt",
+  "epoch": 44,
+  "eval_tier": "control",
+  "generation": 26,
+  "lr": 1.4e-05,
+  "lr_center": 1.008e-05,
+  "member": "lr_14e-6",
+  "metadata_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/checkpoints/anchor_metadata.json",
+  "metric": "validation_total_reference_mistag_geomean_percent",
+  "metric_value": 0.4082782971253054,
+  "mode": "min",
+  "optimizer_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/checkpoints/anchor_optimizer.pt",
+  "sha256_controller": null,
+  "sha256_optimizer": "5e227b4aca5252433fb56ccf143c4775d8695fd65c4dc399bcc00c825b260ce4",
+  "sha256_state": "99ba625387bf6d95885032c813ac63e5125e7eb71fce582f02822ceb76f748a4",
+  "source_controller_path": null,
+  "source_optimizer_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/lr_14e-6/net_epoch-44_optimizer.pt",
+  "source_state_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/lr_14e-6/net_epoch-44_state.pt",
+  "state_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/checkpoints/anchor_state.pt",
+  "updated_at": "2026-08-06T18:06:16.146876+00:00"
+}
