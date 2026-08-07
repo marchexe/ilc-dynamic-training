@@ -63,7 +63,7 @@ pbt:
 
   anchor_copy_lr_recenter:
     mode: active
-    accept_tolerance: 0.01
+    accept_tolerance: 0.0
     # 4 members: exactly one 1.0 (so one member continues at the exact
     # winning LR), values both below and above it.
     spread_multipliers: [0.80, 0.90, 1.00, 1.20]
