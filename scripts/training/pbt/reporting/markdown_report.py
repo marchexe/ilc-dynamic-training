@@ -35,6 +35,7 @@ from training.pbt.reporting.metrics_rows import (
 from training.pbt.reporting.statistics import (
     best_checkpoint_by_tier,
     corroboration_status,
+    lr_mistag_correlation,
     proxy_overfitting_cases,
     proxy_selected_checkpoint_other_tiers,
     tier_correlation,
@@ -258,6 +259,41 @@ def _learning_rate_lineage_section_lines(manifest, plots):
     strategy = manifest.get("config", {}).get("pbt", {}).get("strategy")
     if strategy == "fixed_lr_grid":
         lines.append("- `fixed_lr_grid`: independent branches, no copy events -- by design, not a data gap.")
+    if result.get("warnings"):
+        lines.extend(["", "**Data-quality warnings:**"])
+        lines.extend(f"- {warning}" for warning in result["warnings"])
+    return lines
+
+
+def _learning_rate_mistag_correlation_section_lines(manifest, plots, rows):
+    """## Learning Rate vs. Mistag Score Correlation --
+    learning_rate_mistag_correlation.png: every (member, generation)
+    observation's LR against its total_mistag_score, colored by generation.
+    `rows` is the already-persisted metrics.csv round-trip (same rows
+    `_model_selection_score_table_lines` uses below) -- LR and
+    total_mistag_score are both plain CSV columns, so this never needs the
+    manifest-derived member_rows the plot itself was built from."""
+    result = _report_plot_result(manifest, "learning_rate_mistag_correlation")
+    png = plots.get("learning_rate_mistag_correlation") or result.get("png")
+    lines = ["", "## Learning Rate vs. Mistag Score Correlation"]
+    if not png:
+        lines.append("- No LR/mistag score data to plot yet.")
+        return lines
+    lines.append(f"- [Learning rate vs. mistag score]({png})")
+    correlation = lr_mistag_correlation(rows)
+    if correlation["reason"] == "insufficient_paired_observations":
+        lines.append(f"- Correlation: n={correlation['n']} paired observations -- too few for a meaningful correlation")
+    elif correlation["reason"]:
+        lines.append(f"- Correlation: unavailable ({correlation['reason']})")
+    else:
+        lines.append(
+            f"- Correlation (log10 LR vs. total_mistag_score): n={correlation['n']}, "
+            f"Pearson r={correlation['pearson_r']:.3f}, Spearman rho={correlation['spearman_rho']:.3f}"
+        )
+        lines.append(
+            "- Sign convention: positive means higher LR associates with a higher (worse) total_mistag_score; "
+            "negative means higher LR associates with a lower (better) score. Not a causal claim."
+        )
     if result.get("warnings"):
         lines.extend(["", "**Data-quality warnings:**"])
         lines.extend(f"- {warning}" for warning in result["warnings"])
@@ -497,6 +533,7 @@ def write_report(run_dir, manifest, summary):
     provenance = manifest.get("run") or {}
     git = provenance.get("git") or manifest.get("git") or {}
     plots = summary.get("plots") or {}
+    rows = read_metrics_rows(run_dir)
 
     lines = [
         f"# {summary.get('experiment')}",
@@ -529,9 +566,9 @@ def write_report(run_dir, manifest, summary):
     lines.extend(_pbt_population_selection_section_lines(manifest, plots))
     lines.extend(_mistag_score_evolution_section_lines(manifest, plots))
     lines.extend(_learning_rate_lineage_section_lines(manifest, plots))
+    lines.extend(_learning_rate_mistag_correlation_section_lines(manifest, plots, rows))
     lines.extend(_proxy_validation_section_lines(manifest, plots))
 
-    rows = read_metrics_rows(run_dir)
     lines.extend(_model_selection_score_table_lines(manifest, rows))
     lines.extend(_pbt_decision_summary_lines(manifest, rows))
 

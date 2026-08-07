@@ -1,68 +1,62 @@
-schema_version: 1
 config_path: /data/suehara/part/march-worktrees/train_1eb2c79/configs/experiments/anchor_copy_lr_recenter_8h.yaml
 experiment_name: anchor_copy_lr_recenter_8h_20260807_015714
-output_root: /data/suehara/part/march/runs/pbt
-shared:
-  dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
-  validation_dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
-  checkpoint: /data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
-  data_config: /data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
-  network_config: /data/suehara/part/march-worktrees/train_1eb2c79/networks/pretrained_sgv_particle_transformer.py
-  seed: 12345
-  generations: 48
-  epochs_per_generation: 1
-  samples_per_epoch: 120000
-  samples_per_epoch_val: 150000
-  batch_size: 1024
-  optimizer: ranger
-  lr_scheduler: none
-  num_workers: 1
-  fetch_step: 0.01
-  use_amp: true
-  amp_dtype: fp16
-  no_remake_weights: true
-  freeze_batch_norm: true
-  proxy_validation:
-    manifest: /data/suehara/part/march-worktrees/train_1eb2c79/datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json
-    active_subset: control
-    control_dataset: /data/suehara/part/march-worktrees/train_1eb2c79/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
-    monitor_dataset: /data/suehara/part/march-worktrees/train_1eb2c79/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
-    full_holdout_dataset: /data/suehara/part/march-worktrees/train_1eb2c79/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
-    train_suffix: train800k
-    control_suffix: val50k_tail
-    monitor_suffix: val50k_tail
-    full_holdout_suffix: val_holdout
-    control_rows_per_class: 50000
-    monitor_rows_per_class: 50000
-    full_holdout_rows_per_class: 941708
-    strategy: disjoint_tail_windows_from_full_validation
-  data_extension: parquet
-  train_suffix: train800k
-  validation_suffix: val50k_tail
-  initial_epoch: 17
-  initial_state: /data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
-  initial_optimizer: /data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
-  initial_optimizer_mode: damped
-  initial_optimizer_damping: 0.25
-  prefetch_factor: 4
 gpus:
 - '0'
 - '1'
 - '2'
 - '3'
-slots:
-- host: iutgpu01
-  gpu: '0'
-  label: iutgpu01:0
-- host: iutgpu01
-  gpu: '1'
-  label: iutgpu01:1
-- host: iutgpu01
-  gpu: '2'
-  label: iutgpu01:2
-- host: iutgpu01
-  gpu: '3'
-  label: iutgpu01:3
+output_root: /data/suehara/part/march/runs/pbt
+pbt:
+  anchor_copy_lr_recenter:
+    accept_tolerance: 0.01
+    mode: active
+    spread_multipliers:
+    - 0.8
+    - 0.9
+    - 1.0
+    - 1.2
+  anchored_weight_source: anchor
+  backend: local_weaver
+  baseline_guard_action: observe
+  burn_in_generations: 0
+  confidence_aware_selection: true
+  controller_state_on_exploit: copy
+  degradation_tolerance: 0.02
+  degradation_window: 3
+  dynamic_controller:
+    action_interval_fraction: 0.2
+    allowed_actions:
+    - keep
+    - lr_mul_0_95
+    - lr_mul_0_9
+    - lr_mul_1_05
+    - lr_mul_1_1
+    - flag_review
+    ema_beta: 0.7
+    eval_interval_fraction: 0.2
+    evaluate_initial_checkpoint: false
+    max_cumulative_lr_factor_per_epoch: 2.0
+    metric_delta_tolerance: 0.0
+    min_delta_sigma_for_action: 1.0
+    mode: disabled
+    trend_window: 3
+  early_stop_degraded_generations: 0
+  exploit_fraction: 0.25
+  exploit_interval_generations: 1
+  exploit_replacement_policy: fraction
+  max_lr: 1.4e-05
+  metric: validation_total_reference_mistag_geomean_percent
+  min_lr: 3.0e-06
+  mode: min
+  mutation_factors:
+  - 1.0
+  rollback_fraction: 0.0
+  seed: 2026
+  selection_uncertainty_sigma: 1.0
+  strategy: anchor_copy_lr_recenter
+  tiered_validation:
+    evaluate_initial_checkpoint_all_tiers: true
+    full_interval_generations: 16
 population:
 - name: lr_3e-6
   start_lr: 3.0e-06
@@ -72,55 +66,61 @@ population:
   start_lr: 9.0e-06
 - name: lr_14e-6
   start_lr: 1.4e-05
-pbt:
-  metric: validation_total_reference_mistag_geomean_percent
-  mode: min
-  exploit_fraction: 0.25
-  mutation_factors:
-  - 1.0
-  min_lr: 3.0e-06
-  max_lr: 1.4e-05
-  seed: 2026
-  degradation_tolerance: 0.02
-  degradation_window: 3
-  early_stop_degraded_generations: 0
-  rollback_fraction: 0.0
-  controller_state_on_exploit: copy
-  backend: local_weaver
-  strategy: anchor_copy_lr_recenter
-  confidence_aware_selection: true
-  selection_uncertainty_sigma: 1.0
-  burn_in_generations: 0
-  exploit_interval_generations: 1
-  exploit_replacement_policy: fraction
-  anchored_weight_source: anchor
-  dynamic_controller:
-    mode: disabled
-    evaluate_initial_checkpoint: false
-    allowed_actions:
-    - keep
-    - lr_mul_0_95
-    - lr_mul_0_9
-    - lr_mul_1_05
-    - lr_mul_1_1
-    - flag_review
-    metric_delta_tolerance: 0.0
-    ema_beta: 0.7
-    trend_window: 3
-    min_delta_sigma_for_action: 1.0
-    eval_interval_fraction: 0.2
-    action_interval_fraction: 0.2
-    max_cumulative_lr_factor_per_epoch: 2.0
-  anchor_copy_lr_recenter:
-    mode: active
-    accept_tolerance: 0.01
-    spread_multipliers:
-    - 0.8
-    - 0.9
-    - 1.0
-    - 1.2
-  tiered_validation:
-    full_interval_generations: 16
-    evaluate_initial_checkpoint_all_tiers: true
-  baseline_guard_action: observe
+schema_version: 1
+shared:
+  amp_dtype: fp16
+  batch_size: 1024
+  checkpoint: /data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
+  data_config: /data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
+  data_extension: parquet
+  dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  epochs_per_generation: 1
+  fetch_step: 0.01
+  freeze_batch_norm: true
+  generations: 48
+  initial_epoch: 17
+  initial_optimizer: /data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
+  initial_optimizer_damping: 0.25
+  initial_optimizer_mode: damped
+  initial_state: /data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+  lr_scheduler: none
+  network_config: /data/suehara/part/march-worktrees/train_1eb2c79/networks/pretrained_sgv_particle_transformer.py
+  no_remake_weights: true
+  num_workers: 1
+  optimizer: ranger
+  prefetch_factor: 4
+  proxy_validation:
+    active_subset: control
+    control_dataset: /data/suehara/part/march-worktrees/train_1eb2c79/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    control_rows_per_class: 50000
+    control_suffix: val50k_tail
+    full_holdout_dataset: /data/suehara/part/march-worktrees/train_1eb2c79/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    full_holdout_rows_per_class: 941708
+    full_holdout_suffix: val_holdout
+    manifest: /data/suehara/part/march-worktrees/train_1eb2c79/datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json
+    monitor_dataset: /data/suehara/part/march-worktrees/train_1eb2c79/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    monitor_rows_per_class: 50000
+    monitor_suffix: val50k_tail
+    strategy: disjoint_tail_windows_from_full_validation
+    train_suffix: train800k
+  samples_per_epoch: 120000
+  samples_per_epoch_val: 150000
+  seed: 12345
+  train_suffix: train800k
+  use_amp: true
+  validation_dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  validation_suffix: val50k_tail
+slots:
+- gpu: '0'
+  host: iutgpu01
+  label: iutgpu01:0
+- gpu: '1'
+  host: iutgpu01
+  label: iutgpu01:1
+- gpu: '2'
+  host: iutgpu01
+  label: iutgpu01:2
+- gpu: '3'
+  host: iutgpu01
+  label: iutgpu01:3
 smoke: false

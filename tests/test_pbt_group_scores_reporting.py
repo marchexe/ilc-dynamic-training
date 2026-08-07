@@ -157,6 +157,7 @@ class ReportRerunStabilityTest(unittest.TestCase):
                 "pbt_population_selection.png",
                 "learning_rate_lineage.png",
                 "mistag_score_evolution.png",
+                "learning_rate_mistag_correlation.png",
             ):
                 self.assertIn(expected, second_listing)
 

@@ -372,6 +372,21 @@
     "updated_at": "2026-08-06T17:42:17.794365+00:00"
   },
   "best_improvement_vs_baseline": null,
+  "checkpoint_selection": {
+    "agrees_with_best_physics": true,
+    "best_physics_generation": 26,
+    "best_physics_member": "lr_14e-6",
+    "fallback_reason": null,
+    "generation": 26,
+    "member": "lr_14e-6",
+    "role": "global_best",
+    "role_label": "global best (PBT selection)",
+    "selection_metric_mode": "min",
+    "selection_metric_name": "validation_total_reference_mistag_geomean_percent",
+    "validation_dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "validation_sample_count": 150000,
+    "validation_suffix": "val50k_tail"
+  },
   "checkpoints": {
     "global_best_metadata": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/checkpoints/global_best_metadata.json",
     "global_best_optimizer": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/checkpoints/global_best_optimizer.pt",
@@ -24375,9 +24390,12 @@
     "btag_mistag_table_csv": "plots/report/btag_mistag_tables.csv",
     "ctag_mistag_table_csv": "plots/report/ctag_mistag_tables.csv",
     "exploit_table_csv": "plots/report/exploit_table.csv",
+    "learning_rate_lineage": "plots/learning_rate_lineage.png",
+    "learning_rate_mistag_correlation": "plots/learning_rate_mistag_correlation.png",
+    "mistag_score_evolution": "plots/mistag_score_evolution.png",
+    "pbt_population_selection": "plots/pbt_population_selection.png",
     "physics_performance": "plots/report/physics_performance.png",
-    "proxy_diagnostics": "plots/proxy_diagnostics.png",
-    "training_evolution": "plots/training_evolution.png"
+    "proxy_validation": "plots/proxy_validation.png"
   },
   "population": [
     "lr_14e-6",

@@ -14,6 +14,7 @@ from training.pbt.reporting.constants import (
 from training.pbt.reporting.report_plots import (
     _contiguous_runs,
     plot_learning_rate_lineage,
+    plot_learning_rate_mistag_correlation,
     plot_mistag_score_evolution,
     plot_pbt_population_selection,
     plot_proxy_validation,
@@ -24,6 +25,7 @@ from training.pbt.reporting.research_plots import (
     build_member_metric_rows,
     shared_lr_center_series,
 )
+from training.pbt.reporting.statistics import lr_mistag_correlation
 
 
 def _exploit_mutate_manifest():
@@ -324,6 +326,96 @@ class LearningRateLineagePlotTest(unittest.TestCase):
         self.assertEqual(collapsed, [1])
 
 
+class LrMistagCorrelationStatsTest(unittest.TestCase):
+    def test_insufficient_paired_observations_below_three(self):
+        manifest = _single_member_manifest()  # 1 member x 2 generations = 2 rows
+        rows, _ = _rows_and_decisions(manifest)
+        result = lr_mistag_correlation(rows)
+        self.assertEqual(result["n"], 2)
+        self.assertIsNone(result["pearson_r"])
+        self.assertEqual(result["reason"], "insufficient_paired_observations")
+
+    def test_zero_variance_total_mistag_score_reports_named_reason(self):
+        # _anchor_copy_manifest() reuses fixed_curve_metrics()'s fixed
+        # rejection curves for every generation/member (see
+        # tests/test_pbt_artifacts.py's identical caveat about
+        # total_mistag_score), so total_mistag_score is the exact same
+        # constant across all 6 rows here -- scipy would return nan without
+        # raising; this must surface as a named reason, never a fabricated
+        # coefficient (nan silently passing an isinstance(..., float) check).
+        manifest = _anchor_copy_manifest()  # 2 members x 3 generations = 6 rows
+        rows, _ = _rows_and_decisions(manifest)
+        result = lr_mistag_correlation(rows)
+        self.assertEqual(result["n"], 6)
+        self.assertEqual(result["reason"], "zero_variance")
+        self.assertIsNone(result["pearson_r"])
+        self.assertIsNone(result["spearman_rho"])
+
+    def test_correlation_computed_with_varying_scores(self):
+        manifest = _anchor_copy_manifest()
+        rows, _ = _rows_and_decisions(manifest)
+        rows = [dict(row) for row in rows]
+        # Monotonic in LR by construction, so the sign is known ahead of
+        # time -- a real assertion on the computed value, not just "did not
+        # crash".
+        for row in rows:
+            row[TOTAL_SCORE_COLUMN] = row["LR"] * 1.0e4
+        result = lr_mistag_correlation(rows)
+        self.assertEqual(result["n"], 6)
+        self.assertIsNone(result["reason"])
+        self.assertGreater(result["pearson_r"], 0.9)
+        self.assertGreater(result["spearman_rho"], 0.9)
+
+    def test_rows_with_missing_or_nonpositive_lr_are_excluded(self):
+        manifest = _anchor_copy_manifest()
+        rows, _ = _rows_and_decisions(manifest)
+        rows = [dict(row) for row in rows]
+        rows[0]["LR"] = None
+        rows[1]["LR"] = 0.0
+        result = lr_mistag_correlation(rows)
+        self.assertEqual(result["n"], 4)
+
+
+class LearningRateMistagCorrelationPlotTest(unittest.TestCase):
+    def test_renders_and_reports_correlation_metric_keys(self):
+        manifest = _anchor_copy_manifest()
+        rows, _ = _rows_and_decisions(manifest)
+        with tempfile.TemporaryDirectory() as temporary:
+            result = plot_learning_rate_mistag_correlation(temporary, manifest, rows)
+            self.assertTrue(Path(result["png"]).is_file())
+        self.assertEqual(result["metric_keys"], ["LR", TOTAL_SCORE_COLUMN])
+        self.assertEqual(result["correlation"]["n"], 6)
+
+    def test_renders_with_a_real_computed_correlation(self):
+        manifest = _anchor_copy_manifest()
+        rows, _ = _rows_and_decisions(manifest)
+        for row in rows:
+            row[TOTAL_SCORE_COLUMN] = row["LR"] * 1.0e4
+        with tempfile.TemporaryDirectory() as temporary:
+            result = plot_learning_rate_mistag_correlation(temporary, manifest, rows)
+            self.assertTrue(Path(result["png"]).is_file())
+        self.assertIsNone(result["correlation"]["reason"])
+        self.assertGreater(result["correlation"]["pearson_r"], 0.9)
+
+    def test_single_member_run_still_renders_with_insufficient_correlation(self):
+        manifest = _single_member_manifest()
+        rows, _ = _rows_and_decisions(manifest)
+        with tempfile.TemporaryDirectory() as temporary:
+            result = plot_learning_rate_mistag_correlation(temporary, manifest, rows)
+            self.assertTrue(Path(result["png"]).is_file())
+        self.assertEqual(result["correlation"]["reason"], "insufficient_paired_observations")
+
+    def test_no_lr_data_returns_none_png(self):
+        manifest = _anchor_copy_manifest()
+        rows, _ = _rows_and_decisions(manifest)
+        for row in rows:
+            row["LR"] = None
+        with tempfile.TemporaryDirectory() as temporary:
+            result = plot_learning_rate_mistag_correlation(temporary, manifest, rows)
+        self.assertIsNone(result["png"])
+        self.assertEqual(result["generations"], 0)
+
+
 class ProxyValidationPlotTest(unittest.TestCase):
     def _manifest_with_tiers(self, tiers):
         manifest = _anchor_copy_manifest()
@@ -402,11 +494,17 @@ class OrchestrationTest(unittest.TestCase):
         ]
         return manifest
 
-    def test_write_report_plots_produces_all_four_core_names(self):
+    def test_write_report_plots_produces_all_five_core_names(self):
         manifest = self._tiered_manifest()
         with tempfile.TemporaryDirectory() as temporary:
             results = write_report_plots(temporary, manifest)
-            for key in ("pbt_population_selection", "mistag_score_evolution", "learning_rate_lineage", "proxy_validation"):
+            for key in (
+                "pbt_population_selection",
+                "mistag_score_evolution",
+                "learning_rate_lineage",
+                "learning_rate_mistag_correlation",
+                "proxy_validation",
+            ):
                 self.assertIn(key, results)
                 self.assertEqual(Path(results[key]["png"]).name, f"{REPORT_PLOT_NAMES[key]}.png")
                 self.assertTrue(Path(results[key]["png"]).is_file())
@@ -417,7 +515,7 @@ class OrchestrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             results = write_report_plots(temporary, manifest)
         self.assertNotIn("proxy_validation", results)
-        for key in ("pbt_population_selection", "mistag_score_evolution", "learning_rate_lineage"):
+        for key in ("pbt_population_selection", "mistag_score_evolution", "learning_rate_lineage", "learning_rate_mistag_correlation"):
             self.assertIn(key, results)
 
     def test_no_combined_contact_sheet_output_exists(self):
@@ -439,7 +537,12 @@ class OrchestrationTest(unittest.TestCase):
         manifest = _many_generation_manifest(52)
         with tempfile.TemporaryDirectory() as temporary:
             results = write_report_plots(temporary, manifest)
-            for key in ("pbt_population_selection", "mistag_score_evolution", "learning_rate_lineage"):
+            for key in (
+                "pbt_population_selection",
+                "mistag_score_evolution",
+                "learning_rate_lineage",
+                "learning_rate_mistag_correlation",
+            ):
                 self.assertTrue(Path(results[key]["png"]).is_file(), key)
                 self.assertEqual(results[key]["generations"], 52)
 

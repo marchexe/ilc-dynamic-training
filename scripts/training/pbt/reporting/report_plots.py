@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """The report-facing plot set for a PBT run: population/winner overview,
-LR lineage, physics-score evolution, and the conditional proxy-validation
-check (reporting/style.py for the shared visual system; research_plots.py
-for the data layer these all consume). Every function here returns
-{"png": path|None, "warnings": [...], "generations": n, "members": n,
-"metric_keys": [...]} -- never a bare path -- and takes only already-built,
-already-validated rows/events; none of these functions parses the manifest
-or events.jsonl on its own beyond what's documented per-function.
+LR lineage, physics-score evolution, the LR-vs-mistag-score population
+correlation, and the conditional proxy-validation check (reporting/style.py
+for the shared visual system; research_plots.py for the data layer these
+all consume). Every function here returns {"png": path|None, "warnings":
+[...], "generations": n, "members": n, "metric_keys": [...]} -- never a
+bare path -- and takes only already-built, already-validated rows/events;
+none of these functions parses the manifest or events.jsonl on its own
+beyond what's documented per-function.
 """
 
 import math
@@ -36,7 +37,7 @@ from training.pbt.reporting.research_plots import (
     shared_lr_center_series,
     validate_metric_rows,
 )
-from training.pbt.reporting.statistics import _paired_tier_values, ranking_agreement, tier_correlation
+from training.pbt.reporting.statistics import _paired_tier_values, lr_mistag_correlation, ranking_agreement, tier_correlation
 from training.pbt.reporting.style import compact_trial, member_color, member_order, plot_setup
 
 # Redefined independently rather than imported -- see planning/
@@ -435,7 +436,94 @@ def plot_learning_rate_lineage(run_dir, manifest, member_rows, decision_rows, ce
 
 
 # ---------------------------------------------------------------------------
-# 4. Proxy validation
+# 4. Learning rate vs. mistag score
+# ---------------------------------------------------------------------------
+
+
+def plot_learning_rate_mistag_correlation(run_dir, manifest, member_rows):
+    """Research question: does the LR a member trained at correlate with how
+    good its mistag score turned out to be, across the whole explored
+    population -- not just the generation winners? One scatter, every
+    (member, generation) observation with a finite LR and
+    total_mistag_score, colored by generation on a sequential colormap
+    (generation is an ordered magnitude here, not a categorical identity
+    like member -- so it does not reuse the member-identity CB_PALETTE).
+    Winner points (row["is_winner"], the same authoritative flag every
+    other report figure uses) get a black ring overlay so they stay
+    identifiable without hiding their generation color. Pearson r (on
+    log10(LR) -- LR is explored on a log scale, so any real relationship is
+    expected to be multiplicative, not additive) and Spearman rho
+    (rank-based, invariant to that transform) are read directly from
+    statistics.py::lr_mistag_correlation, never recomputed here.
+    """
+    valid_rows, warnings = validate_metric_rows(member_rows, ["LR", TOTAL_SCORE_COLUMN])
+    valid_rows = [row for row in valid_rows if row["LR"] > 0]
+    if not valid_rows:
+        return {
+            "png": None,
+            "warnings": warnings or ["no LR/mistag score data to plot"],
+            "generations": 0,
+            "members": 0,
+            "metric_keys": ["LR", TOTAL_SCORE_COLUMN],
+        }
+
+    plt = plot_setup()
+    fig, ax = plt.subplots(1, 1, figsize=(9.0, 5.8), constrained_layout=True)
+
+    lrs = [row["LR"] for row in valid_rows]
+    values = [row[TOTAL_SCORE_COLUMN] for row in valid_rows]
+    generations = [row["generation"] for row in valid_rows]
+    scatter = ax.scatter(
+        lrs, values, c=generations, cmap="viridis", s=42, alpha=0.85,
+        edgecolor="white", linewidth=0.3, zorder=3,
+    )
+    cbar = fig.colorbar(scatter, ax=ax, pad=0.02)
+    cbar.set_label("Generation")
+    cbar.locator = MaxNLocator(integer=True)
+    cbar.update_ticks()
+
+    winner_rows = [row for row in valid_rows if row.get("is_winner")]
+    if winner_rows:
+        ax.scatter(
+            [row["LR"] for row in winner_rows], [row[TOTAL_SCORE_COLUMN] for row in winner_rows],
+            marker=ROLE_MARKER_STYLE["winner"]["marker"], s=210, facecolor="none",
+            edgecolor=CB_PALETTE["black"], linewidth=1.4, zorder=5, label=ROLE_MARKER_STYLE["winner"]["label"],
+        )
+
+    correlation = lr_mistag_correlation(valid_rows)
+    if correlation["reason"] == "insufficient_paired_observations":
+        caption = f"n={correlation['n']} -- too few for a meaningful correlation"
+    elif correlation["reason"]:
+        caption = f"n={correlation['n']}, correlation unavailable ({correlation['reason']})"
+    else:
+        caption = (
+            f"n={correlation['n']}  Pearson r (log10 LR)={correlation['pearson_r']:.2f}  "
+            f"Spearman rho={correlation['spearman_rho']:.2f}"
+        )
+    ax.text(0.02, 0.98, caption, transform=ax.transAxes, ha="left", va="top", fontsize=8, color="0.3")
+
+    ax.set_xscale("log")
+    ax.set_xlabel("Learning rate (log scale)")
+    ax.set_ylabel("Total mistag score [%] (lower is better)")
+    ax.set_title("Learning rate vs. mistag score", fontsize=12, fontweight="bold", loc="left")
+    ax.grid(True, alpha=0.3, linewidth=0.5)
+    if winner_rows:
+        ax.legend(frameon=False, fontsize=8, loc="best")
+
+    result = _save_png(fig, run_dir, "learning_rate_mistag_correlation")
+    plt.close(fig)
+    return {
+        **result,
+        "warnings": warnings,
+        "generations": len({row["generation"] for row in valid_rows}),
+        "members": len({row["trial"] for row in valid_rows}),
+        "metric_keys": ["LR", TOTAL_SCORE_COLUMN],
+        "correlation": correlation,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 5. Proxy validation
 # ---------------------------------------------------------------------------
 
 
@@ -569,6 +657,7 @@ def write_report_plots(run_dir, manifest):
         "pbt_population_selection": plot_pbt_population_selection(run_dir, manifest, member_rows, decision_rows),
         "mistag_score_evolution": plot_mistag_score_evolution(run_dir, manifest, member_rows),
         "learning_rate_lineage": plot_learning_rate_lineage(run_dir, manifest, member_rows, decision_rows, center_series, events),
+        "learning_rate_mistag_correlation": plot_learning_rate_mistag_correlation(run_dir, manifest, member_rows),
     }
     proxy_validation = plot_proxy_validation(run_dir, manifest)
     if proxy_validation is not None:

@@ -15,25 +15,44 @@
 - Delta vs measured baseline: n/a%
 - Best checkpoint: `/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/checkpoints/global_best_state.pt`
 
-## Training Evolution
-- [Training evolution](plots/training_evolution.png)
-- `lr_14e-6` samples_seen:LR = 120000:1.4e-05, 240000:1.4e-05, 360000:1.4e-05, 480000:1.4e-05, 600000:1.4e-05, 720000:1.4e-05, 840000:1.4e-05, 960000:1.4e-05, 1080000:1.4e-05, 1200000:1.4e-05, 1320000:1.4e-05, 1440000:1.4e-05, 1560000:1.4e-05, 1680000:1.4e-05, 1800000:1.4e-05, 1920000:1.4e-05, 2040000:1.34e-05, 2160000:1.34e-05, 2280000:1.34e-05, 2400000:1.34e-05, 2520000:1.4e-05, 2640000:1.4e-05, 2760000:1.4e-05, 2880000:1.4e-05, 3000000:1.4e-05, 3120000:1.4e-05, 3240000:1.4e-05, 3360000:1.4e-05, 3480000:1.4e-05, 3600000:1.4e-05, 3720000:1.4e-05, 3840000:1.4e-05, 3960000:1.4e-05, 4080000:1.4e-05, 4200000:1.4e-05, 4320000:1.4e-05, 4440000:1.4e-05, 4560000:1.4e-05, 4680000:1.4e-05, 4800000:1.4e-05, 4920000:1.21e-05, 5040000:1.21e-05, 5160000:1.21e-05, 5280000:1.21e-05, 5400000:1.21e-05, 5520000:1.21e-05, 5640000:1.21e-05, 5760000:1.21e-05
-- `lr_3e-6` samples_seen:LR = 120000:3e-06, 240000:1.12e-05, 360000:1.12e-05, 480000:1.12e-05, 600000:1.01e-05, 720000:1.01e-05, 840000:1.01e-05, 960000:1.12e-05, 1080000:1.12e-05, 1200000:1.12e-05, 1320000:1.12e-05, 1440000:1.12e-05, 1560000:1.12e-05, 1680000:1.12e-05, 1800000:1.12e-05, 1920000:1.12e-05, 2040000:8.96e-06, 2160000:8.96e-06, 2280000:8.96e-06, 2400000:8.96e-06, 2520000:1.08e-05, 2640000:1.08e-05, 2760000:1.08e-05, 2880000:1.12e-05, 3000000:1.12e-05, 3120000:1.12e-05, 3240000:1.12e-05, 3360000:1.12e-05, 3480000:1.12e-05, 3600000:1.12e-05, 3720000:1.12e-05, 3840000:1.12e-05, 3960000:1.12e-05, 4080000:1.12e-05, 4200000:1.12e-05, 4320000:1.01e-05, 4440000:1.01e-05, 4560000:1.01e-05, 4680000:1.01e-05, 4800000:1.01e-05, 4920000:8.06e-06, 5040000:8.06e-06, 5160000:8.06e-06, 5280000:8.06e-06, 5400000:8.06e-06, 5520000:8.06e-06, 5640000:8.06e-06, 5760000:8.06e-06
-- `lr_6e-6` samples_seen:LR = 120000:6e-06, 240000:1.26e-05, 360000:1.26e-05, 480000:1.26e-05, 600000:1.13e-05, 720000:1.13e-05, 840000:1.13e-05, 960000:1.26e-05, 1080000:1.26e-05, 1200000:1.26e-05, 1320000:1.26e-05, 1440000:1.26e-05, 1560000:1.26e-05, 1680000:1.26e-05, 1800000:1.26e-05, 1920000:1.26e-05, 2040000:1.01e-05, 2160000:1.01e-05, 2280000:1.01e-05, 2400000:1.01e-05, 2520000:1.21e-05, 2640000:1.21e-05, 2760000:1.21e-05, 2880000:1.26e-05, 3000000:1.26e-05, 3120000:1.26e-05, 3240000:1.26e-05, 3360000:1.26e-05, 3480000:1.26e-05, 3600000:1.26e-05, 3720000:1.26e-05, 3840000:1.26e-05, 3960000:1.26e-05, 4080000:1.26e-05, 4200000:1.26e-05, 4320000:1.13e-05, 4440000:1.13e-05, 4560000:1.13e-05, 4680000:1.13e-05, 4800000:1.13e-05, 4920000:9.07e-06, 5040000:9.07e-06, 5160000:9.07e-06, 5280000:9.07e-06, 5400000:9.07e-06, 5520000:9.07e-06, 5640000:9.07e-06, 5760000:9.07e-06
-- `lr_9e-6` samples_seen:LR = 120000:9e-06, 240000:1.4e-05, 360000:1.4e-05, 480000:1.4e-05, 600000:1.26e-05, 720000:1.26e-05, 840000:1.26e-05, 960000:1.4e-05, 1080000:1.4e-05, 1200000:1.4e-05, 1320000:1.4e-05, 1440000:1.4e-05, 1560000:1.4e-05, 1680000:1.4e-05, 1800000:1.4e-05, 1920000:1.4e-05, 2040000:1.12e-05, 2160000:1.12e-05, 2280000:1.12e-05, 2400000:1.12e-05, 2520000:1.34e-05, 2640000:1.34e-05, 2760000:1.34e-05, 2880000:1.4e-05, 3000000:1.4e-05, 3120000:1.4e-05, 3240000:1.4e-05, 3360000:1.4e-05, 3480000:1.4e-05, 3600000:1.4e-05, 3720000:1.4e-05, 3840000:1.4e-05, 3960000:1.4e-05, 4080000:1.4e-05, 4200000:1.4e-05, 4320000:1.26e-05, 4440000:1.26e-05, 4560000:1.26e-05, 4680000:1.26e-05, 4800000:1.26e-05, 4920000:1.01e-05, 5040000:1.01e-05, 5160000:1.01e-05, 5280000:1.01e-05, 5400000:1.01e-05, 5520000:1.01e-05, 5640000:1.01e-05, 5760000:1.01e-05
+## Final Physics Performance
+- [Background efficiency curves](plots/diagnostics/background_efficiency_curves.png)
+- Checkpoint: **global best (PBT selection)** (`lr_14e-6`, generation 26), selection metric: `validation_total_reference_mistag_geomean_percent` (min)
+  - Validation: `/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet` (`val50k_tail`), 150000 samples
+- [Physics performance](plots/report/physics_performance.png)
+- [C-tag mistag CSV](plots/report/ctag_mistag_tables.csv)
+- [B-tag mistag CSV](plots/report/btag_mistag_tables.csv)
 
-## Research Figures
-- **Aggregate score evolution**: [/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/aggregate_mistag_score_evolution.png](/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/aggregate_mistag_score_evolution.png) -- 48 generation(s), 4 member(s)
-- **C-tag vs. B-tag trade-off**: [/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/ctag_vs_btag_tradeoff.png](/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/ctag_vs_btag_tradeoff.png) -- 48 generation(s), 4 member(s)
-- **Total score vs. learning rate**: [/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/total_score_vs_learning_rate.png](/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/total_score_vs_learning_rate.png) -- 12 generation(s), 4 member(s)
-- **Learning-rate population evolution**: [/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/learning_rate_population_evolution.png](/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/learning_rate_population_evolution.png) -- 48 generation(s), 4 member(s)
-- **C-tag raw working points**: [/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/ctag_working_points_evolution.png](/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/ctag_working_points_evolution.png) -- 48 generation(s), 4 member(s)
-- **B-tag raw working points**: [/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/btag_working_points_evolution.png](/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/btag_working_points_evolution.png) -- 48 generation(s), 4 member(s)
-- **PBT decision history**: [/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/pbt_decision_history.png](/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/pbt_decision_history.png) -- 48 generation(s), 4 member(s)
+## PBT Population and Selection
+- [Population and selection](plots/pbt_population_selection.png)
+- Ranking metric: `validation_total_reference_mistag_geomean_percent` (min); winner = each generation's authoritative decision winner (the member that actually drove that generation's exploit/anchor/global-best outcome), never re-derived from total_mistag_score.
+- Winner-timeline decision markers: `^` accepted_new_anchor, `o` reused_previous_anchor, `v` rewound_to_previous_anchor.
 
-**Research figure data-quality warnings** (points omitted; no value fabricated):
-- Total score vs. learning rate: 36 generation(s) omitted from the small-multiples layout (showing 12 of 48, evenly spaced)
-- Final vs. baseline ratio: baseline and/or final selected model unavailable -- ratio plot not produced
+## Mistag Score Evolution
+- [Mistag score evolution](plots/mistag_score_evolution.png)
+- **`total_mistag_score` (sqrt(ctag_score * btag_score)) is this run's PBT ranking metric** -- the thick line above is the ranking metric itself, not just a diagnostic summary.
+- Baseline point: not available for this run.
+
+## Learning-Rate Lineage
+- [Learning-rate lineage](plots/learning_rate_lineage.png)
+- Heavy edge = an applied donor->recipient checkpoint copy (events.jsonl, applied=True only); light edge = a member continuing its own branch.
+
+## Learning Rate vs. Mistag Score Correlation
+- [Learning rate vs. mistag score](plots/learning_rate_mistag_correlation.png)
+- Correlation (log10 LR vs. total_mistag_score): n=192, Pearson r=-0.287, Spearman rho=-0.155
+- Sign convention: positive means higher LR associates with a higher (worse) total_mistag_score; negative means higher LR associates with a lower (better) score. Not a causal claim.
+
+## Proxy Validation
+- [Proxy validation](plots/proxy_validation.png)
+- control vs. monitor correlation: n=0 paired observations -- too few for a meaningful correlation
+- control vs. full_holdout (independent, excludes control+monitor) correlation: n=12, Pearson r=0.170, Spearman rho=0.140
+- Best checkpoint by tier: control: `lr_9e-6` gen 31 (0.412861), full_holdout: `lr_9e-6` gen 31 (0.40053)
+- Best-checkpoint agreement across tiers: AGREE
+- Control-selected global best has not been evaluated on monitor/full yet.
+- Corroboration status: **provisional**
+  - monitor: not available (baseline or selected checkpoint not evaluated on this tier)
+  - full: not available (baseline or selected checkpoint not evaluated on this tier)
+- No proxy-overfitting cases detected (control improved while monitor did not) in the paired generations evaluated so far.
 
 ## Model Selection Scores
 - Final generation: 47
@@ -296,24 +315,6 @@
 - generation 47: `lr_14e-6` -> `lr_14e-6`, donor metric 0.424534, recipient metric 0.424534, LR 1.21e-05 -> 1.21e-05, mutation `None`, weight `anchor_copy_lr_recenter`, optimizer `anchor_copy_lr_recenter`
 - [Skipped exploits (significance gating)](plots/report/skipped_exploits.csv) -- 0 donor->recipient replacement(s) declined for insufficient significance
 
-## Proxy Validation Diagnostics
-- [Proxy validation diagnostics](plots/proxy_diagnostics.png)
-- control vs. monitor correlation: n=0 paired observations -- too few for a meaningful correlation
-- control vs. full_holdout (independent, excludes control+monitor) correlation: n=12, Pearson r=0.170, Spearman rho=0.140
-- Best checkpoint by tier: control: `lr_9e-6` gen 31 (0.412861), full_holdout: `lr_9e-6` gen 31 (0.40053)
-- Best-checkpoint agreement across tiers: AGREE
-- Control-selected global best has not been evaluated on monitor/full yet.
-- Corroboration status: **provisional**
-  - monitor: not available (baseline or selected checkpoint not evaluated on this tier)
-  - full: not available (baseline or selected checkpoint not evaluated on this tier)
-- No proxy-overfitting cases detected (control improved while monitor did not) in the paired generations evaluated so far.
-
-## Physics Performance
-- [Physics performance](plots/report/physics_performance.png)
-- [Background efficiency curves](plots/diagnostics/background_efficiency_curves.png)
-- [B-tag mistag CSV](plots/report/btag_mistag_tables.csv)
-- [C-tag mistag CSV](plots/report/ctag_mistag_tables.csv)
-
 ## Method
 - Method: `anchor_copy_lr_recenter`
 - Population: 4 trials
@@ -340,5 +341,5 @@
 ## Caveats
 - Proxy, smoke, and full validation results are reported as distinct evaluation types and should not be mixed in one scorecard.
 - Configured reference values are not treated as measured baselines unless a successful runtime initial evaluation exists.
-- Control-tier evidence alone is 'provisional' -- see Proxy Validation Diagnostics above. It is never a substitute for monitor/full corroboration.
+- Control-tier evidence alone is 'provisional' -- see Proxy Validation above. It is never a substitute for monitor/full corroboration.
 - No data-loader shutdown-race warnings observed across 216 evaluation(s).

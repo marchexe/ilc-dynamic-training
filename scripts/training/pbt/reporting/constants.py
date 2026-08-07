@@ -20,14 +20,15 @@ REPORT_NAME = "report.md"
 # report.md (background_efficiency_curves.png lives separately, under
 # plots/diagnostics/, alongside physics_performance.png -- see
 # write_existing_physics_reports in plots.py): population/winner overview,
-# LR lineage, physics-score evolution, and the conditional proxy-validation
-# check. Deliberately not combined into one contact-sheet/dashboard image --
-# each answers one specific question on its own (see each plot function's
-# docstring).
+# LR lineage, physics-score evolution, the LR-vs-mistag-score population
+# correlation, and the conditional proxy-validation check. Deliberately not
+# combined into one contact-sheet/dashboard image -- each answers one
+# specific question on its own (see each plot function's docstring).
 REPORT_PLOT_NAMES = {
     "pbt_population_selection": "pbt_population_selection",
     "mistag_score_evolution": "mistag_score_evolution",
     "learning_rate_lineage": "learning_rate_lineage",
+    "learning_rate_mistag_correlation": "learning_rate_mistag_correlation",
     "proxy_validation": "proxy_validation",
 }
 

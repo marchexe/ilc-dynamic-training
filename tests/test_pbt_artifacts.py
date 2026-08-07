@@ -300,6 +300,7 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertIn("pbt_population_selection", summary["plots"])
             self.assertIn("mistag_score_evolution", summary["plots"])
             self.assertIn("learning_rate_lineage", summary["plots"])
+            self.assertIn("learning_rate_mistag_correlation", summary["plots"])
             self.assertNotIn("training_evolution", summary["plots"])
             self.assertNotIn("baseline_comparison", summary["plots"])
             self.assertNotIn("working_point_evolution", summary["plots"])
@@ -311,7 +312,7 @@ class PBTArtifactsTest(unittest.TestCase):
             # richer {png, warnings, generations, members, metric_keys}
             # result dict, not just a path string.
             plots_artifacts = manifest["canonical_artifacts"]["plots"]
-            for key in ("pbt_population_selection", "mistag_score_evolution", "learning_rate_lineage"):
+            for key in ("pbt_population_selection", "mistag_score_evolution", "learning_rate_lineage", "learning_rate_mistag_correlation"):
                 self.assertIn(key, plots_artifacts)
                 self.assertTrue(Path(plots_artifacts[key]["png"]).is_file())
             self.assertNotIn("research_plots", manifest["canonical_artifacts"])
@@ -335,7 +336,8 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertLess(report.index("## Final Physics Performance"), report.index("## PBT Population and Selection"))
             self.assertLess(report.index("## PBT Population and Selection"), report.index("## Mistag Score Evolution"))
             self.assertLess(report.index("## Mistag Score Evolution"), report.index("## Learning-Rate Lineage"))
-            self.assertLess(report.index("## Learning-Rate Lineage"), report.index("## Proxy Validation"))
+            self.assertLess(report.index("## Learning-Rate Lineage"), report.index("## Learning Rate vs. Mistag Score Correlation"))
+            self.assertLess(report.index("## Learning Rate vs. Mistag Score Correlation"), report.index("## Proxy Validation"))
             self.assertLess(report.index("## Proxy Validation"), report.index("## Model Selection Scores"))
             self.assertIn("anchored_lr_sweep", report)
             self.assertIn("Controller objective: mean predefined fixed-WP mistag percent", report)

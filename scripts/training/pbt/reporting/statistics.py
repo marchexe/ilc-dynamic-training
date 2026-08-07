@@ -1,10 +1,69 @@
 #!/usr/bin/env python3
-"""Cross-tier (control/monitor/full) correlation, ranking-agreement, and
-proxy-overfitting diagnostics."""
+"""Cross-tier (control/monitor/full) correlation, ranking-agreement,
+proxy-overfitting diagnostics, and the LR-vs-mistag-score population
+correlation."""
 
 import math
+import warnings
 
+from training.pbt.reporting.constants import TOTAL_SCORE_COLUMN
 from training.pbt.reporting.metrics_rows import _better
+
+def _pearson_spearman(xs, ys):
+    """(n, pearson_r, pearson_p, spearman_rho, spearman_p, reason) shared by
+    every paired-observation correlation in this module -- None (with a
+    reason) rather than a number when there are too few points, scipy isn't
+    installed, or one side is constant (scipy returns nan without raising
+    in that case -- e.g. a fixture/short run where every observation has
+    the identical value; caught here so a NaN never leaks into a report as
+    a fabricated-looking coefficient)."""
+    n = len(xs)
+    if n < 3:
+        return {"n": n, "pearson_r": None, "spearman_rho": None, "reason": "insufficient_paired_observations"}
+    try:
+        from scipy import stats
+    except ImportError:
+        return {"n": n, "pearson_r": None, "spearman_rho": None, "reason": "scipy_unavailable"}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        pearson_r, pearson_p = stats.pearsonr(xs, ys)
+        spearman_rho, spearman_p = stats.spearmanr(xs, ys)
+    if math.isnan(pearson_r) or math.isnan(spearman_rho):
+        return {"n": n, "pearson_r": None, "spearman_rho": None, "reason": "zero_variance"}
+    return {
+        "n": n,
+        "pearson_r": float(pearson_r),
+        "pearson_p": float(pearson_p),
+        "spearman_rho": float(spearman_rho),
+        "spearman_p": float(spearman_p),
+        "reason": None,
+    }
+
+
+def lr_mistag_correlation(member_rows, metric_column=TOTAL_SCORE_COLUMN):
+    """Pearson r (on log10(LR) -- LR is configured/explored on a log scale
+    and spans multiple decades, so any real effect is expected to be
+    multiplicative, not additive) and Spearman rho (rank-based, invariant to
+    that transform either way) between LR and `metric_column` across every
+    (member, generation) observation with both values present -- one
+    population-wide point per row, not one per generation or per winner
+    only, so the correlation reflects the whole explored LR range rather
+    than just the handful of winning points.
+    """
+    pairs = [
+        (math.log10(float(row["LR"])), float(row[metric_column]))
+        for row in member_rows
+        if row.get("LR") is not None
+        and float(row["LR"]) > 0
+        and row.get(metric_column) is not None
+        and math.isfinite(float(row[metric_column]))
+    ]
+    if not pairs:
+        return {"n": 0, "pearson_r": None, "spearman_rho": None, "reason": "insufficient_paired_observations"}
+    log_lrs = [pair[0] for pair in pairs]
+    values = [pair[1] for pair in pairs]
+    return _pearson_spearman(log_lrs, values)
+
 
 def _paired_tier_values(manifest, tier_a, tier_b):
     """(x, y, member, generation) tuples for every (member, generation) that
@@ -37,25 +96,9 @@ def tier_correlation(manifest, tier_a, tier_b):
     correlation to mean anything -- never fabricate significance from n<3.
     """
     pairs = _paired_tier_values(manifest, tier_a, tier_b)
-    n = len(pairs)
-    if n < 3:
-        return {"n": n, "pearson_r": None, "spearman_rho": None, "reason": "insufficient_paired_observations"}
-    try:
-        from scipy import stats
-    except ImportError:
-        return {"n": n, "pearson_r": None, "spearman_rho": None, "reason": "scipy_unavailable"}
     xs = [pair[0] for pair in pairs]
     ys = [pair[1] for pair in pairs]
-    pearson_r, pearson_p = stats.pearsonr(xs, ys)
-    spearman_rho, spearman_p = stats.spearmanr(xs, ys)
-    return {
-        "n": n,
-        "pearson_r": float(pearson_r),
-        "pearson_p": float(pearson_p),
-        "spearman_rho": float(spearman_rho),
-        "spearman_p": float(spearman_p),
-        "reason": None,
-    }
+    return _pearson_spearman(xs, ys)
 
 
 def _paired_round_rankings(manifest, tier_a, tier_b):

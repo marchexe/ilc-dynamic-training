@@ -21,7 +21,7 @@
     "state_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/checkpoints/anchor_state.pt",
     "updated_at": "2026-08-06T18:06:16.146876+00:00"
   },
-  "background_efficiency_curves_plot": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/diagnostics/background_efficiency_curves.png",
+  "background_efficiency_curves_plot": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/diagnostics/background_efficiency_curves.png",
   "baseline_evaluation": {
     "configured_metric_value": null,
     "configured_source": null,
@@ -400,120 +400,1465 @@
     "state_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/checkpoints/global_best_state.pt",
     "updated_at": "2026-08-06T17:42:17.794365+00:00"
   },
-  "btag_mistag_table_csv": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/btag_mistag_tables.csv",
+  "btag_mistag_table_csv": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/btag_mistag_tables.csv",
   "canonical_artifacts": {
-    "events": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/events.jsonl",
-    "metrics": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/metrics.csv",
+    "events": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/events.jsonl",
+    "metrics": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/metrics.csv",
     "plots": {
-      "background_efficiency_curves": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/diagnostics/background_efficiency_curves.png",
-      "btag_mistag_table_csv": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/btag_mistag_tables.csv",
-      "ctag_mistag_table_csv": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/ctag_mistag_tables.csv",
-      "exploit_table_csv": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/exploit_table.csv",
-      "physics_performance": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/physics_performance.png",
-      "proxy_diagnostics": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/proxy_diagnostics.png",
-      "skipped_exploit_table_csv": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/skipped_exploits.csv",
-      "training_evolution": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/training_evolution.png"
-    },
-    "report": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/report.md",
-    "research_plots": {
-      "aggregate_scores": {
+      "background_efficiency_curves": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/diagnostics/background_efficiency_curves.png",
+      "btag_mistag_table_csv": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/btag_mistag_tables.csv",
+      "checkpoint_selection_metadata": {
+        "agrees_with_best_physics": true,
+        "best_physics_generation": 26,
+        "best_physics_member": "lr_14e-6",
+        "fallback_reason": null,
+        "generation": 26,
+        "member": "lr_14e-6",
+        "role": "global_best",
+        "role_label": "global best (PBT selection)",
+        "selection_metric_mode": "min",
+        "selection_metric_name": "validation_total_reference_mistag_geomean_percent",
+        "validation_dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+        "validation_sample_count": 150000,
+        "validation_suffix": "val50k_tail"
+      },
+      "ctag_mistag_table_csv": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/ctag_mistag_tables.csv",
+      "exploit_table_csv": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/exploit_table.csv",
+      "learning_rate_lineage": {
+        "edges": [
+          [
+            "lr_14e-6",
+            0,
+            "lr_14e-6",
+            1,
+            "self"
+          ],
+          [
+            "lr_9e-6",
+            1,
+            "lr_14e-6",
+            2,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            2,
+            "lr_14e-6",
+            3,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            3,
+            "lr_14e-6",
+            4,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            4,
+            "lr_14e-6",
+            5,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            5,
+            "lr_14e-6",
+            6,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            6,
+            "lr_14e-6",
+            7,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            7,
+            "lr_14e-6",
+            8,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            8,
+            "lr_14e-6",
+            9,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            9,
+            "lr_14e-6",
+            10,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            10,
+            "lr_14e-6",
+            11,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            11,
+            "lr_14e-6",
+            12,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            12,
+            "lr_14e-6",
+            13,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            13,
+            "lr_14e-6",
+            14,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            14,
+            "lr_14e-6",
+            15,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            15,
+            "lr_14e-6",
+            16,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            16,
+            "lr_14e-6",
+            17,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            17,
+            "lr_14e-6",
+            18,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            18,
+            "lr_14e-6",
+            19,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            19,
+            "lr_14e-6",
+            20,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            20,
+            "lr_14e-6",
+            21,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            21,
+            "lr_14e-6",
+            22,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            22,
+            "lr_14e-6",
+            23,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            23,
+            "lr_14e-6",
+            24,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            24,
+            "lr_14e-6",
+            25,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            25,
+            "lr_14e-6",
+            26,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            26,
+            "lr_14e-6",
+            27,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            27,
+            "lr_14e-6",
+            28,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            28,
+            "lr_14e-6",
+            29,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            29,
+            "lr_14e-6",
+            30,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            30,
+            "lr_14e-6",
+            31,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            31,
+            "lr_14e-6",
+            32,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            32,
+            "lr_14e-6",
+            33,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            33,
+            "lr_14e-6",
+            34,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            34,
+            "lr_14e-6",
+            35,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            35,
+            "lr_14e-6",
+            36,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            36,
+            "lr_14e-6",
+            37,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            37,
+            "lr_14e-6",
+            38,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            38,
+            "lr_14e-6",
+            39,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            39,
+            "lr_14e-6",
+            40,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            40,
+            "lr_14e-6",
+            41,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            41,
+            "lr_14e-6",
+            42,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            42,
+            "lr_14e-6",
+            43,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            43,
+            "lr_14e-6",
+            44,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            44,
+            "lr_14e-6",
+            45,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            45,
+            "lr_14e-6",
+            46,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            46,
+            "lr_14e-6",
+            47,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            0,
+            "lr_3e-6",
+            1,
+            "copy"
+          ],
+          [
+            "lr_9e-6",
+            1,
+            "lr_3e-6",
+            2,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            2,
+            "lr_3e-6",
+            3,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            3,
+            "lr_3e-6",
+            4,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            4,
+            "lr_3e-6",
+            5,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            5,
+            "lr_3e-6",
+            6,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            6,
+            "lr_3e-6",
+            7,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            7,
+            "lr_3e-6",
+            8,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            8,
+            "lr_3e-6",
+            9,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            9,
+            "lr_3e-6",
+            10,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            10,
+            "lr_3e-6",
+            11,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            11,
+            "lr_3e-6",
+            12,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            12,
+            "lr_3e-6",
+            13,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            13,
+            "lr_3e-6",
+            14,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            14,
+            "lr_3e-6",
+            15,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            15,
+            "lr_3e-6",
+            16,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            16,
+            "lr_3e-6",
+            17,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            17,
+            "lr_3e-6",
+            18,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            18,
+            "lr_3e-6",
+            19,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            19,
+            "lr_3e-6",
+            20,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            20,
+            "lr_3e-6",
+            21,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            21,
+            "lr_3e-6",
+            22,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            22,
+            "lr_3e-6",
+            23,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            23,
+            "lr_3e-6",
+            24,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            24,
+            "lr_3e-6",
+            25,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            25,
+            "lr_3e-6",
+            26,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            26,
+            "lr_3e-6",
+            27,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            27,
+            "lr_3e-6",
+            28,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            28,
+            "lr_3e-6",
+            29,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            29,
+            "lr_3e-6",
+            30,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            30,
+            "lr_3e-6",
+            31,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            31,
+            "lr_3e-6",
+            32,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            32,
+            "lr_3e-6",
+            33,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            33,
+            "lr_3e-6",
+            34,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            34,
+            "lr_3e-6",
+            35,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            35,
+            "lr_3e-6",
+            36,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            36,
+            "lr_3e-6",
+            37,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            37,
+            "lr_3e-6",
+            38,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            38,
+            "lr_3e-6",
+            39,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            39,
+            "lr_3e-6",
+            40,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            40,
+            "lr_3e-6",
+            41,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            41,
+            "lr_3e-6",
+            42,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            42,
+            "lr_3e-6",
+            43,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            43,
+            "lr_3e-6",
+            44,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            44,
+            "lr_3e-6",
+            45,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            45,
+            "lr_3e-6",
+            46,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            46,
+            "lr_3e-6",
+            47,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            0,
+            "lr_6e-6",
+            1,
+            "copy"
+          ],
+          [
+            "lr_9e-6",
+            1,
+            "lr_6e-6",
+            2,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            2,
+            "lr_6e-6",
+            3,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            3,
+            "lr_6e-6",
+            4,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            4,
+            "lr_6e-6",
+            5,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            5,
+            "lr_6e-6",
+            6,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            6,
+            "lr_6e-6",
+            7,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            7,
+            "lr_6e-6",
+            8,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            8,
+            "lr_6e-6",
+            9,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            9,
+            "lr_6e-6",
+            10,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            10,
+            "lr_6e-6",
+            11,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            11,
+            "lr_6e-6",
+            12,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            12,
+            "lr_6e-6",
+            13,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            13,
+            "lr_6e-6",
+            14,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            14,
+            "lr_6e-6",
+            15,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            15,
+            "lr_6e-6",
+            16,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            16,
+            "lr_6e-6",
+            17,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            17,
+            "lr_6e-6",
+            18,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            18,
+            "lr_6e-6",
+            19,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            19,
+            "lr_6e-6",
+            20,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            20,
+            "lr_6e-6",
+            21,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            21,
+            "lr_6e-6",
+            22,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            22,
+            "lr_6e-6",
+            23,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            23,
+            "lr_6e-6",
+            24,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            24,
+            "lr_6e-6",
+            25,
+            "self"
+          ],
+          [
+            "lr_6e-6",
+            25,
+            "lr_6e-6",
+            26,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            26,
+            "lr_6e-6",
+            27,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            27,
+            "lr_6e-6",
+            28,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            28,
+            "lr_6e-6",
+            29,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            29,
+            "lr_6e-6",
+            30,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            30,
+            "lr_6e-6",
+            31,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            31,
+            "lr_6e-6",
+            32,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            32,
+            "lr_6e-6",
+            33,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            33,
+            "lr_6e-6",
+            34,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            34,
+            "lr_6e-6",
+            35,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            35,
+            "lr_6e-6",
+            36,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            36,
+            "lr_6e-6",
+            37,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            37,
+            "lr_6e-6",
+            38,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            38,
+            "lr_6e-6",
+            39,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            39,
+            "lr_6e-6",
+            40,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            40,
+            "lr_6e-6",
+            41,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            41,
+            "lr_6e-6",
+            42,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            42,
+            "lr_6e-6",
+            43,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            43,
+            "lr_6e-6",
+            44,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            44,
+            "lr_6e-6",
+            45,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            45,
+            "lr_6e-6",
+            46,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            46,
+            "lr_6e-6",
+            47,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            0,
+            "lr_9e-6",
+            1,
+            "copy"
+          ],
+          [
+            "lr_9e-6",
+            1,
+            "lr_9e-6",
+            2,
+            "self"
+          ],
+          [
+            "lr_14e-6",
+            2,
+            "lr_9e-6",
+            3,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            3,
+            "lr_9e-6",
+            4,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            4,
+            "lr_9e-6",
+            5,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            5,
+            "lr_9e-6",
+            6,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            6,
+            "lr_9e-6",
+            7,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            7,
+            "lr_9e-6",
+            8,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            8,
+            "lr_9e-6",
+            9,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            9,
+            "lr_9e-6",
+            10,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            10,
+            "lr_9e-6",
+            11,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            11,
+            "lr_9e-6",
+            12,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            12,
+            "lr_9e-6",
+            13,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            13,
+            "lr_9e-6",
+            14,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            14,
+            "lr_9e-6",
+            15,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            15,
+            "lr_9e-6",
+            16,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            16,
+            "lr_9e-6",
+            17,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            17,
+            "lr_9e-6",
+            18,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            18,
+            "lr_9e-6",
+            19,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            19,
+            "lr_9e-6",
+            20,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            20,
+            "lr_9e-6",
+            21,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            21,
+            "lr_9e-6",
+            22,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            22,
+            "lr_9e-6",
+            23,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            23,
+            "lr_9e-6",
+            24,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            24,
+            "lr_9e-6",
+            25,
+            "copy"
+          ],
+          [
+            "lr_6e-6",
+            25,
+            "lr_9e-6",
+            26,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            26,
+            "lr_9e-6",
+            27,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            27,
+            "lr_9e-6",
+            28,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            28,
+            "lr_9e-6",
+            29,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            29,
+            "lr_9e-6",
+            30,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            30,
+            "lr_9e-6",
+            31,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            31,
+            "lr_9e-6",
+            32,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            32,
+            "lr_9e-6",
+            33,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            33,
+            "lr_9e-6",
+            34,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            34,
+            "lr_9e-6",
+            35,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            35,
+            "lr_9e-6",
+            36,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            36,
+            "lr_9e-6",
+            37,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            37,
+            "lr_9e-6",
+            38,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            38,
+            "lr_9e-6",
+            39,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            39,
+            "lr_9e-6",
+            40,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            40,
+            "lr_9e-6",
+            41,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            41,
+            "lr_9e-6",
+            42,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            42,
+            "lr_9e-6",
+            43,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            43,
+            "lr_9e-6",
+            44,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            44,
+            "lr_9e-6",
+            45,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            45,
+            "lr_9e-6",
+            46,
+            "copy"
+          ],
+          [
+            "lr_14e-6",
+            46,
+            "lr_9e-6",
+            47,
+            "copy"
+          ]
+        ],
         "generations": 48,
+        "members": 4,
+        "metric_keys": [
+          "LR"
+        ],
+        "png": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/learning_rate_lineage.png",
+        "warnings": []
+      },
+      "learning_rate_mistag_correlation": {
+        "correlation": {
+          "n": 192,
+          "pearson_p": 5.494226946621756e-05,
+          "pearson_r": -0.2868286306189237,
+          "reason": null,
+          "spearman_p": 0.03219413595317066,
+          "spearman_rho": -0.15466351213929588
+        },
+        "generations": 48,
+        "members": 4,
+        "metric_keys": [
+          "LR",
+          "total_mistag_score"
+        ],
+        "png": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/learning_rate_mistag_correlation.png",
+        "warnings": []
+      },
+      "mistag_score_evolution": {
+        "generations": 48,
+        "has_baseline_point": false,
         "members": 4,
         "metric_keys": [
           "ctag_score",
           "btag_score",
           "total_mistag_score"
         ],
-        "png": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/aggregate_mistag_score_evolution.png",
+        "png": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/mistag_score_evolution.png",
+        "ranking_metric_is_total_score": true,
         "warnings": []
       },
-      "baseline_ratio": {
-        "generations": 0,
-        "members": 0,
-        "metric_keys": [],
-        "png": null,
-        "warnings": [
-          "baseline and/or final selected model unavailable -- ratio plot not produced"
-        ]
-      },
-      "btag_working_points": {
+      "pbt_population_selection": {
         "generations": 48,
         "members": 4,
         "metric_keys": [
-          "btag_c_mistag_percent_at_0p80",
-          "btag_d_mistag_percent_at_0p80",
-          "btag_c_mistag_percent_at_0p90",
-          "btag_d_mistag_percent_at_0p90"
+          "optimization_metric_value"
         ],
-        "png": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/btag_working_points_evolution.png",
+        "png": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/pbt_population_selection.png",
         "warnings": []
       },
-      "ctag_working_points": {
-        "generations": 48,
+      "physics_performance": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/physics_performance.png",
+      "proxy_validation": {
+        "generations": 3,
+        "independent": true,
         "members": 4,
         "metric_keys": [
-          "ctag_b_mistag_percent_at_0p50",
-          "ctag_d_mistag_percent_at_0p50",
-          "ctag_b_mistag_percent_at_0p80",
-          "ctag_d_mistag_percent_at_0p80"
+          "validation_total_reference_mistag_geomean_percent"
         ],
-        "png": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/ctag_working_points_evolution.png",
-        "warnings": []
+        "png": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/proxy_validation.png",
+        "tier_b": "full_holdout",
+        "warnings": [],
+        "winner_series": {
+          "control": [
+            [
+              15,
+              0.41886163746068694
+            ],
+            [
+              31,
+              0.4128612652031758
+            ],
+            [
+              47,
+              0.4225270834351794
+            ]
+          ],
+          "full_holdout": [
+            [
+              15,
+              0.40526503010082604
+            ],
+            [
+              31,
+              0.40052968044825993
+            ],
+            [
+              47,
+              0.40162852445537645
+            ]
+          ]
+        }
       },
-      "decision_history": {
-        "generations": 48,
-        "members": 4,
-        "metric_keys": [
-          "total_mistag_score",
-          "previous_lr_center",
-          "new_lr_center"
-        ],
-        "png": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/pbt_decision_history.png",
-        "warnings": []
-      },
-      "lr_population": {
-        "generations": 48,
-        "members": 4,
-        "metric_keys": [
-          "assigned_lrs",
-          "new_lr_center",
-          "min_lr",
-          "max_lr"
-        ],
-        "png": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/learning_rate_population_evolution.png",
-        "warnings": []
-      },
-      "score_vs_lr": {
-        "generations": 12,
-        "members": 4,
-        "metric_keys": [
-          "total_mistag_score",
-          "LR"
-        ],
-        "png": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/total_score_vs_learning_rate.png",
-        "warnings": [
-          "36 generation(s) omitted from the small-multiples layout (showing 12 of 48, evenly spaced)"
-        ]
-      },
-      "tag_tradeoff": {
-        "generations": 48,
-        "members": 4,
-        "metric_keys": [
-          "ctag_score",
-          "btag_score"
-        ],
-        "png": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/ctag_vs_btag_tradeoff.png",
-        "warnings": []
-      }
+      "skipped_exploit_table_csv": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/skipped_exploits.csv"
     },
-    "resolved_config": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/resolved_config.yaml",
-    "summary": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/summary.json",
-    "tiered_metrics": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/tiered_metrics.csv"
+    "report": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/report.md",
+    "resolved_config": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/resolved_config.yaml",
+    "summary": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/summary.json",
+    "tiered_metrics": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/tiered_metrics.csv"
   },
   "checkpoint": {
     "path": "/data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt",
     "resolved_path": "/data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt",
     "sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501"
+  },
+  "checkpoint_selection_for_report": {
+    "agrees_with_best_physics": true,
+    "best_physics_generation": 26,
+    "best_physics_member": "lr_14e-6",
+    "fallback_reason": null,
+    "generation": 26,
+    "member": "lr_14e-6",
+    "role": "global_best",
+    "role_label": "global best (PBT selection)",
+    "selection_metric_mode": "min",
+    "selection_metric_name": "validation_total_reference_mistag_geomean_percent",
+    "validation_dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "validation_sample_count": 150000,
+    "validation_suffix": "val50k_tail"
   },
   "command": [
     "/data/suehara/part/march/.venv/bin/python",
@@ -681,7 +2026,7 @@
     ],
     "smoke": false
   },
-  "ctag_mistag_table_csv": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/ctag_mistag_tables.csv",
+  "ctag_mistag_table_csv": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/ctag_mistag_tables.csv",
   "datasets": {
     "data_extension": "parquet",
     "proxy_validation": {
@@ -80243,7 +81588,7 @@
     "resolved_path": "/data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt",
     "sha256": "a1909dd493b3ed07bea41d044fa6cb6862180709a33ad4cd691a094754519f09"
   },
-  "physics_performance_plot": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/physics_performance.png",
+  "physics_performance_plot": "runs/showcase/anchor_copy_lr_recenter_8h_20260807_015714/plots/report/physics_performance.png",
   "run": {
     "backend": "local_weaver",
     "baseline_evaluation": {
@@ -89067,5 +90412,5 @@
       "tier": "full_holdout"
     }
   ],
-  "updated_at": "2026-08-06T18:22:51.612832+00:00"
+  "updated_at": "2026-08-07T05:19:52.490938+00:00"
 }
