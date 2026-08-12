@@ -70,7 +70,7 @@ def base_manifest():
             "method_name": "exploit_mutate",
             "datasets": {},
             "schedule": {
-                "training_interval": {"epochs_per_generation": 1, "samples_per_epoch": 100, "samples_per_trial_chunk": 100},
+                "training_interval": {"weaver_epochs_per_generation": 1, "samples_per_epoch": 100, "samples_per_trial_chunk": 100},
                 "evaluation_interval": {"training_chunks": 1},
                 "exploit_interval": {"enabled": True, "training_chunks": 1},
             },
@@ -81,7 +81,7 @@ def base_manifest():
         "config": {
             "shared": {
                 "samples_per_epoch": 100,
-                "epochs_per_generation": 1,
+                "weaver_epochs_per_generation": 1,
                 "samples_per_epoch_val": 3000,
                 "validation_dataset": "control_ds",
                 "validation_suffix": "val5k_tail",

@@ -12,7 +12,7 @@ shared:
   training_controller: configs/controllers/linucb_lr_pp_observe.yaml
   seed: 12345
   generations: 64
-  epochs_per_generation: 2
+  weaver_epochs_per_generation: 2
   samples_per_epoch: 2400000
   samples_per_epoch_val: 150000
   batch_size: 1024

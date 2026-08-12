@@ -216,8 +216,8 @@ def controller_objective_mistag(metrics):
 def training_chunk_samples(manifest):
     shared = manifest.get("config", {}).get("shared", {})
     samples_per_epoch = int(shared.get("samples_per_epoch", 0) or 0)
-    epochs_per_generation = int(shared.get("epochs_per_generation", 1) or 1)
-    return samples_per_epoch * epochs_per_generation
+    weaver_epochs_per_generation = int(shared.get("weaver_epochs_per_generation", 1) or 1)
+    return samples_per_epoch * weaver_epochs_per_generation
 
 
 def training_dataset_size(manifest):

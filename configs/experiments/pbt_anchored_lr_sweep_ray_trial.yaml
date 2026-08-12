@@ -13,7 +13,7 @@ shared:
   training_controller: null
   seed: 12345
   generations: 24
-  epochs_per_generation: 1
+  weaver_epochs_per_generation: 1
   samples_per_epoch: 2400000
   samples_per_epoch_val: 150000
   batch_size: 1024

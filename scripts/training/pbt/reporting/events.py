@@ -44,7 +44,7 @@ def record_train_start(run_dir, config, generation_record, trial, worker):
             "epoch": generation_record.get("epoch"),
             "lr": worker.get("lr"),
             "samples_per_epoch": config["shared"].get("samples_per_epoch"),
-            "epochs_per_generation": config["shared"].get("epochs_per_generation"),
+            "weaver_epochs_per_generation": config["shared"].get("weaver_epochs_per_generation"),
             "slot": worker.get("slot"),
             "command": worker.get("command"),
             "log": worker.get("log"),

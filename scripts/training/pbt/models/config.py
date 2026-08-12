@@ -253,7 +253,7 @@ class SharedSection(WeaverSharedSection):
     network_config: str
     seed: int
     generations: int = Field(gt=0)
-    epochs_per_generation: int = Field(gt=0)
+    weaver_epochs_per_generation: int = Field(gt=0)
     samples_per_epoch: int = Field(gt=0)
     samples_per_epoch_val: int = Field(gt=0)
     batch_size: int = Field(gt=0)

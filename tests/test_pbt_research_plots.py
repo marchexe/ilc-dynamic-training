@@ -107,7 +107,7 @@ def _confidence_aware_manifest():
     despite m_b's numerically better raw value this generation)."""
     return {
         "config": {
-            "shared": {"samples_per_epoch": 100, "epochs_per_generation": 1},
+            "shared": {"samples_per_epoch": 100, "weaver_epochs_per_generation": 1},
             "pbt": {"metric": "validation_working_point_mistag_percent", "mode": "min"},
         },
         "initial_evaluation": {"status": "skipped", "metrics": {}},
@@ -152,7 +152,7 @@ def _old_max_mode_manifest():
 
     return {
         "config": {
-            "shared": {"samples_per_epoch": 100, "epochs_per_generation": 1},
+            "shared": {"samples_per_epoch": 100, "weaver_epochs_per_generation": 1},
             "pbt": {"metric": "validation_bkg_rejection_score", "mode": "max"},
         },
         "initial_evaluation": {"status": "skipped", "metrics": {}},

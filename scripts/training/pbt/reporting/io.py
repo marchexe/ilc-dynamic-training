@@ -74,29 +74,29 @@ def resolved_input_data_files(config):
 def configured_intervals(config):
     shared = config["shared"]
     pbt = config["pbt"]
-    epochs_per_generation = int(shared["epochs_per_generation"])
+    weaver_epochs_per_generation = int(shared["weaver_epochs_per_generation"])
     samples_per_epoch = int(shared["samples_per_epoch"])
-    chunk_samples = epochs_per_generation * samples_per_epoch
+    chunk_samples = weaver_epochs_per_generation * samples_per_epoch
     strategy = pbt.get("strategy", "exploit_mutate")
     evaluation_chunks = int(pbt.get("evaluation_interval_generations") or pbt.get("evaluation_interval") or 1)
     configured_exploit_chunks = pbt.get("exploit_interval_generations") or pbt.get("exploit_interval")
     exploit_chunks = None if strategy == "fixed_lr_grid" else int(configured_exploit_chunks or evaluation_chunks)
     return {
         "training_interval": {
-            "epochs_per_generation": epochs_per_generation,
+            "weaver_epochs_per_generation": weaver_epochs_per_generation,
             "samples_per_epoch": samples_per_epoch,
             "samples_per_trial_chunk": chunk_samples,
         },
         "evaluation_interval": {
             "training_chunks": evaluation_chunks,
-            "epochs": epochs_per_generation * evaluation_chunks,
+            "epochs": weaver_epochs_per_generation * evaluation_chunks,
             "samples_per_trial": chunk_samples * evaluation_chunks,
             "samples_per_epoch_val": int(shared["samples_per_epoch_val"]),
         },
         "exploit_interval": {
             "enabled": strategy != "fixed_lr_grid",
             "training_chunks": exploit_chunks,
-            "epochs": None if exploit_chunks is None else epochs_per_generation * exploit_chunks,
+            "epochs": None if exploit_chunks is None else weaver_epochs_per_generation * exploit_chunks,
             "samples_per_trial": None if exploit_chunks is None else chunk_samples * exploit_chunks,
             "exploit_fraction": pbt.get("exploit_fraction"),
         },

@@ -37,7 +37,14 @@ from training.pbt.reporting.research_plots import (
     shared_lr_center_series,
     validate_metric_rows,
 )
-from training.pbt.reporting.statistics import _paired_tier_values, lr_mistag_correlation, ranking_agreement, tier_correlation
+from training.pbt.reporting.statistics import (
+    _paired_tier_values,
+    generation_score_band,
+    lr_mistag_correlation,
+    ols_trend_line,
+    ranking_agreement,
+    tier_correlation,
+)
 from training.pbt.reporting.style import compact_trial, member_color, member_order, plot_setup
 
 # Redefined independently rather than imported -- see planning/
@@ -441,84 +448,146 @@ def plot_learning_rate_lineage(run_dir, manifest, member_rows, decision_rows, ce
 
 
 def plot_learning_rate_mistag_correlation(run_dir, manifest, member_rows):
-    """Research question: does the LR a member trained at correlate with how
-    good its mistag score turned out to be, across the whole explored
-    population -- not just the generation winners? One scatter, every
-    (member, generation) observation with a finite LR and
-    total_mistag_score, colored by generation on a sequential colormap
-    (generation is an ordered magnitude here, not a categorical identity
-    like member -- so it does not reuse the member-identity CB_PALETTE).
-    Winner points (row["is_winner"], the same authoritative flag every
-    other report figure uses) get a black ring overlay so they stay
-    identifiable without hiding their generation color. Pearson r (on
-    log10(LR) -- LR is explored on a log scale, so any real relationship is
-    expected to be multiplicative, not additive) and Spearman rho
-    (rank-based, invariant to that transform) are read directly from
-    statistics.py::lr_mistag_correlation, never recomputed here.
+    """Research question: how does the adaptive LR (this strategy's own
+    moving LR center, not a fixed hyperparameter) affect mistag score?
+    Left column -- two panels stacked on a *shared* generation x-axis, so a
+    reader can visually align an LR move with a score move at the same
+    generation, rather than only through a pooled statistic:
+    top -- the adaptive LR itself: generation winner's LR (black,
+    star-marked, matching the winner marker everywhere else in this
+    report) plus the strategy's shared LR center (shared_lr_center_series
+    -- blue diamond, same "active anchor" role/label as
+    learning_rate_lineage.png), log-scaled since LR spans decades.
+    bottom -- total_mistag_score: population median line + IQR band
+    (generation_score_band, every member, not just winners -- 25th/75th
+    percentile rather than min/max, since a population this small makes
+    min/max mostly noise from whichever single member happened to be
+    best/worst) for context, the generation winner overlaid (black line +
+    star marker).
+    Right column -- the rigorous complement to the left column's by-eye
+    view: within-generation LR analysis only, isolated from ordinary
+    training progress. log10(LR) on x, each observation's *detrended*
+    residual on y (statistics.py::lr_mistag_correlation's own `pairs`:
+    value minus its own generation's median, population-wide), plus an
+    OLS trend line -- the exact quantity the n/Pearson r/Spearman rho
+    reported in report.md (not on this image; markdown_report.py computes
+    it independently for the text) is computed from.
     """
-    valid_rows, warnings = validate_metric_rows(member_rows, ["LR", TOTAL_SCORE_COLUMN])
-    valid_rows = [row for row in valid_rows if row["LR"] > 0]
-    if not valid_rows:
+    winner_rows = []
+    for row in member_rows:
+        if not row.get("is_winner"):
+            continue
+        score = _finite(row.get(TOTAL_SCORE_COLUMN))
+        lr = _finite(row.get("LR"))
+        if score is None or lr is None or lr <= 0:
+            continue
+        winner_rows.append({**row, TOTAL_SCORE_COLUMN: score, "LR": lr})
+    winner_rows.sort(key=lambda row: row["generation"])
+    if not winner_rows:
         return {
             "png": None,
-            "warnings": warnings or ["no LR/mistag score data to plot"],
+            "warnings": ["no generation winners with LR/mistag score to plot"],
             "generations": 0,
             "members": 0,
             "metric_keys": ["LR", TOTAL_SCORE_COLUMN],
         }
 
     plt = plot_setup()
-    fig, ax = plt.subplots(1, 1, figsize=(9.0, 5.8), constrained_layout=True)
+    gen_width = max(8.0, len(winner_rows) * 0.14)
+    scatter_width = 4.4
+    fig = plt.figure(figsize=(gen_width + scatter_width, 6.6), constrained_layout=True)
+    grid = fig.add_gridspec(2, 2, width_ratios=[gen_width, scatter_width], height_ratios=[1.0, 1.6])
+    ax_lr = fig.add_subplot(grid[0, 0])
+    ax_gen = fig.add_subplot(grid[1, 0], sharex=ax_lr)
+    ax_scatter = fig.add_subplot(grid[:, 1])
 
-    lrs = [row["LR"] for row in valid_rows]
-    values = [row[TOTAL_SCORE_COLUMN] for row in valid_rows]
-    generations = [row["generation"] for row in valid_rows]
-    scatter = ax.scatter(
-        lrs, values, c=generations, cmap="viridis", s=42, alpha=0.85,
-        edgecolor="white", linewidth=0.3, zorder=3,
+    generations = [row["generation"] for row in winner_rows]
+    winner_lrs = [row["LR"] for row in winner_rows]
+    ax_lr.plot(generations, winner_lrs, color=CB_PALETTE["black"], linewidth=1.2, zorder=2)
+    ax_lr.scatter(
+        generations, winner_lrs, marker=ROLE_MARKER_STYLE["winner"]["marker"], color=ROLE_MARKER_STYLE["winner"]["color"],
+        s=70, zorder=4, edgecolor="white", linewidth=0.4, label=ROLE_MARKER_STYLE["winner"]["label"],
     )
-    cbar = fig.colorbar(scatter, ax=ax, pad=0.02)
-    cbar.set_label("Generation")
-    cbar.locator = MaxNLocator(integer=True)
-    cbar.update_ticks()
-
-    winner_rows = [row for row in valid_rows if row.get("is_winner")]
-    if winner_rows:
-        ax.scatter(
-            [row["LR"] for row in winner_rows], [row[TOTAL_SCORE_COLUMN] for row in winner_rows],
-            marker=ROLE_MARKER_STYLE["winner"]["marker"], s=210, facecolor="none",
-            edgecolor=CB_PALETTE["black"], linewidth=1.4, zorder=5, label=ROLE_MARKER_STYLE["winner"]["label"],
+    center_series = shared_lr_center_series(manifest)
+    if center_series:
+        center_generations = [item[0] for item in center_series]
+        center_values = [item[1] for item in center_series]
+        ax_lr.plot(
+            center_generations, center_values, color=ROLE_MARKER_STYLE["anchor"]["color"], linestyle="--",
+            linewidth=1.1, zorder=3, label=ROLE_MARKER_STYLE["anchor"]["label"],
         )
-
-    correlation = lr_mistag_correlation(valid_rows)
-    if correlation["reason"] == "insufficient_paired_observations":
-        caption = f"n={correlation['n']} -- too few for a meaningful correlation"
-    elif correlation["reason"]:
-        caption = f"n={correlation['n']}, correlation unavailable ({correlation['reason']})"
+        ax_lr.scatter(center_generations, center_values, marker=ROLE_MARKER_STYLE["anchor"]["marker"], color=ROLE_MARKER_STYLE["anchor"]["color"], s=40, zorder=3)
+    lr_span_values = winner_lrs + ([item[1] for item in center_series] if center_series else [])
+    if max(lr_span_values) / min(lr_span_values) > 3.0:
+        # Only worth a log axis once LR actually spans multiple decades --
+        # below that, log's default tick locator places most of its
+        # labeled ticks below the visible range (this run's own LR only
+        # spans <1 decade), leaving most of the line unreadable.
+        ax_lr.set_yscale("log")
     else:
-        caption = (
-            f"n={correlation['n']}  Pearson r (log10 LR)={correlation['pearson_r']:.2f}  "
-            f"Spearman rho={correlation['spearman_rho']:.2f}"
-        )
-    ax.text(0.02, 0.98, caption, transform=ax.transAxes, ha="left", va="top", fontsize=8, color="0.3")
+        ax_lr.yaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax_lr.set_ylabel("LR")
+    ax_lr.set_title("Adaptive LR by generation", fontsize=12, fontweight="bold", loc="left")
+    ax_lr.grid(True, alpha=0.3, linewidth=0.5)
+    ax_lr.tick_params(labelbottom=False)
+    _dedup_legend(ax_lr, loc="upper right")
 
-    ax.set_xscale("log")
-    ax.set_xlabel("Learning rate (log scale)")
-    ax.set_ylabel("Total mistag score [%] (lower is better)")
-    ax.set_title("Learning rate vs. mistag score", fontsize=12, fontweight="bold", loc="left")
-    ax.grid(True, alpha=0.3, linewidth=0.5)
-    if winner_rows:
-        ax.legend(frameon=False, fontsize=8, loc="best")
+    context_valid, warnings = validate_metric_rows(member_rows, [TOTAL_SCORE_COLUMN])
+    band = generation_score_band(member_rows)
+    if band:
+        band_generations = [row["generation"] for row in band]
+        ax_gen.fill_between(
+            band_generations, [row["q25"] for row in band], [row["q75"] for row in band],
+            color=ROLE_MARKER_STYLE["member"]["color"], alpha=0.2, zorder=1, label="population IQR",
+        )
+        ax_gen.plot(
+            band_generations, [row["median"] for row in band], color=ROLE_MARKER_STYLE["member"]["color"],
+            linewidth=1.2, linestyle="--", zorder=2, label="population median",
+        )
+
+    scores = [row[TOTAL_SCORE_COLUMN] for row in winner_rows]
+    ax_gen.plot(generations, scores, color=CB_PALETTE["black"], linewidth=1.4, zorder=3)
+    ax_gen.scatter(
+        generations, scores, marker=ROLE_MARKER_STYLE["winner"]["marker"], color=ROLE_MARKER_STYLE["winner"]["color"],
+        s=90, zorder=4, edgecolor="white", linewidth=0.4, label=ROLE_MARKER_STYLE["winner"]["label"],
+    )
+
+    ax_gen.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax_gen.set_xlabel("Generation")
+    ax_gen.set_ylabel(f"{TOTAL_SCORE_COLUMN} [%] (lower is better)")
+    ax_gen.set_title("Mistag score by generation", fontsize=12, fontweight="bold", loc="left")
+    ax_gen.grid(True, alpha=0.3, linewidth=0.5)
+    _dedup_legend(ax_gen, loc="upper right")
+
+    correlation = lr_mistag_correlation(member_rows)
+    pairs = correlation.get("pairs") or []
+    if pairs:
+        log_lrs = [pair[0] for pair in pairs]
+        residuals = [pair[1] for pair in pairs]
+        ax_scatter.axhline(0.0, color="0.7", linestyle="--", linewidth=0.9, zorder=1)
+        ax_scatter.scatter(log_lrs, residuals, s=20, color=CB_PALETTE["blue"], alpha=0.6, edgecolor="0.2", linewidth=0.3, zorder=3)
+        fit = ols_trend_line(pairs)
+        if fit is not None:
+            slope, intercept = fit
+            fit_xs = [min(log_lrs), max(log_lrs)]
+            ax_scatter.plot(
+                fit_xs, [slope * x + intercept for x in fit_xs], color=CB_PALETTE["black"], linewidth=1.6, zorder=4,
+            )
+
+    ax_scatter.set_xlabel("log10(LR)")
+    ax_scatter.set_ylabel("Detrended mistag score [%]")
+    ax_scatter.set_title("LR vs. detrended mistag score", fontsize=12, fontweight="bold", loc="left")
+    ax_scatter.grid(True, alpha=0.3, linewidth=0.5)
 
     result = _save_png(fig, run_dir, "learning_rate_mistag_correlation")
     plt.close(fig)
     return {
         **result,
         "warnings": warnings,
-        "generations": len({row["generation"] for row in valid_rows}),
-        "members": len({row["trial"] for row in valid_rows}),
+        "generations": len(winner_rows),
+        "members": len({row["trial"] for row in context_valid}) if context_valid else len({row["trial"] for row in winner_rows}),
         "metric_keys": ["LR", TOTAL_SCORE_COLUMN],
-        "correlation": correlation,
+        "correlation": {key: value for key, value in correlation.items() if key != "pairs"},
     }
 
 

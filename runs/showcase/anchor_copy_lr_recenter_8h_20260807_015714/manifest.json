@@ -1754,11 +1754,11 @@
       "learning_rate_mistag_correlation": {
         "correlation": {
           "n": 192,
-          "pearson_p": 5.494226946621756e-05,
-          "pearson_r": -0.2868286306189237,
+          "pearson_p": 0.024472786376416793,
+          "pearson_r": -0.16233430687286438,
           "reason": null,
-          "spearman_p": 0.03219413595317066,
-          "spearman_rho": -0.15466351213929588
+          "spearman_p": 0.012144265957007282,
+          "spearman_rho": -0.18068155986478832
         },
         "generations": 48,
         "members": 4,
@@ -1964,7 +1964,6 @@
       "data_config": "/data/suehara/part/march-worktrees/train_1eb2c79/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml",
       "data_extension": "parquet",
       "dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
-      "epochs_per_generation": 1,
       "fetch_step": 0.01,
       "freeze_batch_norm": true,
       "generations": 48,
@@ -2000,7 +1999,8 @@
       "train_suffix": "train800k",
       "use_amp": true,
       "validation_dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
-      "validation_suffix": "val50k_tail"
+      "validation_suffix": "val50k_tail",
+      "weaver_epochs_per_generation": 1
     },
     "slots": [
       {
@@ -81735,9 +81735,9 @@
         "training_chunks": 1
       },
       "training_interval": {
-        "epochs_per_generation": 1,
         "samples_per_epoch": 120000,
-        "samples_per_trial_chunk": 120000
+        "samples_per_trial_chunk": 120000,
+        "weaver_epochs_per_generation": 1
       }
     },
     "seed": 12345,
@@ -90412,5 +90412,5 @@
       "tier": "full_holdout"
     }
   ],
-  "updated_at": "2026-08-07T05:19:52.490938+00:00"
+  "updated_at": "2026-08-12T20:49:47.182381+00:00"
 }

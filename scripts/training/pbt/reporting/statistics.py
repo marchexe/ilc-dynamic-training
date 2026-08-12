@@ -5,6 +5,7 @@ correlation."""
 
 import math
 import warnings
+from statistics import median as _median
 
 from training.pbt.reporting.constants import TOTAL_SCORE_COLUMN
 from training.pbt.reporting.metrics_rows import _better
@@ -40,29 +41,128 @@ def _pearson_spearman(xs, ys):
     }
 
 
+def _percentile(sorted_values, q):
+    """Linear-interpolation percentile (matches numpy's default method) of
+    already-sorted values -- a single value for n=1 rather than raising,
+    since a population of 1 still has a well-defined (degenerate) band."""
+    n = len(sorted_values)
+    if n == 1:
+        return sorted_values[0]
+    index = q / 100 * (n - 1)
+    lower, upper = math.floor(index), math.ceil(index)
+    if lower == upper:
+        return sorted_values[lower]
+    return sorted_values[lower] + (sorted_values[upper] - sorted_values[lower]) * (index - lower)
+
+
+def generation_score_band(member_rows, metric_column=TOTAL_SCORE_COLUMN):
+    """Per-generation (median, q25, q75, n) across every population member
+    with a valid `metric_column` value that generation -- one point per
+    generation, sorted. IQR (25th-75th percentile) rather than min/max: a
+    population this small (typically single digits of members) makes
+    min/max mostly noise from whichever single member happened to be best/
+    worst that generation, not a stable notion of "typical spread". The
+    single shared definition of "typical for this generation": the report
+    figure's training-dynamics panel bands the population around this
+    median, and lr_mistag_correlation below detrends by it, so both views
+    of a run agree on what "typical" means by construction rather than by
+    two independently-written formulas happening to match.
+    """
+    scores_by_generation = {}
+    for row in member_rows:
+        generation = row.get("generation")
+        value = row.get(metric_column)
+        if generation is None or value is None:
+            continue
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value):
+            scores_by_generation.setdefault(generation, []).append(value)
+    result = []
+    for generation, values in sorted(scores_by_generation.items()):
+        ordered = sorted(values)
+        result.append({
+            "generation": generation,
+            "median": _median(values),
+            "q25": _percentile(ordered, 25),
+            "q75": _percentile(ordered, 75),
+            "n": len(values),
+        })
+    return result
+
+
 def lr_mistag_correlation(member_rows, metric_column=TOTAL_SCORE_COLUMN):
     """Pearson r (on log10(LR) -- LR is configured/explored on a log scale
     and spans multiple decades, so any real effect is expected to be
     multiplicative, not additive) and Spearman rho (rank-based, invariant to
-    that transform either way) between LR and `metric_column` across every
-    (member, generation) observation with both values present -- one
-    population-wide point per row, not one per generation or per winner
-    only, so the correlation reflects the whole explored LR range rather
-    than just the handful of winning points.
+    that transform either way) between LR and a *detrended* `metric_column`:
+    each row's value minus its own generation's median, from
+    generation_score_band above (median across every row with a valid
+    value that generation, not just the LR-valid ones).
+
+    Pooling the raw metric across generations would conflate any real LR
+    effect with ordinary training progress -- the score improves over
+    generations regardless of LR, so generation itself is a confound (e.g.
+    on this repo's own anchor_copy_lr_recenter 8h showcase run, generation
+    alone correlates with total_mistag_score at Pearson r=-0.37, comparable
+    in size to the confounded raw LR correlation, which is not a
+    coincidence: most of that raw correlation is the training-progress
+    trend, not an LR effect). Detrending isolates "did this LR do
+    better/worse than typical for its own generation," not "did later
+    (=more trained) generations do better" -- one population-wide point per
+    (member, generation) observation with both values present, not one per
+    generation or per winner only.
+
+    Returns the usual {"n", "pearson_r", "pearson_p", "spearman_rho",
+    "spearman_p", "reason"} from _pearson_spearman, plus "pairs":
+    [(log10_lr, residual), ...] -- the actual detrended points, exposed so
+    a caller that wants to plot them (e.g. the report figure) never
+    recomputes the detrending independently.
     """
-    pairs = [
-        (math.log10(float(row["LR"])), float(row[metric_column]))
-        for row in member_rows
-        if row.get("LR") is not None
-        and float(row["LR"]) > 0
-        and row.get(metric_column) is not None
-        and math.isfinite(float(row[metric_column]))
-    ]
-    if not pairs:
-        return {"n": 0, "pearson_r": None, "spearman_rho": None, "reason": "insufficient_paired_observations"}
-    log_lrs = [pair[0] for pair in pairs]
-    values = [pair[1] for pair in pairs]
-    return _pearson_spearman(log_lrs, values)
+    generation_median = {row["generation"]: row["median"] for row in generation_score_band(member_rows, metric_column)}
+
+    pairs = []
+    for row in member_rows:
+        generation = row.get("generation")
+        lr = row.get("LR")
+        value = row.get(metric_column)
+        if generation not in generation_median or lr is None or value is None:
+            continue
+        try:
+            lr = float(lr)
+            value = float(value)
+        except (TypeError, ValueError):
+            continue
+        if lr > 0 and math.isfinite(value):
+            pairs.append((math.log10(lr), value - generation_median[generation]))
+
+    result = _pearson_spearman([pair[0] for pair in pairs], [pair[1] for pair in pairs])
+    result["pairs"] = pairs
+    return result
+
+
+def ols_trend_line(pairs):
+    """(slope, intercept) of the ordinary-least-squares line through
+    (x, y) `pairs`, or None if there are fewer than 2 points or every x is
+    identical (a vertical "fit" is undefined) -- never a fabricated flat
+    or NaN line. Plain closed-form OLS, no scipy/numpy dependency, since
+    this is a visual aid for the LR-vs-residual scatter, not a reported
+    statistic in its own right."""
+    n = len(pairs)
+    if n < 2:
+        return None
+    xs = [pair[0] for pair in pairs]
+    ys = [pair[1] for pair in pairs]
+    mean_x = sum(xs) / n
+    mean_y = sum(ys) / n
+    var_x = sum((x - mean_x) ** 2 for x in xs)
+    if var_x == 0:
+        return None
+    cov_xy = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    slope = cov_xy / var_x
+    return slope, mean_y - slope * mean_x
 
 
 def _paired_tier_values(manifest, tier_a, tier_b):

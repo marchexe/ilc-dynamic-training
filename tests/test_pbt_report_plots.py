@@ -375,15 +375,36 @@ class LrMistagCorrelationStatsTest(unittest.TestCase):
         result = lr_mistag_correlation(rows)
         self.assertEqual(result["n"], 4)
 
+    def test_detrending_isolates_lr_effect_from_generation_confound(self):
+        # Raw score is dominated by generation (0..4, a stand-in for
+        # ordinary training progress); an LR-linked perturbation is buried
+        # underneath it. A naive pooled (non-detrended) correlation would
+        # mostly measure the generation trend, not the LR effect. After
+        # subtracting each generation's median, only the LR-linked
+        # perturbation should remain, and its sign/strength recoverable.
+        rows = [
+            {"generation": generation, "LR": lr, TOTAL_SCORE_COLUMN: generation * 1.0 + bump}
+            for generation in range(5)
+            for lr, bump in ((3.0e-6, -0.01), (1.0e-5, 0.0), (3.0e-5, 0.01))
+        ]
+        result = lr_mistag_correlation(rows)
+        self.assertEqual(result["n"], 15)
+        self.assertIsNone(result["reason"])
+        self.assertGreater(result["pearson_r"], 0.9)
+        self.assertGreater(result["spearman_rho"], 0.9)
+
 
 class LearningRateMistagCorrelationPlotTest(unittest.TestCase):
-    def test_renders_and_reports_correlation_metric_keys(self):
-        manifest = _anchor_copy_manifest()
+    def test_renders_one_point_per_generation_winner_and_reports_correlation(self):
+        manifest = _anchor_copy_manifest()  # 3 generations, one winner each
         rows, _ = _rows_and_decisions(manifest)
         with tempfile.TemporaryDirectory() as temporary:
             result = plot_learning_rate_mistag_correlation(temporary, manifest, rows)
             self.assertTrue(Path(result["png"]).is_file())
         self.assertEqual(result["metric_keys"], ["LR", TOTAL_SCORE_COLUMN])
+        self.assertEqual(result["generations"], 3)
+        # the caption correlation is still population-wide (every member,
+        # every generation), not just the plotted winner points
         self.assertEqual(result["correlation"]["n"], 6)
 
     def test_renders_with_a_real_computed_correlation(self):
@@ -414,6 +435,15 @@ class LearningRateMistagCorrelationPlotTest(unittest.TestCase):
             result = plot_learning_rate_mistag_correlation(temporary, manifest, rows)
         self.assertIsNone(result["png"])
         self.assertEqual(result["generations"], 0)
+
+    def test_stride_thins_labels_but_not_the_line_beyond_25_generations(self):
+        manifest = _many_generation_manifest(52)
+        rows, _ = _rows_and_decisions(manifest)
+        with tempfile.TemporaryDirectory() as temporary:
+            result = plot_learning_rate_mistag_correlation(temporary, manifest, rows)
+            self.assertTrue(Path(result["png"]).is_file())
+        # every generation still contributes a point to the line/result...
+        self.assertEqual(result["generations"], 52)
 
 
 class ProxyValidationPlotTest(unittest.TestCase):

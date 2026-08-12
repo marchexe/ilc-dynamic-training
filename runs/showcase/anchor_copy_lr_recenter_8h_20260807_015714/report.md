@@ -38,9 +38,9 @@
 - Heavy edge = an applied donor->recipient checkpoint copy (events.jsonl, applied=True only); light edge = a member continuing its own branch.
 
 ## Learning Rate vs. Mistag Score Correlation
-- [Learning rate vs. mistag score](plots/learning_rate_mistag_correlation.png)
-- Correlation (log10 LR vs. total_mistag_score): n=192, Pearson r=-0.287, Spearman rho=-0.155
-- Sign convention: positive means higher LR associates with a higher (worse) total_mistag_score; negative means higher LR associates with a lower (better) score. Not a causal claim.
+- [Training dynamics and within-generation LR analysis](plots/learning_rate_mistag_correlation.png)
+- Population-wide, generation-controlled correlation (log10 LR vs. total_mistag_score, detrended by each generation's median): n=192, Pearson r=-0.162, Spearman rho=-0.181
+- Detrending removes the ordinary training-progress trend (score improves over generations regardless of LR) so this number isolates an LR effect, not a training-progress effect mistaken for one. Sign convention: positive means higher LR associates with a worse-than-typical (for that generation) score; negative means better-than-typical. Not a causal claim.
 
 ## Proxy Validation
 - [Proxy validation](plots/proxy_validation.png)

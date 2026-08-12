@@ -68,7 +68,7 @@ def fixed_curve_metrics(metric_value, accuracy, auc, train_loss):
 def synthetic_manifest(measured_baseline=True, configured_baseline=1.7, dataset_size=1000):
     shared = {
         "samples_per_epoch": 100,
-        "epochs_per_generation": 1,
+        "weaver_epochs_per_generation": 1,
         "samples_per_epoch_val": 3000,
     }
     if dataset_size is not None:
@@ -92,7 +92,7 @@ def synthetic_manifest(measured_baseline=True, configured_baseline=1.7, dataset_
             "method_name": "anchored_lr_sweep",
             "datasets": {"validation_dataset": "synthetic_proxy", "validation_suffix": "val5k_tail"},
             "schedule": {
-                "training_interval": {"epochs_per_generation": 1, "samples_per_epoch": 100, "samples_per_trial_chunk": 100},
+                "training_interval": {"weaver_epochs_per_generation": 1, "samples_per_epoch": 100, "samples_per_trial_chunk": 100},
                 "evaluation_interval": {"training_chunks": 1, "epochs": 1, "samples_per_trial": 100, "samples_per_epoch_val": 3000},
                 "exploit_interval": {"enabled": True, "training_chunks": 1, "epochs": 1, "samples_per_trial": 100},
             },
@@ -171,7 +171,7 @@ class PBTArtifactsTest(unittest.TestCase):
                     "train_suffix": "trainTiny",
                     "validation_suffix": "valTiny",
                     "seed": 123,
-                    "epochs_per_generation": 2,
+                    "weaver_epochs_per_generation": 2,
                     "samples_per_epoch": 50,
                     "samples_per_epoch_val": 30,
                 },

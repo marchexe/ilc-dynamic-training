@@ -12,7 +12,7 @@ from training.runtime import atomic_json, utc_now
 
 def epoch_for_generation(config, generation):
     initial_epoch = int(config["shared"].get("initial_epoch", -1))
-    return initial_epoch + (generation + 1) * int(config["shared"]["epochs_per_generation"])
+    return initial_epoch + (generation + 1) * int(config["shared"]["weaver_epochs_per_generation"])
 
 def generations_before(manifest, generation_index):
     """Manifest generations strictly before `generation_index`, in original order."""

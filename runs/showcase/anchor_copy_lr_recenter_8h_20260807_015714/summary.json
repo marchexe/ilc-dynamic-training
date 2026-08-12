@@ -24418,9 +24418,9 @@
       "training_chunks": 1
     },
     "training_interval": {
-      "epochs_per_generation": 1,
       "samples_per_epoch": 120000,
-      "samples_per_trial_chunk": 120000
+      "samples_per_trial_chunk": 120000,
+      "weaver_epochs_per_generation": 1
     }
   },
   "schema_version": 1,

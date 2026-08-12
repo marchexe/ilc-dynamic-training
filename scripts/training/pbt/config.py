@@ -154,7 +154,7 @@ def smoke_overrides(shared, population):
     population = [dict(member) for member in population]
     shared.update(
         generations=2,
-        epochs_per_generation=1,
+        weaver_epochs_per_generation=1,
         samples_per_epoch=7680,
         samples_per_epoch_val=3000,
     )

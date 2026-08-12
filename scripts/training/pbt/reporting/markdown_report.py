@@ -267,32 +267,46 @@ def _learning_rate_lineage_section_lines(manifest, plots):
 
 def _learning_rate_mistag_correlation_section_lines(manifest, plots, rows):
     """## Learning Rate vs. Mistag Score Correlation --
-    learning_rate_mistag_correlation.png: every (member, generation)
-    observation's LR against its total_mistag_score, colored by generation.
-    `rows` is the already-persisted metrics.csv round-trip (same rows
-    `_model_selection_score_table_lines` uses below) -- LR and
-    total_mistag_score are both plain CSV columns, so this never needs the
-    manifest-derived member_rows the plot itself was built from."""
+    learning_rate_mistag_correlation.png: two independent panels. Left is
+    training dynamics only (population median + min/max band and the
+    generation winner, against generation -- no LR on this panel). Right
+    is the within-generation LR analysis only (log10(LR) vs. each
+    observation's residual against its own generation's median, plus an
+    OLS trend line) -- a direct, by-eye view of the exact quantity the
+    population-wide, generation-confound-controlled correlation below is
+    computed from (statistics.py::lr_mistag_correlation, detrended by each
+    generation's median score so ordinary training progress isn't mistaken
+    for an LR effect). `rows` is the already-persisted metrics.csv
+    round-trip (same rows `_model_selection_score_table_lines` uses below)
+    -- LR and total_mistag_score are both plain CSV columns, so this never
+    needs the manifest-derived member_rows the plot itself was built
+    from."""
     result = _report_plot_result(manifest, "learning_rate_mistag_correlation")
     png = plots.get("learning_rate_mistag_correlation") or result.get("png")
     lines = ["", "## Learning Rate vs. Mistag Score Correlation"]
     if not png:
-        lines.append("- No LR/mistag score data to plot yet.")
+        lines.append("- No generation winners with LR/mistag score to plot yet.")
         return lines
-    lines.append(f"- [Learning rate vs. mistag score]({png})")
+    lines.append(f"- [Training dynamics and within-generation LR analysis]({png})")
     correlation = lr_mistag_correlation(rows)
     if correlation["reason"] == "insufficient_paired_observations":
-        lines.append(f"- Correlation: n={correlation['n']} paired observations -- too few for a meaningful correlation")
+        lines.append(
+            f"- Population-wide, generation-controlled correlation: n={correlation['n']} paired observations -- "
+            "too few for a meaningful correlation"
+        )
     elif correlation["reason"]:
-        lines.append(f"- Correlation: unavailable ({correlation['reason']})")
+        lines.append(f"- Population-wide, generation-controlled correlation: unavailable ({correlation['reason']})")
     else:
         lines.append(
-            f"- Correlation (log10 LR vs. total_mistag_score): n={correlation['n']}, "
-            f"Pearson r={correlation['pearson_r']:.3f}, Spearman rho={correlation['spearman_rho']:.3f}"
+            f"- Population-wide, generation-controlled correlation (log10 LR vs. total_mistag_score, detrended by "
+            f"each generation's median): n={correlation['n']}, Pearson r={correlation['pearson_r']:.3f}, "
+            f"Spearman rho={correlation['spearman_rho']:.3f}"
         )
         lines.append(
-            "- Sign convention: positive means higher LR associates with a higher (worse) total_mistag_score; "
-            "negative means higher LR associates with a lower (better) score. Not a causal claim."
+            "- Detrending removes the ordinary training-progress trend (score improves over generations regardless "
+            "of LR) so this number isolates an LR effect, not a training-progress effect mistaken for one. Sign "
+            "convention: positive means higher LR associates with a worse-than-typical (for that generation) score; "
+            "negative means better-than-typical. Not a causal claim."
         )
     if result.get("warnings"):
         lines.extend(["", "**Data-quality warnings:**"])
@@ -607,7 +621,7 @@ def write_report(run_dir, manifest, summary):
             "## Method",
             f"- Method: `{summary.get('method')}`",
             f"- Population: {len(summary.get('population') or [])} trials",
-            f"- Training interval: {schedule.get('training_interval', {}).get('samples_per_trial_chunk', 'n/a')} samples/trial chunk ({schedule.get('training_interval', {}).get('epochs_per_generation', 'n/a')}x samples_per_epoch)",
+            f"- Training interval: {schedule.get('training_interval', {}).get('samples_per_trial_chunk', 'n/a')} samples/trial chunk ({schedule.get('training_interval', {}).get('weaver_epochs_per_generation', 'n/a')}x samples_per_epoch)",
             f"- Evaluation interval: every {eval_schedule.get('training_chunks', 'n/a')} training chunk(s), {eval_schedule.get('samples_per_epoch_val', 'n/a')} validation samples",
             f"- Exploit interval: {('disabled' if not exploit_schedule.get('enabled') else 'every ' + str(exploit_schedule.get('training_chunks', 'n/a')) + ' training chunk(s)')}",
             f"- Exploit significance gating: {'disabled (nominal rank order only)' if significance_sigma is None else f'{significance_sigma} sigma (combined uncertainty) required before a donor replaces a recipient'}",

@@ -182,7 +182,7 @@ def make_tiered_evaluation_command(config, slot, checkpoint, dataset, suffix, lo
 
 def make_command(config, member, slot, member_dir, generation):
     target_epoch = epoch_for_generation(config, generation)
-    resume_epoch = target_epoch - int(config["shared"]["epochs_per_generation"])
+    resume_epoch = target_epoch - int(config["shared"]["weaver_epochs_per_generation"])
     if generation == 0 and not config["shared"].get("initial_state"):
         resume_epoch = None
     shared = dict(config["shared"])

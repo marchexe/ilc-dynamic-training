@@ -112,7 +112,7 @@ def build_manifest(args, metrics, log_path, command):
                 "training_controller": None,
                 "seed": 12345,
                 "generations": 1,
-                "epochs_per_generation": 1,
+                "weaver_epochs_per_generation": 1,
                 "samples_per_epoch": 0,
                 "samples_per_epoch_val": int(args.samples_per_epoch_val),
                 "batch_size": int(args.batch_size),
