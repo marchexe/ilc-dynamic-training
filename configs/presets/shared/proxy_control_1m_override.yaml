@@ -1,0 +1,51 @@
+schema_version: 1
+
+# Experiment-scoped override: repoints the "control" tier (the one that
+# drives PBT ranking/exploit/anchor-copy decisions) from the base preset's
+# 5,000-events/class val5k_tail to the base preset's own pre-existing
+# 1,000,000-events/class val1000k ("full", per the base preset's
+# proxy_validation.full_suffix/full_rows_per_class) -- reusing an already-
+# built dataset, not materializing a new one. This is the "bigger
+# validation for LR determination" leg of the supervisor's 4-run
+# comparison plan (see anchor_copy_lr_recenter_100gen_1mval.yaml and
+# siblings): does moving the per-generation winner-selection tier from
+# 150,000 events (proxy_control_50k_override.yaml's val50k_tail) to
+# 3,000,000 events change the LR-vs-mistag-score correlation
+# (statistics.py::lr_mistag_correlation), i.e. was evaluation noise a real
+# contributor to the weak/noisy correlation on the 48-generation showcase
+# run.
+#
+# Composed AFTER pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+# in an experiment's `presets:` list, same as proxy_control_50k_override.yaml
+# (do not compose both together -- they both target control_suffix/
+# control_rows_per_class and whichever preset loads last wins, silently).
+#
+# full_dataset/full_suffix are nulled here for the same reason
+# proxy_control_50k_override.yaml nulls them: val1000k is now the control
+# tier itself, so leaving "full" pointed at the identical val1000k data
+# would make every periodic full_interval_generations round measure
+# exactly the same thing as control -- a redundant, not an independent,
+# corroboration signal. full_holdout (val_holdout, disjoint by
+# construction from control+monitor) is untouched and stays the
+# independent corroboration tier, same as every other anchor_copy_lr_recenter
+# config.
+#
+# samples_per_epoch_val must cover the whole file every generation, same
+# reasoning as proxy_control_50k_override.yaml's own comment (weaver-core
+# subsamples ~10% otherwise): 1,000,000 rows/class * 3 classes = 3,000,000.
+#
+# Cost warning: unmeasured. val1000k is ~20x val50k_tail's row count: if
+# eval time scales anywhere near linearly with row count, expect
+# per-generation wall-clock to grow well beyond the ~106s/generation
+# measured for the 150k-control config (see the 100gen_1mval config's own
+# sizing comment) -- watch the first few generations' actual timing before
+# assuming the full run fits inside the planned window.
+shared:
+  validation_suffix: val1000k
+  samples_per_epoch_val: 3000000
+  proxy_validation:
+    control_suffix: val1000k
+    control_rows_per_class: 1000000
+    full_dataset: null
+    full_suffix: null
+    full_rows_per_class: null

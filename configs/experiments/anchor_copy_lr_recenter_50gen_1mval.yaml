@@ -1,0 +1,53 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/shared/proxy_control_1m_override.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/anchor_copy_lr_recenter.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: anchor_copy_lr_recenter_50gen_1mval
+
+# Run (3) of the supervisor's 4-run comparison matrix -- see
+# anchor_copy_lr_recenter_100gen.yaml (run (1)) for the full matrix layout
+# and rationale. Only worth launching if (2) vs (1) shows a real
+# difference in the LR-vs-mistag-score correlation (compare with
+# scripts/training/pbt/reporting/compare_runs.py) -- otherwise evaluation
+# noise wasn't the bottleneck, and this run's axis (training noise per
+# generation, not evaluation noise) is a more informative next step to
+# actually pursue, but only after that check.
+#
+# weaver_epochs_per_generation: 2 doubles the per-generation training
+# budget to 240,000 samples (0.1 classical-epoch/generation instead of the
+# baseline's ~0.05), halved to 50 generations -- holds total training
+# samples fixed at 50 * 2 * 120,000 = 12,000,000, same as every sibling in
+# this matrix. Isolates "does more training per generation (less noisy
+# per-point estimate of a member's true LR effect) make the trend
+# clearer" from "does more generations (more points)" -- the two axes
+# trade off directly against each other at fixed total budget, unlike (1)
+# vs (2) which vary evaluation size at fixed generation count.
+#
+# 1M-row control tier (proxy_control_1m_override.yaml), same as (2) --
+# this run only makes sense as a "training-noise" isolation if evaluation
+# noise has already been controlled for.
+#
+# full_interval_generations: 10 keeps a clean 5 periodic full_holdout
+# rounds (10/20/30/40/50), matching (1) and (2)'s ~5 rounds.
+shared:
+  generations: 50
+  weaver_epochs_per_generation: 2
+
+pbt:
+  tiered_validation:
+    full_interval_generations: 10
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5

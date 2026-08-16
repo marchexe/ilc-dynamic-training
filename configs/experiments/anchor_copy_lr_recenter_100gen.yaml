@@ -1,0 +1,68 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/shared/proxy_control_50k_override.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/anchor_copy_lr_recenter.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: anchor_copy_lr_recenter_100gen
+
+# Run (1) of the supervisor's 4-run comparison matrix (2026-08-13
+# feedback on anchor_copy_lr_recenter_8h_20260807_015714's
+# learning_rate_mistag_correlation.png): identical condition to
+# anchor_copy_lr_recenter_8h.yaml (same weaver_epochs_per_generation=1,
+# same 150,000-event control_proxy_50k tier every generation) but 100
+# generations instead of 48 -- ~0.05 classical-epoch/generation * 100 =~ 5
+# epochs total, the supervisor's "at least 5 epochs" ask, via more
+# (member, generation) observations for
+# statistics.py::lr_mistag_correlation to reduce statistical fluctuation
+# (that run's n=192, r=-0.162, 95% CI [-0.257, -0.067] -- a real but small
+# effect; this run is the "does more data narrow the CI further, not just
+# move the point estimate" check). Compare against the siblings below with
+# scripts/training/pbt/reporting/compare_runs.py once all have run:
+#   (1) this file -- 100 generations, 150k control (baseline for the matrix)
+#   (2) anchor_copy_lr_recenter_100gen_1mval.yaml -- same, 1M-row control
+#       (isolates whether evaluation noise was a contributor)
+#   (3) anchor_copy_lr_recenter_50gen_1mval.yaml -- 50 generations,
+#       weaver_epochs_per_generation=2 (0.1 epoch/gen), 1M-row control.
+#       Only worth running if (2) vs (1) shows a real difference --
+#       otherwise the extra per-generation training budget this run buys
+#       is testing a dimension (training noise) that turned out not to be
+#       the bottleneck.
+#   (4) anchor_copy_lr_recenter_25gen_1mval.yaml -- 25 generations,
+#       weaver_epochs_per_generation=4 (0.2 epoch/gen), 1M-row control.
+#       Same condition as (3).
+# All four hold total training samples fixed at 100 * 1 * 120,000 =
+# 12,000,000 (generations * weaver_epochs_per_generation * samples_per_epoch).
+#
+# full_interval_generations raised from the base preset's 16 (which fires
+# unevenly at this length -- 16/32/48/64/80/96, 6 rounds, no round at 100)
+# to 20, so full_holdout fires a clean 5 times (20/40/60/80/100) plus the
+# evaluate_initial_checkpoint_all_tiers initial round -- keeping the
+# control<->full_holdout tier-agreement sample size roughly comparable to
+# the 50/25-generation siblings, which also target ~5 periodic rounds.
+#
+# Timing basis: anchor_copy_lr_recenter_8h_20260807_015714 (identical
+# config on the same iutgpu01 4x A100-SXM4-40GB slots) measured a
+# ~106s-median generation, 1h25m wall-clock total for 48 generations (its
+# "8h" name was the requested budget, not the actual duration) -- so ~100
+# generations here should land around ~3h, not the 8h its own sizing
+# comment estimated for 48.
+shared:
+  generations: 100
+
+pbt:
+  tiered_validation:
+    full_interval_generations: 20
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5

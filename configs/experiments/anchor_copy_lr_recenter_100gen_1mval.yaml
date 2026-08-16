@@ -1,0 +1,45 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/shared/proxy_control_1m_override.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/anchor_copy_lr_recenter.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: anchor_copy_lr_recenter_100gen_1mval
+
+# Run (2) of the supervisor's 4-run comparison matrix -- see
+# anchor_copy_lr_recenter_100gen.yaml (run (1)) for the full matrix layout
+# and rationale. Identical to (1) except the control (winner-selection)
+# tier: proxy_control_1m_override.yaml repoints it from val50k_tail
+# (150,000 events) to val1000k (3,000,000 events, an already-built
+# dataset -- see that preset's own comment for why full_holdout stays the
+# independent corroboration tier rather than also being repointed at
+# val1000k). Isolates the "bigger validation for LR determination" axis of
+# the supervisor's feedback: if this run's LR-vs-mistag-score correlation
+# (Pearson r / 95% CI) is materially tighter or stronger than (1)'s,
+# evaluation noise was a real contributor to the weak/noisy 48-generation
+# result; if it's essentially the same, evaluation noise wasn't the
+# bottleneck and runs (3)/(4) below (which target training-noise instead)
+# are the more promising next step, not a bigger validation set.
+#
+# Cost is unmeasured -- see proxy_control_1m_override.yaml's own warning.
+# Watch the first few generations' actual wall-clock before assuming this
+# run fits the same window as (1).
+shared:
+  generations: 100
+
+pbt:
+  tiered_validation:
+    full_interval_generations: 20
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5
