@@ -4,6 +4,7 @@ proxy-overfitting diagnostics, and the LR-vs-mistag-score population
 correlation."""
 
 import math
+import random
 import warnings
 from statistics import median as _median
 
@@ -93,7 +94,71 @@ def generation_score_band(member_rows, metric_column=TOTAL_SCORE_COLUMN):
     return result
 
 
-def lr_mistag_correlation(member_rows, metric_column=TOTAL_SCORE_COLUMN):
+def _block_bootstrap_correlation(pairs_by_generation, n_boot=1000, seed=0):
+    """Percentile bootstrap CI for Pearson r and Spearman rho, resampling
+    whole *generations* with replacement rather than individual (log10_lr,
+    residual) points.
+
+    Point-wise bootstrap would silently assume every (member, generation)
+    row is an independent draw. Under anchor_copy_lr_recenter (and
+    population_lr_policy's copy/mutate step generally) that's false within
+    a generation: every member is reset to a fresh copy of the *same*
+    winning checkpoint each round (see AnchorCopyLrRecenterConfig /
+    exploit_fraction), so a generation's population-wide observations
+    share one parent state and are correlated with each other, not with
+    observations from other generations. Resampling by generation-block
+    preserves that within-generation structure and only randomizes across
+    the (closer to independent) generation axis, so the resulting CI
+    reflects the true, smaller effective sample size instead of the
+    inflated one a naive per-row bootstrap would report.
+
+    Returns {"pearson_r_ci": (low, high) | None, "spearman_rho_ci": (low,
+    high) | None, "reason": str | None} -- reason is set (and both CIs
+    None) when there are fewer than 3 generations to block-resample from,
+    or scipy is unavailable (mirrors _pearson_spearman's own gate; this
+    function is only ever called after that gate already passed, but a
+    caller could invoke it directly).
+    """
+    generations = list(pairs_by_generation)
+    if len(generations) < 3:
+        return {"pearson_r_ci": None, "spearman_rho_ci": None, "reason": "insufficient_generations_for_bootstrap"}
+    try:
+        from scipy import stats
+    except ImportError:
+        return {"pearson_r_ci": None, "spearman_rho_ci": None, "reason": "scipy_unavailable"}
+
+    rng = random.Random(seed)
+    pearson_samples = []
+    spearman_samples = []
+    for _ in range(n_boot):
+        resampled_generations = [rng.choice(generations) for _ in generations]
+        xs, ys = [], []
+        for generation in resampled_generations:
+            for x, y in pairs_by_generation[generation]:
+                xs.append(x)
+                ys.append(y)
+        if len(xs) < 3 or len(set(xs)) < 2:
+            continue
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            r, _ = stats.pearsonr(xs, ys)
+            rho, _ = stats.spearmanr(xs, ys)
+        if math.isfinite(r):
+            pearson_samples.append(r)
+        if math.isfinite(rho):
+            spearman_samples.append(rho)
+
+    def _ci(samples):
+        # Too many degenerate (zero-variance) resamples to trust the tails.
+        if len(samples) < n_boot // 2:
+            return None
+        ordered = sorted(samples)
+        return _percentile(ordered, 2.5), _percentile(ordered, 97.5)
+
+    return {"pearson_r_ci": _ci(pearson_samples), "spearman_rho_ci": _ci(spearman_samples), "reason": None}
+
+
+def lr_mistag_correlation(member_rows, metric_column=TOTAL_SCORE_COLUMN, bootstrap=True, n_boot=1000, bootstrap_seed=0):
     """Pearson r (on log10(LR) -- LR is configured/explored on a log scale
     and spans multiple decades, so any real effect is expected to be
     multiplicative, not additive) and Spearman rho (rank-based, invariant to
@@ -119,11 +184,16 @@ def lr_mistag_correlation(member_rows, metric_column=TOTAL_SCORE_COLUMN):
     "spearman_p", "reason"} from _pearson_spearman, plus "pairs":
     [(log10_lr, residual), ...] -- the actual detrended points, exposed so
     a caller that wants to plot them (e.g. the report figure) never
-    recomputes the detrending independently.
+    recomputes the detrending independently -- plus "pearson_r_ci" and
+    "spearman_rho_ci": generation-block bootstrap 95% CIs (see
+    _block_bootstrap_correlation), or None when `bootstrap=False`, the
+    point estimate itself is unavailable, or there are too few generations
+    to resample.
     """
     generation_median = {row["generation"]: row["median"] for row in generation_score_band(member_rows, metric_column)}
 
     pairs = []
+    pairs_by_generation = {}
     for row in member_rows:
         generation = row.get("generation")
         lr = row.get("LR")
@@ -136,10 +206,19 @@ def lr_mistag_correlation(member_rows, metric_column=TOTAL_SCORE_COLUMN):
         except (TypeError, ValueError):
             continue
         if lr > 0 and math.isfinite(value):
-            pairs.append((math.log10(lr), value - generation_median[generation]))
+            pair = (math.log10(lr), value - generation_median[generation])
+            pairs.append(pair)
+            pairs_by_generation.setdefault(generation, []).append(pair)
 
     result = _pearson_spearman([pair[0] for pair in pairs], [pair[1] for pair in pairs])
     result["pairs"] = pairs
+    if bootstrap and result.get("pearson_r") is not None:
+        bootstrap_result = _block_bootstrap_correlation(pairs_by_generation, n_boot=n_boot, seed=bootstrap_seed)
+        result["pearson_r_ci"] = bootstrap_result["pearson_r_ci"]
+        result["spearman_rho_ci"] = bootstrap_result["spearman_rho_ci"]
+    else:
+        result["pearson_r_ci"] = None
+        result["spearman_rho_ci"] = None
     return result
 
 

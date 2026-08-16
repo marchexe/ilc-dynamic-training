@@ -39,7 +39,7 @@
 
 ## Learning Rate vs. Mistag Score Correlation
 - [Training dynamics and within-generation LR analysis](plots/learning_rate_mistag_correlation.png)
-- Population-wide, generation-controlled correlation (log10 LR vs. total_mistag_score, detrended by each generation's median): n=192, Pearson r=-0.162, Spearman rho=-0.181
+- Population-wide, generation-controlled correlation (log10 LR vs. total_mistag_score, detrended by each generation's median): n=192, Pearson r=-0.162 (95% CI -0.257 to -0.067), Spearman rho=-0.181 (95% CI -0.290 to -0.080)
 - Detrending removes the ordinary training-progress trend (score improves over generations regardless of LR) so this number isolates an LR effect, not a training-progress effect mistaken for one. Sign convention: positive means higher LR associates with a worse-than-typical (for that generation) score; negative means better-than-typical. Not a causal claim.
 
 ## Proxy Validation

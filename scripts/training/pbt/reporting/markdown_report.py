@@ -297,11 +297,20 @@ def _learning_rate_mistag_correlation_section_lines(manifest, plots, rows):
     elif correlation["reason"]:
         lines.append(f"- Population-wide, generation-controlled correlation: unavailable ({correlation['reason']})")
     else:
+        pearson_ci = correlation.get("pearson_r_ci")
+        spearman_ci = correlation.get("spearman_rho_ci")
+        pearson_ci_text = f" (95% CI {pearson_ci[0]:.3f} to {pearson_ci[1]:.3f})" if pearson_ci else ""
+        spearman_ci_text = f" (95% CI {spearman_ci[0]:.3f} to {spearman_ci[1]:.3f})" if spearman_ci else ""
         lines.append(
             f"- Population-wide, generation-controlled correlation (log10 LR vs. total_mistag_score, detrended by "
-            f"each generation's median): n={correlation['n']}, Pearson r={correlation['pearson_r']:.3f}, "
-            f"Spearman rho={correlation['spearman_rho']:.3f}"
+            f"each generation's median): n={correlation['n']}, Pearson r={correlation['pearson_r']:.3f}"
+            f"{pearson_ci_text}, Spearman rho={correlation['spearman_rho']:.3f}{spearman_ci_text}"
         )
+        if not pearson_ci:
+            lines.append(
+                "- CI unavailable (too few generations to block-bootstrap -- see statistics.py::"
+                "_block_bootstrap_correlation); point estimate above only."
+            )
         lines.append(
             "- Detrending removes the ordinary training-progress trend (score improves over generations regardless "
             "of LR) so this number isolates an LR effect, not a training-progress effect mistaken for one. Sign "

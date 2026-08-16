@@ -393,6 +393,42 @@ class LrMistagCorrelationStatsTest(unittest.TestCase):
         self.assertGreater(result["pearson_r"], 0.9)
         self.assertGreater(result["spearman_rho"], 0.9)
 
+    def test_bootstrap_ci_brackets_point_estimate_with_enough_generations(self):
+        # Same 5-generation fixture as the detrending test above -- >=3
+        # generations is the block-bootstrap's own minimum.
+        rows = [
+            {"generation": generation, "LR": lr, TOTAL_SCORE_COLUMN: generation * 1.0 + bump}
+            for generation in range(5)
+            for lr, bump in ((3.0e-6, -0.01), (1.0e-5, 0.0), (3.0e-5, 0.01))
+        ]
+        result = lr_mistag_correlation(rows, n_boot=200, bootstrap_seed=1)
+        self.assertIsNotNone(result["pearson_r_ci"])
+        low, high = result["pearson_r_ci"]
+        self.assertLessEqual(low, result["pearson_r"])
+        self.assertGreaterEqual(high, result["pearson_r"])
+        self.assertIsNotNone(result["spearman_rho_ci"])
+
+    def test_bootstrap_ci_none_with_fewer_than_three_generations(self):
+        rows = [
+            {"generation": generation, "LR": lr, TOTAL_SCORE_COLUMN: generation * 1.0 + bump}
+            for generation in range(2)
+            for lr, bump in ((3.0e-6, -0.01), (1.0e-5, 0.0), (3.0e-5, 0.01))
+        ]
+        result = lr_mistag_correlation(rows, n_boot=200, bootstrap_seed=1)
+        self.assertIsNone(result["reason"])  # point estimate still computes fine
+        self.assertIsNone(result["pearson_r_ci"])
+        self.assertIsNone(result["spearman_rho_ci"])
+
+    def test_bootstrap_disabled_leaves_ci_none(self):
+        rows = [
+            {"generation": generation, "LR": lr, TOTAL_SCORE_COLUMN: generation * 1.0 + bump}
+            for generation in range(5)
+            for lr, bump in ((3.0e-6, -0.01), (1.0e-5, 0.0), (3.0e-5, 0.01))
+        ]
+        result = lr_mistag_correlation(rows, bootstrap=False)
+        self.assertIsNone(result["pearson_r_ci"])
+        self.assertIsNone(result["spearman_rho_ci"])
+
 
 class LearningRateMistagCorrelationPlotTest(unittest.TestCase):
     def test_renders_one_point_per_generation_winner_and_reports_correlation(self):
