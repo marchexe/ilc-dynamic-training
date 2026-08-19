@@ -1,0 +1,3 @@
+fixed_tag,label,generation,member,b_bkg_percent,d_bkg_percent
+c_eff_0.50,anchor_copy_lr_recenter_100gen_20260816_105629,69,lr_3e-6,0.5170340535908448,0.05824462557884685
+c_eff_0.80,anchor_copy_lr_recenter_100gen_20260816_105629,69,lr_3e-6,2.6412826358014585,1.1186985297280614

@@ -1,0 +1,8 @@
+{
+  "damping_factor": 0.25,
+  "destination_optimizer": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_100gen_1mval_20260816_105629/lr_14e-6/net_epoch-17_optimizer.pt",
+  "initial_epoch": 17,
+  "mode": "damped",
+  "source_optimizer": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt",
+  "transformed": true
+}
