@@ -1,0 +1,66 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/shared/proxy_control_50k_override.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/anchor_copy_lr_recenter.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: anchor_copy_lr_recenter_100gen_seed2
+
+# Replicate 1 of 3 of anchor_copy_lr_recenter_100gen.yaml (run (1)), same
+# condition, only shared.seed changed (12345 -> 22345). Not part of the
+# original supervisor matrix -- added after stage1
+# (anchor_copy_lr_recenter_100gen_20260816_105629 vs
+# _1mval_20260816_105629, both r essentially 0 with CI crossing zero) to
+# close a real gap: every run so far is n=1 per condition. The
+# generation-block bootstrap CI in statistics.py::lr_mistag_correlation
+# only captures noise *within* one run (generation to generation); it says
+# nothing about how much the correlation estimate itself varies if you
+# rerun the identical condition with a different random draw. r=-0.023
+# from one seed could be "the effect truly is ~0" or "this seed happened
+# to land near 0, another seed could give +0.1 or -0.15" -- indistinguishable
+# without replicates.
+#
+# shared.seed feeds weaver's per-generation training seed as `seed +
+# generation` (weaver_command.py) -- changing it changes data
+# order/shuffling and any other seeded randomness across every generation
+# of this run, giving a genuinely independent draw of the same
+# experiment. pbt.seed (2026, unchanged here) is NOT touched: it's only
+# read by planning/exploit_mutate.py's RNG, a different strategy this
+# config doesn't use -- anchor_copy_lr_recenter's own planner
+# (planning/anchor_copy_lr_recenter.py) has no randomness of its own, so
+# shared.seed is the only lever that actually produces a different run.
+#
+# Compare all seed replicates together once run:
+#   .venv/bin/python scripts/training/pbt/reporting/compare_runs.py \
+#     runs/pbt/anchor_copy_lr_recenter_100gen_20260816_105629 \
+#     runs/pbt/anchor_copy_lr_recenter_100gen_seed2_<TIMESTAMP> \
+#     runs/pbt/anchor_copy_lr_recenter_100gen_seed3_<TIMESTAMP> \
+#     runs/pbt/anchor_copy_lr_recenter_100gen_seed4_<TIMESTAMP> \
+#     --label seed1 --label seed2 --label seed3 --label seed4 \
+#     --plot runs/pbt/lr_matrix_seed_replicates.png
+# -- if all four land close to 0 with overlapping CIs, that's a much
+# stronger "no meaningful LR effect at this scale" conclusion than any
+# single run alone. If they scatter widely (e.g. one strongly negative,
+# another positive), the per-run CI has been understating the true
+# uncertainty all along, and neither (1)/(2)'s "no effect" nor a future
+# (3)/(4) finding would be trustworthy without accounting for that.
+shared:
+  generations: 100
+  seed: 22345
+
+pbt:
+  tiered_validation:
+    full_interval_generations: 20
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5

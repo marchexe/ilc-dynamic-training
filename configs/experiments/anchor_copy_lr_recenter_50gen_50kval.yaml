@@ -1,0 +1,54 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/shared/proxy_control_50k_override.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/anchor_copy_lr_recenter.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: anchor_copy_lr_recenter_50gen_50kval
+
+# Run (3) of the supervisor's 4-run comparison matrix, revised after
+# stage1 results (anchor_copy_lr_recenter_100gen_20260816_105629 vs
+# anchor_copy_lr_recenter_100gen_1mval_20260816_105629, both 100
+# generations): 1M-row control did NOT tighten the LR-vs-mistag-score
+# correlation's CI relative to 150k-row control (150k: r=-0.023, CI
+# [-0.098, 0.057]; 1M: r=-0.068, CI [-0.226, 0.102] -- wider, not
+# narrower, at the same n=400) -- evaluation noise is not the bottleneck.
+# So this run now uses the cheap 150k-row control tier
+# (proxy_control_50k_override.yaml, same as (1)) instead of the
+# originally-planned 1M-row tier (see the sibling, still on disk but
+# unused, anchor_copy_lr_recenter_50gen_1mval.yaml) -- the
+# training-noise-per-generation hypothesis this run tests is independent
+# of the evaluation-noise hypothesis (1) vs (2) already answered, so
+# there's no reason to pay 1M's ~3x wall-clock cost (measured: 8h31m vs
+# 2h44m for 100 generations) to test it.
+#
+# weaver_epochs_per_generation: 2 doubles the per-generation training
+# budget to 240,000 samples (0.1 classical-epoch/generation instead of the
+# baseline's ~0.05), halved to 50 generations -- holds total training
+# samples fixed at 50 * 2 * 120,000 = 12,000,000, same as every sibling in
+# this matrix. Isolates "does more training per generation (less noisy
+# per-point estimate of a member's true LR effect) make the trend
+# clearer" from "does more generations (more points)".
+#
+# full_interval_generations: 10 keeps a clean 5 periodic full_holdout
+# rounds (10/20/30/40/50), matching (1)/(2)'s ~5 rounds.
+shared:
+  generations: 50
+  weaver_epochs_per_generation: 2
+
+pbt:
+  tiered_validation:
+    full_interval_generations: 10
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5

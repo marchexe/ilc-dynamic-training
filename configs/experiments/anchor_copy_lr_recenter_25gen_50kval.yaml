@@ -1,0 +1,43 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/shared/proxy_control_50k_override.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/anchor_copy_lr_recenter.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: anchor_copy_lr_recenter_25gen_50kval
+
+# Run (4) of the supervisor's 4-run comparison matrix, revised after
+# stage1 results -- see anchor_copy_lr_recenter_50gen_50kval.yaml (run
+# (3)) for why this now uses the cheap 150k-row control tier instead of
+# the originally-planned 1M-row tier (still on disk but unused,
+# anchor_copy_lr_recenter_25gen_1mval.yaml).
+#
+# weaver_epochs_per_generation: 4 quadruples the per-generation training
+# budget to 480,000 samples (0.2 classical-epoch/generation), quartered to
+# 25 generations -- holds total training samples fixed at
+# 25 * 4 * 120,000 = 12,000,000, same as every sibling in this matrix. The
+# more extreme end of the training-noise-vs-generation-count trade-off
+# from (3): fewer, less noisy points instead of (3)'s middle ground.
+#
+# full_interval_generations: 5 keeps a clean 5 periodic full_holdout
+# rounds (5/10/15/20/25), matching (1)/(2)/(3)'s ~5 rounds.
+shared:
+  generations: 25
+  weaver_epochs_per_generation: 4
+
+pbt:
+  tiered_validation:
+    full_interval_generations: 5
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5

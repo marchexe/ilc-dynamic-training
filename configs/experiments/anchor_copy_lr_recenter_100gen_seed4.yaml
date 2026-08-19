@@ -1,0 +1,30 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/shared/proxy_control_50k_override.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/anchor_copy_lr_recenter.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: anchor_copy_lr_recenter_100gen_seed4
+
+# Replicate 3 of 3 -- see anchor_copy_lr_recenter_100gen_seed2.yaml for
+# the full rationale. Only shared.seed differs (12345 -> 42345).
+shared:
+  generations: 100
+  seed: 42345
+
+pbt:
+  tiered_validation:
+    full_interval_generations: 20
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_6e-6
+    start_lr: 6.0e-6
+  - name: lr_9e-6
+    start_lr: 9.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5
