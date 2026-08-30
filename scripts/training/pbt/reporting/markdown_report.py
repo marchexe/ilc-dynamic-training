@@ -11,6 +11,7 @@ from training.pbt.reporting.constants import (
     CONDITIONAL_REPORT_PLOT_NAMES,
     CONTROLLER_OBJECTIVE_COLUMN,
     CTAG_SCORE_COLUMN,
+    DECISION_MARKER_STYLE,
     EXPLOIT_TABLE_NAME,
     FIXED_WORKING_POINTS,
     GROUP_SCORE_WARNING_COLUMN,
@@ -200,10 +201,8 @@ def _pbt_population_selection_section_lines(manifest, plots):
         "exploit/anchor/global-best outcome), never re-derived from total_mistag_score."
     )
     if pbt_config.get("strategy") == "anchor_copy_lr_recenter":
-        lines.append(
-            "- Winner-timeline decision markers: `^` accepted_new_anchor, `o` reused_previous_anchor, "
-            "`v` rewound_to_previous_anchor."
-        )
+        marker_legend = ", ".join(f"`{style['marker']}` {name}" for name, style in DECISION_MARKER_STYLE.items())
+        lines.append(f"- Winner-timeline decision markers: {marker_legend}.")
     if result.get("warnings"):
         lines.extend(["", "**Data-quality warnings:**"])
         lines.extend(f"- {warning}" for warning in result["warnings"])
@@ -502,8 +501,7 @@ def _pbt_decision_summary_lines(manifest, rows):
         (
             (generation["index"], generation["anchor_copy_lr_recenter"])
             for generation in manifest.get("generations", [])
-            if (generation.get("anchor_copy_lr_recenter") or {}).get("decision")
-            in ("accepted_new_anchor", "reused_previous_anchor", "rewound_to_previous_anchor")
+            if (generation.get("anchor_copy_lr_recenter") or {}).get("decision") in DECISION_MARKER_STYLE
         ),
         key=lambda item: item[0],
     )

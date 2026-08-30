@@ -4,10 +4,14 @@
 Every generation (no burn-in exception, no significance gate): select the
 best-finite-metric stream, classify it against a single persisted
 population anchor (accepted_new_anchor / reused_previous_anchor /
-rewound_to_previous_anchor), recenter one common LR center toward -- or, on
-rewind, away from -- the winner's LR, copy the resulting anchor state to
-every stream including the winner, and assign a deterministic LR spread
-around the new center.
+rewound_to_previous_anchor / plateau_escape_accepted -- the last one forces
+an accept after too many consecutive rewinds, see
+AnchorCopyLrRecenterConfig.plateau_escape_after_generations), recenter one
+common LR center at -- and, on a genuine accept, a bit past -- the
+winner's LR (recenter_momentum_fraction), or leave it untouched on rewind,
+copy the resulting anchor state to every stream including the winner, and
+assign a deterministic LR spread (widened for one generation on a plateau
+escape) around the new center.
 
 Reuses rather than reimplements: raw_metric_ranking (planning/ranking.py --
 the existing plain best-finite-metric ranking already used for cross-tier
@@ -101,15 +105,23 @@ def _finite_members(config, generation_record, members):
     return finite
 
 
-def classify_anchor_decision(config, tolerance, winner_metric, anchor_metric):
-    """Three-way accept/reuse/rewind split, built from two applications of
-    the existing metric_is_worse_than_reference (never a new absolute-units
+def classify_anchor_decision(config, tolerance, winner_metric, anchor_metric, generations_since_accept, plateau_escape_after):
+    """Accept/reuse/rewind split, built from two applications of the
+    existing metric_is_worse_than_reference (never a new absolute-units
     comparator): winner strictly worse than anchor beyond tolerance ->
-    rewind; anchor strictly worse than winner beyond tolerance (i.e. winner
-    strictly better) -> accept; neither -> reuse (tie zone)."""
+    rewind, UNLESS `generations_since_accept` has already reached
+    `plateau_escape_after` (and that's non-zero), in which case ->
+    plateau_escape_accepted instead -- a run stuck rewinding every
+    generation makes zero progress indefinitely otherwise (see
+    AnchorCopyLrRecenterConfig.plateau_escape_after_generations for the
+    measured real-run cost that motivated this). Anchor strictly worse
+    than winner beyond tolerance (i.e. winner strictly better) -> accept;
+    neither -> reuse (tie zone)."""
     if anchor_metric is None:
         return "accepted_new_anchor"
     if metric_is_worse_than_reference(config, winner_metric, anchor_metric, tolerance):
+        if plateau_escape_after and generations_since_accept >= plateau_escape_after:
+            return "plateau_escape_accepted"
         return "rewound_to_previous_anchor"
     if metric_is_worse_than_reference(config, anchor_metric, winner_metric, tolerance):
         return "accepted_new_anchor"
@@ -151,9 +163,18 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
     anchor = manifest.get("anchor")
     anchor_metric = anchor["metric_value"] if anchor else None
     prev_center = float(anchor["lr_center"]) if anchor else winner_lr
+    # manifest["anchor"]["generation"] only ever advances on a genuine
+    # accepted_new_anchor or plateau_escape_accepted (state/anchor.py::
+    # update_anchor) -- reused_previous_anchor and rewound_to_previous_anchor
+    # never touch it -- so this is exactly "generations since the last
+    # genuine accept" with no separate persisted counter needed.
+    generations_since_accept = (generation_record["index"] - anchor["generation"]) if anchor else 0
 
     tolerance = float(policy.get("accept_tolerance", 0.0))
-    decision = classify_anchor_decision(config, tolerance, winner_metric, anchor_metric)
+    plateau_escape_after = int(policy.get("plateau_escape_after_generations", 0))
+    decision = classify_anchor_decision(
+        config, tolerance, winner_metric, anchor_metric, generations_since_accept, plateau_escape_after,
+    )
 
     min_lr = float(config["pbt"]["min_lr"])
     max_lr = float(config["pbt"]["max_lr"])
@@ -162,15 +183,30 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
         # Restored, not moved: this generation's result carries no
         # information we act on for the center when it's being rejected.
         new_center = float(anchor["lr_center"])
+    elif decision == "accepted_new_anchor":
+        # Lands on winner_lr, then pushes a bit further in the direction
+        # winner_lr already indicates relative to the previous center --
+        # never a blend *toward* it (that would undo, not extend, the
+        # movement this generation's result earned). No push when
+        # winner_lr == prev_center (nothing to extrapolate) or the very
+        # first-ever accept (prev_center was set to winner_lr above
+        # specifically so this is a no-op then, not a spurious push off an
+        # arbitrary starting point).
+        momentum = float(policy.get("recenter_momentum_fraction", 0.0))
+        if momentum and winner_lr != prev_center:
+            push = (1.0 + momentum) if winner_lr > prev_center else (1.0 - momentum)
+            new_center = clamp(winner_lr * push, min_lr, max_lr)
+        else:
+            new_center = clamp(winner_lr, min_lr, max_lr)
     else:
-        # accepted_new_anchor and reused_previous_anchor both set the
-        # center to exactly the winner's own LR -- no damping/blending
-        # toward it. Direction is never inferred separately: it falls out
-        # naturally from whether winner_lr sits above, below, or at the
-        # old center.
+        # reused_previous_anchor (tie zone: no confirmed direction to
+        # extrapolate) and plateau_escape_accepted (its own
+        # plateau_escape_widen_factor below is the escape mechanism --
+        # stacking a momentum push on an already-uncertain forced accept
+        # would confound the two) both land exactly on winner_lr, no push.
         new_center = clamp(winner_lr, min_lr, max_lr)
 
-    if decision == "accepted_new_anchor":
+    if decision in ("accepted_new_anchor", "plateau_escape_accepted"):
         anchor_donor_label = winner_name
         anchor_generation = generation_record["index"]
         anchor_metric_for_events = winner_metric
@@ -184,7 +220,14 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
         anchor_metric_for_events = winner_metric
 
     member_order = list(members)
-    spread, unclamped_spread = assign_lr_spread(new_center, policy["spread_multipliers"], min_lr, max_lr, member_order)
+    multipliers = policy["spread_multipliers"]
+    if decision == "plateau_escape_accepted":
+        # Widen for this one generation only -- the very next generation's
+        # plan recomputes spread fresh from spread_multipliers, so this
+        # never persists past the escape itself.
+        widen = float(policy.get("plateau_escape_widen_factor", 1.0))
+        multipliers = [1.0 + (multiplier - 1.0) * widen for multiplier in multipliers]
+    spread, unclamped_spread = assign_lr_spread(new_center, multipliers, min_lr, max_lr, member_order)
     spread_collapsed, duplicate_lr_groups = detect_spread_collapse(spread)
 
     common_fields = {
@@ -237,6 +280,12 @@ def anchor_copy_lr_recenter_plan(config, generation_record, members, manifest=No
         "assigned_lrs": spread,
         "unclamped_lrs": unclamped_spread,
         "eval_tier": EVAL_TIER,
+        # Generations since the last genuine accept (see the comment where
+        # this is computed above) -- recorded even outside plateau-escape
+        # so a reader can see how close/far a rewind streak is from
+        # plateau_escape_after_generations without cross-referencing the
+        # full generation history.
+        "generations_since_accept": generations_since_accept,
         # min_lr/max_lr clamping can collapse two or more members onto the
         # exact same LR (e.g. center near a bound with a wide multiplier
         # spread) -- recorded explicitly here rather than silently letting

@@ -297,6 +297,161 @@ class AnchorCopyLrRecenterPlannerTest(unittest.TestCase):
         self.assertLessEqual(anchor_event["lr_center"], 1.0e-4)
 
 
+class AnchorCopyLrRecenterMomentumTest(unittest.TestCase):
+    """recenter_momentum_fraction: an extra push past winner_lr itself, on
+    a genuine accepted_new_anchor only."""
+
+    def test_low_lr_winner_pushes_center_further_down(self):
+        config = _config(recenter_momentum_fraction=0.10)
+        members = _members({"m_low": 1.0e-5, "m_high": 9.0e-5})
+        generation = _generation_record(1, 6, {"m_low": 0.5, "m_high": 1.5})  # m_low wins, clearly better
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 5.0e-5, generation=0)}
+
+        anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertEqual(info["decision"], "accepted_new_anchor")
+        # winner_lr (1.0e-5) pushed a further 10% below itself, not just
+        # landed on it -- direction matches "low LR won, go lower still".
+        self.assertAlmostEqual(info["new_lr_center"], 1.0e-5 * 0.90)
+        self.assertLess(info["new_lr_center"], info["winner_lr"])
+
+    def test_high_lr_winner_pushes_center_further_up(self):
+        config = _config(recenter_momentum_fraction=0.10)
+        members = _members({"m_low": 1.0e-5, "m_high": 9.0e-5})
+        generation = _generation_record(1, 6, {"m_low": 1.5, "m_high": 0.5})  # m_high wins
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 5.0e-5, generation=0)}
+
+        anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertAlmostEqual(info["new_lr_center"], 9.0e-5 * 1.10)
+        self.assertGreater(info["new_lr_center"], info["winner_lr"])
+
+    def test_no_push_when_winner_lr_equals_previous_center(self):
+        config = _config(recenter_momentum_fraction=0.10)
+        members = _members({"m_mid": 5.0e-5, "m_other": 9.0e-5})
+        generation = _generation_record(1, 6, {"m_mid": 0.5, "m_other": 1.5})  # m_mid wins, lr == prev center
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 5.0e-5, generation=0)}
+
+        anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        # No direction to extrapolate -- lands exactly on winner_lr, same
+        # as momentum disabled.
+        self.assertAlmostEqual(generation["anchor_copy_lr_recenter"]["new_lr_center"], 5.0e-5)
+
+    def test_no_push_on_the_very_first_ever_accept(self):
+        config = _config(recenter_momentum_fraction=0.10)
+        members = _members({"m_a": 1.0e-5, "m_b": 9.0e-5})
+        generation = _generation_record(0, 5, {"m_a": 1.5, "m_b": 0.5})
+        manifest = {"members": members, "generations": [], "anchor": None}
+
+        anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertEqual(info["decision"], "accepted_new_anchor")
+        self.assertAlmostEqual(info["new_lr_center"], 9.0e-5)  # no spurious push off an arbitrary start
+
+    def test_no_push_on_reused_previous_anchor_tie_zone(self):
+        config = _config(accept_tolerance=0.05, recenter_momentum_fraction=0.10)
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(1, 6, {"m_a": 1.02, "m_b": 0.99})  # within tolerance -- reuse, not accept
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_a", 1.0, 2.0e-5, generation=0)}
+
+        anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertEqual(info["decision"], "reused_previous_anchor")
+        self.assertAlmostEqual(info["new_lr_center"], 8.0e-5)  # == winner_lr exactly, momentum not applied
+
+    def test_momentum_disabled_by_default_matches_original_behavior(self):
+        config = _config()  # recenter_momentum_fraction defaults to 0.0
+        members = _members({"m_low": 1.0e-5, "m_high": 9.0e-5})
+        generation = _generation_record(1, 6, {"m_low": 0.5, "m_high": 1.5})
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 5.0e-5, generation=0)}
+
+        anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertAlmostEqual(generation["anchor_copy_lr_recenter"]["new_lr_center"], 1.0e-5)
+
+
+class AnchorCopyLrRecenterPlateauEscapeTest(unittest.TestCase):
+    """plateau_escape_after_generations: force-accept the winner instead of
+    rewinding forever once a run has gone that many generations with no
+    genuine accepted_new_anchor."""
+
+    def test_rewinds_normally_below_the_threshold(self):
+        config = _config(plateau_escape_after_generations=8)
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(5, 6, {"m_a": 2.0, "m_b": 1.8})  # both worse than anchor
+        # Anchor last accepted at generation 0 -- generation 5 is only 5
+        # generations later, below the threshold of 8.
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 3.0e-5, generation=0)}
+
+        anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "rewound_to_previous_anchor")
+
+    def test_force_accepts_once_the_threshold_is_reached(self):
+        config = _config(plateau_escape_after_generations=8)
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(8, 6, {"m_a": 2.0, "m_b": 1.8})  # still worse than anchor
+        # Anchor last accepted at generation 0 -- generation 8 is exactly 8
+        # generations later, at the threshold.
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 3.0e-5, generation=0)}
+
+        ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertEqual(info["decision"], "plateau_escape_accepted")
+        # Forced accept lands on the winner's own LR (m_b, the better of
+        # the two even though both are worse than anchor), not restored.
+        self.assertEqual(ranking[0], "m_b")
+        self.assertAlmostEqual(info["new_lr_center"], 8.0e-5)
+        self.assertTrue(all(event["donor"] == "m_b" for event in plan if event["recipient"] != "__anchor__"))
+
+    def test_disabled_by_default_rewinds_indefinitely(self):
+        config = _config()  # plateau_escape_after_generations defaults to 0 (disabled)
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(50, 6, {"m_a": 2.0, "m_b": 1.8})
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 3.0e-5, generation=0)}
+
+        anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "rewound_to_previous_anchor")
+
+    def test_widens_spread_for_the_escape_generation_only(self):
+        multipliers = [0.5, 0.75, 1.0, 1.25, 1.5]
+        config = _config(
+            spread_multipliers=multipliers, plateau_escape_after_generations=8, plateau_escape_widen_factor=2.0,
+        )
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5, "m_c": 3.0e-5, "m_d": 4.0e-5, "m_e": 5.0e-5})
+        generation = _generation_record(8, 6, {"m_a": 2.0, "m_b": 1.8, "m_c": 2.1, "m_d": 2.2, "m_e": 2.3})
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 3.0e-5, generation=0)}
+
+        anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        info = generation["anchor_copy_lr_recenter"]
+        self.assertEqual(info["decision"], "plateau_escape_accepted")
+        center = info["new_lr_center"]
+        # 2x widen_factor doubles each multiplier's deviation from 1.0:
+        # 0.5 -> 0.0, 1.5 -> 2.0 -- the widest assigned LR should be
+        # noticeably further from center than the un-widened 1.5x would
+        # give.
+        widest = max(info["unclamped_lrs"].values())
+        self.assertAlmostEqual(widest, center * 2.0, places=12)
+
+    def test_generations_since_accept_recorded_every_generation(self):
+        config = _config()
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+        generation = _generation_record(3, 6, {"m_a": 2.0, "m_b": 1.8})
+        manifest = {"members": members, "generations": [], "anchor": _anchor("m_prev", 1.0, 3.0e-5, generation=0)}
+
+        anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+
+        self.assertEqual(generation["anchor_copy_lr_recenter"]["generations_since_accept"], 3)
+
+
 class AnchorCopyLrRecenterApplyTest(unittest.TestCase):
     def _config(self):
         return _config(accept_tolerance=0.01)
@@ -390,6 +545,42 @@ class AnchorCopyLrRecenterApplyTest(unittest.TestCase):
             self.assertEqual(manifest["anchor"]["member"], "m_prev")
             self.assertEqual(manifest["anchor"]["metric_value"], 0.5)
             self.assertEqual(manifest["anchor"]["lr_center"], 3.0e-5)
+
+    def test_plateau_escape_writes_the_anchor_bundle_like_a_genuine_accept(self):
+        config = _config(accept_tolerance=0.01, plateau_escape_after_generations=8)
+        members = _members({"m_a": 1.0e-5, "m_b": 8.0e-5})
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            paths = anchor_module.anchor_paths(root)
+            Path(paths["state_path"]).write_bytes(b"anchor-state")
+            _write_optimizer_state(Path(paths["optimizer_path"]), lr=3.0e-5, marker="anchor")
+            manifest = {
+                "config": config,
+                "members": members,
+                "generations": [],
+                "anchor": _anchor("m_prev", metric_value=0.5, lr_center=3.0e-5, generation=0),
+            }
+            for name in members:
+                self._write_member_checkpoint(root, name, 8, f"{name}-diverged-state".encode(), members[name]["lr"])
+
+            # Both still worse than anchor's 0.5, but 8 generations have
+            # passed with no genuine accept -- at the plateau threshold.
+            generation = _generation_record(8, 8, {"m_a": 2.0, "m_b": 1.8})
+            ranking, plan = anchor_copy_lr_recenter_plan(config, generation, members, manifest)
+            self.assertEqual(generation["anchor_copy_lr_recenter"]["decision"], "plateau_escape_accepted")
+            generation["exploit"] = plan
+            manifest_path = root / "manifest.json"
+            transitions.apply_exploit(root, manifest, generation, manifest_path)
+
+            # Same real write as accepted_new_anchor: the anchor bundle now
+            # holds the winner's own state, not the old anchor's.
+            self.assertEqual(Path(paths["state_path"]).read_bytes(), b"m_b-diverged-state")
+            anchor_optimizer_state = _read_optimizer_state(Path(paths["optimizer_path"]))
+            self.assertEqual(anchor_optimizer_state["marker"], "m_b")
+            self.assertEqual(manifest["anchor"]["member"], "m_b")
+            self.assertEqual(manifest["anchor"]["metric_value"], 1.8)
+            self.assertEqual(manifest["anchor"]["generation"], 8)
 
 
 class AnchorCopyLrRecenterResumeTest(unittest.TestCase):
@@ -843,6 +1034,44 @@ class SpreadMultiplierValidatorTest(unittest.TestCase):
     def test_rejects_a_non_positive_multiplier(self):
         with self.assertRaises(ValueError):
             self._build([-0.1, 1.00, 1.20])
+
+
+class MomentumAndPlateauEscapeFieldValidationTest(unittest.TestCase):
+    """Bounds on the three new AnchorCopyLrRecenterConfig fields -- and
+    that their disabling defaults (0.0 / 0 / 1.0) require no changes to
+    any config that predates them."""
+
+    def _build(self, **overrides):
+        from training.pbt.models.config import AnchorCopyLrRecenterConfig
+
+        fields = {"mode": "active", "spread_multipliers": [0.5, 0.75, 1.0, 1.25, 1.5]}
+        fields.update(overrides)
+        return AnchorCopyLrRecenterConfig(**fields)
+
+    def test_defaults_are_disabling_values(self):
+        policy = self._build()
+        self.assertEqual(policy.recenter_momentum_fraction, 0.0)
+        self.assertEqual(policy.plateau_escape_after_generations, 0)
+        self.assertEqual(policy.plateau_escape_widen_factor, 1.0)
+
+    def test_accepts_valid_values(self):
+        self._build(recenter_momentum_fraction=0.075, plateau_escape_after_generations=8, plateau_escape_widen_factor=1.5)
+
+    def test_rejects_momentum_fraction_of_1_0_or_more(self):
+        with self.assertRaises(ValueError):
+            self._build(recenter_momentum_fraction=1.0)
+
+    def test_rejects_negative_momentum_fraction(self):
+        with self.assertRaises(ValueError):
+            self._build(recenter_momentum_fraction=-0.01)
+
+    def test_rejects_negative_plateau_escape_after_generations(self):
+        with self.assertRaises(ValueError):
+            self._build(plateau_escape_after_generations=-1)
+
+    def test_rejects_widen_factor_below_1_0(self):
+        with self.assertRaises(ValueError):
+            self._build(plateau_escape_widen_factor=0.5)
 
 
 class OptimizerLrPatchTest(unittest.TestCase):

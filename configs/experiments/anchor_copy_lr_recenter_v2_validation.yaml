@@ -1,0 +1,49 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/shared/proxy_control_50k_override.yaml
+  - ../presets/resources/local_4gpu.yaml
+  - ../presets/pbt/anchor_copy_lr_recenter.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: anchor_copy_lr_recenter_v2_validation
+
+# Shape/correctness validation of the rewritten anchor_copy_lr_recenter
+# strategy (widened symmetric spread, recenter_momentum_fraction,
+# plateau_escape_after_generations/plateau_escape_widen_factor -- see
+# presets/pbt/anchor_copy_lr_recenter.yaml's own comment) -- NOT a
+# statistically rigorous rerun of the LR-vs-mistag-score investigation
+# (runs/showcase/lr_mistag_correlation_matrix/). Purpose here is narrow:
+# confirm the new mechanics behave sanely over a real run (momentum
+# doesn't run away into spread_collapsed, plateau escape actually fires
+# and recovers instead of just widening noise, nothing crashes) before
+# deciding whether a full multi-seed re-investigation under the new
+# algorithm is worth the additional GPU-hours.
+#
+# 100 generations, same 150k-row control tier and ~0.05 epoch/generation
+# as the original investigation's run (1) -- deliberately comparable
+# scale, so anything that looks qualitatively different (e.g. fewer
+# stagnant-generation stretches near the end) is attributable to the
+# algorithm change, not to a different budget.
+#
+# full_interval_generations: 20, same reasoning as the investigation's
+# 100-generation runs (5 clean periodic full_holdout rounds).
+shared:
+  generations: 100
+
+pbt:
+  tiered_validation:
+    full_interval_generations: 20
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_5_75e-6
+    start_lr: 5.75e-6
+  - name: lr_8_5e-6
+    start_lr: 8.5e-6
+  - name: lr_11_25e-6
+    start_lr: 11.25e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5

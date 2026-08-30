@@ -61,12 +61,39 @@ pbt:
   dynamic_controller:
     mode: disabled
 
+  # Widened from the original [0.80, 0.90, 1.00, 1.20] (a narrow ~+-20%
+  # window, and asymmetric even within that) after the LR-vs-mistag-score
+  # investigation (runs/showcase/lr_mistag_correlation_matrix/) found no
+  # detectable correlation across 7 independent checks -- a real
+  # possibility that ruled out is that the search itself never let LR vary
+  # enough to see an effect, not that no effect exists. 5 members,
+  # symmetric +-50% around the center, exactly one at 1.0:
+  # [0.5, 0.75, 1.0, 1.25, 1.5]. Composing experiment configs must declare
+  # a matching 5-entry `population` list -- the historical 4-member configs
+  # under configs/experiments/anchor_copy_lr_recenter_*.yaml are frozen
+  # records of already-completed runs (each has its own resolved_config.yaml
+  # with the exact values that actually ran) and are not meant to be
+  # re-launched against this preset unchanged.
   anchor_copy_lr_recenter:
     mode: active
     accept_tolerance: 0.0
-    # 4 members: exactly one 1.0 (so one member continues at the exact
-    # winning LR), values both below and above it.
-    spread_multipliers: [0.80, 0.90, 1.00, 1.20]
+    spread_multipliers: [0.5, 0.75, 1.0, 1.25, 1.5]
+    # Push new_lr_center a further 7.5% past winner_lr, in the direction
+    # winner_lr already indicates, on a genuine accepted_new_anchor -- lets
+    # the center reach LR values beyond what's already been sampled instead
+    # of only ever snapping back onto the existing multiplier grid.
+    recenter_momentum_fraction: 0.075
+    # Force-accept the winner (plateau_escape_accepted) after 8 consecutive
+    # generations with no genuine accept, instead of rewinding forever --
+    # measured cost of not having this: run
+    # anchor_copy_lr_recenter_100gen_20260816_105629 spent 30 of its 100
+    # generations rewinding after its generation-69 peak (17 of them
+    # consecutive at the very end) with no way out.
+    plateau_escape_after_generations: 8
+    # Widen the spread 1.5x (deviation from 1.0) for that one escape
+    # generation only, so the forced accept also gets a wider look at LR
+    # space right when the run is otherwise stuck.
+    plateau_escape_widen_factor: 1.5
 
   # Rare full_holdout verification only -- no monitor tier at all (this
   # strategy's control-tier metric already comes from val50k_tail via the

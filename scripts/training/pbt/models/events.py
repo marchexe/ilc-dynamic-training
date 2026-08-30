@@ -140,11 +140,17 @@ class AnchorCopyEvent(ExploitEventBase):
     strategy resolves accept-or-rewind within the same generation it
     evaluates (the control-tier metric this decision needs already exists
     every generation), so one event type is enough; `decision` records
-    which of the three outcomes produced this copy.
+    which of the four outcomes produced this copy (plateau_escape_accepted
+    is a forced accept after too many consecutive rewinds -- see
+    AnchorCopyLrRecenterConfig.plateau_escape_after_generations -- handled
+    identically to accepted_new_anchor everywhere a real anchor-bundle
+    write is needed, distinguished only for reporting).
     """
 
     source: Literal["anchor_copy_lr_recenter"] = "anchor_copy_lr_recenter"
-    decision: Literal["accepted_new_anchor", "reused_previous_anchor", "rewound_to_previous_anchor"]
+    decision: Literal[
+        "accepted_new_anchor", "reused_previous_anchor", "rewound_to_previous_anchor", "plateau_escape_accepted",
+    ]
     anchor_generation: int
     anchor_metric_value: float
     winner: str

@@ -55,14 +55,19 @@ CB_PALETTE = {
 }
 
 
-# Marker SHAPE (not just color) for the three accept/reuse/rewind outcomes,
-# so decisions remain distinguishable in grayscale. Reused by both
-# plot_aggregate_scores and plot_decision_history so the same decision
-# always reads the same way across figures.
+# Marker SHAPE (not just color) for the four accept/reuse/rewind/
+# plateau-escape outcomes, so decisions remain distinguishable in
+# grayscale. Reused by both plot_aggregate_scores and plot_decision_history
+# so the same decision always reads the same way across figures. Also the
+# single source of truth for "which decision strings exist" --
+# research_plots.py::RESOLVED_ANCHOR_DECISIONS and
+# markdown_report.py's decision-summary table both derive from this dict's
+# keys rather than repeating the list.
 DECISION_MARKER_STYLE = {
     "accepted_new_anchor": {"marker": "^", "color": CB_PALETTE["green"], "label": "accepted_new_anchor"},
     "reused_previous_anchor": {"marker": "o", "color": CB_PALETTE["grey"], "label": "reused_previous_anchor"},
     "rewound_to_previous_anchor": {"marker": "v", "color": CB_PALETTE["vermillion"], "label": "rewound_to_previous_anchor"},
+    "plateau_escape_accepted": {"marker": "P", "color": CB_PALETTE["orange"], "label": "plateau_escape_accepted"},
 }
 
 

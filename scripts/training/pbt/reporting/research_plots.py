@@ -148,9 +148,12 @@ def build_generation_decision_rows(manifest, member_rows):
 
     `anchor_row` is the *resulting* (post-decision) active-anchor's full
     metric row -- carried forward unchanged across reused_previous_anchor/
-    rewound_to_previous_anchor generations, refreshed only on
-    accepted_new_anchor -- so plotting its trajectory across generations
-    shows exactly which checkpoint state is live at each point in time.
+    rewound_to_previous_anchor generations, refreshed on accepted_new_anchor
+    and plateau_escape_accepted alike (both are genuine anchor-bundle
+    writes, see state/transitions.py -- a plateau escape is a forced
+    accept, not a different kind of update) -- so plotting its trajectory
+    across generations shows exactly which checkpoint state is live at each
+    point in time.
     `anchor_total_score_before_decision` is the *previous* anchor's own
     total_mistag_score, captured before this generation's outcome is
     applied -- what the winner was actually compared against -- None for
@@ -169,7 +172,7 @@ def build_generation_decision_rows(manifest, member_rows):
             continue
         anchor_score_before = anchor_row.get(TOTAL_SCORE_COLUMN) if anchor_row else None
         winner_row = row_lookup.get((generation["index"], info.get("winner")))
-        if info["decision"] == "accepted_new_anchor":
+        if info["decision"] in ("accepted_new_anchor", "plateau_escape_accepted"):
             anchor_row = winner_row
             anchor_member = info.get("winner")
         decisions.append(

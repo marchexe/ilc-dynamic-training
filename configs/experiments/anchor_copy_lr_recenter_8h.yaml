@@ -33,11 +33,20 @@ shared:
   generations: 48
 
 population:
+  # 5 members, matching the preset's widened/symmetric spread_multipliers
+  # (see presets/pbt/anchor_copy_lr_recenter.yaml) -- was 4 (3e-6/6e-6/9e-6/
+  # 14e-6) before that preset change. Historical runs launched from an
+  # earlier version of this file (e.g. the 48-generation showcase pilot,
+  # runs/showcase/lr_mistag_correlation_matrix/anchor_copy_lr_recenter_8h_20260807_015714)
+  # keep their own frozen resolved_config.yaml regardless of what this
+  # source file says today.
   - name: lr_3e-6
     start_lr: 3.0e-6
-  - name: lr_6e-6
-    start_lr: 6.0e-6
-  - name: lr_9e-6
-    start_lr: 9.0e-6
+  - name: lr_5_75e-6
+    start_lr: 5.75e-6
+  - name: lr_8_5e-6
+    start_lr: 8.5e-6
+  - name: lr_11_25e-6
+    start_lr: 11.25e-6
   - name: lr_14e-6
     start_lr: 1.4e-5

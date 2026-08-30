@@ -21,14 +21,16 @@ def _apply_anchor_bundle_update(experiment_dir, manifest, generation_record, eve
     """anchor_copy_lr_recenter's once-per-generation anchor bookkeeping.
     Intercepted before the generic per-member copy loop below -- there is
     no real "__anchor__" member directory to resolve donor/recipient paths
-    against, so this never reaches that code. accepted_new_anchor copies
-    the winner's checkpoint into dedicated anchor storage (state/anchor.py,
-    atomic across the whole bundle); reused_previous_anchor only moves
-    lr_center (weights/optimizer/metric stay exactly as they were);
-    rewound_to_previous_anchor is a pure no-op here, since the anchor is by
-    definition already the state every member is about to be restored to.
+    against, so this never reaches that code. accepted_new_anchor and
+    plateau_escape_accepted both copy the winner's checkpoint into
+    dedicated anchor storage (state/anchor.py, atomic across the whole
+    bundle) -- a plateau escape is a forced accept, not a different kind of
+    write; reused_previous_anchor only moves lr_center (weights/optimizer/
+    metric stay exactly as they were); rewound_to_previous_anchor is a pure
+    no-op here, since the anchor is by definition already the state every
+    member is about to be restored to.
     """
-    if event_model.decision == "accepted_new_anchor":
+    if event_model.decision in ("accepted_new_anchor", "plateau_escape_accepted"):
         winner_lr = float(manifest["members"][event_model.winner]["lr"])
         update_anchor(
             experiment_dir, manifest, generation_record,

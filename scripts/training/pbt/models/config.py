@@ -145,11 +145,16 @@ class AnchorCopyLrRecenterConfig(StrictSectionModel):
     every generation, unconditionally (no significance gate) select the
     best-finite-metric member as winner, classify it against the single
     persisted population anchor within accept_tolerance (strictly better ->
-    accepted_new_anchor, persist winner's full state as the new anchor;
+    accepted_new_anchor, persist winner's full state as the new anchor and
+    push new_lr_center a bit past winner_lr via recenter_momentum_fraction;
     within tolerance -> reused_previous_anchor, keep the old anchor's
-    weights/optimizer but still move the LR center toward the winner's LR;
-    strictly worse -> rewound_to_previous_anchor, keep the old anchor AND
-    restore the old LR center, undoing this generation's LR movement), copy
+    weights/optimizer but still move the LR center to the winner's LR, no
+    momentum push; strictly worse -> rewound_to_previous_anchor, keep the
+    old anchor AND restore the old LR center, undoing this generation's LR
+    movement -- unless plateau_escape_after_generations consecutive
+    generations have passed with no genuine accept, in which case
+    plateau_escape_accepted force-accepts the winner anyway and widens
+    that one generation's LR spread via plateau_escape_widen_factor), copy
     the (possibly-just-updated) anchor to every stream including the
     winner, and assign a fresh deterministic LR spread around the
     resulting center. Mutually exclusive with dynamic_controller/
@@ -165,23 +170,63 @@ class AnchorCopyLrRecenterConfig(StrictSectionModel):
     # consuming the metric every worker already produces every generation,
     # never a periodic separate tiered_evaluations round.
     #
-    # No damping field here: new_lr_center is always exactly the winner's
-    # own LR (never a blend toward it) -- direction (up/down/flat) emerges
-    # naturally from where that LR sits relative to the old center, per the
-    # strategy's canonical spec. A previous center_step_fraction field that
-    # damped this movement has been removed rather than left unused.
+    # On a genuine accepted_new_anchor, new_lr_center lands on winner_lr
+    # itself, then recenter_momentum_fraction below pushes it a bit further
+    # in the same direction -- never a blend *toward* winner_lr (that would
+    # be damping, the opposite of what a momentum push does). A previous
+    # center_step_fraction field that damped this movement was removed
+    # rather than left unused when this strategy had no directional-push
+    # concept at all; momentum reintroduces movement past winner_lr, not
+    # short of it.
     # Relative/fractional, exactly like degradation_tolerance -- reuses
     # metrics.py::metric_is_worse_than_reference's existing orientation-safe
     # comparison (current worse-than-reference by more than this fraction),
-    # applied symmetrically in both directions to get the three-way
-    # accept/reuse/rewind split, rather than a new absolute-units comparator.
+    # applied symmetrically in both directions to get the accept/reuse/rewind
+    # split (classify_anchor_decision), rather than a new absolute-units
+    # comparator.
     accept_tolerance: float = Field(
         default=0.0, ge=0.0, lt=1.0,
         description="Fractional tolerance band for the accept/reuse/rewind classification (same convention as degradation_tolerance).",
     )
     spread_multipliers: list[float] = Field(
         min_length=1,
-        description="Deterministic per-member LR multipliers applied to the new center, e.g. [0.80, 0.90, 1.00, 1.20] for 4 members. Length must equal the population size; must include exactly one 1.0 so exactly one member continues at the exact winning LR.",
+        description="Deterministic per-member LR multipliers applied to the new center, e.g. [0.5, 0.75, 1.0, 1.25, 1.5] for 5 members. Length must equal the population size; must include exactly one 1.0 so exactly one member continues at the exact winning LR.",
+    )
+    # Extra push beyond winner_lr itself on a genuine accepted_new_anchor
+    # only -- never on reused_previous_anchor (tie zone, no confirmed
+    # direction to extrapolate), rewound_to_previous_anchor (center doesn't
+    # move at all), or plateau_escape_accepted (that decision's own
+    # plateau_escape_widen_factor below is its escape mechanism; stacking a
+    # momentum push on top of an already-uncertain forced accept would
+    # confound the two). Direction falls out of where winner_lr already
+    # sits relative to the previous center, same as the base strategy's own
+    # up/down/flat logic -- 0.0 disables (new_lr_center lands exactly on
+    # winner_lr, the strategy's original behavior).
+    recenter_momentum_fraction: float = Field(
+        default=0.0, ge=0.0, lt=1.0,
+        description="Extra fractional push applied to new_lr_center beyond winner_lr, in the direction winner_lr already indicates relative to the previous center. Only applied on accepted_new_anchor. 0.0 disables.",
+    )
+    # A run stuck rewinding every generation (winner never beats the
+    # persisted anchor) makes zero progress indefinitely -- measured on a
+    # real run: anchor_copy_lr_recenter_100gen_20260816_105629 spent 30 of
+    # its 100 generations rewinding after generation 69's peak, 17 of them
+    # consecutive at the very end, with no escape mechanism. Counted from
+    # manifest["anchor"]["generation"] (the generation of the last genuine
+    # accept -- reused_previous_anchor and rewound_to_previous_anchor never
+    # advance it), not a separate persisted counter. 0 disables (rewind can
+    # persist indefinitely, the strategy's original behavior).
+    plateau_escape_after_generations: int = Field(
+        default=0, ge=0,
+        description="Force-accept the current winner as the new anchor (decision=plateau_escape_accepted) once this many consecutive generations have passed with no genuine accepted_new_anchor. 0 disables.",
+    )
+    # Applied for the one generation a plateau_escape_accepted fires only --
+    # the very next generation's plan recomputes spread fresh from
+    # spread_multipliers, so this never persists past the escape itself.
+    # >=1.0 required: this widens exploration right when the run is
+    # otherwise stuck, never narrows it.
+    plateau_escape_widen_factor: float = Field(
+        default=1.0, ge=1.0,
+        description="Multiplies each spread_multiplier's deviation from 1.0 for the one generation a plateau_escape_accepted fires. 1.0 disables (no widening).",
     )
 
     @field_validator("spread_multipliers")
