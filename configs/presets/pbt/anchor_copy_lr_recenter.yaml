@@ -78,11 +78,26 @@ pbt:
     mode: active
     accept_tolerance: 0.0
     spread_multipliers: [0.5, 0.75, 1.0, 1.25, 1.5]
-    # Push new_lr_center a further 7.5% past winner_lr, in the direction
+    # Push new_lr_center a further 2% past winner_lr, in the direction
     # winner_lr already indicates, on a genuine accepted_new_anchor -- lets
     # the center reach LR values beyond what's already been sampled instead
     # of only ever snapping back onto the existing multiplier grid.
-    recenter_momentum_fraction: 0.075
+    #
+    # Started at 0.075 (middle of the supervisor's 5-10% range) and was cut
+    # to 0.02 after anchor_copy_lr_recenter_v2_validation's first ~37
+    # generations: spread_collapsed hit 19/37 generations (51%, rising from
+    # 29% over the first 24) and the center swung from clamped at max_lr to
+    # clamped at min_lr within 2 generations (23->34). Root cause is
+    # geometric, not just "momentum accumulates": with a +-50%
+    # spread_multipliers range and min_lr=3e-6/max_lr=1.4e-5 (only a 4.7x
+    # span), a member's assigned LR clips *unless the center itself sits in
+    # roughly [6e-6, 9.33e-6]* -- under a third of the allowed range. A
+    # momentum strong enough to matter each generation reliably pushes the
+    # center out of that band. 0.02 is a first conservative retune, not a
+    # validated final value -- if spread_collapsed is still frequent at this
+    # setting, the actual fix is min_lr/max_lr or spread_multipliers width,
+    # not this field alone.
+    recenter_momentum_fraction: 0.02
     # Force-accept the winner (plateau_escape_accepted) after 8 consecutive
     # generations with no genuine accept, instead of rewinding forever --
     # measured cost of not having this: run
