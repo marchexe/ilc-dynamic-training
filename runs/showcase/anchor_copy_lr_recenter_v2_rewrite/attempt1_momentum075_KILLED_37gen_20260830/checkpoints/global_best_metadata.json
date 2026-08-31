@@ -1,0 +1,371 @@
+{
+  "controller_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_v2_validation/checkpoints/global_best_controller.pt",
+  "epoch": 54,
+  "generation": 36,
+  "lr": 7.25625e-06,
+  "member": "lr_14e-6",
+  "metadata_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_v2_validation/checkpoints/global_best_metadata.json",
+  "metric": "validation_total_reference_mistag_geomean_percent",
+  "metric_value": 0.39409836630029366,
+  "metrics": {
+    "train_accuracy": 0.88664,
+    "train_amp_skipped_optimizer_steps": 0,
+    "train_loaded_optimizer_lr": 7.25625e-06,
+    "train_loss": 0.29794,
+    "train_max_cuda_memory_mb": 21493.0,
+    "train_max_grad_norm": 0.39248,
+    "validation_accuracy": 0.88971,
+    "validation_auc": 0.9721018318407912,
+    "validation_b_tag_rejection_score": 7.767004553002563,
+    "validation_bc_mistag_eff_0.80_percent": 0.1689868842290288,
+    "validation_bc_mistag_eff_0.90_percent": 3.130280753144995,
+    "validation_bd_mistag_eff_0.80_percent": 0.06406149903907751,
+    "validation_bd_mistag_eff_0.90_percent": 0.18818066032529387,
+    "validation_bkg_rejection_at_eff": {
+      "efficiencies": [
+        0.2,
+        0.3,
+        0.4,
+        0.5,
+        0.6,
+        0.7,
+        0.8,
+        0.9,
+        1.0
+      ],
+      "pairs": {
+        "bc": [
+          49709.0,
+          49709.0,
+          49708.0,
+          24854.0,
+          16569.333984375,
+          2616.21044921875,
+          591.7619018554688,
+          31.946016311645508,
+          1.0239782333374023
+        ],
+        "bd": [
+          49953.0,
+          49952.0,
+          12488.0,
+          6244.0,
+          4541.0908203125,
+          2629.052734375,
+          1561.0,
+          531.4042358398438,
+          1.0559114217758179
+        ],
+        "cb": [
+          1607.8709716796875,
+          647.3246459960938,
+          339.0748291015625,
+          198.58168029785156,
+          113.53986358642578,
+          66.1061019897461,
+          37.846622467041016,
+          18.873153686523438,
+          1.5366402864456177
+        ],
+        "cd": [
+          16650.666015625,
+          5550.22216796875,
+          3330.13330078125,
+          1611.3548583984375,
+          1110.04443359375,
+          396.4444580078125,
+          90.49275207519531,
+          7.291198253631592,
+          1.0107035636901855
+        ]
+      }
+    },
+    "validation_bkg_rejection_at_eff_counts": {
+      "bc": [
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 49708,
+          "signal_efficiency": 0.20000000298023224
+        },
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 49708,
+          "signal_efficiency": 0.30000001192092896
+        },
+        {
+          "background_efficiency": 2.0117486118934576e-05,
+          "background_passed": 1,
+          "background_total": 49708,
+          "signal_efficiency": 0.4000000059604645
+        },
+        {
+          "background_efficiency": 4.023497223786915e-05,
+          "background_passed": 2,
+          "background_total": 49708,
+          "signal_efficiency": 0.5
+        },
+        {
+          "background_efficiency": 6.035245835680373e-05,
+          "background_passed": 3,
+          "background_total": 49708,
+          "signal_efficiency": 0.6000000238418579
+        },
+        {
+          "background_efficiency": 0.00038223223625975697,
+          "background_passed": 19,
+          "background_total": 49708,
+          "signal_efficiency": 0.699999988079071
+        },
+        {
+          "background_efficiency": 0.0016898688339905044,
+          "background_passed": 84,
+          "background_total": 49708,
+          "signal_efficiency": 0.800000011920929
+        },
+        {
+          "background_efficiency": 0.031302808401062206,
+          "background_passed": 1556,
+          "background_total": 49708,
+          "signal_efficiency": 0.8999999761581421
+        },
+        {
+          "background_efficiency": 0.9765832461575602,
+          "background_passed": 48544,
+          "background_total": 49708,
+          "signal_efficiency": 1.0
+        }
+      ],
+      "bd": [
+        {
+          "background_efficiency": 0.0,
+          "background_passed": 0,
+          "background_total": 49952,
+          "signal_efficiency": 0.20000000298023224
+        },
+        {
+          "background_efficiency": 2.0019218449711722e-05,
+          "background_passed": 1,
+          "background_total": 49952,
+          "signal_efficiency": 0.30000001192092896
+        },
+        {
+          "background_efficiency": 8.007687379884689e-05,
+          "background_passed": 4,
+          "background_total": 49952,
+          "signal_efficiency": 0.4000000059604645
+        },
+        {
+          "background_efficiency": 0.00016015374759769378,
+          "background_passed": 8,
+          "background_total": 49952,
+          "signal_efficiency": 0.5
+        },
+        {
+          "background_efficiency": 0.00022021140294682895,
+          "background_passed": 11,
+          "background_total": 49952,
+          "signal_efficiency": 0.6000000238418579
+        },
+        {
+          "background_efficiency": 0.0003803651505445227,
+          "background_passed": 19,
+          "background_total": 49952,
+          "signal_efficiency": 0.699999988079071
+        },
+        {
+          "background_efficiency": 0.0006406149903907751,
+          "background_passed": 32,
+          "background_total": 49952,
+          "signal_efficiency": 0.800000011920929
+        },
+        {
+          "background_efficiency": 0.001881806534272902,
+          "background_passed": 94,
+          "background_total": 49952,
+          "signal_efficiency": 0.8999999761581421
+        },
+        {
+          "background_efficiency": 0.9470491672005125,
+          "background_passed": 47307,
+          "background_total": 49952,
+          "signal_efficiency": 1.0
+        }
+      ],
+      "cb": [
+        {
+          "background_efficiency": 0.0006219404542171576,
+          "background_passed": 31,
+          "background_total": 49844,
+          "signal_efficiency": 0.20000000298023224
+        },
+        {
+          "background_efficiency": 0.00154481983789423,
+          "background_passed": 77,
+          "background_total": 49844,
+          "signal_efficiency": 0.30000001192092896
+        },
+        {
+          "background_efficiency": 0.0029492015087071665,
+          "background_passed": 147,
+          "background_total": 49844,
+          "signal_efficiency": 0.4000000059604645
+        },
+        {
+          "background_efficiency": 0.005035711419629243,
+          "background_passed": 251,
+          "background_total": 49844,
+          "signal_efficiency": 0.5
+        },
+        {
+          "background_efficiency": 0.008807479335526844,
+          "background_passed": 439,
+          "background_total": 49844,
+          "signal_efficiency": 0.6000000238418579
+        },
+        {
+          "background_efficiency": 0.015127196854185057,
+          "background_passed": 754,
+          "background_total": 49844,
+          "signal_efficiency": 0.699999988079071
+        },
+        {
+          "background_efficiency": 0.02642243800658053,
+          "background_passed": 1317,
+          "background_total": 49844,
+          "signal_efficiency": 0.800000011920929
+        },
+        {
+          "background_efficiency": 0.052985314180242354,
+          "background_passed": 2641,
+          "background_total": 49844,
+          "signal_efficiency": 0.8999999761581421
+        },
+        {
+          "background_efficiency": 0.6507704036594174,
+          "background_passed": 32437,
+          "background_total": 49844,
+          "signal_efficiency": 1.0
+        }
+      ],
+      "cd": [
+        {
+          "background_efficiency": 6.005765534913517e-05,
+          "background_passed": 3,
+          "background_total": 49952,
+          "signal_efficiency": 0.20000000298023224
+        },
+        {
+          "background_efficiency": 0.00018017296604740552,
+          "background_passed": 9,
+          "background_total": 49952,
+          "signal_efficiency": 0.30000001192092896
+        },
+        {
+          "background_efficiency": 0.00030028827674567586,
+          "background_passed": 15,
+          "background_total": 49952,
+          "signal_efficiency": 0.4000000059604645
+        },
+        {
+          "background_efficiency": 0.0006205957719410634,
+          "background_passed": 31,
+          "background_total": 49952,
+          "signal_efficiency": 0.5
+        },
+        {
+          "background_efficiency": 0.0009008648302370276,
+          "background_passed": 45,
+          "background_total": 49952,
+          "signal_efficiency": 0.6000000238418579
+        },
+        {
+          "background_efficiency": 0.002522421524663677,
+          "background_passed": 126,
+          "background_total": 49952,
+          "signal_efficiency": 0.699999988079071
+        },
+        {
+          "background_efficiency": 0.011050608584240871,
+          "background_passed": 552,
+          "background_total": 49952,
+          "signal_efficiency": 0.800000011920929
+        },
+        {
+          "background_efficiency": 0.13715166559897501,
+          "background_passed": 6851,
+          "background_total": 49952,
+          "signal_efficiency": 0.8999999761581421
+        },
+        {
+          "background_efficiency": 0.9894098334401025,
+          "background_passed": 49423,
+          "background_total": 49952,
+          "signal_efficiency": 1.0
+        }
+      ]
+    },
+    "validation_bkg_rejection_at_eff_lookup": {
+      "b_tag_eff_0.50": {
+        "c_bkg_rejection": 24854.0,
+        "d_bkg_rejection": 6244.0
+      },
+      "b_tag_eff_0.80": {
+        "c_bkg_rejection": 591.7619018554688,
+        "d_bkg_rejection": 1561.0
+      },
+      "b_tag_eff_0.90": {
+        "c_bkg_rejection": 31.946016311645508,
+        "d_bkg_rejection": 531.4042358398438
+      },
+      "b_tag_eff_1.00": {
+        "c_bkg_rejection": 1.0239782333374023,
+        "d_bkg_rejection": 1.0559114217758179
+      },
+      "c_tag_eff_0.50": {
+        "b_bkg_rejection": 198.58168029785156,
+        "d_bkg_rejection": 1611.3548583984375
+      },
+      "c_tag_eff_0.80": {
+        "b_bkg_rejection": 37.846622467041016,
+        "d_bkg_rejection": 90.49275207519531
+      },
+      "c_tag_eff_0.90": {
+        "b_bkg_rejection": 18.873153686523438,
+        "d_bkg_rejection": 7.291198253631592
+      },
+      "c_tag_eff_1.00": {
+        "b_bkg_rejection": 1.5366402864456177,
+        "d_bkg_rejection": 1.0107035636901855
+      }
+    },
+    "validation_bkg_rejection_bc_score": 7.779801767175063,
+    "validation_bkg_rejection_bd_score": 7.754207338830061,
+    "validation_bkg_rejection_cb_score": 4.544136792661321,
+    "validation_bkg_rejection_cd_score": 5.926074733064479,
+    "validation_bkg_rejection_score": 6.501055157932732,
+    "validation_btag_reference_mistag_geomean_percent": 0.28258694452321337,
+    "validation_c_tag_rejection_score": 5.235105762862901,
+    "validation_cb_mistag_eff_0.50_percent": 0.5035711242346754,
+    "validation_cb_mistag_eff_0.80_percent": 2.642243705817756,
+    "validation_cd_mistag_eff_0.50_percent": 0.062059576435815195,
+    "validation_cd_mistag_eff_0.80_percent": 1.105060877327552,
+    "validation_ctag_reference_mistag_geomean_percent": 0.54961322640934,
+    "validation_ctag_reference_mistag_percent": 1.0782338209539497,
+    "validation_ctag_reference_mistag_percent_uncertainty": 0.02301918729472182,
+    "validation_ctag_reference_mistag_percent_uncertainty_points": 4,
+    "validation_loss": 0.29071,
+    "validation_shutdown_warning": false,
+    "validation_total_reference_mistag_geomean_percent": 0.39409836630029366,
+    "validation_working_point_mistag_percent": 0.9830556350692742,
+    "validation_working_point_mistag_percent_uncertainty": 0.015523119927476844,
+    "validation_working_point_mistag_percent_uncertainty_points": 8
+  },
+  "optimizer_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_v2_validation/checkpoints/global_best_optimizer.pt",
+  "source_controller_path": null,
+  "source_optimizer_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_v2_validation/lr_14e-6/net_epoch-54_optimizer.pt",
+  "source_state_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_v2_validation/lr_14e-6/net_epoch-54_state.pt",
+  "state_path": "/data/suehara/part/march/runs/pbt/anchor_copy_lr_recenter_v2_validation/checkpoints/global_best_state.pt",
+  "updated_at": "2026-08-31T00:12:07.361897+00:00"
+}
