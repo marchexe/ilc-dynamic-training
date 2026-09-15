@@ -1,0 +1,10 @@
+# Same execution contract as the validated full-data smoke; longer horizon only.
+presets:
+  - foundation_fixed_lr_20epochs.yaml
+experiment:
+  name: foundation_fixed_lr_50epochs_20260916
+shared:
+  generations: 50
+pbt:
+  # Keep the additional exploit gate outside the entire production horizon.
+  exploit_interval_generations: 51
