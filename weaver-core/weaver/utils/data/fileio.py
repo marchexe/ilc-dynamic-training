@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import os
 import awkward as ak
 import tqdm
@@ -122,6 +123,7 @@ def _read_files(
     load_ranges=None,
     show_progressbar=False,
     file_magic=None,
+    audit_records=None,
     **kwargs,
 ):
     branches = list(branches)
@@ -161,8 +163,19 @@ def _read_files(
             elif ext == ".awkd":
                 a = _read_awkd(filepath, branches, load_range=load_range)
             elif ext == ".parquet":
+                record = audit_records.get(filepath) if audit_records else None
+                if record and load_range is not None:
+                    start = math.trunc(load_range[0] * record["rows"])
+                    stop = math.trunc(load_range[1] * record["rows"])
+                    if stop <= start:
+                        continue
                 a = _read_parquet(filepath, branches, load_range=load_range)
+                if record:
+                    start = 0 if load_range is None else math.trunc(load_range[0] * record["rows"])
+                    a["__weaver_row_id__"] = np.arange(len(a), dtype=np.int64) + record["offset"] + start
         except Exception as e:
+            if audit_records is not None:
+                raise
             a = None
             _logger.error("When reading file %s:", filepath)
             _logger.error(traceback.format_exc())
@@ -184,7 +197,7 @@ def _read_files(
             table.append(a)
     table = _concat(table)  # ak.Array
 
-    if len(table) == 0:
+    if len(table) == 0 and audit_records is None:
         raise RuntimeError(
             f"Zero entries loaded when reading files {filelist} with `load_ranges`={load_ranges}."
         )

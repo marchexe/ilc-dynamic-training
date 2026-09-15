@@ -44,6 +44,9 @@ def atomic_copy_pair(pairs):
         raise
     for temporary, destination in staged:
         os.replace(temporary, destination)
+    from training.pbt.state.optimizer_state import copy_optimizer_companion
+    for source, destination in pairs:
+        copy_optimizer_companion(source, destination)
 
 def checkpoint_paths(member_dir, epoch):
     prefix = member_dir / f"net_epoch-{epoch}"

@@ -1,0 +1,8 @@
+# Full-data smoke via the production runner; do not pass its reduced --smoke flag.
+presets:
+  - foundation_fixed_lr_20epochs.yaml
+experiment:
+  name: study
+  output_root: runs/pbt/foundation_fixed_lr_smoke_20260916
+shared:
+  generations: 1

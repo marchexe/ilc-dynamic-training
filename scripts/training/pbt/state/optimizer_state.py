@@ -36,11 +36,28 @@ def normalize_optimizer_state_mode(mode):
     return normalized
 
 
+def copy_optimizer_companion(source, destination):
+    """Keep the optional AMP scaler with copied optimizer state, including
+    removal of a stale recipient scaler when restoring a legacy checkpoint."""
+    source, destination = Path(source), Path(destination)
+    if not source.name.endswith("_optimizer.pt"):
+        return
+    src = source.with_name(source.name.removesuffix("_optimizer.pt") + "_scaler.pt")
+    dst = destination.with_name(destination.name.removesuffix("_optimizer.pt") + "_scaler.pt")
+    if src.resolve() == dst.resolve():
+        return
+    if src.is_file():
+        atomic_copy(src, dst)
+    else:
+        dst.unlink(missing_ok=True)
+
+
 def atomic_copy(source, destination):
     destination = Path(destination)
     temporary = destination.with_suffix(destination.suffix + ".pbt-tmp")
     shutil.copy2(source, temporary)
     os.replace(temporary, destination)
+    copy_optimizer_companion(source, destination)
 
 
 def atomic_torch_save(payload, destination):
@@ -153,6 +170,7 @@ def prepare_initial_optimizer(source, destination, *, mode="raw", damping_factor
         damping_factor=damping_factor,
     )
     atomic_torch_save(transformed, destination)
+    copy_optimizer_companion(source, destination)
     return {
         "mode": normalized_mode,
         "damping_factor": float(damping_factor),

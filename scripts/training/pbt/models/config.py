@@ -299,8 +299,10 @@ class SharedSection(WeaverSharedSection):
     seed: int
     generations: int = Field(gt=0)
     weaver_epochs_per_generation: int = Field(gt=0)
-    samples_per_epoch: int = Field(gt=0)
-    samples_per_epoch_val: int = Field(gt=0)
+    samples_per_epoch: int | None = Field(default=None, gt=0)
+    samples_per_epoch_val: int | None = Field(default=None, gt=0)
+    data_audit: bool = False
+    deterministic: bool = False
     batch_size: int = Field(gt=0)
     optimizer: str
     lr_scheduler: str
@@ -354,6 +356,8 @@ class SharedSection(WeaverSharedSection):
 
 
 class PBTSection(StrictSectionModel):
+    evaluate_initial_checkpoint: bool = False
+    evaluate_final_checkpoints: bool = False
     metric: str
     mode: Literal["max", "min"]
     exploit_fraction: float = Field(gt=0.0, le=0.5)

@@ -138,7 +138,10 @@ class SequenceTrimmer(nn.Module):
             mask = torch.ones_like(x[:, :1])
         mask = mask.bool()
         if self.enabled:
-            if self._counter < 5:
+            # Warmup belongs to training only. Evaluation must use the same
+            # deterministic length before and after a state_dict reload, and
+            # must not advance the unsaved training warmup counter.
+            if self.training and self._counter < 5:
                 self._counter += 1
             else:
                 if self.training:

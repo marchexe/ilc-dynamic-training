@@ -1,0 +1,87 @@
+# Self-contained baseline: no adaptive presets are inherited.
+schema_version: 1
+experiment:
+  name: foundation_fixed_lr_20epochs_20260916
+  output_root: runs/pbt
+resources:
+  gpus: [0, 1, 2, 3, 4]
+
+shared:
+  dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  validation_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  data_extension: parquet
+  train_suffix: train800k
+  validation_suffix: val50k_tail
+  checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+  initial_epoch: 17
+  initial_state: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+  initial_optimizer: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
+  # Preserve epoch-17 moments/counters exactly; only each arm's LR is overridden.
+  initial_optimizer_mode: raw
+  initial_controller: null
+  data_config: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
+  network_config: networks/pretrained_sgv_particle_transformer.py
+  seed: 12345
+  generations: 20
+  weaver_epochs_per_generation: 1
+  # Natural exhaustion, including the final partial batch; no sample caps.
+  samples_per_epoch: null
+  samples_per_epoch_val: null
+  data_audit: true
+  deterministic: true
+  batch_size: 1024
+  optimizer: ranger
+  lr_scheduler: none
+  training_controller: null
+  freeze_batch_norm: true
+  num_workers: 1
+  fetch_step: 0.01
+  prefetch_factor: 4
+  use_amp: true
+  amp_dtype: fp16
+  no_remake_weights: true
+  proxy_validation: null
+
+pbt:
+  backend: local_weaver
+  strategy: fixed_lr_grid
+  metric: validation_total_reference_mistag_geomean_percent
+  mode: min
+  # Required schema fields; fixed_lr_grid discards all donor/mutation plans.
+  exploit_fraction: 0.25
+  mutation_factors: [1.0]
+  min_lr: 3.0e-6
+  max_lr: 1.4e-5
+  seed: 2026
+  # Additional execution gate: no exploit tick within this 20-epoch run.
+  exploit_interval_generations: 21
+  rollback_fraction: 0.0
+  baseline_guard_action: observe
+  baseline_guard_reject_global_best: false
+  baseline_guard_seed_initial_best: false
+  early_stop_degraded_generations: 0
+  confidence_aware_selection: false
+  anchored_weight_source: self
+  lr_radius: null
+  lr_controller: null
+  population_lr_policy: null
+  # No anchor policy means no rewind, recenter, or plateau-escape path.
+  anchor_copy_lr_recenter: null
+  dynamic_controller:
+    mode: disabled
+    allowed_actions: [keep]
+  tiered_validation: null
+  evaluate_initial_checkpoint: true
+  evaluate_final_checkpoints: true
+
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_5_75e-6
+    start_lr: 5.75e-6
+  - name: lr_8_5e-6
+    start_lr: 8.5e-6
+  - name: lr_11_25e-6
+    start_lr: 11.25e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5

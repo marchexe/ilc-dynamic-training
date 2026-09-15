@@ -142,6 +142,9 @@ def _test_mode_command(shared, slot, validation_paths, checkpoint, log_path):
         "--predict-gpus",
         str(gpu),
     ]
+    for flag in ("data_audit", "deterministic"):
+        if shared.get(flag):
+            command.append("--" + flag.replace("_", "-"))
     if shared["use_amp"]:
         command.extend(["--use-amp", "--amp-dtype", str(shared["amp_dtype"])])
     if shared.get("prefetch_factor") is not None:

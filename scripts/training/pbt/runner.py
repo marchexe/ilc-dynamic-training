@@ -82,7 +82,7 @@ def parse_args():
 
 def initial_evaluation_enabled(config):
     controller = config["pbt"].get("dynamic_controller") or {}
-    return bool(controller.get("evaluate_initial_checkpoint"))
+    return bool(config["pbt"].get("evaluate_initial_checkpoint") or controller.get("evaluate_initial_checkpoint"))
 
 
 def promote_initial_evaluation_baseline(config, manifest, metric_name, metrics):
@@ -118,6 +118,7 @@ def run_initial_evaluation(config, backend, experiment_dir, manifest, manifest_p
     record = {
         "status": "running",
         "checkpoint": config["shared"].get("initial_state") or config["shared"]["checkpoint"],
+        "checkpoint_sha256": sha256(Path(config["shared"].get("initial_state") or config["shared"]["checkpoint"])),
         "metric": config["pbt"]["metric"],
         "slot": backend.slot_label(slot),
         "command": command,
@@ -190,7 +191,7 @@ def run_initial_evaluation_other_tiers(config, experiment_dir, manifest, manifes
         return
     proxy = config["shared"].get("proxy_validation") or {}
     checkpoint = config["shared"].get("initial_state") or config["shared"]["checkpoint"]
-    for tier in ("monitor", "full"):
+    for tier in ("monitor", "full", "full_holdout"):
         dataset = proxy.get(f"{tier}_dataset")
         suffix = proxy.get(f"{tier}_suffix")
         if not dataset or not suffix:
@@ -198,6 +199,8 @@ def run_initial_evaluation_other_tiers(config, experiment_dir, manifest, manifes
         results = run_tiered_evaluation(
             config, experiment_dir, -1, tier, dataset, suffix, {"initial_resume": checkpoint}, pbt_log_path
         )
+        if config["pbt"].get("evaluate_initial_checkpoint") and any(r.get("status") != "completed" for r in results.values()):
+            raise RuntimeError(f"Required initial evaluation failed on {tier}")
         record_tiered_evaluation_round(
             experiment_dir, manifest, {"index": -1}, tier, dataset, suffix, results,
             config["pbt"]["metric"], config["pbt"]["mode"],
@@ -644,10 +647,46 @@ def _finalize_generation(config, manifest, existing, experiment_dir, manifest_pa
     return False
 
 
+def run_final_checkpoint_evaluations(config, manifest, experiment_dir, manifest_path, pbt_log_path):
+    """Evaluate the persisted selected checkpoint AND every actual final arm.
+
+    These required checks fail the run on missing/failed evaluations. Periodic
+    evaluations remain diagnostics and cannot substitute for these checkpoints.
+    """
+    if not config["pbt"].get("evaluate_final_checkpoints"):
+        return
+    final = manifest["generations"][-1]
+    checkpoints = {name: checkpoint_paths(Path(experiment_dir) / name, final["epoch"])[0]
+                   for name in manifest["members"]}
+    if manifest.get("best"):
+        checkpoints["selected_best"] = Path(manifest["best"]["state_path"])
+    hashes = {name: sha256(path) for name, path in checkpoints.items()}
+    shared = config["shared"]
+    tiers = {"control": (shared.get("validation_dataset") or shared["dataset"], shared.get("validation_suffix"))}
+    proxy = shared.get("proxy_validation") or {}
+    for tier in ("monitor", "full", "full_holdout"):
+        if proxy.get(tier + "_dataset") and proxy.get(tier + "_suffix"):
+            pair = (proxy[tier + "_dataset"], proxy[tier + "_suffix"])
+            if pair not in tiers.values():
+                tiers[tier] = pair
+    manifest["final_evaluations"] = {}
+    for tier, (dataset, suffix) in tiers.items():
+        results = run_tiered_evaluation(config, experiment_dir, final["index"],
+                                       "final_" + tier, dataset, suffix, checkpoints, pbt_log_path)
+        for name, path in checkpoints.items():
+            record = results.get(name, {})
+            if record.get("status") != "completed" or sha256(path) != hashes[name]:
+                raise RuntimeError(f"Required final evaluation failed or checkpoint changed: {tier}/{name}")
+            record["checkpoint_sha256"] = hashes[name]
+        manifest["final_evaluations"][tier] = results
+        atomic_json(manifest_path, manifest)
+
+
 def _finalize_run(config, manifest, experiment_dir, manifest_path, pbt_log_path, run_started_monotonic):
     """Mark the manifest completed, write canonical artifacts, and log
     completion -- runs whether the generation loop ran to the configured
     generation count or stopped early."""
+    run_final_checkpoint_evaluations(config, manifest, experiment_dir, manifest_path, pbt_log_path)
     manifest["status"] = "completed"
     manifest.pop("failure", None)
     manifest["finished_at"] = utc_now()

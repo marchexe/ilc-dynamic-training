@@ -1,0 +1,46 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/shared/proxy_control_50k_override.yaml
+  - ../presets/resources/local_4gpu.yaml
+
+experiment:
+  name: foundation_correctness_pilot
+  output_root: runs/pbt
+
+shared:
+  generations: 2
+  weaver_epochs_per_generation: 1
+  # None means exhaust the real dataset; it does not mean 2.4M draws.
+  samples_per_epoch: null
+  samples_per_epoch_val: null
+  data_audit: true
+  deterministic: true
+  freeze_batch_norm: true
+  proxy_validation:
+    monitor_dataset: null
+    full_dataset: null
+    full_holdout_dataset: null
+
+pbt:
+  backend: local_weaver
+  strategy: fixed_lr_grid
+  metric: validation_total_reference_mistag_geomean_percent
+  mode: min
+  exploit_fraction: 0.25
+  mutation_factors: [1.0]
+  min_lr: 3.0e-6
+  max_lr: 1.4e-5
+  seed: 2026
+  rollback_fraction: 0.0
+  baseline_guard_action: observe
+  evaluate_initial_checkpoint: true
+  evaluate_final_checkpoints: true
+  dynamic_controller:
+    mode: disabled
+
+population:
+  - name: identical_a
+    start_lr: 8.5e-6
+  - name: identical_b
+    start_lr: 8.5e-6

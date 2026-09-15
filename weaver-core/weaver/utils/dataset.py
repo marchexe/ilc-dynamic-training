@@ -9,6 +9,7 @@ import torch.utils.data
 from functools import partial
 from concurrent.futures.thread import ThreadPoolExecutor
 from .logger import _logger
+from .data_audit import ID_KEY, RowAccumulator, parquet_manifest, atomic_json
 from .data.tools import _pad, _repeat_pad, _clip, _stack, _fused_pad_and_stack, _get_content_and_offsets
 from .data.fileio import _read_files
 from .data.config import DataConfig, _md5
@@ -24,6 +25,8 @@ _nan_warned_vars = set()
 
 def _finalize_inputs(table, data_config):
     output = {}
+    if ID_KEY in table.fields:
+        output[ID_KEY] = ak.to_numpy(table[ID_KEY])
     # copy observer variables before transformation
     for k in data_config.z_variables:
         if k in data_config.observer_names:
@@ -98,9 +101,10 @@ def _finalize_inputs(table, data_config):
     return output
 
 
-def _get_reweight_indices(weights, up_sample=True, max_resample=10, weight_scale=1):
+def _get_reweight_indices(weights, up_sample=True, max_resample=10, weight_scale=1, rng=None):
+    rng = np.random if rng is None else rng
     all_indices = np.arange(len(weights))
-    randwgt = np.random.uniform(low=0, high=weight_scale, size=len(weights))
+    randwgt = rng.uniform(low=0, high=weight_scale, size=len(weights))
     keep_flags = randwgt < weights
     if not up_sample:
         keep_indices = all_indices[keep_flags]
@@ -109,7 +113,7 @@ def _get_reweight_indices(weights, up_sample=True, max_resample=10, weight_scale
         if n_repeats > max_resample:
             n_repeats = max_resample
         all_indices = np.repeat(np.arange(len(weights)), n_repeats)
-        randwgt = np.random.uniform(low=0, high=weight_scale, size=len(weights) * n_repeats)
+        randwgt = rng.uniform(low=0, high=weight_scale, size=len(weights) * n_repeats)
         keep_indices = all_indices[randwgt < np.repeat(weights, n_repeats)]
     return keep_indices
 
@@ -134,7 +138,7 @@ def _preprocess(table, data_config, options):
         funcs=data_config.var_funcs,
     )
     if len(table) == 0:
-        return []
+        return {}, np.empty(0, dtype=np.int64)
     # define new variables
     aux_var_funcs = data_config.train_var_funcs if options["training"] else data_config.test_var_funcs
     table = _build_new_variables(table, aux_var_funcs)
@@ -149,6 +153,7 @@ def _preprocess(table, data_config, options):
             up_sample=options["up_sample"],
             weight_scale=options["weight_scale"],
             max_resample=options["max_resample"],
+            rng=options.get("rng"),
         )
     else:
         indices = np.arange(len(table[data_config.label_names[0]]))
@@ -158,7 +163,7 @@ def _preprocess(table, data_config, options):
         if data_config.bucketing:
             # Use the worker-seeded NumPy generator so --seed also controls
             # bucketing order. A fresh default_rng() would ignore np.random.seed.
-            rng = np.random
+            rng = options.get("rng", np.random)
             bucket_indices = []
             remainder_indices = []
             counts = ak.to_numpy(table[data_config.bucketing_var][indices])
@@ -177,7 +182,7 @@ def _preprocess(table, data_config, options):
             bucket_indices = rng.permutation(np.concatenate(bucket_indices), axis=0).reshape(-1)
             indices = np.concatenate([bucket_indices, *remainder_indices])
         else:
-            np.random.shuffle(indices)
+            options.get("rng", np.random).shuffle(indices)
     # perform input variable standardization, clipping, padding and stacking
     table = _finalize_inputs(table, data_config)
     return table, indices
@@ -192,8 +197,15 @@ def _load_next(data_config, filelist, load_ranges, options):
         treename=data_config.treename,
         branch_magic=data_config.branch_magic,
         file_magic=data_config.file_magic,
+        audit_records=options.get("audit_records"),
     )
+    if options.get("audit_records") is not None:
+        options["scanned"].add(ak.to_numpy(table[ID_KEY]) if len(table) else [])
+    if len(table) == 0:
+        return {}, np.empty(0, dtype=np.int64)
     table, indices = _preprocess(table, data_config, options)
+    if options.get("audit_records") is not None:
+        options["accepted"].add(table[ID_KEY][indices] if len(indices) else [])
     return table, indices
 
 
@@ -242,7 +254,7 @@ class _SimpleIter(object):
             # in a worker process
             self._name += "_worker%d" % worker_info.id
             self._seed = worker_info.seed & 0xFFFFFFFF
-            np.random.seed(self._seed)
+            # RNG is owned by this iterator, never by global NumPy state.
             # split workload by files
             new_file_dict = {}
             for name, files in file_dict.items():
@@ -250,22 +262,33 @@ class _SimpleIter(object):
                 assert len(new_files) > 0
                 new_file_dict[name] = new_files
             file_dict = new_file_dict
+        seed = int(getattr(self, "_seed_base", 0) or 0) + 1000003 * getattr(self, "_epoch", 0)
+        seed += 1009 * (worker_info.id if worker_info is not None else 0)
+        self._rng = np.random.default_rng(seed)
+        self._sampler_options["rng"] = np.random.default_rng(seed + 1)
+        manifest = getattr(self, "audit_manifest", None)
+        if manifest:
+            self._sampler_options["audit_records"] = {r["path"]: r for r in manifest["files"]}
+            self._sampler_options["scanned"] = RowAccumulator(manifest["total_rows"])
+            self._sampler_options["accepted"] = RowAccumulator(manifest["total_rows"])
+        self._restarts = -1
         self.worker_file_dict = file_dict
         self.worker_info = worker_info
         self.restart()
 
     def restart(self):
+        self._restarts += 1
         _logger.info("=== Restarting DataIter %s, seed=%s ===" % (self._name, self._seed))
         # re-shuffle file_dict and load range if for training
         file_dict = copy.deepcopy(self.worker_file_dict)
         filelist = [(name, f) for name, files in file_dict.items() for f in files]
         if self._sampler_options["shuffle"]:
-            np.random.shuffle(filelist)
+            self._rng.shuffle(filelist)
         if self._file_fraction < 1:
             num_files = int(len(filelist) * self._file_fraction)
             filelist = filelist[:num_files]
         self.filelist = [f for _, f in filelist]
-        self.file_dict = {name: [f for k, f in filelist if k == name] for name in set(k for k, _ in filelist)}
+        self.file_dict = {name: [f for k, f in filelist if k == name] for name in sorted(set(k for k, _ in filelist))}
 
         if self._init_load_range_and_fraction is None:
             self.load_range = (0, 1)
@@ -274,7 +297,7 @@ class _SimpleIter(object):
             (start_pos, end_pos), load_frac, self.split_num = self._init_load_range_and_fraction
             interval = (end_pos - start_pos) * load_frac
             if self._sampler_options["shuffle"]:
-                offset = np.random.uniform(start_pos, end_pos - interval)
+                offset = self._rng.uniform(start_pos, end_pos - interval)
                 self.load_range = (offset, offset + interval)
             else:
                 self.load_range = (start_pos, start_pos + interval)
@@ -369,7 +392,7 @@ class _SimpleIter(object):
                 if self._in_memory and len(self.indices) > 0:
                     # only need to re-shuffle the indices, if this is not the first entry
                     if self._sampler_options["shuffle"]:
-                        np.random.shuffle(self.indices)
+                        self._sampler_options["rng"].shuffle(self.indices)
                         _logger.info(f"Re-shuffled DataIter {self._name}")
                     break
                 if self.prefetch is None:
@@ -377,6 +400,14 @@ class _SimpleIter(object):
                     self.table = None
                     if self._async_load:
                         self.executor.shutdown(wait=False)
+                    if getattr(self, "audit_manifest", None) and self._audit_prefix:
+                        worker_id = self.worker_info.id if self.worker_info is not None else 0
+                        atomic_json(f"{self._audit_prefix}.{self._epoch}.worker{worker_id}.json", {
+                            "scanned": self._sampler_options["scanned"].summary(),
+                            "accepted": self._sampler_options["accepted"].summary(),
+                            "wraps": self._restarts, "exhausted": True,
+                            "dataset_fingerprint": self.audit_manifest["fingerprint"],
+                        })
                     raise StopIteration
                 # get result from prefetch
                 if self._async_load:
@@ -426,6 +457,8 @@ class _SimpleIter(object):
         X = {k: self.table["_" + k][i] for k in self._data_config.input_names}
         y = {k: self.table[k][i] for k in self._data_config.label_names}
         Z = {k: self.table[k][i] for k in self._data_config.z_variables}
+        if ID_KEY in self.table:
+            Z[ID_KEY] = self.table[ID_KEY][i]
         return X, y, Z
 
 
@@ -473,9 +506,18 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
         infinity_mode=False,
         in_memory=False,
         name="",
+        seed=0,
+        audit_prefix=None,
     ):
         self._iters = {} if infinity_mode or in_memory else None
         _init_args = set(self.__dict__.keys())
+        self._seed_base = seed
+        self._epoch = 0
+        self._audit_prefix = audit_prefix
+        file_dict = {k: sorted(v) for k, v in sorted(file_dict.items())}
+        if not for_training:
+            file_dict = {"_": sorted(f for files in file_dict.values() for f in files)}
+        self.audit_manifest = parquet_manifest(f for files in file_dict.values() for f in files) if audit_prefix else None
         self._init_file_dict = file_dict
         self._init_load_range_and_fraction = load_range_and_fraction
         self._fetch_by_files = fetch_by_files
@@ -559,6 +601,9 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
     @property
     def config(self):
         return self._data_config
+
+    def set_epoch(self, epoch):
+        self._epoch = int(epoch)
 
     def __iter__(self):
         if self._iters is None:

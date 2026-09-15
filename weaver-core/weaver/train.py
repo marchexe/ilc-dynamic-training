@@ -156,6 +156,8 @@ parser.add_argument('--lr-scheduler', type=str, default='flat+decay',
 parser.add_argument('--training-controller', type=str, default=None,
                     help='YAML configuration for an optional online hyperparameter controller. '
                          'The initial implementation supports `linucb_lr` and requires `--lr-scheduler none`.')
+parser.add_argument('--data-audit', action='store_true', help='Record content fingerprints and exact Parquet row accounting')
+parser.add_argument('--deterministic', action='store_true', help='Require deterministic PyTorch operations')
 parser.add_argument('--seed', type=int, default=None,
                     help='seed Python, NumPy, PyTorch, and data-loader workers for reproducible runs')
 parser.add_argument('--warmup-steps', type=float, default=0.25,
@@ -283,6 +285,17 @@ def to_filelist(args, mode="train"):
     return file_dict, filelist
 
 
+def evaluation_dataset(args, files, config, selection, name, load_range=(0, 1)):
+    """One shared finite, ordered evaluation path for train/val and test."""
+    return SimpleIterDataset(
+        {"_": sorted(files)}, config, for_training=False, extra_selection=selection,
+        load_range_and_fraction=(load_range, 1.0, 1), file_fraction=1,
+        fetch_by_files=False, fetch_step=args.fetch_step_val,
+        infinity_mode=False, in_memory=False, name=name, seed=0,
+        audit_prefix=f"{args.log}.{name}.traversal" if args.data_audit else None,
+    )
+
+
 def train_load(args):
     """
     Loads the training data.
@@ -346,21 +359,11 @@ def train_load(args):
         infinity_mode=args.steps_per_epoch is not None,
         in_memory=args.in_memory,
         name="train" + ("" if args.local_rank is None else "_rank%d" % args.local_rank),
+        seed=args.seed,
+        audit_prefix=f"{args.log}.train.traversal" if args.data_audit else None,
     )
-    val_data = SimpleIterDataset(
-        val_file_dict,
-        args.data_config_val,
-        batch_size=args.batch_size_val,
-        for_training=True,
-        extra_selection=args.extra_selection_val,
-        load_range_and_fraction=(val_range, args.data_fraction_val if args.data_fraction_val is not None else args.data_fraction, args.data_split_val),
-        file_fraction=args.file_fraction,
-        fetch_by_files=args.fetch_by_files,
-        fetch_step=args.fetch_step_val,
-        infinity_mode=args.steps_per_epoch_val is not None,
-        in_memory=args.in_memory_val,
-        name="val" + ("" if args.local_rank is None else "_rank%d" % args.local_rank),
-    )
+    val_data = evaluation_dataset(args, val_files, args.data_config_val,
+                                  args.extra_selection_val, "val", val_range)
     num_workers_train = min(args.num_workers, max(1, int(len(train_files) * args.file_fraction)))
     num_workers_val = min(args.num_workers, max(1, int(len(val_files) * args.file_fraction)))
     rank_offset = 0 if args.local_rank is None else 1000 * args.local_rank
@@ -372,20 +375,20 @@ def train_load(args):
     train_loader = DataLoader(
         train_data,
         batch_size=args.batch_size,
-        drop_last=True,
+        drop_last=args.steps_per_epoch is not None,
         pin_memory=True,
         num_workers=num_workers_train,
-        persistent_workers=num_workers_train > 0,
+        persistent_workers=num_workers_train > 0 and args.steps_per_epoch is not None,
         prefetch_factor=args.prefetch_factor if num_workers_train > 0 else None,
         generator=train_generator,
     )
     val_loader = DataLoader(
         val_data,
         batch_size=args.batch_size_val,
-        drop_last=True,
+        drop_last=False,
         pin_memory=True,
         num_workers=num_workers_val,
-        persistent_workers=num_workers_val > 0,
+        persistent_workers=False,
         prefetch_factor=args.prefetch_factor if num_workers_val > 0 else None,
         generator=val_generator,
     )
@@ -433,23 +436,15 @@ def test_load(args):
         filelist = file_dict[name]
         _logger.info("Running on test file group %s with %d files:\n...%s", name, len(filelist), "\n...".join(filelist))
         num_workers = min(args.num_workers, len(filelist))
-        test_data = SimpleIterDataset(
-            {name: filelist},
-            args.data_config_test,
-            for_training=False,
-            extra_selection=args.extra_selection_test,
-            load_range_and_fraction=((0, 1), args.data_fraction, args.data_split_num),
-            fetch_by_files=True,
-            fetch_step=1,
-            name="test_" + name,
-        )
+        test_data = evaluation_dataset(args, filelist, args.data_config_test,
+                                       args.extra_selection_test, "test_" + name)
         test_loader = DataLoader(
             test_data,
             num_workers=num_workers,
             batch_size=args.batch_size_test,
             drop_last=False,
             pin_memory=True,
-            persistent_workers=num_workers > 0,
+            persistent_workers=False,
             prefetch_factor=args.prefetch_factor if num_workers > 0 else None,
         )
         return test_loader
@@ -1051,6 +1046,14 @@ def _main(args):
         effective_seed = _set_random_seed(args.seed, args.local_rank)
         _logger.info("Using random seed %d (effective rank seed %d)", args.seed, effective_seed)
 
+    if args.deterministic:
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
+
     # export to ONNX
     if args.export_onnx:
         onnx(args)
@@ -1183,6 +1186,13 @@ def _main(args):
         # training loop
         best_valid_metric = np.inf if args.regression_mode else 0
         grad_scaler = torch.GradScaler("cuda") if args.use_amp and args.amp_dtype == "fp16" else None
+        if args.load_epoch is not None and grad_scaler is not None:
+            scaler_path = args.model_prefix + f"_epoch-{args.load_epoch}_scaler.pt"
+            if os.path.isfile(scaler_path):
+                grad_scaler.load_state_dict(_torch_load_trusted(scaler_path, map_location="cpu"))
+                _logger.info("Restored AMP scaler from %s", scaler_path)
+            else:
+                _logger.info("Initial checkpoint has no AMP scaler; using a fresh common scaler")
         for epoch in range(args.num_epochs):
             if args.load_epoch is not None:
                 if epoch <= args.load_epoch:
@@ -1190,6 +1200,7 @@ def _main(args):
             _logger.info("-" * 50)
 
             if "train" in args.run_mode:
+                train_loader.dataset.set_epoch(epoch)
                 _logger.info("Epoch #%d training" % epoch)
                 train(
                     model,
@@ -1212,6 +1223,8 @@ def _main(args):
                     ckpt_base_name = f"{args.model_prefix}_epoch-{epoch}"
                     torch.save(unwrap_model(model).state_dict(), f"{ckpt_base_name}_state.pt")
                     torch.save(opt.state_dict(), f"{ckpt_base_name}_optimizer.pt")
+                    if grad_scaler is not None:
+                        torch.save(grad_scaler.state_dict(), f"{ckpt_base_name}_scaler.pt")
                     if training_controller is not None:
                         torch.save(training_controller.state_dict(), f"{ckpt_base_name}_controller.pt")
                     if os.path.exists(f"{ckpt_base_name}_state.pt") and os.path.exists(
@@ -1308,7 +1321,7 @@ def _main(args):
                 test_metric, scores, labels, observers = evaluate_onnx(args.model_prefix, test_loader)
             else:
                 test_metric, scores, labels, observers = evaluate(
-                    model, test_loader, dev, epoch=None, for_training=False, tb_helper=tb, extra_args=locals()
+                    model, test_loader, dev, epoch=None, for_training=False, loss_func=loss_func, tb_helper=tb, extra_args=locals()
                 )
             _logger.info("Test metric %.5f" % test_metric, color="bold")
             del test_loader
@@ -1346,22 +1359,14 @@ def main():
         else:
             raise RuntimeError("Please use either `--steps-per-epoch` or `--samples-per-epoch`, but not both!")
 
-    if args.samples_per_epoch_val is not None:
-        if args.steps_per_epoch_val is None:
-            args.steps_per_epoch_val = args.samples_per_epoch_val // args.batch_size_val
-        else:
-            raise RuntimeError("Please use either `--steps-per-epoch-val` or `--samples-per-epoch-val`, but not both!")
-
-    if args.steps_per_epoch_val is None and args.steps_per_epoch is not None:
-        args.steps_per_epoch_val = round(
-            args.steps_per_epoch
-            * args.batch_size
-            * (1 - args.train_val_split)
-            / args.train_val_split
-            / args.batch_size_val
-        )
-    if args.steps_per_epoch_val is not None and args.steps_per_epoch_val < 0:
-        args.steps_per_epoch_val = None
+    if args.samples_per_epoch_val is not None or args.steps_per_epoch_val is not None:
+        _logger.warning("Validation sample/step caps are ignored: evaluation is one finite full pass.")
+    args.steps_per_epoch_val = None
+    if args.in_memory_val:
+        raise ValueError("Finite validation does not support --in-memory-val")
+    args.in_memory_val = False
+    if args.steps_per_epoch is None and args.lr_scheduler not in ("none", "steps", "flat+decay"):
+        raise ValueError("Full-pass training requires an epoch-based scheduler or --lr-scheduler none")
 
     if args.data_config_val is None:
         args.data_config_val = args.data_config

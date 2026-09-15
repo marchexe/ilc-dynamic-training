@@ -476,6 +476,13 @@ def read_metrics(path):
     if counts:
         metrics["validation_bkg_rejection_at_eff_counts"] = counts
         metrics.update(_working_point_uncertainty_metrics(counts))
+    for kind in ("train", "validation"):
+        records = re.findall(r"Data audit " + kind + r": (\{[^\n]+\})", text)
+        if records:
+            audit = json.loads(records[-1])
+            metrics[kind + "_data_audit"] = audit
+            metrics[kind + "_loss"] = audit["loss"]
+            metrics[kind + "_accuracy"] = audit["accuracy"]
     return metrics
 
 

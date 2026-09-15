@@ -893,17 +893,13 @@ class WeaverCheckpointFormatTest(unittest.TestCase):
             matches = list(checkpoint_dir.glob(pattern))
             self.assertEqual(matches, [], f"unexpected {pattern} file(s): {matches}")
 
-    def test_weaver_save_code_only_persists_state_optimizer_and_optional_controller(self):
-        """Regression guard: if a future Weaver change starts persisting
-        scaler/scheduler state, this is the test that should catch it,
-        since the anchor/exploit copy code would otherwise silently
-        continue to not copy it."""
+    def test_weaver_saves_scaler_alongside_existing_checkpoint_components(self):
+        """Scaler is now persisted separately; optimizer-copy helpers propagate it."""
         source = self.WEAVER_TRAIN_PY.read_text()
         self.assertIn('torch.save(unwrap_model(model).state_dict(), f"{ckpt_base_name}_state.pt")', source)
         self.assertIn('torch.save(opt.state_dict(), f"{ckpt_base_name}_optimizer.pt")', source)
-        self.assertIn('torch.save(training_controller.state_dict(), f"{ckpt_base_name}_controller.pt")', source)
-        self.assertNotIn("grad_scaler.state_dict()", source)
-        self.assertNotIn("scaler.state_dict()", source)
+        self.assertIn('grad_scaler.state_dict()', source)
+        self.assertIn('grad_scaler.load_state_dict(', source)
         self.assertNotIn("scheduler.state_dict()", source)
 
     def test_weaver_load_code_only_restores_model_and_optimizer_state(self):

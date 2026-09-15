@@ -75,8 +75,8 @@ def configured_intervals(config):
     shared = config["shared"]
     pbt = config["pbt"]
     weaver_epochs_per_generation = int(shared["weaver_epochs_per_generation"])
-    samples_per_epoch = int(shared["samples_per_epoch"])
-    chunk_samples = weaver_epochs_per_generation * samples_per_epoch
+    samples_per_epoch = shared.get("samples_per_epoch")
+    chunk_samples = None if samples_per_epoch is None else weaver_epochs_per_generation * samples_per_epoch
     strategy = pbt.get("strategy", "exploit_mutate")
     evaluation_chunks = int(pbt.get("evaluation_interval_generations") or pbt.get("evaluation_interval") or 1)
     configured_exploit_chunks = pbt.get("exploit_interval_generations") or pbt.get("exploit_interval")
@@ -90,14 +90,14 @@ def configured_intervals(config):
         "evaluation_interval": {
             "training_chunks": evaluation_chunks,
             "epochs": weaver_epochs_per_generation * evaluation_chunks,
-            "samples_per_trial": chunk_samples * evaluation_chunks,
-            "samples_per_epoch_val": int(shared["samples_per_epoch_val"]),
+            "samples_per_trial": None if chunk_samples is None else chunk_samples * evaluation_chunks,
+            "samples_per_epoch_val": shared.get("samples_per_epoch_val"),
         },
         "exploit_interval": {
             "enabled": strategy != "fixed_lr_grid",
             "training_chunks": exploit_chunks,
             "epochs": None if exploit_chunks is None else weaver_epochs_per_generation * exploit_chunks,
-            "samples_per_trial": None if exploit_chunks is None else chunk_samples * exploit_chunks,
+            "samples_per_trial": None if exploit_chunks is None or chunk_samples is None else chunk_samples * exploit_chunks,
             "exploit_fraction": pbt.get("exploit_fraction"),
         },
     }

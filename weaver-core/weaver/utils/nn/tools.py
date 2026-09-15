@@ -1,3 +1,4 @@
+from ..data_audit import ConsumptionAudit, ID_KEY
 import numpy as np
 import awkward as ak
 import tqdm
@@ -189,6 +190,7 @@ def train_classification(
     if extra_args and getattr(extra_args.get('args'), 'freeze_batch_norm', False):
         freeze_batch_norm(model)
 
+    audit = ConsumptionAudit(train_loader, extra_args["args"], "train", epoch)
     data_config = train_loader.dataset.config
     clip_grad_norm = getattr(opt, '_clip_grad_norm', float('inf'))
 
@@ -208,7 +210,8 @@ def train_classification(
 
     start_time = time.time()
     with tqdm.tqdm(train_loader) as tq:
-        for X, y, _ in tq:
+        for X, y, Z in tq:
+            audit.add(Z)
             inputs = [X[k].to(dev) for k in data_config.input_names]
             label = y[data_config.label_names[0]].long().to(dev)
             entry_count += label.shape[0]
@@ -332,6 +335,8 @@ def train_classification(
         _logger.info('AMP skipped optimizer steps: %d', amp_skipped_steps)
     _logger.info('Max CUDA memory: %.1f MB' % (torch.cuda.max_memory_allocated(dev) / 1024.**2,))
 
+    audit.finish(batches=num_batches, optimizer_steps=num_batches - amp_skipped_steps,
+                 loss=total_loss / num_batches, accuracy=total_correct / count)
     if tb_helper:
         tb_helper.write_scalars([
             ("Loss/train (epoch)", total_loss / num_batches, epoch),
@@ -357,6 +362,7 @@ def evaluate_classification(model, test_loader, dev, epoch, for_training=True, l
                             tb_helper=None, extra_args=None):
     model.eval()
 
+    audit = ConsumptionAudit(test_loader, extra_args["args"], "validation", epoch)
     data_config = test_loader.dataset.config
 
     label_counter = Counter()
@@ -376,6 +382,7 @@ def evaluate_classification(model, test_loader, dev, epoch, for_training=True, l
     with torch.no_grad():
         with tqdm.tqdm(test_loader) as tq:
             for X, y, Z in tq:
+                audit.add(Z)
                 # X, y: torch.Tensor; Z: ak.Array
                 inputs = [X[k].to(dev) for k in data_config.input_names]
                 y = {k: AllGather.apply(v.to(dev)) for k, v in y.items()}
@@ -396,7 +403,8 @@ def evaluate_classification(model, test_loader, dev, epoch, for_training=True, l
                     labels[k].append(_flatten_label(v, mask).numpy(force=True))
                 if not for_training:
                     for k, v in Z.items():
-                        observers[k].append(v)
+                        if k != ID_KEY:
+                            observers[k].append(v)
 
                 num_examples = label.shape[0]
                 label_counter.update(label.numpy(force=True))
@@ -443,6 +451,8 @@ def evaluate_classification(model, test_loader, dev, epoch, for_training=True, l
                 tb_helper.custom_fn(model_output=model_output, model=model, epoch=epoch, i_batch=-1, mode=tb_mode)
 
     scores = np.concatenate(scores)
+    audit.finish(batches=num_batches, loss=total_loss / count,
+                 accuracy=total_correct / count, scores=scores)
     labels = {k: _concat(v) for k, v in labels.items()}
     metric_results = evaluate_metrics(labels[data_config.label_names[0]], scores, eval_metrics=eval_metrics)
     _logger.info('Evaluation metrics: \n%s', '\n'.join(

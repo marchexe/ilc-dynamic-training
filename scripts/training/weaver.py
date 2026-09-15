@@ -67,10 +67,6 @@ def build_command(
         str(shared["batch_size"]),
         "--start-lr",
         str(shared["start_lr"]),
-        "--samples-per-epoch",
-        str(shared["samples_per_epoch"]),
-        "--samples-per-epoch-val",
-        str(shared["samples_per_epoch_val"]),
         "--num-epochs",
         str(shared["epochs"]),
         "--num-workers",
@@ -80,6 +76,11 @@ def build_command(
         "--gpus",
         str(worker["gpu"]),
     ]
+    if shared.get("samples_per_epoch") is not None:
+        command.extend(["--samples-per-epoch", str(shared["samples_per_epoch"])])
+    for flag in ("data_audit", "deterministic"):
+        if shared.get(flag):
+            command.append("--" + flag.replace("_", "-"))
     if resume_epoch is None:
         command.extend(["--load-model-weights", shared["checkpoint"]])
     else:
