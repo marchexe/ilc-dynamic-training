@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""User-run full-data smoke: start, status, or stop only this launch's processes.
+"""Start/status/stop a local experiment using the production runner.
 
-Run on iutgpu01 with the project .venv. Uses run_pbt.py without --smoke.
-The production runner owns study/; launcher logs and identity live beside it.
+Requires --config; logs and process identity live in runs/launch_logs/<name>.
+GPU IDs refer to physical nvidia-smi indices, pinned by UUID before launch.
 """
 
 import argparse
@@ -20,22 +20,31 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from training.pbt.config import load_config, validate_inputs
 from training.runtime import PROJECT_DIR, atomic_json, utc_now
 
-CONFIG = PROJECT_DIR / "configs/experiments/foundation_fixed_lr_smoke.yaml"
-OUTPUT = PROJECT_DIR / "runs/pbt/foundation_fixed_lr_smoke_20260916"
-TOKEN_KEY = "MARCH_FIXED_LR_SMOKE_TOKEN"
+TOKEN_KEY = "MARCH_EXPERIMENT_TOKEN"
 
 
-def configuration():
-    return load_config(argparse.Namespace(config=CONFIG, experiment_name=None,
-                                         gpus="0,1,2,3,4", slots=None, smoke=False))
+def configuration(config_path, gpus=None):
+    return load_config(argparse.Namespace(config=config_path, experiment_name=None,
+                                         gpus=gpus, slots=None, smoke=False))
 
 
-def launch_command():
+def locations(config):
+    run = Path(config["output_root"]) / config["experiment_name"]
+    logs = PROJECT_DIR / "runs/launch_logs" / config["experiment_name"]
+    return run, logs
+
+
+def launch_command(config, gpu_ids):
+    # CUDA_VISIBLE_DEVICES maps physical UUIDs to these contiguous local IDs.
     return [sys.executable, str(PROJECT_DIR / "scripts/training/run_pbt.py"),
-            "--config", str(CONFIG), "--gpus", "0,1,2,3,4"]
+            "--config", str(config["config_path"]), "--gpus",
+            ",".join(str(i) for i in range(len(gpu_ids)))]
 
 
-def available_gpus():
+def available_gpus(gpu_ids, min_free_mib=26624):
+    gpu_ids = [int(gpu) for gpu in gpu_ids]
+    if not gpu_ids or len(set(gpu_ids)) != len(gpu_ids):
+        raise ValueError("Select distinct physical GPU indices")
     def query(kind, fields):
         output = subprocess.check_output(
             ["nvidia-smi", f"--query-{kind}={fields}", "--format=csv,noheader,nounits"],
@@ -45,50 +54,50 @@ def available_gpus():
     rows = query("gpu", "index,uuid,memory.used,memory.free,utilization.gpu")
     apps = query("compute-apps", "gpu_uuid,pid")
     busy = {row[0] for row in apps}
-    selected = {int(row[0]): row for row in rows if int(row[0]) in range(5)}
+    selected = {int(row[0]): row for row in rows if int(row[0]) in gpu_ids}
     print("GPU availability (index, UUID, used MiB, free MiB, utilization %):", flush=True)
     for row in selected.values():
         print(", ".join(row), flush=True)
-    if set(selected) != set(range(5)):
-        raise RuntimeError("GPUs 0–4 must all be present")
+    if set(selected) != set(gpu_ids):
+        raise RuntimeError("All selected GPUs must be present")
     for gpu, row in selected.items():
-        if row[1] in busy or float(row[2]) > 1024 or float(row[3]) < 26624 or float(row[4]) > 5:
-            raise RuntimeError(f"GPU {gpu} is occupied, active, or has less than 26 GiB free; nothing launched")
-    return [selected[i][1] for i in range(5)]
+        if row[1] in busy or float(row[2]) > 1024 or float(row[3]) < min_free_mib or float(row[4]) > 5:
+            raise RuntimeError(f"GPU {gpu} is occupied, active, or has less than {min_free_mib} MiB free; nothing launched")
+    return [selected[i][1] for i in gpu_ids]
 
 
-def start():
-    if socket.gethostname().split(".")[0] != "iutgpu01":
-        raise RuntimeError("Run this launcher directly on iutgpu01")
+def start(config, min_free_mib=26624):
     if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
         raise RuntimeError("Linux pidfd support is required for identity-safe stopping")
-    if OUTPUT.exists():
-        raise FileExistsError(f"Refusing to overwrite existing smoke output: {OUTPUT}")
-    config = configuration()
+    run, output = locations(config)
+    if run.exists() or output.exists():
+        raise FileExistsError(f"Refusing existing run or launcher output: {run}, {output}")
+    if any(slot.get("host") for slot in config["slots"]):
+        raise ValueError("This launcher supports local GPU slots only")
     validate_inputs(config)
-    if Path(config["output_root"]) != OUTPUT or config["experiment_name"] != "study":
-        raise RuntimeError("Smoke config output no longer matches launcher")
-    gpu_uuids = available_gpus()
+    gpu_ids = config["gpus"]
+    gpu_uuids = available_gpus(gpu_ids, min_free_mib)
     token = uuid.uuid4().hex
-    command = launch_command()
+    command = launch_command(config, gpu_ids)
     env = dict(os.environ, **{TOKEN_KEY: token, "PYTHONUNBUFFERED": "1",
                              "CUDA_VISIBLE_DEVICES": ",".join(gpu_uuids)})
-    OUTPUT.mkdir(parents=True, exist_ok=False)
+    output.mkdir(parents=True, exist_ok=False)
     metadata = dict(token=token, host=socket.gethostname(), uid=os.getuid(),
-                    started_at=utc_now(), command=command, gpu_uuids=gpu_uuids)
-    atomic_json(OUTPUT / "launcher.json", metadata)
-    with (OUTPUT / "main.log").open("x") as stream:
+                    started_at=utc_now(), command=command, gpu_uuids=gpu_uuids,
+                    run=str(run), arms=[m["name"] for m in config["population"]])
+    atomic_json(output / "launcher.json", metadata)
+    with (output / "main.log").open("x") as stream:
         process = subprocess.Popen(command, cwd=PROJECT_DIR, env=env, stdin=subprocess.DEVNULL,
                                    stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
     metadata["pid"] = process.pid
-    atomic_json(OUTPUT / "launcher.json", metadata)
-    (OUTPUT / "launcher.pid").write_text(f"{process.pid}\n")
-    print(f"Started production runner PID {process.pid}; five training arms follow initial evaluation.")
-    print(f"Log: {OUTPUT / 'main.log'}\nStudy: {OUTPUT / 'study'}")
+    atomic_json(output / "launcher.json", metadata)
+    (output / "launcher.pid").write_text(f"{process.pid}\n")
+    print(f"Started production runner PID {process.pid}; {len(config['population'])} arms configured.")
+    print(f"Log: {output / 'main.log'}\nStudy: {run}")
 
 
-def metadata():
-    record = json.loads((OUTPUT / "launcher.json").read_text())
+def metadata(output):
+    record = json.loads((output / "launcher.json").read_text())
     if record["host"] != socket.gethostname() or record["uid"] != os.getuid():
         raise RuntimeError("Status/stop must use the original launch host and user")
     if len(record.get("token", "")) != 32:
@@ -112,25 +121,25 @@ def live_pids(record):
                   if p.name.isdigit() and owns_process(p, record))
 
 
-def status():
-    record = metadata()
+def status(output):
+    record = metadata(output)
     pids = live_pids(record)
-    manifest_path = OUTPUT / "study/manifest.json"
+    manifest_path = Path(record["run"]) / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     generations = manifest.get("generations", [])
     workers = generations[-1].get("workers", {}) if generations else {}
-    names = [m["name"] for m in configuration()["population"]]
+    names = record["arms"]
     arms = {name: dict(status=workers.get(name, {}).get("status", "pending"),
                       pid=workers.get(name, {}).get("pid"),
                       alive=workers.get(name, {}).get("pid") in pids) for name in names}
     print(json.dumps(dict(run_status=manifest.get("status", "starting"),
-                          live_smoke_pids=pids, arms=arms,
+                          live_pids=pids, arms=arms,
                           incomplete_without_live_processes=not pids and manifest.get("status") != "completed"),
                      indent=2))
 
 
-def stop():
-    record = metadata()
+def stop(output):
+    record = metadata(output)
     # Stop the launcher first so it cannot intentionally schedule another epoch.
     # Re-scan descendants after signaling it; never signal by a saved PID alone.
     signaled = set()
@@ -150,16 +159,25 @@ def stop():
                     os.close(fd)
             except ProcessLookupError:
                 pass
-    print(f"Sent SIGTERM only to launch-token-matched smoke PIDs: {sorted(signaled)}")
+    print(f"Sent SIGTERM only to launch-token-matched PIDs: {sorted(signaled)}")
     print("Use status after shutdown; repeat stop if descendants are still exiting. No unrelated jobs signaled.")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["start", "status", "stop"])
+    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--gpus", help="Comma-separated physical GPU indices; defaults to config")
+    parser.add_argument("--min-free-mib", type=int, default=26624)
     args = parser.parse_args()
     os.chdir(PROJECT_DIR)
-    {"start": start, "status": status, "stop": stop}[args.action]()
+    config = configuration(args.config, args.gpus)
+    if args.action == "start":
+        if args.min_free_mib <= 0:
+            parser.error("--min-free-mib must be positive")
+        start(config, args.min_free_mib)
+    else:
+        {"status": status, "stop": stop}[args.action](locations(config)[1])
 
 
 if __name__ == "__main__":

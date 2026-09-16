@@ -2,7 +2,7 @@
 presets:
   - foundation_fixed_lr_20epochs.yaml
 experiment:
-  name: study
-  output_root: runs/pbt/foundation_fixed_lr_smoke_20260916
+  name: foundation_fixed_lr_smoke
+  output_root: runs/pbt
 shared:
   generations: 1

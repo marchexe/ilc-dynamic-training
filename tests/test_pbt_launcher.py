@@ -339,18 +339,11 @@ class PBTLauncherTest(unittest.TestCase):
         self.assertNotIn("monitor_interval_generations", tiered)
 
     def test_proxy_control_50k_override_covers_full_val50k_tail_every_generation(self):
-        """The smoke experiment deliberately shrinks samples_per_epoch_val to
-        4500 for speed (checked above via its own resolved config), which
-        would mask a real bug: Weaver only evaluates an entire validation
-        file per epoch when samples_per_epoch_val is unset or >= the file's
-        row count (weaver-core/weaver/train.py:142-148) -- otherwise it caps
-        each epoch to a random subsample. This test composes the base preset
-        + proxy_control_50k_override.yaml alone, with nothing further
-        overriding samples_per_epoch_val, to confirm the override itself
-        sets it to 150000 (val50k_tail's exact full size), not just
-        val50k_tail's suffix -- so a real (non-smoke) experiment using this
-        override actually evaluates the whole fixed 50k proxy every
-        generation, not a random slice of it."""
+        """The legacy override declares the full validation size in its config.
+
+        Deterministic evaluation now ignores this cap and exhausts the files;
+        this test protects preset composition, not sampling behavior.
+        """
         with tempfile.TemporaryDirectory() as temporary:
             config_path = Path(temporary) / "proxy_control_50k_only.yaml"
             base_preset = PROJECT_DIR / "configs/presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml"

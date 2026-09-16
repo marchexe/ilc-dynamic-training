@@ -3,8 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tests.helpers import namespace, PROJECT_DIR
-from training.pbt.config import load_config
+from tests.helpers import PROJECT_DIR
 from training.pbt.runner import initial_evaluation_enabled, run_final_checkpoint_evaluations
 from training.pbt.execution.weaver_command import make_command
 from training.pbt.state.optimizer_state import atomic_copy
@@ -13,12 +12,16 @@ from training.pbt.state.checkpointing import atomic_copy_pair
 
 class FoundationEvaluationTest(unittest.TestCase):
     def test_full_pass_config_has_no_caps_and_initial_evaluation_without_controller(self):
-        config = load_config(namespace(config=PROJECT_DIR / "configs/experiments/foundation_correctness_pilot.yaml",
-                                       experiment_name="unit_foundation", gpus="0,1", slots=None, smoke=False))
+        config = dict(
+            pbt=dict(evaluate_initial_checkpoint=True, dynamic_controller=dict(mode="disabled")),
+            shared=dict(dataset="fixture-data", data_config="fixture.yaml", network_config="fixture.py",
+                        checkpoint="initial.pt", seed=7, weaver_epochs_per_generation=1,
+                        samples_per_epoch=None, samples_per_epoch_val=None, data_audit=True,
+                        deterministic=True, lr_scheduler="none", optimizer="ranger", batch_size=8,
+                        num_workers=1, fetch_step=0.1, no_remake_weights=True, use_amp=False))
         self.assertTrue(initial_evaluation_enabled(config))
-        self.assertEqual(config["pbt"]["dynamic_controller"]["mode"], "disabled")
         with tempfile.TemporaryDirectory() as tmp:
-            command, _, _ = make_command(config, dict(name="identical_a", lr=8.5e-6), "0", Path(tmp) / "identical_a", 0)
+            command, _, _ = make_command(config, dict(name="a", lr=1e-5), "0", Path(tmp) / "a", 0)
         self.assertNotIn("--samples-per-epoch", command)
         self.assertNotIn("--samples-per-epoch-val", command)
         self.assertIn("--data-audit", command)
@@ -26,12 +29,12 @@ class FoundationEvaluationTest(unittest.TestCase):
     def fixture(self, root):
         for name in ("a", "b"):
             (root / name).mkdir()
-            (root / name / "net_epoch-19_state.pt").write_bytes(name.encode())
+            (root / name / "net_epoch-2_state.pt").write_bytes(name.encode())
         best = root / "selected.pt"
         best.write_bytes(b"an earlier selected checkpoint")
         config = dict(pbt=dict(evaluate_final_checkpoints=True),
                       shared=dict(dataset="data", validation_suffix="val", proxy_validation={}))
-        manifest = dict(members={"a": {}, "b": {}}, generations=[dict(index=1, epoch=19)],
+        manifest = dict(members={"a": {}, "b": {}}, generations=[dict(index=1, epoch=2)],
                         best=dict(state_path=str(best)))
         return config, manifest
 

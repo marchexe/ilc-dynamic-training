@@ -161,8 +161,8 @@ def _preprocess(table, data_config, options):
     if options["shuffle"]:
         # sequence bucketing
         if data_config.bucketing:
-            # Use the worker-seeded NumPy generator so --seed also controls
-            # bucketing order. A fresh default_rng() would ignore np.random.seed.
+            # Use the iterator-owned sampler RNG so the configured seed, epoch
+            # and worker determine bucketing order.
             rng = options.get("rng", np.random)
             bucket_indices = []
             remainder_indices = []
@@ -278,7 +278,7 @@ class _SimpleIter(object):
 
     def restart(self):
         self._restarts += 1
-        _logger.info("=== Restarting DataIter %s, seed=%s ===" % (self._name, self._seed))
+        _logger.info("=== Restarting DataIter %s, worker_seed=%s ===" % (self._name, self._seed))
         # re-shuffle file_dict and load range if for training
         file_dict = copy.deepcopy(self.worker_file_dict)
         filelist = [(name, f) for name, files in file_dict.items() for f in files]
