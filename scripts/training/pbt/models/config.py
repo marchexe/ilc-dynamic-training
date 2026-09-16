@@ -576,7 +576,7 @@ class ResolvedPBTConfig(StrictSectionModel):
     shared: ResolvedSharedSection
     gpus: list[str]
     slots: list[GpuSlot]
-    population: list[ResolvedPopulationMember] = Field(min_length=2)
+    population: list[ResolvedPopulationMember] = Field(min_length=1)
     pbt: ResolvedPBTSection
     smoke: bool
 
@@ -628,6 +628,8 @@ class ResolvedPBTConfig(StrictSectionModel):
 
     @model_validator(mode="after")
     def validate_runtime_contract(self):
+        if len(self.population) == 1 and self.pbt.strategy != "fixed_lr_grid":
+            raise ValueError("A single member is supported only for fixed_lr_grid")
         names = [member.name for member in self.population]
         if len(set(names)) != len(names):
             raise ValueError("Population member names must be unique")

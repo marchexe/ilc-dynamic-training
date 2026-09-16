@@ -11,6 +11,24 @@ from training.pbt.execution.ray_backend import RayWeaverBackend
 
 
 class PBTLauncherTest(unittest.TestCase):
+    def test_single_member_is_supported_only_for_fixed_lr_without_donor_planning(self):
+        from training.pbt.models.config import ResolvedPBTConfig
+        from training.pbt.planning.fixed_lr_grid import fixed_lr_grid_plan
+
+        config = pbt_smoke_config()
+        config["population"] = config["population"][:1]
+        with self.assertRaises(ValueError):
+            ResolvedPBTConfig.model_validate(config)
+        config["pbt"]["strategy"] = "fixed_lr_grid"
+        resolved = ResolvedPBTConfig.model_validate(config).to_runtime_dict()
+        member = resolved["population"][0]
+        name = member["name"]
+        generation = dict(index=0, workers={name: dict(metrics={resolved["pbt"]["metric"]: 1.0})})
+        ranking, plan = fixed_lr_grid_plan(resolved, generation, {name: dict(lr=member["start_lr"])})
+        self.assertEqual(ranking, [name])
+        self.assertEqual(plan, [])
+        self.assertEqual(generation["skipped_exploits"], [])
+
     def setUp(self):
         self.backend = LocalWeaverBackend()
 
