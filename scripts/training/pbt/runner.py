@@ -51,6 +51,7 @@ from training.pbt.planning import (
     strategy_uses_population_rollbacks,
 )
 from training.pbt.state.transitions import apply_exploit
+from training.pbt.planning.windowed_pbt_v2 import STRATEGY as WINDOWED_PBT, prepare_boundary, apply_window_exploits
 
 
 DEFAULT_CONFIG = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
@@ -485,6 +486,22 @@ def _plan_generation_exploit(config, manifest, existing, generation, is_final_ge
     ultimately setting `existing["exploit"]` to the plan that
     apply_exploit() will later apply.
     """
+    if config["pbt"].get("strategy") == WINDOWED_PBT:
+        ranking, plan = plan_for_strategy(config, existing, manifest["members"], manifest)
+        existing["raw_ranking"] = raw_metric_ranking(config, existing, manifest["members"])
+        # The existing best archive tracks single-epoch performance separately.
+        existing["ranking"] = existing["raw_ranking"]
+        update_global_best(experiment_dir, manifest, existing, manifest_path)
+        existing.update(ranking=ranking, exploit=plan, early_stop_triggered=False, burn_in=False, status="exploiting")
+        try:
+            prepare_boundary(experiment_dir, manifest, existing)
+        except BaseException:
+            # The failure handler persists the manifest. An incomplete archive
+            # must be prepared again, never mistaken for an executable plan.
+            existing['exploit'] = None
+            raise
+        atomic_json(manifest_path, manifest)
+        return
     ranking, plan = plan_for_strategy(
         config, existing, manifest["members"], manifest
     )
@@ -620,7 +637,10 @@ def _finalize_generation(config, manifest, existing, experiment_dir, manifest_pa
     """Apply this generation's exploit plan, mark it completed, advance
     next_generation, and handle early-stop bookkeeping. Returns True if the
     caller should stop the generation loop (early stop triggered)."""
-    apply_exploit(experiment_dir, manifest, existing, manifest_path)
+    if config["pbt"].get("strategy") == WINDOWED_PBT:
+        apply_window_exploits(experiment_dir, manifest, existing, manifest_path)
+    else:
+        apply_exploit(experiment_dir, manifest, existing, manifest_path)
     existing["status"] = "completed"
     existing["finished_at"] = utc_now()
     manifest["next_generation"] = generation + 1
@@ -660,6 +680,8 @@ def run_final_checkpoint_evaluations(config, manifest, experiment_dir, manifest_
                    for name in manifest["members"]}
     if manifest.get("best"):
         checkpoints["selected_best"] = Path(manifest["best"]["state_path"])
+    if config["pbt"].get("strategy") == WINDOWED_PBT and manifest.get("protected_best"):
+        checkpoints["protected_best"] = Path(manifest["protected_best"]["state_path"])
     hashes = {name: sha256(path) for name, path in checkpoints.items()}
     shared = config["shared"]
     tiers = {"control": (shared.get("validation_dataset") or shared["dataset"], shared.get("validation_suffix"))}

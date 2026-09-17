@@ -14,6 +14,37 @@ from scripts.validation import verify_fixed_lr as verifier
 
 
 class ExperimentLauncherTest(unittest.TestCase):
+    def test_resume_refuses_live_mismatched_and_completed_runs_and_appends_log(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = dict(output_root=str(root / 'runs'), experiment_name='unit', config_path=str(root / 'config.yaml'),
+                          gpus=['5'], slots=[dict(gpu='5')], population=[dict(name='a')])
+            record = dict(token='a' * 32, host=launcher.socket.gethostname(), uid=os.getuid(), run=str(root / 'runs/unit'))
+            with patch.object(launcher, 'PROJECT_DIR', root), patch.object(launcher, 'validate_inputs'), \
+                 patch.object(launcher, 'contract_fingerprint', return_value='expected'), \
+                 patch.object(launcher, 'available_gpus', return_value=['GPU-5']), \
+                 patch.object(launcher, 'live_pids', return_value=[]) as live, \
+                 patch.object(launcher.subprocess, 'Popen') as popen, contextlib.redirect_stdout(io.StringIO()):
+                run, output = launcher.locations(config)
+                run.mkdir(parents=True); output.mkdir(parents=True)
+                (output / 'launcher.json').write_text(json.dumps(record))
+                (output / 'main.log').write_text('previous log\n')
+                for payload in (dict(fingerprint='wrong', status='failed'), dict(fingerprint='expected', status='completed')):
+                    (run / 'manifest.json').write_text(json.dumps(payload))
+                    with self.assertRaises(ValueError):
+                        launcher.start(config, resume=True)
+                (run / 'manifest.json').write_text(json.dumps(dict(fingerprint='expected', status='failed')))
+                live.return_value = [42]
+                with self.assertRaises(RuntimeError):
+                    launcher.start(config, resume=True)
+                popen.assert_not_called()
+                live.return_value = []
+                popen.return_value.pid = 1234
+                launcher.start(config, resume=True)
+                self.assertEqual(popen.call_args.args[0][-1], '--resume')
+                self.assertEqual(popen.call_args.kwargs['env'][launcher.TOKEN_KEY], record['token'])
+                self.assertEqual((output / 'main.log').read_text(), 'previous log\n')
+
     def test_full_epoch_smoke_preserves_production_contract(self):
         production = launcher.configuration(PROJECT_DIR / "configs/experiments/foundation_fixed_lr_20epochs.yaml")
         smoke = launcher.configuration(PROJECT_DIR / "configs/experiments/foundation_fixed_lr_smoke.yaml")

@@ -1,0 +1,17 @@
+# Matched to the fixed-LR control: epoch 17, raw optimizer, seed 12345.
+presets:
+  - foundation_fixed_lr_50epochs.yaml
+experiment:
+  name: windowed_pbt_v2
+pbt:
+  strategy: windowed_pbt_v2
+  min_lr: 2.0e-6
+  max_lr: 3.0e-5
+  mutation_factors: [0.8, 1.2]
+  exploit_interval_generations: 5
+  windowed_pbt_v2:
+    window_epochs: 5
+    score_epochs: 3
+    decision_margin: 0.002
+    losing_windows: 2
+    max_recipients: 2

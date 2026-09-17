@@ -355,7 +355,22 @@ class SharedSection(WeaverSharedSection):
         return self
 
 
+class WindowedPBTConfig(StrictSectionModel):
+    window_epochs: int = Field(default=5, ge=2)
+    score_epochs: int = Field(default=3, ge=1)
+    decision_margin: float = Field(default=0.002, gt=0)
+    losing_windows: int = Field(default=2, ge=2)
+    max_recipients: int = Field(default=2, ge=1, le=2)
+
+    @model_validator(mode="after")
+    def validate_window(self):
+        if self.score_epochs > self.window_epochs:
+            raise ValueError("score_epochs must fit inside the decision window")
+        return self
+
+
 class PBTSection(StrictSectionModel):
+    windowed_pbt_v2: WindowedPBTConfig | None = None
     evaluate_initial_checkpoint: bool = False
     evaluate_final_checkpoints: bool = False
     metric: str
@@ -373,7 +388,7 @@ class PBTSection(StrictSectionModel):
     backend: Literal["local_weaver", "ray_weaver", "ray_tune"] | None = None
     strategy: Literal[
         "exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy",
-        "anchor_copy_lr_recenter",
+        "anchor_copy_lr_recenter", "windowed_pbt_v2",
     ] | None = None
     confidence_aware_selection: bool = True
     selection_uncertainty_sigma: float | None = Field(default=1.0, gt=0.0)
@@ -518,7 +533,7 @@ class ResolvedPBTSection(PBTSection):
     backend: Literal["local_weaver", "ray_weaver", "ray_tune"] = "local_weaver"
     strategy: Literal[
         "exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy",
-        "anchor_copy_lr_recenter",
+        "anchor_copy_lr_recenter", "windowed_pbt_v2",
     ] = "exploit_mutate"
 
     @model_validator(mode="after")
@@ -630,6 +645,32 @@ class ResolvedPBTConfig(StrictSectionModel):
     def validate_runtime_contract(self):
         if len(self.population) == 1 and self.pbt.strategy != "fixed_lr_grid":
             raise ValueError("A single member is supported only for fixed_lr_grid")
+        if self.pbt.strategy == "windowed_pbt_v2":
+            p, s = self.pbt, self.shared
+            if p.windowed_pbt_v2 is None:
+                raise ValueError("windowed_pbt_v2 requires its window configuration")
+            if (p.metric != "validation_total_reference_mistag_geomean_percent" or p.mode != "min"
+                    or s.weaver_epochs_per_generation != 1 or s.generations % p.windowed_pbt_v2.window_epochs
+                    or p.exploit_interval_generations != p.windowed_pbt_v2.window_epochs
+                    or p.backend != "local_weaver" or not p.evaluate_initial_checkpoint or not p.evaluate_final_checkpoints):
+                raise ValueError("windowed_pbt_v2 requires full one-epoch generations, complete windows and mistag minimization")
+            if (p.rollback_fraction or p.early_stop_degraded_generations or p.burn_in_generations
+                    or p.baseline_guard_action != "observe" or p.baseline_guard_seed_initial_best
+                    or p.baseline_guard_reject_global_best or p.lr_radius or p.lr_controller
+                    or p.population_lr_policy or p.anchor_copy_lr_recenter or p.tiered_validation
+                    or (p.dynamic_controller and p.dynamic_controller.mode != "disabled")
+                    or s.training_controller or s.initial_controller or s.lr_scheduler != "none"):
+                raise ValueError("windowed_pbt_v2 cannot combine with legacy adaptive mechanisms")
+            if (s.samples_per_epoch is not None or s.samples_per_epoch_val is not None
+                    or not s.deterministic or not s.data_audit or not s.freeze_batch_norm
+                    or not s.use_amp or s.amp_dtype != "fp16" or s.optimizer != "ranger"
+                    or s.initial_optimizer_mode != "raw" or not s.initial_state
+                    or (s.model_extra or {}).get("auto_clean") or s.proxy_validation):
+                raise ValueError("windowed_pbt_v2 requires the audited finite-epoch raw Ranger/FP16 continuation contract")
+            if len(p.mutation_factors) != 2 or not 0 < p.mutation_factors[0] < 1 < p.mutation_factors[1]:
+                raise ValueError("windowed_pbt_v2 requires one downward and one upward mutation factor")
+        elif self.pbt.windowed_pbt_v2 is not None:
+            raise ValueError("windowed_pbt_v2 settings require the matching strategy")
         names = [member.name for member in self.population]
         if len(set(names)) != len(names):
             raise ValueError("Population member names must be unique")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Start/status/stop a local experiment using the production runner.
+"""Start/resume/status/stop a local experiment using the production runner.
 
 Requires --config; logs and process identity live in runs/launch_logs/<name>.
 GPU IDs refer to physical nvidia-smi indices, pinned by UUID before launch.
@@ -17,7 +17,7 @@ import sys
 import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from training.pbt.config import load_config, validate_inputs
+from training.pbt.config import contract_fingerprint, load_config, validate_inputs
 from training.runtime import PROJECT_DIR, atomic_json, utc_now
 
 TOKEN_KEY = "MARCH_EXPERIMENT_TOKEN"
@@ -66,31 +66,41 @@ def available_gpus(gpu_ids, min_free_mib=26624):
     return [selected[i][1] for i in gpu_ids]
 
 
-def start(config, min_free_mib=26624):
+def start(config, min_free_mib=26624, *, resume=False):
     if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
         raise RuntimeError("Linux pidfd support is required for identity-safe stopping")
     run, output = locations(config)
-    if run.exists() or output.exists():
+    previous = None
+    if resume:
+        previous = metadata(output)
+        if live_pids(previous):
+            raise RuntimeError('Refusing resume while launch-token-matched processes are alive')
+        manifest = json.loads((run / 'manifest.json').read_text())
+        if manifest['fingerprint'] != contract_fingerprint(config):
+            raise ValueError('Resume configuration fingerprint differs')
+        if Path(previous['run']).resolve() != run.resolve() or manifest.get('status') == 'completed':
+            raise ValueError('Resume requires the same unfinished run')
+    elif run.exists() or output.exists():
         raise FileExistsError(f"Refusing existing run or launcher output: {run}, {output}")
     if any(slot.get("host") for slot in config["slots"]):
         raise ValueError("This launcher supports local GPU slots only")
     validate_inputs(config)
     gpu_ids = config["gpus"]
     gpu_uuids = available_gpus(gpu_ids, min_free_mib)
-    token = uuid.uuid4().hex
-    command = launch_command(config, gpu_ids)
+    token = previous['token'] if previous else uuid.uuid4().hex
+    command = launch_command(config, gpu_ids) + (['--resume'] if resume else [])
     env = dict(os.environ, **{TOKEN_KEY: token, "PYTHONUNBUFFERED": "1",
                              "CUDA_VISIBLE_DEVICES": ",".join(gpu_uuids)})
-    output.mkdir(parents=True, exist_ok=False)
-    metadata = dict(token=token, host=socket.gethostname(), uid=os.getuid(),
+    output.mkdir(parents=True, exist_ok=resume)
+    record = dict(token=token, host=socket.gethostname(), uid=os.getuid(),
                     started_at=utc_now(), command=command, gpu_uuids=gpu_uuids,
                     run=str(run), arms=[m["name"] for m in config["population"]])
-    atomic_json(output / "launcher.json", metadata)
-    with (output / "main.log").open("x") as stream:
+    atomic_json(output / "launcher.json", record)
+    with (output / "main.log").open("a" if resume else "x") as stream:
         process = subprocess.Popen(command, cwd=PROJECT_DIR, env=env, stdin=subprocess.DEVNULL,
                                    stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
-    metadata["pid"] = process.pid
-    atomic_json(output / "launcher.json", metadata)
+    record["pid"] = process.pid
+    atomic_json(output / "launcher.json", record)
     (output / "launcher.pid").write_text(f"{process.pid}\n")
     print(f"Started production runner PID {process.pid}; {len(config['population'])} arms configured.")
     print(f"Log: {output / 'main.log'}\nStudy: {run}")
@@ -165,17 +175,17 @@ def stop(output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["start", "status", "stop"])
+    parser.add_argument("action", choices=["start", "resume", "status", "stop"])
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--gpus", help="Comma-separated physical GPU indices; defaults to config")
     parser.add_argument("--min-free-mib", type=int, default=26624)
     args = parser.parse_args()
     os.chdir(PROJECT_DIR)
     config = configuration(args.config, args.gpus)
-    if args.action == "start":
+    if args.action in ('start', 'resume'):
         if args.min_free_mib <= 0:
             parser.error("--min-free-mib must be positive")
-        start(config, args.min_free_mib)
+        start(config, args.min_free_mib, resume=args.action == 'resume')
     else:
         {"status": status, "stop": stop}[args.action](locations(config)[1])
 
