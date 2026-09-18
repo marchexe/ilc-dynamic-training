@@ -46,6 +46,12 @@ class ExperimentSection(StrictSectionModel):
     output_root: str
 
 
+class ContinuationSection(StrictSectionModel):
+    source_run: str
+    source_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_state_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class ResourcesSection(StrictSectionModel):
     gpus: list[int | str] | None = None
 
@@ -481,6 +487,7 @@ class PBTYamlConfig(StrictSectionModel):
     resources: ResourcesSection
     population: list[PopulationMember]
     pbt: PBTSection
+    continuation: ContinuationSection | None = None
 
     @classmethod
     def parse_payload(cls, payload: Any):
@@ -501,6 +508,7 @@ class PBTYamlConfig(StrictSectionModel):
                 for member in self.population
             ],
             "pbt": self.pbt.model_dump(exclude_unset=True),
+            "continuation": None if self.continuation is None else self.continuation.model_dump(),
         }
 
 
@@ -594,6 +602,7 @@ class ResolvedPBTConfig(StrictSectionModel):
     population: list[ResolvedPopulationMember] = Field(min_length=1)
     pbt: ResolvedPBTSection
     smoke: bool
+    continuation: ContinuationSection | None = None
 
     @classmethod
     def from_sections(
@@ -607,6 +616,7 @@ class ResolvedPBTConfig(StrictSectionModel):
         population,
         pbt,
         smoke,
+        continuation=None,
     ):
         pbt_payload = dict(pbt)
         population_payload = [dict(member) for member in population]
@@ -629,6 +639,7 @@ class ResolvedPBTConfig(StrictSectionModel):
                     "population": population_payload,
                     "pbt": pbt_payload,
                     "smoke": smoke,
+                    "continuation": continuation,
                 }
             )
         except ValidationError as error:
@@ -643,6 +654,8 @@ class ResolvedPBTConfig(StrictSectionModel):
 
     @model_validator(mode="after")
     def validate_runtime_contract(self):
+        if self.continuation and self.pbt.strategy != "windowed_pbt_v2":
+            raise ValueError("Population continuation is supported only for windowed_pbt_v2")
         if len(self.population) == 1 and self.pbt.strategy != "fixed_lr_grid":
             raise ValueError("A single member is supported only for fixed_lr_grid")
         if self.pbt.strategy == "windowed_pbt_v2":

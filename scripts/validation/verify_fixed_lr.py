@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from training.pbt.state.checkpointing import checkpoint_paths, epoch_for_generation
 from training.runtime import sha256
 from training.pbt.planning.windowed_pbt_v2 import STRATEGY, WORKING_POINTS, windowed_pbt_v2_plan
+from training.pbt.state.continuation import history_sources, plan_continuation
 
 
 def verify_window(run, config, generation, members, history, check, saved):
@@ -133,6 +134,20 @@ def verify(run, through=None):
           and all(not pbt.get(k) for k in ["anchor_copy_lr_recenter", "lr_radius", "lr_controller", "population_lr_policy"])
           and not shared.get("training_controller") and shared.get("lr_scheduler") == "none")
     generations = manifest.get("generations", [])
+    owners = history_sources(run, manifest)
+    initial_run = owners[0][0] if owners else run
+    if manifest.get('continuation'):
+        source, evidence = plan_continuation(config)
+        recorded = manifest['continuation']
+        check('continuation provenance', all(recorded.get(k) == v for k, v in evidence.items() if k != 'initialized'))
+        check('continuation initialized', recorded.get('initialized') is True)
+        for name, bundle in evidence['members'].items():
+            for part, item in bundle.items():
+                saved(name + ': inherited ' + part, run / name / Path(item['path']).name, item['sha256'])
+        start = evidence['start_generation']
+        if len(generations) == start:
+            check('inherited protected best', manifest.get('protected_best') == source['protected_best'])
+            check('inherited selected best', manifest.get('best') == source['best'])
     if through is None:
         check("run completed", manifest.get("status") == "completed" and len(generations) == limit)
     initial = manifest.get("initial_evaluation") or {}
@@ -178,11 +193,11 @@ def verify(run, through=None):
         for component in ("state", "optimizer"):
             digest = resume.get(component + "_sha256")
             check(name + ": recorded initial " + component, bool(digest))
-            saved(name + ": raw initial " + component, run / name / f"net_epoch-{initial_epoch}_{component}.pt", digest)
+            saved(name + ": raw initial " + component, initial_run / name / f"net_epoch-{initial_epoch}_{component}.pt", digest)
         # Legacy checkpoints have no scaler. When supplied, its state must copy too.
         source_scaler = Path(shared["initial_optimizer"].replace("_optimizer.pt", "_scaler.pt"))
         if source_scaler.is_file():
-            saved(name + ": initial scaler", run / name / f"net_epoch-{initial_epoch}_scaler.pt", sha256(source_scaler))
+            saved(name + ": initial scaler", initial_run / name / f"net_epoch-{initial_epoch}_scaler.pt", sha256(source_scaler))
     train_reference = None
     replay_members = {name: dict(lr=lr) for name, lr in arms.items()}
     replay_history = []
@@ -192,6 +207,7 @@ def verify(run, through=None):
         if not matches:
             continue
         generation = matches[0]
+        owner, historical_config = owners[index] if index < len(owners) else (run.resolve(), config)
         epoch = epoch_for_generation(config, index)
         check(f"generation {index}: checkpoint epoch", generation.get("epoch") == epoch)
         check(f"generation {index}: no legacy adaptive actions", (windowed or generation.get("exploit") == [])
@@ -206,8 +222,16 @@ def verify(run, through=None):
             metrics = worker.get("metrics") or {}
             train, val = metrics.get("train_data_audit", {}), metrics.get("validation_data_audit", {})
             label = f"epoch {epoch}/{name}"
+            # Weaver logs the override with %.6g; replay and commands retain
+            # full precision. Only adapt the log comparison, never the plan.
+            logged_lr = float(format(lr, '.6g')) if windowed else lr
             check(label + ": worker/LR", worker.get("status") == "completed" and worker.get("returncode") == 0
-                  and worker.get("lr") == metrics.get("train_loaded_optimizer_lr") == lr)
+                  and worker.get("lr") == lr and metrics.get("train_loaded_optimizer_lr") == logged_lr)
+            if windowed:
+                command = worker.get('command') or []
+                positions = [i for i, arg in enumerate(command) if arg == '--start-lr']
+                check(label + ': command LR', len(positions) == 1 and positions[0] + 1 < len(command)
+                      and float(command[positions[0] + 1]) == lr)
             if train_reference is None:
                 train_reference = train.get("dataset", {})
                 dataset("training", train_reference, "train")
@@ -218,17 +242,17 @@ def verify(run, through=None):
             validation(label + "/validation", val)
             for key in metric_keys:
                 check(label + ": finite " + key, finite(metrics.get(key)))
-            state, optimizer = checkpoint_paths(run / name, epoch)
+            state, optimizer = checkpoint_paths(owner / name, epoch)
             for path in (state, optimizer):
                 saved(label + ": retained " + path.name, path)
             if shared.get("use_amp") and shared.get("amp_dtype") == "fp16":
-                saved(label + ": retained scaler", run / name / f"net_epoch-{epoch}_scaler.pt")
+                saved(label + ": retained scaler", owner / name / f"net_epoch-{epoch}_scaler.pt")
             if index == limit - 1:
                 results.append(dict(name=name, lr=lr, full_epoch=index + 1, checkpoint_epoch=epoch,
                                     loss=metrics.get("validation_loss"), metric=metrics.get(pbt["metric"])))
         check(f"generation {index}: matched training sequences", len(set(sequences)) == 1)
         if windowed:
-            verify_window(run.resolve(), config, generation, replay_members, replay_history, check, saved)
+            verify_window(owner, historical_config, generation, replay_members, replay_history, check, saved)
     if windowed:
         updates = [g[STRATEGY]['protected_best_update'] for g in generations[:limit]
                    if g.get(STRATEGY, {}).get('protected_best_update')]
@@ -258,9 +282,58 @@ def verify(run, through=None):
                 run_status=manifest.get("status"), results=results)
 
 
-def compare(run, baseline):
+def load_control(baseline, prefixes=()):
+    """Read a fixed-LR control split across separately launched continuations.
+
+    Prefixes are supplied in chronological order. Require checkpoint, raw
+    optimizer/scaler, validation, epoch and seed continuity; never edit artifacts.
+    """
+    paths = [Path(p).resolve() for p in [*prefixes, baseline]]
+    segments = [json.loads((p / 'manifest.json').read_text()) for p in paths]
+    if not prefixes:
+        return segments[0]
+    names = {m['name']: m['start_lr'] for m in segments[-1]['config']['population']}
+    rows = []
+    for index, (path, manifest) in enumerate(zip(paths, segments)):
+        shared = manifest['config']['shared']
+        if (manifest['status'] != 'completed' or manifest['config']['pbt']['strategy'] != 'fixed_lr_grid'
+                or shared['weaver_epochs_per_generation'] != 1 or shared['initial_optimizer_mode'] != 'raw'
+                or len(manifest['generations']) != shared['generations']):
+            raise ValueError('Control segments must be completed raw full-epoch fixed-LR runs')
+        if manifest['initial_evaluation']['metrics']['validation_data_audit']['consumed'] != segments[0]['initial_evaluation']['metrics']['validation_data_audit']['consumed']:
+            raise ValueError('Control validation events changed between segments')
+        if index:
+            previous = segments[index - 1]
+            epoch = previous['generations'][-1]['epoch']
+            if (shared['initial_epoch'] != epoch
+                    or shared['seed'] != previous['config']['shared']['seed'] + len(previous['generations'])):
+                raise ValueError('Control epoch/seed schedule is discontinuous')
+            for name in names:
+                for part in ('state', 'optimizer', 'scaler'):
+                    filename = f'net_epoch-{epoch}_{part}.pt'
+                    digest = sha256(paths[index - 1] / name / filename)
+                    if digest != sha256(path / name / filename) or (
+                            part != 'scaler' and digest != manifest['initial_resume'][part + '_sha256']):
+                        raise ValueError('Control checkpoint state is discontinuous')
+        for local, generation in enumerate(manifest['generations']):
+            if (generation['status'] != 'completed' or generation['index'] != local
+                    or generation['epoch'] != shared['initial_epoch'] + local + 1
+                    or generation.get('seed') != shared['seed'] + local
+                    or any(generation['workers'][n]['lr'] != lr for n, lr in names.items())):
+                raise ValueError('Control member LR or epoch schedule changed')
+            row = copy.deepcopy(generation)
+            row.update(index=len(rows), workers={n: row['workers'][n] for n in names})
+            rows.append(row)
+    combined = copy.deepcopy(segments[0])
+    combined['config']['population'] = segments[-1]['config']['population']
+    combined['config']['shared']['generations'] = len(rows)
+    combined['generations'] = rows
+    return combined
+
+
+def compare(run, baseline, baseline_prefixes=()):
     """Compare matched horizons using stable windows, retaining lineage changes."""
-    runs = [json.loads((Path(p) / 'manifest.json').read_text()) for p in (run, baseline)]
+    runs = [json.loads((Path(run) / 'manifest.json').read_text()), load_control(baseline, baseline_prefixes)]
     candidate, control = runs
     metric = candidate['config']['pbt']['metric']
     horizon = candidate['config']['shared']['generations']
@@ -336,13 +409,17 @@ def main():
     parser.add_argument("run", type=Path)
     parser.add_argument("--through", type=int, metavar="EPOCH")
     parser.add_argument("--baseline", type=Path, help="Also compare stable trajectories with a completed matched control")
+    parser.add_argument("--baseline-prefix", type=Path, action='append', default=[],
+                        help="Earlier fixed-LR control segment; repeat in chronological order")
     args = parser.parse_args()
+    if args.baseline_prefix and not args.baseline:
+        parser.error('--baseline-prefix requires --baseline')
     try:
         result = verify(args.run.resolve(), args.through)
         if result['passed'] and args.baseline:
             if args.through is not None:
                 raise ValueError('--baseline requires final verification')
-            result['comparison'] = compare(args.run, args.baseline)
+            result['comparison'] = compare(args.run, args.baseline, args.baseline_prefix)
     except (OSError, ValueError, KeyError, TypeError) as error:
         result = dict(passed=False, failures=[f"Missing/malformed run evidence: {error}"])
     print(json.dumps(result, indent=2, allow_nan=False))

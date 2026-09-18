@@ -179,6 +179,9 @@ def load_config(args):
     resources = dict(sections["resources"])
     population = [dict(member) for member in sections["population"]]
     pbt = dict(sections["pbt"])
+    continuation = sections.get("continuation")
+    if continuation:
+        continuation = dict(continuation, source_run=absolute_project_path(continuation["source_run"]))
 
     slots = parse_slots(args, resources)
     if args.smoke:
@@ -197,6 +200,7 @@ def load_config(args):
         population=population,
         pbt=pbt,
         smoke=args.smoke,
+        continuation=continuation,
     )
     return resolved.to_runtime_dict()
 
@@ -223,6 +227,9 @@ def validate_inputs(config):
     )
     if not (PROJECT_DIR / ".venv/bin/weaver").is_file():
         raise FileNotFoundError("Project Weaver executable is missing")
+    if config.get("continuation"):
+        from training.pbt.state.continuation import plan_continuation
+        plan_continuation(config)
 
 
 def contract_fingerprint(config):
@@ -233,5 +240,7 @@ def contract_fingerprint(config):
         "pbt": config["pbt"],
         "smoke": config["smoke"],
     }
+    if config.get("continuation"):
+        contract["continuation"] = config["continuation"]
     encoded = json.dumps(contract, sort_keys=True).encode()
     return hashlib.sha256(encoded).hexdigest()

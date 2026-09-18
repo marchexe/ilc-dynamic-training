@@ -2,6 +2,7 @@ import contextlib
 import copy
 import io
 import json
+import math
 import os
 from pathlib import Path
 import tempfile
@@ -118,6 +119,40 @@ class ExperimentLauncherTest(unittest.TestCase):
 
 
 class FixedLRVerifierTest(unittest.TestCase):
+    def test_control_segments_require_raw_checkpoint_and_seed_continuity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = [Path(tmp) / name for name in ('first', 'second')]
+            for index, run in enumerate(paths):
+                (run / 'a').mkdir(parents=True)
+                start, seed = 3 + index * 2, 100 + index * 2
+                resume = {}
+                for epoch in range(start, start + 3):
+                    for part in ('state', 'optimizer', 'scaler'):
+                        path = run / 'a' / f'net_epoch-{epoch}_{part}.pt'
+                        path.write_bytes(f'{epoch}-{part}'.encode())
+                        if epoch == start and part != 'scaler':
+                            resume[part + '_sha256'] = verifier.sha256(path)
+                manifest = dict(status='completed', initial_resume=resume,
+                    initial_evaluation=dict(metrics=dict(validation_data_audit=dict(consumed={'count': 3}))),
+                    config=dict(population=[dict(name='a', start_lr=1e-5)], pbt=dict(strategy='fixed_lr_grid'),
+                                shared=dict(seed=seed, initial_epoch=start, generations=2,
+                                            weaver_epochs_per_generation=1, initial_optimizer_mode='raw')),
+                    generations=[dict(status='completed', index=i, epoch=start+i+1, seed=seed+i,
+                                      workers=dict(a=dict(lr=1e-5))) for i in range(2)])
+                (run / 'manifest.json').write_text(json.dumps(manifest))
+            combined = verifier.load_control(paths[1], paths[:1])
+            self.assertEqual([g['epoch'] for g in combined['generations']], [4, 5, 6, 7])
+            self.assertEqual([g['index'] for g in combined['generations']], list(range(4)))
+            manifest['config']['shared']['seed'] += 1
+            (paths[1] / 'manifest.json').write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, 'schedule'):
+                verifier.load_control(paths[1], paths[:1])
+            manifest['config']['shared']['seed'] -= 1
+            (paths[1] / 'manifest.json').write_text(json.dumps(manifest))
+            (paths[1] / 'a/net_epoch-5_scaler.pt').write_bytes(b'reset')
+            with self.assertRaisesRegex(ValueError, 'state'):
+                verifier.load_control(paths[1], paths[:1])
+
     def fixture(self, run):
         population = [dict(name="a", start_lr=1e-5), dict(name="b", start_lr=2e-5)]
         metric = "validation_score"
@@ -184,9 +219,11 @@ class FixedLRVerifierTest(unittest.TestCase):
                 lambda m, w: m["generations"][0].update(exploit=[dict(action="rewind")]),
                 lambda m, w: w["metrics"].pop("validation_score"),
                 lambda m, w: w["metrics"].update(train_loaded_optimizer_lr=1),
+                lambda m, w: w["metrics"].update(train_loaded_optimizer_lr=math.nextafter(w['lr'], math.inf)),
                 lambda m, w: m.update(status="failed"),
                 lambda m, w: m["generations"][0].update(epoch=99),
                 lambda m, w: m["generations"].pop(),
+                lambda m, w: m["generations"].clear(),
                 lambda m, w: m["initial_resume"].update(optimizer_sha256="bad"),
                 lambda m, w: m["final_evaluations"]["control"]["a"]["metrics"]["validation_data_audit"].update(prediction_sha256="bad"),
                 lambda m, w: m["final_evaluations"]["control"]["selected_best"]["metrics"].update(validation_loss=9),

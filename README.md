@@ -170,6 +170,41 @@ Run tests:
 ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python -m unittest discover -v'
 ```
 
+### Windowed PBT continuation and presentation
+
+A completed `windowed_pbt_v2` population can continue into a **new** run.
+Keep its training configuration and population identities, increase
+`shared.generations` to the desired total horizon (complete windows), choose a
+new experiment name, and add:
+
+```yaml
+continuation:
+  source_run: runs/pbt/<completed-run>
+  source_manifest_sha256: <SHA256 of its manifest.json>
+  source_state_sha256: <digest returned by state.continuation.source_state>
+```
+
+`source_state(run_path, manifest)` returns checkpoint identities and their combined
+digest. The normal runner `--dry-run` validates these pins and prints the first
+new epoch's commands. Launch and interruption recovery use the existing
+`scripts/launch/experiment.py start|resume --config ...` commands.
+Live model/optimizer/scaler files copy without transformation; historical records,
+terminal decisions, loss counters and best archives carry forward. The source
+and its ancestors remain required read-only dependencies. A continuation can be
+extended the same way after completion; never edit an existing run's horizon.
+
+`scripts/validation/verify_fixed_lr.py <run>` replays each historical segment
+under its original horizon. For a fixed-LR control split across runs, use
+`--baseline <last-segment> --baseline-prefix <earlier-segment>` (repeat prefixes
+in chronological order); checkpoint and seed continuity are required.
+
+`scripts/reports/plot_pbt_presentation.py <run> --baseline <control>
+--baseline-member <member>` writes three 300-dpi PNGs and their source values
+into **that run's `plots/` directory**. It also accepts `--baseline-prefix` for
+split controls. Existing presentation files are protected from overwrite;
+historical/diagnostic figures stay in place. There is no central presentation
+directory or automatic PDF export.
+
 ## Project Layout
 
 ```text

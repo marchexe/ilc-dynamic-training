@@ -52,6 +52,7 @@ from training.pbt.planning import (
 )
 from training.pbt.state.transitions import apply_exploit
 from training.pbt.planning.windowed_pbt_v2 import STRATEGY as WINDOWED_PBT, prepare_boundary, apply_window_exploits
+from training.pbt.state.continuation import plan_continuation, inherit_history, bootstrap_continuation
 
 
 DEFAULT_CONFIG = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"
@@ -359,21 +360,27 @@ def _print_dry_run_commands(config, backend, experiment_dir):
     """--dry-run: print the resolved config and every command that would be
     launched, without touching disk or starting any process."""
     print(yaml.safe_dump(config, sort_keys=False).rstrip())
-    if initial_evaluation_enabled(config):
+    generation = 0
+    members = [{"name": m["name"], "lr": float(m["start_lr"])} for m in config["population"]]
+    if config.get("continuation"):
+        source, evidence = plan_continuation(config)
+        generation = evidence['start_generation']
+        members = list(source['members'].values())
+        print(json.dumps({'continuation': evidence, 'protected_best': source['protected_best']}, indent=2))
+    elif initial_evaluation_enabled(config):
         command, _ = backend.initial_evaluation_command_for(
             config,
             config["slots"][0],
             experiment_dir,
         )
         print(f"[initial_evaluation] {shlex.join(command)}")
-    for index, member_config in enumerate(config["population"]):
-        member = {"name": member_config["name"], "lr": float(member_config["start_lr"])}
+    for index, member in enumerate(members):
         command, _, _ = backend.command_for(
             config,
             member,
             config["slots"][index % len(config["slots"])],
             experiment_dir / member["name"],
-            0,
+            generation,
         )
         print(f"[{member['name']}] {shlex.join(command)}")
 
@@ -405,23 +412,33 @@ def _load_or_create_manifest(args, config, backend, experiment_dir, manifest_pat
 
     if experiment_dir.exists():
         raise FileExistsError(f"Experiment already exists: {experiment_dir}")
+    continuation = plan_continuation(config) if config.get("continuation") else None
     experiment_dir.mkdir(parents=True)
     ensure_run_layout(experiment_dir)
     write_resolved_config(experiment_dir, config)
-    return initial_manifest(config, fingerprint, launch_command, backend.name)
+    manifest = initial_manifest(config, fingerprint, launch_command, backend.name)
+    if continuation:
+        source, evidence = continuation
+        inherit_history(manifest, source, evidence)
+        # Persist before copying so an interrupted bootstrap can resume safely.
+        atomic_json(manifest_path, manifest)
+    return manifest
 
 
 def _bootstrap_members(args, config, backend, experiment_dir, manifest, manifest_path, pbt_log_path):
     """Per-member checkpoint bootstrap, global-best seeding, the initial
     checkpoint evaluation, and the "run started" log line -- everything that
     happens exactly once before the first generation."""
-    for name in manifest["members"]:
-        member_dir = experiment_dir / name
-        member_dir.mkdir(parents=True, exist_ok=True)
-        if not args.dry_run:
-            bootstrap_initial_checkpoint(config, member_dir)
-    seed_initial_global_best(config, experiment_dir, manifest)
-    run_initial_evaluation(config, backend, experiment_dir, manifest, manifest_path, pbt_log_path)
+    if manifest.get('continuation'):
+        bootstrap_continuation(experiment_dir, manifest, manifest_path)
+    else:
+        for name in manifest["members"]:
+            member_dir = experiment_dir / name
+            member_dir.mkdir(parents=True, exist_ok=True)
+            if not args.dry_run:
+                bootstrap_initial_checkpoint(config, member_dir)
+        seed_initial_global_best(config, experiment_dir, manifest)
+        run_initial_evaluation(config, backend, experiment_dir, manifest, manifest_path, pbt_log_path)
     write_resolved_config(experiment_dir, config)
     atomic_json(manifest_path, manifest)
     log_event(

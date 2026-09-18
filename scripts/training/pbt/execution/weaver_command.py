@@ -204,7 +204,8 @@ def make_command(config, member, slot, member_dir, generation):
         "controller": shared.get("training_controller"),
     }
     log_path = member_dir.parent / "logs" / member["name"] / f"generation-{generation:03d}.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    # The backend creates the log directory when it starts a worker. Command
+    # construction must remain read-only for dry runs and continuation planning.
     command = build_command(
         resolved,
         worker,

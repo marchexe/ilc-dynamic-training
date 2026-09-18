@@ -1,5 +1,6 @@
 import copy
 import json
+import math
 from pathlib import Path
 import tempfile
 import unittest
@@ -38,6 +39,7 @@ def generation_fixture(manifest, index, values=None):
     keys = [config['pbt']['metric'], 'validation_loss', *strategy.WORKING_POINTS]
     return dict(index=index, epoch=config['shared']['initial_epoch'] + index + 1, status='running', exploit=None,
                 workers={n: dict(lr=m['lr'], status='completed', returncode=0,
+                                 command=['weaver', '--start-lr', str(m['lr'])],
                                  metrics={k: values[i] for k in keys}) for i, (n, m) in enumerate(manifest['members'].items())})
 
 
@@ -264,7 +266,7 @@ class WindowedPBTTest(unittest.TestCase):
                 for name, worker in g['workers'].items():
                     save_bundle(root, name, g['epoch'], worker['lr'])
                     worker['metrics'].update(train_data_audit=audit('train'), validation_data_audit=audit('val'),
-                                             train_loaded_optimizer_lr=worker['lr'])
+                                             train_loaded_optimizer_lr=float(format(worker['lr'], '.6g')))
                 _plan_generation_exploit(self.config, manifest, g, i, i == 49, root, root / 'manifest.json', root / 'log')
                 _finalize_generation(self.config, manifest, g, root, root / 'manifest.json', root / 'log', i)
                 # Serialization must retain counter/copy/protected state used next epoch.
@@ -290,11 +292,19 @@ class WindowedPBTTest(unittest.TestCase):
                            lambda m: m['generations'][4][strategy.STRATEGY]['members']['a'].update(window_score=0),
                            lambda m: m['generations'][9]['exploit'][0]['copied_checkpoint']['optimizer'].update(sha256='bad'),
                            lambda m: m['generations'][9][strategy.STRATEGY].update(protected_best_score=9),
+                           lambda m: m['generations'][10]['workers']['a']['command'].__setitem__(-1, str(math.nextafter(m['generations'][10]['workers']['a']['lr'], math.inf))),
+                           lambda m: m['generations'][10]['workers']['a'].update(command=['weaver']),
+                           lambda m: m['generations'][10]['workers']['a']['metrics'].update(train_loaded_optimizer_lr=1e-6),
                            lambda m: m['final_evaluations']['control']['protected_best']['metrics'].update(validation_loss=99)):
                 broken = copy.deepcopy(manifest)
                 change(broken)
                 atomic_json(root / 'manifest.json', broken)
                 self.assertFalse(verifier.verify(root)['passed'])
+            broken = copy.deepcopy(manifest)
+            worker = broken['generations'][10]['workers']['a']
+            worker['lr'] = math.nextafter(worker['lr'], math.inf)
+            atomic_json(root / 'manifest.json', broken)
+            self.assertFalse(verifier.verify(root, through=11)['passed'])
             atomic_json(root / 'manifest.json', manifest)
             self.assertTrue(verifier.verify(root, through=10)['passed'])
 
