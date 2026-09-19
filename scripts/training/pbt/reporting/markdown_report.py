@@ -104,6 +104,7 @@ def build_summary(run_dir, manifest):
         },
         "evaluation": evaluation_metadata(manifest),
         "checkpoint_selection": manifest.get("checkpoint_selection_for_report"),
+        "canonical_artifacts": manifest.get("canonical_artifacts", {}),
         "plots": {
             **{
                 name: str(Path("plots") / f"{filename}.png")

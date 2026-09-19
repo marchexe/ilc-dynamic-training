@@ -1,3 +1,4 @@
+import copy
 import csv
 import json
 import math
@@ -220,10 +221,12 @@ class PBTArtifactsTest(unittest.TestCase):
                 },
             )
 
+            before = copy.deepcopy(manifest)
             artifacts = write_canonical_outputs(run_dir, manifest)
+            self.assertEqual(manifest, before)
+            self.assertFalse((run_dir / "manifest.json").exists())
 
             for relative in (
-                "manifest.json",
                 "resolved_config.yaml",
                 "events.jsonl",
                 "metrics.csv",
@@ -306,16 +309,16 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertNotIn("working_point_evolution", summary["plots"])
             self.assertNotIn("lr_vs_metric", summary["plots"])
             # The report-facing plots (population/selection, mistag score
-            # evolution, LR lineage, ...) live under the same manifest key
+            # evolution, LR lineage, ...) live under the returned artifacts key
             # as the physics-performance bridge outputs now -- see
             # canonical.py/write_canonical_outputs -- each carrying its
             # richer {png, warnings, generations, members, metric_keys}
             # result dict, not just a path string.
-            plots_artifacts = manifest["canonical_artifacts"]["plots"]
+            plots_artifacts = artifacts["plots"]
             for key in ("pbt_population_selection", "mistag_score_evolution", "learning_rate_lineage", "learning_rate_mistag_correlation"):
                 self.assertIn(key, plots_artifacts)
                 self.assertTrue(Path(plots_artifacts[key]["png"]).is_file())
-            self.assertNotIn("research_plots", manifest["canonical_artifacts"])
+            self.assertNotIn("research_plots", artifacts)
 
             # synthetic_manifest()'s fixed_curve_metrics() reuses the exact
             # same rejection curves for every generation/member, so
@@ -324,7 +327,7 @@ class PBTArtifactsTest(unittest.TestCase):
             # trial_b/gen 1 -- this deliberately exercises the
             # global_best-vs-best_physics disagreement the report-facing
             # checkpoint-role fix must surface, not hide.
-            selection = manifest["checkpoint_selection_for_report"]
+            selection = summary["checkpoint_selection"]
             self.assertEqual(selection["role"], "global_best")
             self.assertEqual(selection["member"], "trial_b")
             self.assertEqual(selection["generation"], 1)
@@ -544,7 +547,18 @@ class PBTArtifactsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             run_dir = Path(temporary)
             manifest = synthetic_manifest()
+            # The training owner persists the source, including legacy report fields.
+            manifest["checkpoint_selection_for_report"] = {"role": "stale"}
+            manifest["canonical_artifacts"] = {"legacy": "preserve"}
+            manifest_path = run_dir / "manifest.json"
+            original = json.dumps(manifest, indent=3).encode()
+            manifest_path.write_bytes(original)
+            stamp = manifest_path.stat().st_mtime_ns
+            before = copy.deepcopy(manifest)
             write_canonical_outputs(run_dir, manifest)
+            self.assertEqual(manifest, before)
+            self.assertEqual(manifest_path.read_bytes(), original)
+            self.assertEqual(manifest_path.stat().st_mtime_ns, stamp)
             (run_dir / "report.md").unlink()
 
             result = subprocess.run(
@@ -559,6 +573,10 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((run_dir / "report.md").is_file())
             self.assertIn("report.md", result.stdout)
+            self.assertEqual(manifest_path.read_bytes(), original)
+            self.assertEqual(manifest_path.stat().st_mtime_ns, stamp)
+            summary = json.loads((run_dir / "summary.json").read_text())
+            self.assertEqual(summary["checkpoint_selection"]["role"], "global_best")
 
     def test_configured_baseline_is_not_measured_baseline(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -577,7 +595,7 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertNotIn("## Baseline vs. Selected Model", report)
             self.assertFalse((run_dir / "plots" / "baseline_vs_selected.png").exists())
             self.assertIn("No corroboration-tier evaluation was scheduled during this short run.", report)
-            mistag_evolution = manifest["canonical_artifacts"]["plots"]["mistag_score_evolution"]
+            mistag_evolution = summary["canonical_artifacts"]["plots"]["mistag_score_evolution"]
             self.assertIs(mistag_evolution["has_baseline_point"], False)
             self.assertIn("not available for this run", report)
 

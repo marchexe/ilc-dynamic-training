@@ -8,6 +8,7 @@ from pathlib import Path
 
 from training.pbt.state.checkpointing import epoch_for_generation
 from training.weaver import build_command
+from training.members import MemberState
 from training.runtime import PROJECT_DIR, data_paths, project_path, weaver_executable
 
 
@@ -184,6 +185,7 @@ def make_tiered_evaluation_command(config, slot, checkpoint, dataset, suffix, lo
 
 
 def make_command(config, member, slot, member_dir, generation):
+    member = member if isinstance(member, MemberState) else MemberState.from_legacy(member)
     target_epoch = epoch_for_generation(config, generation)
     resume_epoch = target_epoch - int(config["shared"]["weaver_epochs_per_generation"])
     if generation == 0 and not config["shared"].get("initial_state"):
@@ -192,18 +194,18 @@ def make_command(config, member, slot, member_dir, generation):
     shared.update(
         epochs=target_epoch + 1,
         seed=int(config["shared"]["seed"]) + generation,
-        start_lr=member["lr"],
+        start_lr=member.current_lr,
     )
     freeze_generations = int(shared.get("freeze_model_weights_generations", 0) or 0)
     if freeze_generations and generation >= freeze_generations:
         shared.pop("freeze_model_weights", None)
     resolved = {"shared": shared}
     worker = {
-        "name": member["name"],
+        "name": member.member_id,
         "gpu": slot["gpu"] if isinstance(slot, dict) else str(slot),
         "controller": shared.get("training_controller"),
     }
-    log_path = member_dir.parent / "logs" / member["name"] / f"generation-{generation:03d}.log"
+    log_path = member_dir.parent / "logs" / member.member_id / f"generation-{generation:03d}.log"
     # The backend creates the log directory when it starts a worker. Command
     # construction must remain read-only for dry runs and continuation planning.
     command = build_command(

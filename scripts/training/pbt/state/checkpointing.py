@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Checkpoint path, copy, and bootstrap helpers for PBT."""
 
-import os
-import shutil
 from pathlib import Path
 
+from training.checkpoints import atomic_copy_pair, checkpoint_paths
 from training.pbt.reporting import record_new_best
 from training.pbt.state.optimizer_state import atomic_copy, prepare_initial_optimizer
 from training.runtime import atomic_json, utc_now
@@ -22,35 +21,6 @@ def generations_before(manifest, generation_index):
         if int(generation.get("index", -1)) < int(generation_index)
     ]
 
-def atomic_copy_pair(pairs):
-    """Copy multiple (source, destination) pairs as one all-or-nothing unit.
-
-    Every source is staged to a temporary file first; only once every
-    staging copy has succeeded are the temp files committed in place via
-    os.replace. This guarantees an exploit recipient never ends up with a
-    donor's weights paired with its own unrelated, pre-copy optimizer state
-    (or vice versa) -- weight and optimizer copy are one coherent transition.
-    """
-    staged = []
-    try:
-        for source, destination in pairs:
-            destination = Path(destination)
-            temporary = destination.with_suffix(destination.suffix + ".pbt-tmp")
-            shutil.copy2(source, temporary)
-            staged.append((temporary, destination))
-    except BaseException:
-        for temporary, _ in staged:
-            temporary.unlink(missing_ok=True)
-        raise
-    for temporary, destination in staged:
-        os.replace(temporary, destination)
-    from training.pbt.state.optimizer_state import copy_optimizer_companion
-    for source, destination in pairs:
-        copy_optimizer_companion(source, destination)
-
-def checkpoint_paths(member_dir, epoch):
-    prefix = member_dir / f"net_epoch-{epoch}"
-    return Path(f"{prefix}_state.pt"), Path(f"{prefix}_optimizer.pt")
 
 def controller_checkpoint_path(member_dir, epoch):
     return member_dir / f"net_epoch-{epoch}_controller.pt"

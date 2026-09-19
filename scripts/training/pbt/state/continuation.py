@@ -11,7 +11,8 @@ import math
 from pathlib import Path
 
 from training.pbt.config import contract_fingerprint
-from training.pbt.planning.windowed_pbt_v2 import STRATEGY, bundle_identity, bundle_paths, check_bundle, _copy_bundle
+from training.pbt.reference.windowed_v2 import STRATEGY
+from training.checkpoints import bundle_identity, bundle_paths, check_bundle, copy_bundle as _copy_bundle
 from training.pbt.state.optimizer_state import atomic_copy, load_optimizer_state
 from training.runtime import atomic_json, sha256
 

@@ -4,9 +4,11 @@
 import copy
 import math
 import os
-import shutil
 from collections import Counter
 from pathlib import Path
+
+# Compatibility exports; file copying is independent of optimizer transforms.
+from training.checkpoints import atomic_copy, copy_optimizer_companion
 
 
 try:
@@ -34,30 +36,6 @@ def normalize_optimizer_state_mode(mode):
             + ", ".join(sorted(OPTIMIZER_STATE_MODES))
         )
     return normalized
-
-
-def copy_optimizer_companion(source, destination):
-    """Keep the optional AMP scaler with copied optimizer state, including
-    removal of a stale recipient scaler when restoring a legacy checkpoint."""
-    source, destination = Path(source), Path(destination)
-    if not source.name.endswith("_optimizer.pt"):
-        return
-    src = source.with_name(source.name.removesuffix("_optimizer.pt") + "_scaler.pt")
-    dst = destination.with_name(destination.name.removesuffix("_optimizer.pt") + "_scaler.pt")
-    if src.resolve() == dst.resolve():
-        return
-    if src.is_file():
-        atomic_copy(src, dst)
-    else:
-        dst.unlink(missing_ok=True)
-
-
-def atomic_copy(source, destination):
-    destination = Path(destination)
-    temporary = destination.with_suffix(destination.suffix + ".pbt-tmp")
-    shutil.copy2(source, temporary)
-    os.replace(temporary, destination)
-    copy_optimizer_companion(source, destination)
 
 
 def atomic_torch_save(payload, destination):

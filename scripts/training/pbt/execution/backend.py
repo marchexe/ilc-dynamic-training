@@ -1,32 +1,13 @@
 """Execution backends for Population Based Training workers."""
 
-import math
 import subprocess
 import time
 from pathlib import Path
 
 from training.pbt.reporting import refresh_metrics_csv, record_evaluation, record_train_finish, record_train_start
 from training.pbt.execution.weaver_command import make_command, make_initial_evaluation_command, make_tiered_evaluation_command, slot_label
+from validation.results import finite_metric_ok
 from training.runtime import PROJECT_DIR, atomic_json, read_metrics, terminate, utc_now
-
-
-def finite_metric_ok(metrics, metric_name):
-    """True only if `metric_name` is present and a finite (non-NaN/inf) number.
-
-    A non-finite value (e.g. NaN from a zero-count fixed-WP ratio) must never
-    reach ranking/exploit/controller decisions -- treat it the same as a
-    missing metric: the worker is marked failed rather than silently
-    poisoning the population's ranking with a NaN comparison.
-    """
-    if metrics is None:
-        return False
-    value = metrics.get(metric_name)
-    if value is None:
-        return False
-    try:
-        return math.isfinite(float(value))
-    except (TypeError, ValueError):
-        return False
 
 
 class PBTBackend:

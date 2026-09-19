@@ -92,10 +92,14 @@ def draw_efficiency(ax, metrics, tag):
     ax.legend(frameon=False, fontsize=8.5, loc="upper left")
 
 
-def plot_manifest(manifest_path, output=None, member="best_physics"):
+def plot_manifest(manifest_path, output=None, member="best_physics", *, manifest=None):
+    """Plot a supplied snapshot, or read the legacy path when none is supplied."""
     import matplotlib.pyplot as plt
 
-    manifest, resolved_manifest_path = load_manifest(manifest_path)
+    if manifest is None:
+        manifest, resolved_manifest_path = load_manifest(manifest_path)
+    else:
+        resolved_manifest_path = Path(manifest_path)
     output = Path(output) if output is not None else default_output(resolved_manifest_path)
     worker, generation, member_name, physics_score = worker_for_report(manifest, member)
     metrics = worker.get("metrics") or {}

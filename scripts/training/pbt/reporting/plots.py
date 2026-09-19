@@ -7,7 +7,6 @@ those figures show."""
 
 from pathlib import Path
 
-from training.runtime import atomic_json
 from training.pbt.reporting.metrics_rows import (
     _metric_mode,
     _metric_name,
@@ -57,13 +56,12 @@ def write_existing_physics_reports(run_dir, manifest):
     selection, scripts/reports/plot_physics_performance.py::worker_for_report,
     independent of and not necessarily equal to the PBT's own selection);
     falls back to best_physics only if no global best has been recorded yet
-    (e.g. an early/partial run). Records the resolved role, and whether it
-    agrees with best_physics, in manifest["checkpoint_selection_for_report"]
+    (e.g. an early/partial run). Returns the resolved role, and whether it
+    agrees with best_physics, in outputs["checkpoint_selection_metadata"]
     so report.md can state it explicitly rather than leaving "best"
     ambiguous."""
     run_dir = Path(run_dir)
     manifest_path = run_dir / "manifest.json"
-    atomic_json(manifest_path, manifest)
     outputs = {}
     from reports.plot_background_efficiency_curves import plot_manifest as plot_background_efficiency
     from reports.plot_mistag_tables import collect_tables, write_csv
@@ -92,7 +90,7 @@ def write_existing_physics_reports(run_dir, manifest):
             pass
 
     evaluation = evaluation_metadata(manifest)
-    manifest["checkpoint_selection_for_report"] = {
+    selection = {
         "role": role,
         "role_label": CHECKPOINT_ROLE_LABELS.get(role, role),
         "member": member_name,
@@ -108,13 +106,11 @@ def write_existing_physics_reports(run_dir, manifest):
         "validation_sample_count": evaluation.get("validation_sample_count"),
     }
 
-    physics_path = plot_physics_performance(manifest_path, member=role)
+    physics_path = plot_physics_performance(manifest_path, member=role, manifest=manifest)
     outputs["physics_performance"] = str(physics_path)
-    manifest["physics_performance_plot"] = str(physics_path)
 
-    curves_path = plot_background_efficiency(manifest_path, member=role)
+    curves_path = plot_background_efficiency(manifest_path, member=role, manifest=manifest)
     outputs["background_efficiency_curves"] = str(curves_path)
-    manifest["background_efficiency_curves_plot"] = str(curves_path)
 
     for tag, efficiencies in {"c": (0.5, 0.8), "b": (0.8, 0.9)}.items():
         tables = collect_tables(
@@ -128,7 +124,6 @@ def write_existing_physics_reports(run_dir, manifest):
         write_csv(csv_path, tables, tag)
         key = f"{tag}tag_mistag_table_csv"
         outputs[key] = str(csv_path)
-        manifest[key] = str(csv_path)
 
-    outputs["checkpoint_selection_metadata"] = manifest["checkpoint_selection_for_report"]
+    outputs["checkpoint_selection_metadata"] = selection
     return outputs

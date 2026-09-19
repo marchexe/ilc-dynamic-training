@@ -166,17 +166,15 @@ def build_manifest(args, metrics, log_path, command):
 
 
 def write_reports(manifest_path):
+    """Regenerate derived plots/summary without rewriting evaluation evidence."""
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    plot_path = plot_physics_performance(manifest_path)
-    manifest["physics_performance_plot"] = str(plot_path)
-    plot_path = plot_background_efficiency(manifest_path)
-    manifest["background_efficiency_curves_plot"] = str(plot_path)
+    plot_physics_performance(manifest_path, manifest=manifest)
+    plot_background_efficiency(manifest_path, manifest=manifest)
     for tag, efficiencies in {"c": (0.5, 0.8), "b": (0.8, 0.9)}.items():
-        tables = collect_tables([(manifest.get("experiment", manifest_path.parent.name), manifest_path)], tag, efficiencies, "best_physics")
+        tables = collect_tables([(manifest.get("experiment", manifest_path.parent.name), manifest_path)],
+                                tag, efficiencies, "best_physics", manifests={manifest_path: manifest})
         csv_path = manifest_path.parent / "plots" / "report" / f"{tag}tag_mistag_tables.csv"
         write_csv(csv_path, tables, tag)
-        manifest[f"{tag}tag_mistag_table_csv"] = str(csv_path)
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return write_summary(manifest_path)
 
 
