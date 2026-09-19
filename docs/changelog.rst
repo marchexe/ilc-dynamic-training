@@ -6,6 +6,10 @@ Research changelog
    across 38 checkpoints and nine candidates, selecting ``representative_60k``
    for shadow adaptive-LR testing.
 
+   Added deterministic offline controller replay and a log-only fixed-LR
+   shadow configuration. The base replay produced 1 UP, 37 KEEP and 0 DOWN
+   proposals with zero reversals and zero reference-action disagreements.
+
 2026-09-19
    Completed and verified the 100-full-epoch ``windowed_pbt_v2`` continuation;
    produced the matched late-epoch fixed-LR comparison.

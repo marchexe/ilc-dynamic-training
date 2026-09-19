@@ -128,6 +128,86 @@ class PBTDynamicControllerTest(unittest.TestCase):
         self.assertNotIn("controller_actions", generation)
         self.assertNotIn("dynamic_controller", generation)
 
+    def test_patient_shadow_controller_logs_proposal_without_applying_lr(self):
+        config = pbt_smoke_config()
+        config["pbt"].update(
+            metric="validation_working_point_mistag_percent",
+            mode="min",
+            min_lr=1.0e-5,
+            max_lr=4.0e-5,
+            dynamic_controller={
+                "mode": "shadow",
+                "policy": "patient_bidirectional",
+                "direction_patience": 2,
+                "allowed_actions": ["keep", "lr_mul_0_95", "lr_mul_1_05"],
+                "metric_delta_tolerance": 0.01,
+                "ema_beta": 0.0,
+            },
+        )
+        manifest = {
+            "members": {"member_00": {"name": "member_00", "lr": 2.0e-5, "parent": None}},
+            "generations": [
+                {
+                    "index": 0,
+                    "epoch": 1,
+                    "workers": {
+                        "member_00": {
+                            "status": "completed",
+                            "metrics": {"validation_working_point_mistag_percent": 1.00},
+                        }
+                    },
+                    "controller_actions": {
+                        "member_00": {
+                            "state_label": "improving",
+                            "action": "keep",
+                            "action_ready": True,
+                        }
+                    },
+                },
+                {
+                    "index": 1,
+                    "epoch": 2,
+                    "workers": {
+                        "member_00": {
+                            "status": "completed",
+                            "metrics": {"validation_working_point_mistag_percent": 0.96},
+                        }
+                    },
+                    "controller_observations": {
+                        "member_00": {"metric_value": 0.96, "metric_ema": 0.96}
+                    },
+                    "controller_actions": {
+                        "member_00": {
+                            "state_label": "improving",
+                            "action": "keep",
+                            "action_ready": True,
+                        }
+                    },
+                },
+            ],
+            "best": {"metric_value": 0.96},
+        }
+        generation = {
+            "index": 2,
+            "epoch": 3,
+            "workers": {
+                "member_00": {
+                    "status": "completed",
+                    "metrics": {"validation_working_point_mistag_percent": 0.92},
+                }
+            },
+        }
+
+        record = run_generation_controller(config, manifest, generation)
+        self.assertEqual(record["mode"], "shadow")
+        self.assertEqual(generation["controller_observations"]["member_00"]["direction_streak"], 3)
+        self.assertEqual(generation["controller_actions"]["member_00"]["action"], "lr_mul_1_05")
+
+        before = manifest["members"]["member_00"]["lr"]
+        applied = apply_controller_actions_to_members(config, manifest, generation)
+        self.assertEqual(applied, {})
+        self.assertEqual(manifest["members"]["member_00"]["lr"], before)
+
     def test_exploit_recipient_lr_is_owned_by_pbt_plan_not_controller(self):
         # Real incident (generation 2, bnfreeze pilot): PBT proposed
         # new_lr = donor_lr(12e-6) * mutation_factor(1.1) = 13.2e-6 for a

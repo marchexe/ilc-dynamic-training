@@ -54,6 +54,7 @@ class ControllerObservation(StrictControllerModel):
     previous_metric_uncertainty: float | None = Field(default=None, ge=0.0)
     metric_delta_sigma: float | None = None
     trend_window: int | None = Field(default=None, ge=1)
+    direction_streak: int | None = Field(default=None, ge=0)
     baseline_metric_value: float | None = None
     baseline_delta: float | None = None
     global_best_metric_value: float | None = None

@@ -4,7 +4,7 @@
 import math
 from pathlib import Path
 
-from training.pbt.controller.decision import dynamic_controller_config, oriented_delta
+from training.pbt.controller.decision import classify_observation, dynamic_controller_config, oriented_delta
 from training.pbt.models.controller import DEFAULT_CONTROLLER_ACTIONS, dump_controller_observation
 from training.pbt.state.checkpointing import checkpoint_paths, generations_before
 from training.pbt.state.optimizer_state import load_optimizer_state, summarize_optimizer_state
@@ -25,6 +25,29 @@ def previous_member_observations(manifest, generation_index, member_name):
         if observation:
             observations.append(observation)
     return observations
+
+
+def direction_streak(manifest, generation_index, member_name, state_label):
+    """Count uninterrupted ready observations in the current direction.
+
+    A prior active proposal or cooldown is a hard boundary. This makes the
+    patience counter restart after every proposal instead of accumulating
+    evidence while actions are intentionally suppressed.
+    """
+    if state_label not in {"improving", "degraded", "unsafe"}:
+        return 0
+    streak = 1
+    for generation in reversed(generations_before(manifest, generation_index)):
+        action = (generation.get("controller_actions") or {}).get(member_name)
+        if not action:
+            break
+        if not action.get("action_ready", False) or action.get("action") != "keep":
+            break
+        previous_label = action.get("state_label")
+        if previous_label != state_label:
+            break
+        streak += 1
+    return streak
 
 
 def previous_member_metric(manifest, generation_index, member_name, metric_name):
@@ -236,46 +259,51 @@ def build_observation(config, manifest, generation_record, member_name, experime
     )
     optimizer_summary = optimizer_summary_for_member(experiment_dir, generation_record, member_name)
 
-    return dump_controller_observation(
-        {
-            "schema_version": 1,
-            "generation": int(generation_record["index"]),
-            "member": member_name,
-            "epoch": int(generation_record["epoch"]),
-            "epoch_fraction": epoch_fraction,
-            "step": None,
-            "lr": current_lr,
-            "epoch_start_lr": start_lr,
-            "cumulative_lr_factor": current_lr / start_lr,
-            "metric_name": metric_name,
-            "metric_value": current_metric,
-            "previous_metric_value": previous_metric,
-            "metric_delta": metric_delta,
-            "metric_ema": metric_ema,
-            "previous_metric_ema": old_ema,
-            "metric_ema_delta": oriented_delta(config, metric_ema, old_ema),
-            "metric_trend": oriented_delta(config, history[-1], history[0]) if len(history) >= 2 else None,
-            "metric_noise": _sample_std(history),
-            "metric_uncertainty": metric_uncertainty,
-            "previous_metric_uncertainty": previous_metric_uncertainty,
-            "metric_delta_sigma": _delta_sigma(
-                metric_delta, metric_uncertainty, previous_metric_uncertainty
-            ),
-            "trend_window": len(history),
-            "baseline_metric_value": baseline_metric,
-            "baseline_delta": oriented_delta(config, current_metric, baseline_metric),
-            "global_best_metric_value": global_best_metric,
-            "global_best_delta": oriented_delta(config, current_metric, global_best_metric),
-            "train_loss": train_loss,
-            "train_accuracy": metrics.get("train_accuracy"),
-            "train_loss_ema": train_loss_ema,
-            "train_loss_ema_delta": oriented_delta(config, train_loss_ema, old_train_loss_ema),
-            "grad_norm": metrics.get("train_max_grad_norm"),
-            "amp_skipped_optimizer_steps": metrics.get("train_amp_skipped_optimizer_steps"),
-            "max_cuda_memory_mb": metrics.get("train_max_cuda_memory_mb"),
-            **optimizer_summary,
-            "action_ready": action_ready,
-            "cooldown_remaining": cooldown_remaining,
-            "allowed_actions": list(controller.get("allowed_actions") or DEFAULT_CONTROLLER_ACTIONS),
-        }
+    payload = {
+        "schema_version": 1,
+        "generation": int(generation_record["index"]),
+        "member": member_name,
+        "epoch": int(generation_record["epoch"]),
+        "epoch_fraction": epoch_fraction,
+        "step": None,
+        "lr": current_lr,
+        "epoch_start_lr": start_lr,
+        "cumulative_lr_factor": current_lr / start_lr,
+        "metric_name": metric_name,
+        "metric_value": current_metric,
+        "previous_metric_value": previous_metric,
+        "metric_delta": metric_delta,
+        "metric_ema": metric_ema,
+        "previous_metric_ema": old_ema,
+        "metric_ema_delta": oriented_delta(config, metric_ema, old_ema),
+        "metric_trend": oriented_delta(config, history[-1], history[0]) if len(history) >= 2 else None,
+        "metric_noise": _sample_std(history),
+        "metric_uncertainty": metric_uncertainty,
+        "previous_metric_uncertainty": previous_metric_uncertainty,
+        "metric_delta_sigma": _delta_sigma(
+            metric_delta, metric_uncertainty, previous_metric_uncertainty
+        ),
+        "trend_window": len(history),
+        "baseline_metric_value": baseline_metric,
+        "baseline_delta": oriented_delta(config, current_metric, baseline_metric),
+        "global_best_metric_value": global_best_metric,
+        "global_best_delta": oriented_delta(config, current_metric, global_best_metric),
+        "train_loss": train_loss,
+        "train_accuracy": metrics.get("train_accuracy"),
+        "train_loss_ema": train_loss_ema,
+        "train_loss_ema_delta": oriented_delta(config, train_loss_ema, old_train_loss_ema),
+        "grad_norm": metrics.get("train_max_grad_norm"),
+        "amp_skipped_optimizer_steps": metrics.get("train_amp_skipped_optimizer_steps"),
+        "max_cuda_memory_mb": metrics.get("train_max_cuda_memory_mb"),
+        **optimizer_summary,
+        "action_ready": action_ready,
+        "cooldown_remaining": cooldown_remaining,
+        "allowed_actions": list(controller.get("allowed_actions") or DEFAULT_CONTROLLER_ACTIONS),
+    }
+    payload["direction_streak"] = direction_streak(
+        manifest,
+        generation_record["index"],
+        member_name,
+        classify_observation(config, payload),
     )
+    return dump_controller_observation(payload)

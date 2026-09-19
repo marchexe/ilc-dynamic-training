@@ -35,6 +35,8 @@ def run_generation_controller(config, manifest, generation_record, experiment_di
         "generation_epoch_fraction": controller.get("generation_epoch_fraction"),
         "ema_beta": controller.get("ema_beta", 0.7),
         "trend_window": controller.get("trend_window", 3),
+        "policy": controller.get("policy", "legacy"),
+        "direction_patience": controller.get("direction_patience", 2),
         "applied": False,
         "action_count": len(actions),
     }
@@ -97,6 +99,9 @@ def apply_controller_actions_to_members(config, manifest, generation_record, exc
     confusing duplicate log entry.
     """
     controller = dynamic_controller_config(config)
+    # Shadow is a hard execution boundary, not a convention: observations
+    # and proposals are recorded above, but this sole LR-mutation entrypoint
+    # accepts active mode only.
     if not controller or controller.get("mode") != "active":
         return {}
     exclude_members = set(exclude_members or ())

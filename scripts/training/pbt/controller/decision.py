@@ -78,10 +78,25 @@ def classify_observation(config, observation):
     return "flat"
 
 
-def select_controller_action(observation, state_label):
+def select_controller_action(config, observation, state_label):
     allowed = set(observation["allowed_actions"])
     if not observation.get("action_ready", False):
         return "keep" if "keep" in allowed else observation["allowed_actions"][0]
+    controller = dynamic_controller_config(config) or {}
+    if controller.get("policy", "legacy") == "patient_bidirectional":
+        patience = int(controller.get("direction_patience", 2))
+        if int(observation.get("direction_streak") or 0) < patience:
+            return "keep" if "keep" in allowed else observation["allowed_actions"][0]
+        choices = (
+            ("lr_mul_1_05", "lr_mul_1_1", "keep")
+            if state_label == "improving"
+            else ("lr_mul_0_95", "lr_mul_0_9", "keep")
+            if state_label in {"degraded", "unsafe"}
+            else ("keep",)
+        )
+        for action in choices:
+            if action in allowed:
+                return action
     if state_label == "unsafe":
         for action in ("lr_mul_0_9", "lr_mul_0_95", "keep"):
             if action in allowed:
@@ -93,9 +108,11 @@ def select_controller_action(observation, state_label):
     return "keep" if "keep" in allowed else observation["allowed_actions"][0]
 
 
-def action_reason(state_label, action, action_ready=True):
+def action_reason(state_label, action, action_ready=True, *, waiting_for_patience=False):
     if not action_ready:
         return "action cooldown is active"
+    if waiting_for_patience:
+        return "direction has not persisted for the configured patience window"
     if state_label == "unsafe":
         return "metric is worse than the configured baseline; controller avoids LR increase"
     if state_label == "degraded":
@@ -124,7 +141,7 @@ def bounded_lr(config, observation, action):
 
 def build_controller_action(config, observation):
     state_label = classify_observation(config, observation)
-    action = select_controller_action(observation, state_label)
+    action = select_controller_action(config, observation, state_label)
     proposed_lr, next_lr = bounded_lr(config, observation, action)
     if not observation.get("action_ready", False):
         safety_check = "cooldown"
@@ -147,7 +164,18 @@ def build_controller_action(config, observation):
             "state_label": state_label,
             "confidence": confidence,
             "action": action,
-            "reason": action_reason(state_label, action, observation.get("action_ready", False)),
+            "reason": action_reason(
+                state_label,
+                action,
+                observation.get("action_ready", False),
+                waiting_for_patience=(
+                    (dynamic_controller_config(config) or {}).get("policy")
+                    == "patient_bidirectional"
+                    and state_label in {"improving", "degraded", "unsafe"}
+                    and int(observation.get("direction_streak") or 0)
+                    < int((dynamic_controller_config(config) or {}).get("direction_patience", 2))
+                ),
+            ),
             "safety_check": safety_check,
             "applied": False,
             "lr_before": observation["lr"],

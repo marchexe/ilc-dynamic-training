@@ -48,7 +48,15 @@ temporal direction agreement is 0.720, so a future policy must use smoothed
 short-window evidence, patience and cooldown instead of reacting to one
 measurement.
 
-That controller is not yet part of the reference method. It must be introduced
-as a new version and evaluated against both ``windowed_pbt_v2`` and fixed-LR
-controls, with an independent validation tier that never drives the decisions
-being assessed.
+The prepared shadow policy uses an EMA with beta 0.50 and a 0.00457953
+percentage-point threshold estimated as one robust sigma of paired adjacent
+proxy-minus-reference changes. Two consistent directional observations are
+required, followed by two complete cooldown observations. Proposed ×1.05,
+KEEP and ×0.95 actions are logged only. Training remains an eight-member
+fixed-LR grid, and the deterministic 150k reference runs every five
+generations as an observational tier that is not read by the controller.
+
+That controller is not yet part of the reference method. Shadow mode tests its
+behavior, not whether adaptive LR improves training. Any live policy must be
+introduced as a separately reviewed version and evaluated against both
+``windowed_pbt_v2`` and fixed-LR controls.

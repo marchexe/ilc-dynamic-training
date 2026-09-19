@@ -88,9 +88,11 @@ class SmoothLrControllerConfig(StrictSectionModel):
 
 
 class DynamicControllerConfig(StrictSectionModel):
-    """Dynamic-control policy that can override planned LR actions after each generation."""
+    """Dynamic-control policy; shadow records proposals, active may apply them."""
 
-    mode: Literal["disabled", "active"] = "active"
+    mode: Literal["disabled", "shadow", "active"] = "active"
+    policy: Literal["legacy", "patient_bidirectional"] = "legacy"
+    direction_patience: int = Field(default=2, ge=2)
     evaluate_initial_checkpoint: bool = False
     allowed_actions: list[ControllerActionName] = Field(
         default_factory=lambda: list(DEFAULT_CONTROLLER_ACTIONS),

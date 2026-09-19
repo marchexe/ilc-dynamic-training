@@ -1,0 +1,66 @@
+schema_version: 1
+presets:
+  - ../presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml
+  - ../presets/resources/local_8gpu.yaml
+  - ../presets/population/fixed_lr_8_tail.yaml
+  - ../presets/pbt/fixed_lr_grid_mistag.yaml
+
+experiment:
+  output_root: runs/pbt
+  name: pretrained_fixed_lr_8gpu_representative60k_shadow
+
+# Normal fixed-LR training continues unchanged. The qualified 60k proxy is
+# the per-generation validation set; the 150k reference is an observational
+# monitor every five generations. Controller proposals are logged in shadow
+# mode and can never be applied to optimizer state.
+shared:
+  deterministic: true
+  validation_dataset: runs/eval/proxy_qualification_v1/proxy_datasets/representative_60k
+  validation_suffix: val50k_tail
+  samples_per_epoch_val: 60000
+  proxy_validation:
+    manifest: runs/eval/proxy_qualification_v1/proxy_sets.json
+    active_subset: control
+    control_dataset: runs/eval/proxy_qualification_v1/proxy_datasets/representative_60k
+    control_suffix: val50k_tail
+    control_rows_per_class: 20000
+    monitor_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+    monitor_suffix: val50k_tail
+    monitor_rows_per_class: 50000
+    full_dataset: null
+    full_suffix: null
+    full_rows_per_class: null
+    full_holdout_dataset: null
+    full_holdout_suffix: null
+    full_holdout_rows_per_class: null
+    train_suffix: train800k
+    strategy: representative_60k_qualified_control_with_150k_observational_reference
+
+pbt:
+  strategy: fixed_lr_grid
+  metric: validation_total_reference_mistag_geomean_percent
+  rollback_fraction: 0.0
+  early_stop_degraded_generations: 0
+  dynamic_controller:
+    mode: shadow
+    policy: patient_bidirectional
+    evaluate_initial_checkpoint: true
+    allowed_actions: [keep, lr_mul_0_95, lr_mul_1_05]
+    # One robust sigma of paired adjacent proxy-minus-reference change,
+    # estimated from the 25 available within-trajectory transitions.
+    metric_delta_tolerance: 0.004579530054761879
+    ema_beta: 0.50
+    trend_window: 3
+    direction_patience: 2
+    noisy_metric_threshold: null
+    min_delta_sigma_for_action: null
+    eval_interval_fraction: 0.20
+    # Three cadence units: after a proposal, two complete observations are
+    # cooldown-only before another proposal can become ready.
+    action_interval_fraction: 0.60
+    generation_epoch_fraction: 0.20
+    max_cumulative_lr_factor_per_epoch: 1.0
+  tiered_validation:
+    monitor_interval_generations: 5
+    full_interval_generations: null
+    evaluate_initial_checkpoint_all_tiers: true
