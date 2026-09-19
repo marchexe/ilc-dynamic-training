@@ -4,7 +4,7 @@ Continuation experiments for a pretrained SGV `pp` ParticleTransformer using Wea
 The repo is organized around one active pretrained checkpoint, parallel training runs,
 and Population Based Training experiments.
 
-Documentation: [Sphinx entry point](docs/index.rst), [build instructions](docs/development.rst), and [run inventory](docs/runs_inventory.json).
+Documentation: [project overview](docs/index.rst), [current results](docs/results.rst), [experiments](docs/experiments.rst), and [development guide](docs/development.rst).
 
 ## Active Inputs
 

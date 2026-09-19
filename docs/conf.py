@@ -9,3 +9,4 @@ source_suffix = ".rst"
 exclude_patterns = ["_build", ".venv", ".venv-*", "Thumbs.db", ".DS_Store"]
 html_theme = "alabaster"
 html_title = project
+html_static_path = ["_static"]
