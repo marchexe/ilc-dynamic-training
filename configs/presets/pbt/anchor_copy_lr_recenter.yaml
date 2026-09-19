@@ -63,7 +63,7 @@ pbt:
 
   # Widened from the original [0.80, 0.90, 1.00, 1.20] (a narrow ~+-20%
   # window, and asymmetric even within that) after the LR-vs-mistag-score
-  # investigation (runs/showcase/lr_mistag_correlation_matrix/) found no
+  # investigation (runs/archive/showcases/lr_mistag_correlation_matrix/) found no
   # detectable correlation across 7 independent checks -- a real
   # possibility that ruled out is that the search itself never let LR vary
   # enough to see an effect, not that no effect exists. 5 members,

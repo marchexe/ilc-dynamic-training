@@ -14,7 +14,7 @@ experiment:
 # plateau_escape_after_generations/plateau_escape_widen_factor -- see
 # presets/pbt/anchor_copy_lr_recenter.yaml's own comment) -- NOT a
 # statistically rigorous rerun of the LR-vs-mistag-score investigation
-# (runs/showcase/lr_mistag_correlation_matrix/). Purpose here is narrow:
+# (runs/archive/showcases/lr_mistag_correlation_matrix/). Purpose here is narrow:
 # confirm the new mechanics behave sanely over a real run (momentum
 # doesn't run away into spread_collapsed, plateau escape actually fires
 # and recovers instead of just widening noise, nothing crashes) before

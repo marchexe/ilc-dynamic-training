@@ -1,0 +1,17 @@
+# Continue a finalized population in a separate run; no source artifacts are edited.
+presets:
+- configs/experiments/windowed_pbt_v2.yaml
+experiment:
+  name: windowed_pbt_v2_100epochs
+shared:
+  generations: 100
+resources:
+  gpus:
+  - 4
+  - 5
+  - 6
+  - 7
+continuation:
+  source_run: /data/suehara/part/march/runs/pbt/windowed_pbt_v2
+  source_manifest_sha256: fb1964a8f2d6d087008297ffad1ac3dac6499ecb156079de41d0c9e5e7e523b6
+  source_state_sha256: 5546e9abfada8df53f9156e86c8056d45515c38f4f3a6efd60090d2e44d0339d

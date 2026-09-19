@@ -1,0 +1,117 @@
+{
+  "baseline": {
+    "metric": "validation_total_reference_mistag_geomean_percent",
+    "metric_value": 0.34772519582058087,
+    "metrics": {
+      "validation_accuracy": 0.89366,
+      "validation_auc": 0.9744730552333335,
+      "validation_bc_mistag_eff_0.80_percent": 0.13799999730468757,
+      "validation_bc_mistag_eff_0.90_percent": 2.4700000951652563,
+      "validation_bd_mistag_eff_0.80_percent": 0.07000000085449219,
+      "validation_bd_mistag_eff_0.90_percent": 0.1879999917382816,
+      "validation_btag_reference_mistag_geomean_percent": 0.2587962510769105,
+      "validation_cb_mistag_eff_0.50_percent": 0.39399998905822786,
+      "validation_cb_mistag_eff_0.80_percent": 2.276000086822513,
+      "validation_cd_mistag_eff_0.50_percent": 0.05400000131835941,
+      "validation_cd_mistag_eff_0.80_percent": 0.9840000150146486,
+      "validation_ctag_reference_mistag_geomean_percent": 0.46721237771148305,
+      "validation_ctag_reference_mistag_percent": 0.9270000230534372,
+      "validation_loss": 0.27955830729166664,
+      "validation_total_reference_mistag_geomean_percent": 0.34772519582058087,
+      "validation_working_point_mistag_percent": 0.8217500221595584
+    }
+  },
+  "best": {
+    "epoch": 116,
+    "generation": 48,
+    "lr": 1.4e-05,
+    "member": "lr_14e-6",
+    "metric": "validation_total_reference_mistag_geomean_percent",
+    "metric_value": 0.33144525337790737,
+    "metrics": {
+      "validation_accuracy": 0.89406,
+      "validation_auc": 0.9747906909999999,
+      "validation_bc_mistag_eff_0.80_percent": 0.13200000225585942,
+      "validation_bc_mistag_eff_0.90_percent": 2.4039998925213673,
+      "validation_bd_mistag_eff_0.80_percent": 0.064,
+      "validation_bd_mistag_eff_0.90_percent": 0.18000000439453137,
+      "validation_btag_reference_mistag_geomean_percent": 0.2458896326072489,
+      "validation_cb_mistag_eff_0.50_percent": 0.37000000903320335,
+      "validation_cb_mistag_eff_0.80_percent": 2.2479999931396484,
+      "validation_cd_mistag_eff_0.50_percent": 0.05,
+      "validation_cd_mistag_eff_0.80_percent": 0.9580000112557985,
+      "validation_ctag_reference_mistag_geomean_percent": 0.4467693689315254,
+      "validation_ctag_reference_mistag_percent": 0.9065000033571626,
+      "validation_loss": 0.2779739453125,
+      "validation_total_reference_mistag_geomean_percent": 0.33144525337790737,
+      "validation_working_point_mistag_percent": 0.8007499890750509
+    }
+  },
+  "best_improvement_vs_baseline": 0.04681841476645144,
+  "final_best": {
+    "generation": 49,
+    "lr": 1.4e-05,
+    "member": "lr_14e-6",
+    "metric": "validation_total_reference_mistag_geomean_percent",
+    "metric_value": 0.3315520856267349,
+    "metrics": {
+      "validation_accuracy": 0.8941333333333333,
+      "validation_auc": 0.9747928075000001,
+      "validation_loss": 0.277988515625,
+      "validation_working_point_mistag_percent": 0.8012500132596592
+    }
+  },
+  "final_generation": 49,
+  "has_config": true,
+  "has_exploit_history": false,
+  "has_lr_history": true,
+  "has_metrics": true,
+  "horizon": 50,
+  "metric": {
+    "definition": {
+      "display_name": "validation_total_reference_mistag_geomean_percent",
+      "formula": "See the configured Weaver metric implementation.",
+      "note": "Metric definition was not found in the reporting registry."
+    },
+    "mode": "min",
+    "name": "validation_total_reference_mistag_geomean_percent"
+  },
+  "plots": [
+    "diagnostics/background_efficiency_curves.png",
+    "learning_rate_lineage.png",
+    "learning_rate_mistag_correlation.png",
+    "mistag_score_evolution.png",
+    "pbt_population_selection.png",
+    "report/physics_performance.png"
+  ],
+  "purpose": "Matched 14e-6 and 8.5e-6 fixed-learning-rate branches continued from epoch 50 to epoch 100.",
+  "related_runs": [
+    "runs/pbt/fixed_lr_continuation_20260917_lr_8_5e-6"
+  ],
+  "schema_version": 1,
+  "seed": 12395,
+  "slug": "fixed-lr-100",
+  "source_commit": "68cc7fbbb6d092ea4038c9c7f400c1780a938ef3",
+  "source_run": "runs/pbt/fixed_lr_continuation_20260917_lr_14e-6",
+  "status": "completed",
+  "strategy": "fixed_lr_grid",
+  "title": "Fixed-LR baseline \u2014 100 epochs",
+  "working_point_metrics": {
+    "validation_accuracy": 0.89406,
+    "validation_auc": 0.9747906909999999,
+    "validation_bc_mistag_eff_0.80_percent": 0.13200000225585942,
+    "validation_bc_mistag_eff_0.90_percent": 2.4039998925213673,
+    "validation_bd_mistag_eff_0.80_percent": 0.064,
+    "validation_bd_mistag_eff_0.90_percent": 0.18000000439453137,
+    "validation_btag_reference_mistag_geomean_percent": 0.2458896326072489,
+    "validation_cb_mistag_eff_0.50_percent": 0.37000000903320335,
+    "validation_cb_mistag_eff_0.80_percent": 2.2479999931396484,
+    "validation_cd_mistag_eff_0.50_percent": 0.05,
+    "validation_cd_mistag_eff_0.80_percent": 0.9580000112557985,
+    "validation_ctag_reference_mistag_geomean_percent": 0.4467693689315254,
+    "validation_ctag_reference_mistag_percent": 0.9065000033571626,
+    "validation_loss": 0.2779739453125,
+    "validation_total_reference_mistag_geomean_percent": 0.33144525337790737,
+    "validation_working_point_mistag_percent": 0.8007499890750509
+  }
+}

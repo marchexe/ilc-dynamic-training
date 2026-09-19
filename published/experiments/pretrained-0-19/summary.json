@@ -1,0 +1,44 @@
+{
+  "baseline": null,
+  "best": {
+    "epoch": 19,
+    "metric": "validation_total_reference_mistag_geomean_percent",
+    "metric_value": 0.4479545526300445,
+    "metrics": {
+      "validation_bc_mistag_eff_0.80_percent": 0.186000003178711,
+      "validation_bc_mistag_eff_0.90_percent": 3.440000052490235,
+      "validation_bd_mistag_eff_0.80_percent": 0.07800000076171876,
+      "validation_bd_mistag_eff_0.90_percent": 0.2179999950769044,
+      "validation_cb_mistag_eff_0.50_percent": 0.6099999748687754,
+      "validation_cb_mistag_eff_0.80_percent": 3.033999979861603,
+      "validation_cd_mistag_eff_0.50_percent": 0.06600000112792971,
+      "validation_cd_mistag_eff_0.80_percent": 1.2199999497375509,
+      "validation_loss": 0.30905315104166664,
+      "validation_total_reference_mistag_geomean_percent": 0.4479545526300445
+    }
+  },
+  "best_improvement_vs_baseline": null,
+  "final_best": null,
+  "final_generation": null,
+  "has_config": false,
+  "has_exploit_history": false,
+  "has_lr_history": false,
+  "has_metrics": true,
+  "horizon": 20,
+  "metric": {
+    "mode": "min",
+    "name": "validation_total_reference_mistag_geomean_percent"
+  },
+  "plots": [],
+  "purpose": "Standalone reevaluation of pretrained checkpoints from epochs 0 through 19.",
+  "related_runs": [],
+  "schema_version": 1,
+  "seed": null,
+  "slug": "pretrained-0-19",
+  "source_commit": null,
+  "source_run": "runs/eval/original_pretrained_0_19_20260917",
+  "status": "completed",
+  "strategy": "checkpoint_evaluation",
+  "title": "Original pretrained checkpoints",
+  "working_point_metrics": {}
+}

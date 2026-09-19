@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "snapshot_date": "2026-09-19",
+  "snapshot_date": "2026-09-20",
   "path_base": "repository root",
-  "scope": "Important run roots, all outermost manifests, prepared packages, and collection-level coverage; not a checkpoint-file catalog.",
+  "scope": "Important run roots and collection-level coverage under runs/; not an infrastructure or checkpoint-file catalog.",
   "classification_policy": "Curated research relevance from existing metadata; most specific path wins for snapshot descendants. recorded_status is not a process-liveness check. No category authorizes deletion or relocation.",
   "categories": {
     "milestone": "Retained reference or historical correctness/comparison evidence.",
@@ -10,7 +10,6 @@
     "baseline": "Fixed-LR controls or pretrained checkpoint evaluations.",
     "debug": "Smoke, diagnostic, failed/interrupted attempts, or unmanifested placeholders.",
     "superseded": "Earlier strategy or snapshot; may still carry valuable dependencies.",
-    "prepared": "Preparation/configuration evidence, including preparations already executed.",
     "derived": "Plots, analysis, launch metadata, and other secondary artifacts."
   },
   "entries": [
@@ -81,13 +80,13 @@
       "seed": 12345
     },
     {
-      "path": "runs/dev",
+      "path": "runs/archive/diagnostics",
       "category": "debug",
       "reason": "Development, smoke, and diagnostic artifacts.",
       "kind": "collection"
     },
     {
-      "path": "runs/dev/bn_freeze_diag_baseline_test",
+      "path": "runs/archive/diagnostics/bn_freeze_diag_baseline_test",
       "category": "debug",
       "reason": "Smoke, diagnostic, or failed attempt; status taken from manifest.",
       "kind": "run",
@@ -97,7 +96,7 @@
       "seed": 12345
     },
     {
-      "path": "runs/dev/bn_freeze_diag_frozen_test",
+      "path": "runs/archive/diagnostics/bn_freeze_diag_frozen_test",
       "category": "debug",
       "reason": "Smoke, diagnostic, or failed attempt; status taken from manifest.",
       "kind": "run",
@@ -142,18 +141,6 @@
       "kind": "evaluation",
       "preserve": true,
       "evidence": "runs/eval/original_pretrained_0_19_20260917/summary.json"
-    },
-    {
-      "path": "runs/launch_logs",
-      "category": "derived",
-      "reason": "Launcher logs and process identity records; not proof of a live process.",
-      "kind": "collection"
-    },
-    {
-      "path": "runs/launchers",
-      "category": "derived",
-      "reason": "Resolved launch metadata and submission artifacts.",
-      "kind": "collection"
     },
     {
       "path": "runs/pbt",
@@ -368,102 +355,13 @@
       "kind": "collection"
     },
     {
-      "path": "runs/prepared",
-      "category": "prepared",
-      "reason": "Configurations/preflight evidence; may already have corresponding completed runs.",
-      "kind": "collection"
-    },
-    {
-      "path": "runs/prepared/fixed_lr_continuation_20260917",
-      "category": "prepared",
-      "reason": "Preparation artifacts; execution status must be read from related output manifests.",
-      "kind": "preparation",
-      "evidence_files": [
-        "README.md",
-        "commands.json",
-        "lr_14e-6.yaml",
-        "lr_8_5e-6.yaml",
-        "original_checkpoint_hashes.json",
-        "original_commands.json",
-        "preflight.json",
-        "source_artifacts_snapshot.json"
-      ],
-      "related_runs": [
-        "runs/pbt/fixed_lr_continuation_20260917_lr_14e-6",
-        "runs/pbt/fixed_lr_continuation_20260917_lr_8_5e-6"
-      ]
-    },
-    {
-      "path": "runs/prepared/fixed_lr_continuation_20260917/analysis",
-      "category": "derived",
-      "reason": "Analysis/presentation outputs stored under a preparation directory.",
-      "kind": "collection"
-    },
-    {
-      "path": "runs/prepared/foundation_fixed_lr_20epochs_20260916",
-      "category": "prepared",
-      "reason": "Preparation artifacts; execution status must be read from related output manifests.",
-      "kind": "preparation",
-      "evidence_files": [
-        "README.md",
-        "commands.json",
-        "preflight.json",
-        "resolved_config.yaml"
-      ]
-    },
-    {
-      "path": "runs/prepared/foundation_fixed_lr_50epochs_20260916",
-      "category": "prepared",
-      "reason": "Preparation artifacts; execution status must be read from related output manifests.",
-      "kind": "preparation",
-      "evidence_files": [
-        "commands.json",
-        "preflight.json",
-        "resolved_config.yaml"
-      ],
-      "related_runs": [
-        "runs/pbt/foundation_fixed_lr_50epochs_20260916"
-      ]
-    },
-    {
-      "path": "runs/prepared/foundation_fixed_lr_50epochs_20260916/analysis",
-      "category": "derived",
-      "reason": "Analysis/presentation outputs stored under a preparation directory.",
-      "kind": "collection"
-    },
-    {
-      "path": "runs/prepared/windowed_pbt_v2",
-      "category": "prepared",
-      "reason": "Preparation artifacts; execution status must be read from related output manifests.",
-      "kind": "preparation",
-      "evidence_files": [
-        "preflight.json"
-      ],
-      "related_runs": [
-        "runs/pbt/windowed_pbt_v2"
-      ]
-    },
-    {
-      "path": "runs/prepared/windowed_pbt_v2_100epochs",
-      "category": "prepared",
-      "reason": "Preparation artifacts; execution status must be read from related output manifests.",
-      "kind": "preparation",
-      "evidence_files": [
-        "config.yaml",
-        "preflight.json"
-      ],
-      "related_runs": [
-        "runs/pbt/windowed_pbt_v2_100epochs"
-      ]
-    },
-    {
-      "path": "runs/showcase",
+      "path": "runs/archive/showcases",
       "category": "milestone",
       "reason": "Curated historical comparisons; not the current reference algorithm.",
       "kind": "collection"
     },
     {
-      "path": "runs/showcase/anchor_copy_lr_recenter_v2_rewrite/attempt1_momentum075_KILLED_37gen_20260830",
+      "path": "runs/archive/showcases/anchor_copy_lr_recenter_v2_rewrite/attempt1_momentum075_KILLED_37gen_20260830",
       "category": "debug",
       "reason": "Interrupted historical attempt; stale manifest says running, liveness not checked.",
       "kind": "run",
@@ -473,7 +371,7 @@
       "seed": 12345
     },
     {
-      "path": "runs/showcase/anchor_copy_lr_recenter_v2_rewrite/attempt2_momentum002_20260830_100gen",
+      "path": "runs/archive/showcases/anchor_copy_lr_recenter_v2_rewrite/attempt2_momentum002_20260830_100gen",
       "display_name": "Anchor recenter v2 — 100 generations",
       "category": "milestone",
       "reason": "Retained historical comparison; legacy strategy, not the current reference.",
@@ -485,7 +383,7 @@
       "seed": 12345
     },
     {
-      "path": "runs/showcase/lr_mistag_correlation_matrix",
+      "path": "runs/archive/showcases/lr_mistag_correlation_matrix",
       "display_name": "LR/mistag sensitivity study",
       "category": "milestone",
       "reason": "Eight-run historical seed/validation-size/generation-length comparison.",
@@ -493,13 +391,13 @@
       "preserve": true
     },
     {
-      "path": "runs/showcase/lr_mistag_correlation_matrix/lr_matrix_final_all8.png",
+      "path": "runs/archive/showcases/lr_mistag_correlation_matrix/lr_matrix_final_all8.png",
       "category": "derived",
       "reason": "Aggregate figure; underlying eight runs remain primary evidence.",
       "kind": "artifact"
     },
     {
-      "path": "runs/showcase/lr_mistag_correlation_matrix/run0_48gen_pilot_20260807",
+      "path": "runs/archive/showcases/lr_mistag_correlation_matrix/run0_48gen_pilot_20260807",
       "category": "milestone",
       "reason": "Retained historical comparison; legacy strategy, not the current reference.",
       "kind": "run",
@@ -510,7 +408,7 @@
       "seed": 12345
     },
     {
-      "path": "runs/showcase/lr_mistag_correlation_matrix/run1_100gen_150k_seed1_20260816",
+      "path": "runs/archive/showcases/lr_mistag_correlation_matrix/run1_100gen_150k_seed1_20260816",
       "category": "milestone",
       "reason": "Retained historical comparison; legacy strategy, not the current reference.",
       "kind": "run",
@@ -521,7 +419,7 @@
       "seed": 12345
     },
     {
-      "path": "runs/showcase/lr_mistag_correlation_matrix/run1b_100gen_150k_seed2_20260819",
+      "path": "runs/archive/showcases/lr_mistag_correlation_matrix/run1b_100gen_150k_seed2_20260819",
       "category": "milestone",
       "reason": "Retained historical comparison; legacy strategy, not the current reference.",
       "kind": "run",
@@ -532,7 +430,7 @@
       "seed": 22345
     },
     {
-      "path": "runs/showcase/lr_mistag_correlation_matrix/run1c_100gen_150k_seed3_20260819",
+      "path": "runs/archive/showcases/lr_mistag_correlation_matrix/run1c_100gen_150k_seed3_20260819",
       "category": "milestone",
       "reason": "Retained historical comparison; legacy strategy, not the current reference.",
       "kind": "run",
@@ -543,7 +441,7 @@
       "seed": 32345
     },
     {
-      "path": "runs/showcase/lr_mistag_correlation_matrix/run1d_100gen_150k_seed4_20260819",
+      "path": "runs/archive/showcases/lr_mistag_correlation_matrix/run1d_100gen_150k_seed4_20260819",
       "category": "milestone",
       "reason": "Retained historical comparison; legacy strategy, not the current reference.",
       "kind": "run",
@@ -554,7 +452,7 @@
       "seed": 42345
     },
     {
-      "path": "runs/showcase/lr_mistag_correlation_matrix/run2_100gen_1mval_20260816",
+      "path": "runs/archive/showcases/lr_mistag_correlation_matrix/run2_100gen_1mval_20260816",
       "category": "milestone",
       "reason": "Retained historical comparison; legacy strategy, not the current reference.",
       "kind": "run",
@@ -565,7 +463,7 @@
       "seed": 12345
     },
     {
-      "path": "runs/showcase/lr_mistag_correlation_matrix/run3_50gen_2xepoch_20260820",
+      "path": "runs/archive/showcases/lr_mistag_correlation_matrix/run3_50gen_2xepoch_20260820",
       "category": "milestone",
       "reason": "Retained historical comparison; legacy strategy, not the current reference.",
       "kind": "run",
@@ -576,7 +474,7 @@
       "seed": 12345
     },
     {
-      "path": "runs/showcase/lr_mistag_correlation_matrix/run4_25gen_4xepoch_20260820",
+      "path": "runs/archive/showcases/lr_mistag_correlation_matrix/run4_25gen_4xepoch_20260820",
       "category": "milestone",
       "reason": "Retained historical comparison; legacy strategy, not the current reference.",
       "kind": "run",
@@ -587,7 +485,7 @@
       "seed": 12345
     },
     {
-      "path": "runs/showcase/pretrained_exploit_mutate_8gpu_10m_tiered_pilot_20260804_091343",
+      "path": "runs/archive/showcases/pretrained_exploit_mutate_8gpu_10m_tiered_pilot_20260804_091343",
       "display_name": "Tiered exploit/mutate pilot",
       "category": "milestone",
       "reason": "Retained historical comparison; legacy strategy, not the current reference.",
@@ -599,7 +497,7 @@
       "seed": 12345
     },
     {
-      "path": "runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318",
+      "path": "runs/archive/showcases/pretrained_pbt_4gpu_night_controller_active_20260805_015318",
       "display_name": "Night controller study",
       "category": "milestone",
       "reason": "Retained historical comparison; legacy strategy, not the current reference.",

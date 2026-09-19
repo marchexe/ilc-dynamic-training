@@ -1,0 +1,150 @@
+{
+  "config_sha256": "de6f049f74c7858f5bdab6d111d1fa011995e606c0f364d59e5ee64feeebb157",
+  "dataset": {
+    "data_extension": "parquet",
+    "proxy_validation": null,
+    "resolved_files": {
+      "train": [
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_train800k.parquet"
+          ],
+          "label": "nnbb",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_bb_train800k.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_train800k.parquet"
+          ],
+          "label": "nncc",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_cc_train800k.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_train800k.parquet"
+          ],
+          "label": "nndd",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_dd_train800k.parquet"
+        }
+      ],
+      "val": [
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val50k_tail.parquet"
+          ],
+          "label": "nnbb",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_bb_val50k_tail.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val50k_tail.parquet"
+          ],
+          "label": "nncc",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_cc_val50k_tail.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val50k_tail.parquet"
+          ],
+          "label": "nndd",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_dd_val50k_tail.parquet"
+        }
+      ]
+    },
+    "train_dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "train_suffix": "train800k",
+    "validation_dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "validation_suffix": "val50k_tail"
+  },
+  "fingerprint": "872bd2d5c8918a974064270b2b7dd86596ca022d728728afdc90a19a2861a905",
+  "manifest_sha256": "fb1964a8f2d6d087008297ffad1ac3dac6499ecb156079de41d0c9e5e7e523b6",
+  "models": [
+    {
+      "epoch": 67,
+      "file": "best_single_state.pt",
+      "metric_name": "validation_total_reference_mistag_geomean_percent",
+      "metric_value": 0.337726899098497,
+      "role": "best_single",
+      "selection_reason": "lowest recorded individual metric",
+      "sha256": "e29d7a766993d37172f6901992d4dbd35321946f491cb4f3adb33f0556246837",
+      "size_bytes": 3587665,
+      "source_path": "/data/suehara/part/march/runs/pbt/windowed_pbt_v2/checkpoints/global_best_state.pt"
+    },
+    {
+      "epoch": 67,
+      "file": "protected_best_state.pt",
+      "metric_name": "validation_total_reference_mistag_geomean_percent",
+      "metric_value": 0.337726899098497,
+      "role": "protected_best",
+      "selection_reason": "best protected window selection",
+      "sha256": "e29d7a766993d37172f6901992d4dbd35321946f491cb4f3adb33f0556246837",
+      "size_bytes": 3587665,
+      "source_path": "/data/suehara/part/march/runs/pbt/windowed_pbt_v2/checkpoints/protected/window-010/net_epoch-67_state.pt"
+    },
+    {
+      "epoch": 67,
+      "file": "final_best_state.pt",
+      "metric_name": "validation_total_reference_mistag_geomean_percent",
+      "metric_value": 0.337726899098497,
+      "role": "final_best",
+      "selection_reason": "top-ranked member at the final horizon",
+      "sha256": "e29d7a766993d37172f6901992d4dbd35321946f491cb4f3adb33f0556246837",
+      "size_bytes": 3587665,
+      "source_path": "/data/suehara/part/march/runs/pbt/windowed_pbt_v2/lr_11_25e-6/net_epoch-67_state.pt"
+    }
+  ],
+  "path_compatibility": {
+    "runs/dev": "runs/archive/diagnostics",
+    "runs/launch_logs": "logs/experiments",
+    "runs/launchers": "logs/experiments/launchers",
+    "runs/prepared": "configs/prepared",
+    "runs/showcase": "runs/archive/showcases"
+  },
+  "related_runs": [],
+  "resume_bundle": {
+    "assets": [
+      {
+        "file": "protected_best_state.pt",
+        "kind": "state",
+        "sha256": "e29d7a766993d37172f6901992d4dbd35321946f491cb4f3adb33f0556246837",
+        "size_bytes": 3587665,
+        "source_path": "/data/suehara/part/march/runs/pbt/windowed_pbt_v2/checkpoints/protected/window-010/net_epoch-67_state.pt"
+      },
+      {
+        "file": "protected_best_optimizer.pt",
+        "kind": "optimizer",
+        "sha256": "415cb01955adc344a1f2366cc8a29afb607b73bca42ac3ba3145f88fbc69d853",
+        "size_bytes": 7144151,
+        "source_path": "/data/suehara/part/march/runs/pbt/windowed_pbt_v2/checkpoints/protected/window-010/net_epoch-67_optimizer.pt"
+      },
+      {
+        "file": "protected_best_scaler.pt",
+        "kind": "scaler",
+        "sha256": "87ce4784fe93b57d13f71dc3769088a8874a32852aaa67a494158b68ea7f7f09",
+        "size_bytes": 1461,
+        "source_path": "/data/suehara/part/march/runs/pbt/windowed_pbt_v2/checkpoints/protected/window-010/net_epoch-67_scaler.pt"
+      }
+    ],
+    "epoch": 67,
+    "selection": "protected_best"
+  },
+  "schema_version": 1,
+  "source_commit": "a4f750793911508812b5b09296afe5306306c930",
+  "source_run": "runs/pbt/windowed_pbt_v2",
+  "starting_checkpoint": {
+    "initial_state": {
+      "epoch": 17,
+      "path": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt",
+      "sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501"
+    },
+    "path": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt",
+    "sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501"
+  },
+  "summary_sha256": "e20d25f275b100d2815414032bb09666f41937689e5a575f9a26f18321f9cca7"
+}

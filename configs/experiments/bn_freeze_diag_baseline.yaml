@@ -5,11 +5,11 @@ presets:
   - ../presets/pbt/exploit_mutate_significance_tiered.yaml
 
 experiment:
-  output_root: runs/dev
+  output_root: runs/archive/diagnostics
   name: bn_freeze_diag_baseline
 
 # Diagnostic-only, single-member, single-generation run reproducing exactly
-# generation 0 of runs/showcase/pretrained_exploit_mutate_8gpu_10m_tiered_pilot_20260804_091343
+# generation 0 of runs/archive/showcases/pretrained_exploit_mutate_8gpu_10m_tiered_pilot_20260804_091343
 # (same checkpoint, same damped-optimizer resume, same production control
 # tier val5k_tail/15000 samples, same batch_size/samples_per_epoch), to
 # check whether BatchNorm running-stat drift explains the gen-0 mistag

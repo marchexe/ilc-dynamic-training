@@ -5,7 +5,7 @@ presets:
   - ../presets/pbt/exploit_mutate_significance_tiered.yaml
 
 experiment:
-  output_root: runs/dev
+  output_root: runs/archive/diagnostics
   name: bn_freeze_diag_frozen
 
 # Same as bn_freeze_diag_baseline.yaml, with BatchNorm frozen

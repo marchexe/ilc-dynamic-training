@@ -1,0 +1,21 @@
+# Own-trajectory continuation: full epochs 51–100, checkpoint epochs 68–117.
+# Seed advances by 50 to preserve the original per-generation stochastic schedule.
+presets:
+- configs/experiments/foundation_fixed_lr_50epochs.yaml
+experiment:
+  name: fixed_lr_continuation_20260917_lr_8_5e-6
+  output_root: runs/pbt
+resources:
+  gpus:
+  - 3
+shared:
+  checkpoint: /data/suehara/part/march/runs/pbt/foundation_fixed_lr_50epochs_20260916/lr_8_5e-6/net_epoch-67_state.pt
+  initial_state: /data/suehara/part/march/runs/pbt/foundation_fixed_lr_50epochs_20260916/lr_8_5e-6/net_epoch-67_state.pt
+  initial_optimizer: /data/suehara/part/march/runs/pbt/foundation_fixed_lr_50epochs_20260916/lr_8_5e-6/net_epoch-67_optimizer.pt
+  initial_epoch: 67
+  initial_optimizer_mode: raw
+  seed: 12395
+  generations: 50
+population:
+- name: lr_8_5e-6
+  start_lr: 8.5e-06

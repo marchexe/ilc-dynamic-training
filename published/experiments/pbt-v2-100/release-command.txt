@@ -1,0 +1,2 @@
+gh release create pbt-v2-100 --title 'PBT v2 — 100 epochs models' --notes 'Selected checkpoints and one protected resume bundle; hashes are in provenance.json.'
+gh release upload pbt-v2-100 published/experiments/pbt-v2-100/models/* --clobber

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Start/resume/status/stop a local experiment using the production runner.
 
-Requires --config; logs and process identity live in runs/launch_logs/<name>.
+Requires --config; logs and process identity live in logs/experiments/<name>.
 GPU IDs refer to physical nvidia-smi indices, pinned by UUID before launch.
 """
 
@@ -30,7 +30,7 @@ def configuration(config_path, gpus=None):
 
 def locations(config):
     run = Path(config["output_root"]) / config["experiment_name"]
-    logs = PROJECT_DIR / "runs/launch_logs" / config["experiment_name"]
+    logs = PROJECT_DIR / "logs/experiments" / config["experiment_name"]
     return run, logs
 
 

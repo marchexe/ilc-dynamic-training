@@ -1,0 +1,118 @@
+{
+  "baseline": {
+    "metric": "validation_total_reference_mistag_geomean_percent",
+    "metric_value": 0.456704817784357,
+    "metrics": {
+      "validation_accuracy": 0.8867,
+      "validation_auc": 0.9703335156666667,
+      "validation_bc_mistag_eff_0.80_percent": 0.1879999917382816,
+      "validation_bc_mistag_eff_0.90_percent": 3.5140000550939186,
+      "validation_bd_mistag_eff_0.80_percent": 0.07800000076171876,
+      "validation_bd_mistag_eff_0.90_percent": 0.22000000671386738,
+      "validation_btag_reference_mistag_geomean_percent": 0.32630161537157504,
+      "validation_cb_mistag_eff_0.50_percent": 0.619999975402833,
+      "validation_cb_mistag_eff_0.80_percent": 3.058000093322757,
+      "validation_cd_mistag_eff_0.50_percent": 0.07000000085449219,
+      "validation_cd_mistag_eff_0.80_percent": 1.257999988098755,
+      "validation_ctag_reference_mistag_geomean_percent": 0.639222365938715,
+      "validation_ctag_reference_mistag_percent": 1.2515000144197093,
+      "validation_loss": 0.31153196614583334,
+      "validation_total_reference_mistag_geomean_percent": 0.456704817784357,
+      "validation_working_point_mistag_percent": 1.1257500139983279
+    }
+  },
+  "best": {
+    "epoch": 67,
+    "generation": 49,
+    "lr": 2.0159999999999997e-05,
+    "member": "lr_11_25e-6",
+    "metric": "validation_total_reference_mistag_geomean_percent",
+    "metric_value": 0.337726899098497,
+    "metrics": {
+      "validation_accuracy": 0.8938733333333333,
+      "validation_auc": 0.9745742406,
+      "validation_bc_mistag_eff_0.80_percent": 0.13599999800781254,
+      "validation_bc_mistag_eff_0.90_percent": 2.4139999176744107,
+      "validation_bd_mistag_eff_0.80_percent": 0.06799999900390627,
+      "validation_bd_mistag_eff_0.90_percent": 0.1780000073876956,
+      "validation_btag_reference_mistag_geomean_percent": 0.2510737272944941,
+      "validation_cb_mistag_eff_0.50_percent": 0.38799999194824236,
+      "validation_cb_mistag_eff_0.80_percent": 2.268000083402713,
+      "validation_cd_mistag_eff_0.50_percent": 0.05,
+      "validation_cd_mistag_eff_0.80_percent": 0.9679999905468751,
+      "validation_ctag_reference_mistag_geomean_percent": 0.45428671332425635,
+      "validation_ctag_reference_mistag_percent": 0.9185000164744576,
+      "validation_loss": 0.279006796875,
+      "validation_total_reference_mistag_geomean_percent": 0.337726899098497,
+      "validation_working_point_mistag_percent": 0.808749998496457
+    }
+  },
+  "best_improvement_vs_baseline": 0.2605138243626718,
+  "final_best": {
+    "generation": 49,
+    "lr": 2.0159999999999997e-05,
+    "member": "lr_11_25e-6",
+    "metric": "validation_total_reference_mistag_geomean_percent",
+    "metric_value": 0.337726899098497,
+    "metrics": {
+      "validation_accuracy": 0.8938733333333333,
+      "validation_auc": 0.9745742406,
+      "validation_loss": 0.279006796875,
+      "validation_working_point_mistag_percent": 0.808749998496457
+    }
+  },
+  "final_generation": 49,
+  "has_config": true,
+  "has_exploit_history": true,
+  "has_lr_history": true,
+  "has_metrics": true,
+  "horizon": 50,
+  "metric": {
+    "definition": {
+      "display_name": "validation_total_reference_mistag_geomean_percent",
+      "formula": "See the configured Weaver metric implementation.",
+      "note": "Metric definition was not found in the reporting registry."
+    },
+    "mode": "min",
+    "name": "validation_total_reference_mistag_geomean_percent"
+  },
+  "plots": [
+    "01_performance_progression.png",
+    "02_learning_rate_evolution.png",
+    "03_final_result_comparison.png",
+    "diagnostics/background_efficiency_curves.png",
+    "learning_rate_lineage.png",
+    "learning_rate_mistag_correlation.png",
+    "mistag_score_evolution.png",
+    "pbt_population_selection.png",
+    "report/physics_performance.png"
+  ],
+  "purpose": "Verified 50-full-epoch reference run and immutable continuation ancestor.",
+  "related_runs": [],
+  "schema_version": 1,
+  "seed": 12345,
+  "slug": "pbt-v2-50",
+  "source_commit": "a4f750793911508812b5b09296afe5306306c930",
+  "source_run": "runs/pbt/windowed_pbt_v2",
+  "status": "completed",
+  "strategy": "windowed_pbt_v2",
+  "title": "PBT v2 \u2014 50 epochs",
+  "working_point_metrics": {
+    "validation_accuracy": 0.8938733333333333,
+    "validation_auc": 0.9745742406,
+    "validation_bc_mistag_eff_0.80_percent": 0.13599999800781254,
+    "validation_bc_mistag_eff_0.90_percent": 2.4139999176744107,
+    "validation_bd_mistag_eff_0.80_percent": 0.06799999900390627,
+    "validation_bd_mistag_eff_0.90_percent": 0.1780000073876956,
+    "validation_btag_reference_mistag_geomean_percent": 0.2510737272944941,
+    "validation_cb_mistag_eff_0.50_percent": 0.38799999194824236,
+    "validation_cb_mistag_eff_0.80_percent": 2.268000083402713,
+    "validation_cd_mistag_eff_0.50_percent": 0.05,
+    "validation_cd_mistag_eff_0.80_percent": 0.9679999905468751,
+    "validation_ctag_reference_mistag_geomean_percent": 0.45428671332425635,
+    "validation_ctag_reference_mistag_percent": 0.9185000164744576,
+    "validation_loss": 0.279006796875,
+    "validation_total_reference_mistag_geomean_percent": 0.337726899098497,
+    "validation_working_point_mistag_percent": 0.808749998496457
+  }
+}

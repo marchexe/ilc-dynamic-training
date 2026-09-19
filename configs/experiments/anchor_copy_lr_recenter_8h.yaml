@@ -37,7 +37,7 @@ population:
   # (see presets/pbt/anchor_copy_lr_recenter.yaml) -- was 4 (3e-6/6e-6/9e-6/
   # 14e-6) before that preset change. Historical runs launched from an
   # earlier version of this file (e.g. the 48-generation showcase pilot,
-  # runs/showcase/lr_mistag_correlation_matrix/anchor_copy_lr_recenter_8h_20260807_015714)
+  # runs/archive/showcases/lr_mistag_correlation_matrix/anchor_copy_lr_recenter_8h_20260807_015714)
   # keep their own frozen resolved_config.yaml regardless of what this
   # source file says today.
   - name: lr_3e-6

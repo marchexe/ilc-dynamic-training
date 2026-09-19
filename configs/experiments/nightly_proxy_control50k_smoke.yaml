@@ -6,7 +6,7 @@ presets:
   - ../presets/pbt/exploit_mutate_significance_tiered.yaml
 
 experiment:
-  output_root: runs/dev
+  output_root: runs/archive/diagnostics
   name: nightly_proxy_control50k_smoke
 
 # Config-validation smoke, not a scientific run: confirms the switched

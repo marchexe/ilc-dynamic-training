@@ -19,6 +19,14 @@ __pycache__/
 *.pt
 *.root
 
+# Runtime launch records live outside runs/ and remain local.
+logs/
+
+# Preserved preparation inputs are versionable; generated reviews/plots stay local.
+configs/prepared/**/analysis/
+configs/prepared/**/phase1_review/
+configs/prepared/**/smoke/
+
 # Keep lightweight research summaries in Git, but ignore generated result bulk
 results/**
 !results/
@@ -48,4 +56,16 @@ checkpoints/**
 !checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
 
 runs/*
-!runs/showcase/
+!runs/archive/
+runs/archive/*
+!runs/archive/showcases/
+!runs/archive/showcases/**/
+!runs/archive/showcases/**/*.csv
+!runs/archive/showcases/**/*.json
+!runs/archive/showcases/**/*.jsonl
+!runs/archive/showcases/**/*.md
+!runs/archive/showcases/**/*.png
+!runs/archive/showcases/**/*.yaml
+
+# Curated publication metadata/plots are versioned; model binaries are release assets.
+published/experiments/**/models/

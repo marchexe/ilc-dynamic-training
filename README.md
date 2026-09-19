@@ -1,10 +1,14 @@
 # ILC Dynamic Training
 
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://marchexe.github.io/ilc-dynamic-training/)
+
 Continuation experiments for a pretrained SGV `pp` ParticleTransformer using Weaver.
 The repo is organized around one active pretrained checkpoint, parallel training runs,
 and Population Based Training experiments.
 
-Documentation: [project overview](docs/index.rst), [current results](docs/results.rst), [experiments](docs/experiments.rst), and [development guide](docs/development.rst).
+**[Documentation](https://marchexe.github.io/ilc-dynamic-training/)** ·
+[Results](https://marchexe.github.io/ilc-dynamic-training/results.html) ·
+[Published experiments](https://marchexe.github.io/ilc-dynamic-training/experiments.html)
 
 ## Active Inputs
 
@@ -211,6 +215,7 @@ directory or automatic PDF export.
 
 ```text
 configs/               experiment and controller presets (see configs/presets/README.md)
+  prepared/             preserved run preparations and resolved launch inputs
 networks/               checkpoint-compatible pretrained SGV model
 scripts/
   training/
@@ -230,10 +235,13 @@ scripts/
   validation/              offline proxy-validation dataset construction + standalone checkpoint evaluation
   reports/                 plotting/summary library shared by pbt/reporting/ and validation/
   cluster/, data/          GPU-fleet status and dataset-conversion shell scripts (no Python coupling)
+  publish/                read-only experiment bundle exporter
 tests/                   unit and compatibility tests (python -m unittest discover)
 weaver-core/             editable local Weaver checkout (vendored, but actively patched -- see git log)
 checkpoints/, datasets/  pretrained checkpoint and dataset manifests (heavy artifacts are gitignored)
-runs/                    full experiment output trees (gitignored except runs/showcase/)
+runs/                    experiment results only: pbt/, eval/, and archive/
+logs/experiments/        launcher logs and preserved launch records
+published/experiments/   curated public metadata, plots, and release-ready model exports
 results/research/        lightweight, Git-tracked JSON/CSV run summaries (scripts/reports/export_research_result.py)
 ```
 

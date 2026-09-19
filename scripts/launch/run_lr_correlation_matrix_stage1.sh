@@ -35,7 +35,7 @@ set -euo pipefail
 
 PROJECT_DIR="/data/suehara/part/march"
 LAUNCH_DIR="$PROJECT_DIR/scripts/launch"
-LOG_DIR="$PROJECT_DIR/runs/launch_logs"
+LOG_DIR="$PROJECT_DIR/logs/experiments"
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 EXP_150K="anchor_copy_lr_recenter_100gen_${TIMESTAMP}"

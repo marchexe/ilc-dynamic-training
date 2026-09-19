@@ -1,0 +1,82 @@
+{
+  "0": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-0_state.pt",
+    "sha256": "d925b70bd4a868c4e192933832e0a38b06fb142dd2ee33d1482d12ad25cb0baa"
+  },
+  "1": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-1_state.pt",
+    "sha256": "38ac013551256dca1b53084dbe31de1d4abf2b3061a2a8059ce0b59d1d174636"
+  },
+  "2": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-2_state.pt",
+    "sha256": "42c98ec7604c60d4fcd114467e735066b890a38f40b0fb7d63d793f940d4bf01"
+  },
+  "3": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-3_state.pt",
+    "sha256": "a427721be880eedb3e1125aa8b157d3417c539c2c05d78c08b0215f62b667eda"
+  },
+  "4": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-4_state.pt",
+    "sha256": "c6a764caa22e344b5ce1d694fcb956d305ff2c2b215238ca3364a85fd3a3b671"
+  },
+  "5": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-5_state.pt",
+    "sha256": "734e38192930a37a03a0e1f1be776520cb6e30ceb2d0649463b88a34bb2df60d"
+  },
+  "6": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-6_state.pt",
+    "sha256": "7a4b9f9b684e816bb6f6b34bb48b1566cd88971ac4b4788c7c86d57693cb8ce5"
+  },
+  "7": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-7_state.pt",
+    "sha256": "6da30b1a7d86e228177209d543d6741bc2c046724d13f90aab2690c16b831a3b"
+  },
+  "8": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-8_state.pt",
+    "sha256": "6669aeca6f78d25e46d74565a6609926b21f707991261a72a8da98f6002b2ee7"
+  },
+  "9": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-9_state.pt",
+    "sha256": "60ffe6742e0a1f995dc6c12a9797cc35f5ee61e0d247e9b167a36a22c1d1160b"
+  },
+  "10": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-10_state.pt",
+    "sha256": "c7f8c97f51ba292fce5344059e59e4e9eb3786c0991fad9616788ea03c3166f6"
+  },
+  "11": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-11_state.pt",
+    "sha256": "ca1dd3fac1c41b484605e11a5997e228c3fc98bbd7929a4f0e2a5523550711ee"
+  },
+  "12": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-12_state.pt",
+    "sha256": "5676de510d71eceea157f1bdd17a2e0bed062235ed02469abee986a11af612d2"
+  },
+  "13": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-13_state.pt",
+    "sha256": "a6093ad633baf78aa5fe069ecad5168df77d57b48bc4d39972ab906ee865a773"
+  },
+  "14": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-14_state.pt",
+    "sha256": "356dc6077b88cfd585703212a32364b4beba750224fbaddf931c52224c15c308"
+  },
+  "15": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-15_state.pt",
+    "sha256": "306e1584d269c1849e6e1fad012a63ccab71d5af61dcec6a24179d2fc7d1b308"
+  },
+  "16": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-16_state.pt",
+    "sha256": "477375e700bbf2ac274c7d7caedb4ed63197b4b01586012884827d5ede2f5933"
+  },
+  "17": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt",
+    "sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501"
+  },
+  "18": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-18_state.pt",
+    "sha256": "72b2ee9c8bbf0aee6488eecc45b1aa186a40ab177c7184ea8f96d0a058517b10"
+  },
+  "19": {
+    "path": "/data/suehara/part/suehara/training/unprocessed/ilc_nnqq_sgvnew_3cat_cut/net_epoch-19_state.pt",
+    "sha256": "b77fe6e4c26e931f4618f9ba146fa5be0453f6ab9eaff99b9d16a74c008a1b2e"
+  }
+}

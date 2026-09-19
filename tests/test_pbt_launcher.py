@@ -376,7 +376,7 @@ class PBTLauncherTest(unittest.TestCase):
                 f"  - {resources_preset}\n"
                 f"  - {strategy_preset}\n"
                 "experiment:\n"
-                "  output_root: runs/dev\n"
+                "  output_root: runs/archive/diagnostics\n"
                 "  name: unit_proxy_control_50k_only\n"
                 "population:\n"
                 "  - name: unit_member_a\n"

@@ -1,0 +1,21 @@
+{
+  "status": "PREPARED_NOT_LAUNCHED",
+  "commands_verified": 250,
+  "generations_with_no_adaptive_actions": 50,
+  "initial_optimizer_mode": "raw",
+  "identical_initial_bootstraps": 5,
+  "rows": {
+    "train": 2392232,
+    "validation": 150000
+  },
+  "output_root": "/data/suehara/part/march/runs/pbt/foundation_fixed_lr_50epochs_20260916",
+  "checkpoint_bytes_per_epoch": 10733277,
+  "checkpoint_bytes_all_arms": 2801377992,
+  "fingerprints": {
+    "initial_state": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501",
+    "initial_optimizer": "a1909dd493b3ed07bea41d044fa6cb6862180709a33ad4cd691a094754519f09",
+    "data_config": "25c670c3b817a5423d876a989af613be282ce927ea06753e70add611731ff77f",
+    "network_config": "f6dfb055921a887ac44fc8b8ac790f7dfa9232595d244438eb07cd1f327e361f"
+  },
+  "config_sha256": "896851bdd3106d344f2bc70f8ffd186195ee1f1e21590e4e08efc94c681e6ad8"
+}

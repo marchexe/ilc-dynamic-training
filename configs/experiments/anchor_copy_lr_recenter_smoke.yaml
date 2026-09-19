@@ -6,7 +6,7 @@ presets:
   - ../presets/pbt/anchor_copy_lr_recenter.yaml
 
 experiment:
-  output_root: runs/dev
+  output_root: runs/archive/diagnostics
   name: anchor_copy_lr_recenter_smoke
 
 # Minimal live smoke: 5 streams (matching the preset's widened, symmetric

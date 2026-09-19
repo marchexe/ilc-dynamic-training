@@ -32,13 +32,13 @@ checkpoints:
     provenance: null
 
   - id: night_controller_active_global_best
-    path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_state.pt
-    source_run: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318
-    provenance: {type: global_best_metadata, path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_metadata.json}
+    path: runs/archive/showcases/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_state.pt
+    source_run: runs/archive/showcases/pretrained_pbt_4gpu_night_controller_active_20260805_015318
+    provenance: {type: global_best_metadata, path: runs/archive/showcases/pretrained_pbt_4gpu_night_controller_active_20260805_015318/checkpoints/global_best_metadata.json}
 
   - id: night_controller_active_lr14e6_epoch107
-    path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/lr_14e-6/net_epoch-107_state.pt
-    source_run: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318
-    provenance: {type: manifest_member, path: runs/showcase/pretrained_pbt_4gpu_night_controller_active_20260805_015318/manifest.json, member: lr_14e-6}
+    path: runs/archive/showcases/pretrained_pbt_4gpu_night_controller_active_20260805_015318/lr_14e-6/net_epoch-107_state.pt
+    source_run: runs/archive/showcases/pretrained_pbt_4gpu_night_controller_active_20260805_015318
+    provenance: {type: manifest_member, path: runs/archive/showcases/pretrained_pbt_4gpu_night_controller_active_20260805_015318/manifest.json, member: lr_14e-6}
 
-output_root: runs/dev/proxy_audit_smoke
+output_root: runs/archive/diagnostics/proxy_audit_smoke

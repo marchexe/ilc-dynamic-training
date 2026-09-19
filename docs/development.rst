@@ -30,6 +30,23 @@ Build documentation from the repository root in a separate environment:
 The documentation build uses only Sphinx and does not import training code or
 launch workers.
 
+Publishing experiments
+----------------------
+
+After read-only verification, create a curated bundle and its Sphinx page:
+
+.. code-block:: sh
+
+   .venv/bin/python scripts/publish/export_run.py runs/pbt/<run> \
+     --slug <slug> --title "Public title" \
+     --resume-bundle protected_best --release-tag <release-tag>
+
+The publisher copies recorded metrics, configuration, plots and selected model
+assets into ``published/experiments/<slug>``. It verifies that source manifest
+and summary hashes do not change. Pass ``--upload-release-assets`` only when the
+generated bundle has been reviewed and ``gh`` is authenticated; otherwise the
+bundle contains the exact create/upload commands in ``release-command.txt``.
+
 Tests and verification
 ----------------------
 

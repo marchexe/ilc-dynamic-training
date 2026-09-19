@@ -1,0 +1,92 @@
+{
+  "config_sha256": "f8ec3ba9a7febcc0de013c483197984338e98dc23cfc7174079f29201952f099",
+  "dataset": {
+    "data_extension": "parquet",
+    "proxy_validation": null,
+    "resolved_files": {
+      "train": [
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_train800k.parquet"
+          ],
+          "label": "nnbb",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_bb_train800k.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_train800k.parquet"
+          ],
+          "label": "nncc",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_cc_train800k.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_train800k.parquet"
+          ],
+          "label": "nndd",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_dd_train800k.parquet"
+        }
+      ],
+      "val": [
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val50k_tail.parquet"
+          ],
+          "label": "nnbb",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_bb_val50k_tail.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val50k_tail.parquet"
+          ],
+          "label": "nncc",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_cc_val50k_tail.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val50k_tail.parquet"
+          ],
+          "label": "nndd",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_dd_val50k_tail.parquet"
+        }
+      ]
+    },
+    "train_dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "train_suffix": "train800k",
+    "validation_dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "validation_suffix": "val50k_tail"
+  },
+  "fingerprint": "9a4c4094d7293892c4aa4bcbe1e57d0374f30e806270f62346c34aa42f36e9bd",
+  "manifest_sha256": "ff3e2d751a44d2649cd31a5a53f97c951021dfda283c6d07bde94fe02134e3cc",
+  "models": [],
+  "path_compatibility": {
+    "runs/dev": "runs/archive/diagnostics",
+    "runs/launch_logs": "logs/experiments",
+    "runs/launchers": "logs/experiments/launchers",
+    "runs/prepared": "configs/prepared",
+    "runs/showcase": "runs/archive/showcases"
+  },
+  "related_runs": [
+    "runs/pbt/fixed_lr_continuation_20260917_lr_8_5e-6"
+  ],
+  "resume_bundle": null,
+  "schema_version": 1,
+  "source_commit": "68cc7fbbb6d092ea4038c9c7f400c1780a938ef3",
+  "source_run": "runs/pbt/fixed_lr_continuation_20260917_lr_14e-6",
+  "starting_checkpoint": {
+    "initial_state": {
+      "epoch": 67,
+      "path": "/data/suehara/part/march/runs/pbt/foundation_fixed_lr_50epochs_20260916/lr_14e-6/net_epoch-67_state.pt",
+      "sha256": "bf92e8706ec43961dc1093f6564596ede69931c8bb6936c87af0ef8886269403"
+    },
+    "path": "/data/suehara/part/march/runs/pbt/foundation_fixed_lr_50epochs_20260916/lr_14e-6/net_epoch-67_state.pt",
+    "sha256": "bf92e8706ec43961dc1093f6564596ede69931c8bb6936c87af0ef8886269403"
+  },
+  "summary_sha256": "07a332aa7e35bb135b3050801fc7a61d94abc57de97720e2d0ac73603e2a06e5"
+}
