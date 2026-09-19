@@ -15,21 +15,22 @@ the primary method.
 Current stage
 -------------
 
-The deterministic training foundation and the reference PBT algorithm are
-complete. Verified runs cover 50 and 100 full epochs. In the 100-epoch study,
-the recorded final-10-epoch mean selection score is 0.327181% for PBT and
-0.332571% for the matched fixed-``14e-6`` control, a 1.62% relative reduction.
-This is control-proxy evidence; independent validation corroboration is still a
-next step.
+The deterministic training foundation and reference PBT algorithm are complete,
+with verified 50- and 100-full-epoch runs. A completed offline
+:doc:`proxy-validation qualification <proxy_validation>` study evaluated 38
+existing checkpoints on nine frozen candidates and selected
+``representative_60k`` as the control signal for shadow adaptive-LR testing.
 
-The immediate research direction is proxy-validation design followed by a
-separately versioned, rule-based adaptive learning-rate controller. Neither is
-part of the frozen reference algorithm.
+The next stage is offline controller replay and shadow measurement using
+smoothing, short-window trends, patience and cooldown. No adaptive-LR policy is
+part of the frozen reference algorithm, and the proxy study establishes
+measurement quality rather than a training improvement claim.
 
 .. toctree::
    :maxdepth: 1
 
    results
+   proxy_validation
    method
    experiments
    status

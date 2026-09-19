@@ -1,6 +1,11 @@
 Research changelog
 ==================
 
+2026-09-20
+   Completed the offline proxy-validation qualification: 342 cached evaluations
+   across 38 checkpoints and nine candidates, selecting ``representative_60k``
+   for shadow adaptive-LR testing.
+
 2026-09-19
    Completed and verified the 100-full-epoch ``windowed_pbt_v2`` continuation;
    produced the matched late-epoch fixed-LR comparison.

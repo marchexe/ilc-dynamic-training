@@ -150,15 +150,6 @@ PBT runs write canonical artifacts automatically after completion. Rebuild those
 .venv/bin/python scripts/training/pbt/rebuild_artifacts.py runs/pbt/<run>
 ```
 
-Lightweight Git-trackable research evidence lives in `results/research/` and can be produced with:
-
-```bash
-PYTHONPATH=scripts .venv/bin/python scripts/reports/export_research_result.py \
-  runs/pbt/<run>/manifest.json \
-  --output results/research/<result>.json \
-  --csv-output results/research/<result>.csv
-```
-
 The final PBT artifact set is intentionally small:
 
 - `plots/training_evolution.png`
@@ -242,7 +233,6 @@ checkpoints/, datasets/  pretrained checkpoint and dataset manifests (heavy arti
 runs/                    experiment results only: pbt/, eval/, and archive/
 logs/experiments/        launcher logs and preserved launch records
 published/experiments/   curated public metadata, plots, and release-ready model exports
-results/research/        lightweight, Git-tracked JSON/CSV run summaries (scripts/reports/export_research_result.py)
 ```
 
 ## Git Policy
@@ -264,6 +254,5 @@ Ignored:
 datasets/
 checkpoints/* except source.txt
 runs/
-results/
 *.pt, *.root, *.onnx, *.log, *.auto.yaml
 ```

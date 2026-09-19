@@ -209,9 +209,10 @@ INFO: Evaluation metrics:
             self.assertEqual(counts["bc"][0]["background_total"], 1000)
             self.assertEqual(counts["bc"][0]["background_efficiency"], 0.012)
             self.assertEqual(metrics["validation_working_point_mistag_percent_uncertainty_points"], 1)
+            alpha, beta = 12.5, 988.5
             self.assertAlmostEqual(
                 metrics["validation_working_point_mistag_percent_uncertainty"],
-                100.0 * (0.012 * 0.988 / 1000) ** 0.5,
+                100.0 * (alpha * beta / ((alpha + beta) ** 2 * (alpha + beta + 1))) ** 0.5,
             )
 
 

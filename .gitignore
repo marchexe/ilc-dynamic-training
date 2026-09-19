@@ -27,15 +27,6 @@ configs/prepared/**/analysis/
 configs/prepared/**/phase1_review/
 configs/prepared/**/smoke/
 
-# Keep lightweight research summaries in Git, but ignore generated result bulk
-results/**
-!results/
-!results/research/
-!results/research/README.md
-!results/research/.gitkeep
-!results/research/*.json
-!results/research/*.csv
-
 # Keep dataset provenance/manifests in Git, but not local parquet data
 datasets/**
 !datasets/

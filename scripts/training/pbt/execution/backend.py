@@ -109,7 +109,8 @@ def run_tiered_evaluation(config, experiment_dir, generation_index, tier, datase
             streams.pop(name).close()
             processes.pop(name)
             slot, log_path, checkpoint_path = process_context.pop(name)
-            elapsed = format_duration(time.monotonic() - started_monotonic.pop(name))
+            elapsed_seconds = time.monotonic() - started_monotonic.pop(name)
+            elapsed = format_duration(elapsed_seconds)
             metrics = read_metrics(log_path)
             metric_ok = metrics is not None and metrics.get("validation_bkg_rejection_at_eff") is not None
             status = "completed" if returncode == 0 and metric_ok else "failed"
@@ -119,6 +120,12 @@ def run_tiered_evaluation(config, experiment_dir, generation_index, tier, datase
                 "metrics": metrics,
                 "log": str(log_path),
                 "checkpoint": str(checkpoint_path),
+                "elapsed_seconds": elapsed_seconds,
+                "prediction_path": (
+                    str(log_path.with_suffix(".predictions.parquet"))
+                    if config.get("shared", {}).get("save_predictions")
+                    else None
+                ),
             }
             log_event(
                 pbt_log_path,

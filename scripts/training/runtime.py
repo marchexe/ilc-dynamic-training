@@ -393,8 +393,14 @@ def _count_mistag_uncertainty(counts, pair, eff):
         passed = int(passed)
         if total <= 0:
             return None
-        background_efficiency = passed / total
-        variance = max(background_efficiency * (1.0 - background_efficiency), 0.0) / total
+        # Jeffreys' Beta(1/2, 1/2) posterior standard deviation stays
+        # non-zero when no background event (or every background event)
+        # passes.  The old plug-in binomial estimate returned exactly zero
+        # in those small-sample edge cases, which substantially overstated
+        # the precision of proxy-validation working points.
+        alpha = passed + 0.5
+        beta = total - passed + 0.5
+        variance = (alpha * beta) / ((alpha + beta) ** 2 * (alpha + beta + 1.0))
         return 100.0 * math.sqrt(variance)
     return None
 
@@ -415,12 +421,15 @@ def _working_point_uncertainty_metrics(counts):
 
     working_point_uncertainty, working_point_count = combined_uncertainty(WORKING_POINT_DEFINITION)
     ctag_uncertainty, ctag_count = combined_uncertainty(CTAG_REFERENCE_WORKING_POINTS)
-    return {
+    out = {
         "validation_working_point_mistag_percent_uncertainty": working_point_uncertainty,
         "validation_working_point_mistag_percent_uncertainty_points": working_point_count,
         "validation_ctag_reference_mistag_percent_uncertainty": ctag_uncertainty,
         "validation_ctag_reference_mistag_percent_uncertainty_points": ctag_count,
     }
+    for pair, eff in WORKING_POINT_DEFINITION:
+        out[f"{mistag_percent_key(pair, eff)}_uncertainty"] = _count_mistag_uncertainty(counts, pair, eff)
+    return out
 
 
 def read_metrics(path):
@@ -476,6 +485,21 @@ def read_metrics(path):
     if counts:
         metrics["validation_bkg_rejection_at_eff_counts"] = counts
         metrics.update(_working_point_uncertainty_metrics(counts))
+        composite = metrics.get("validation_total_reference_mistag_geomean_percent")
+        relative_variance = 0.0
+        usable = composite is not None
+        for pair, eff in WORKING_POINT_DEFINITION:
+            key = mistag_percent_key(pair, eff)
+            value = metrics.get(key)
+            uncertainty = metrics.get(f"{key}_uncertainty")
+            if value is None or uncertainty is None or value <= 0:
+                usable = False
+                break
+            relative_variance += (uncertainty / value) ** 2
+        metrics["validation_total_reference_mistag_geomean_percent_uncertainty"] = (
+            composite * math.sqrt(relative_variance) / len(WORKING_POINT_DEFINITION)
+            if usable else None
+        )
     for kind in ("train", "validation"):
         records = re.findall(r"Data audit " + kind + r": (\{[^\n]+\})", text)
         if records:

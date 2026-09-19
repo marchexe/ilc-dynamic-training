@@ -41,8 +41,14 @@ terminal behavior are frozen for reproducibility.
 Adaptive-LR direction
 ---------------------
 
-The next scientific direction is a rule-based adaptive LR controller informed
-by proxy validation. That controller is not yet part of the reference method.
-It should be introduced as a new version and evaluated against both
-``windowed_pbt_v2`` and fixed-LR controls, with an independent validation tier
-that never drives the decisions being assessed.
+The offline :doc:`proxy-validation qualification <proxy_validation>` selected
+the deterministic 60k representative subset as a sufficiently reliable signal
+for shadow testing. This qualifies the measurement, not the controller:
+temporal direction agreement is 0.720, so a future policy must use smoothed
+short-window evidence, patience and cooldown instead of reacting to one
+measurement.
+
+That controller is not yet part of the reference method. It must be introduced
+as a new version and evaluated against both ``windowed_pbt_v2`` and fixed-LR
+controls, with an independent validation tier that never drives the decisions
+being assessed.

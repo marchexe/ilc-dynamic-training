@@ -410,7 +410,7 @@ def main():
     args = parse_args()
     audit_config = load_audit_config(args.config)
     run_id = args.run_id or utc_now().replace(":", "").replace("-", "").split(".")[0].replace("T", "_")
-    output_root = project_path(args.output_root or audit_config.get("output_root", "results/research"))
+    output_root = project_path(args.output_root or audit_config.get("output_root", "runs/eval/nightly_proxy_audit"))
     experiment_dir = output_root / run_id
     experiment_dir.mkdir(parents=True, exist_ok=True)
     (experiment_dir / "plots").mkdir(parents=True, exist_ok=True)

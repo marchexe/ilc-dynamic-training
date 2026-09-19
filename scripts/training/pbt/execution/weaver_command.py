@@ -148,6 +148,9 @@ def _test_mode_command(shared, slot, validation_paths, checkpoint, log_path):
             command.append("--" + flag.replace("_", "-"))
     if shared["use_amp"]:
         command.extend(["--use-amp", "--amp-dtype", str(shared["amp_dtype"])])
+    if shared.get("save_predictions"):
+        prediction_path = Path(log_path).with_suffix(".predictions.parquet")
+        command.extend(["--predict-output", str(prediction_path)])
     if shared.get("prefetch_factor") is not None:
         command.extend(["--prefetch-factor", str(shared["prefetch_factor"])])
     return wrap_remote_command(command, slot)

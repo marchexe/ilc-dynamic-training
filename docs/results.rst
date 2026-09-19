@@ -70,6 +70,17 @@ boundaries. Its learning rates moved beyond the initial 3–14 × 10⁻⁶ range
    :alt: Learning-rate trajectories and copy boundaries for the 100-epoch PBT run
    :width: 100%
 
+Proxy measurement qualification
+--------------------------------
+
+The completed offline :doc:`proxy-validation study <proxy_validation>` compared
+nine frozen proxy designs across 38 diverse checkpoints. The selected
+``representative_60k`` proxy records Pearson 0.986, Spearman 0.961, pairwise
+agreement 0.919, temporal direction agreement 0.720 and zero observed
+best-checkpoint regret, at a 5.33× recorded speedup over the 150k reference.
+This supports shadow adaptive-LR measurement; it is not evidence that an
+adaptive controller improves training.
+
 Interpretation and limits
 -------------------------
 
