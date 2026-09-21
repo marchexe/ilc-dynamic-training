@@ -15,22 +15,25 @@ Completed
 * Offline replay of a noise-gated controller over the qualified trajectories;
   the base rule proposed 1 UP, 37 KEEP and 0 DOWN actions with no reversals or
   reference-action disagreements.
+* Completed the 96-generation ``representative_60k`` shadow audit. The run was
+  intact, but only two UP proposals fired, no DOWN proposal was exercised, and
+  the cumulative-factor bound clamped both proposed LR changes to no-ops.
 
 Current work
 ------------
 
-The prepared next experiment is an eight-member fixed-LR shadow run. It logs
-controller proposals from ``representative_60k`` but ``mode: shadow`` prevents
-the only LR-application path from changing optimizer learning rates. The 150k
-reference tier is observational and never enters controller decisions.
+The first eight-member fixed-LR shadow run is complete. Its evidence is not
+sufficient for a live adaptive-LR run: six members never proposed a change,
+DOWN behavior remains untested, and ``max_cumulative_lr_factor_per_epoch: 1.0``
+made the two UP proposals mechanically ineffective.
 
 Next research steps
 -------------------
 
-1. Run the selected ``representative_60k`` signal in shadow mode without LR
-   changes.
-2. Review proposal stability, including DOWN behavior that the sparse
-   historical replay did not exercise.
+1. Run a pre-registered continuation shadow with a non-zero cumulative LR
+   allowance while retaining shadow mode and the qualified measurement tiers.
+2. Require real DOWN coverage, non-clamped proposals and no meaningful
+   opposite reference direction before considering live control.
 3. Specify the rule-based adaptive LR controller as a separately versioned
    policy only after replay and shadow checks pass.
 4. Compare it against frozen ``windowed_pbt_v2`` and matched fixed-LR controls,
@@ -39,7 +42,7 @@ Next research steps
 Open questions
 --------------
 
-* Does the replay-selected trend rule remain stable at the denser shadow cadence?
+* Can a continuation shadow exercise stable DOWN behavior across multiple members?
 * How should controller actions be gated when proxy and corroboration disagree?
 * Do the late-epoch gains persist on an independent validation tier and across
   additional seeds?

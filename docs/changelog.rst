@@ -1,6 +1,12 @@
 Research changelog
 ==================
 
+2026-09-21
+   Audited the completed 96-generation ``representative_60k`` shadow run.
+   Recorded two clamped UP proposals, 766 KEEP decisions and no DOWN coverage;
+   deferred any live adaptive-LR experiment pending a corrected continuation
+   shadow.
+
 2026-09-20
    Completed the offline proxy-validation qualification: 342 cached evaluations
    across 38 checkpoints and nine candidates, selecting ``representative_60k``
