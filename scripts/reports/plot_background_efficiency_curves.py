@@ -15,9 +15,12 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from reports.plot_physics_performance import (  # noqa: E402
     CHECKPOINT_ROLE_LABELS,
+    FIGURE_SIZE_INCHES,
     FLAVOR_COLORS,
+    OUTPUT_DPI,
     REFERENCE_WORKING_POINTS,
     TAG_PAIRS,
+    checkpoint_caption,
     load_manifest,
     log_tick_label,
     worker_for_report,
@@ -41,7 +44,7 @@ def parse_args():
 
 
 def default_output(manifest_path):
-    return Path(manifest_path).parent / "plots" / "diagnostics" / "background_efficiency_curves.png"
+    return Path(manifest_path).parent / "plots" / "background_efficiency_curves.png"
 
 
 def background_efficiency(value):
@@ -116,26 +119,25 @@ def plot_manifest(manifest_path, output=None, member="best_physics", *, manifest
             "axes.spines.right": False,
         }
     )
-    fig, axes = plt.subplots(1, 2, figsize=(11.2, 4.6), sharey=True, constrained_layout=False)
-    fig.subplots_adjust(left=0.07, right=0.98, bottom=0.13, top=0.78, wspace=0.18)
+    fig, axes = plt.subplots(1, 2, figsize=FIGURE_SIZE_INCHES, sharey=True, constrained_layout=False)
+    fig.subplots_adjust(left=0.07, right=0.98, bottom=0.10, top=0.79, wspace=0.18)
     draw_efficiency(axes[0], metrics, "c")
     draw_efficiency(axes[1], metrics, "b")
-    if member == "global_best":
-        best = manifest.get("best") or {}
-        score_text = "" if best.get("metric_value") is None else f" | {best.get('metric')} {best['metric_value']:.4g}"
-    else:
-        score_text = "" if physics_score is None else f" | avg fixed-WP mistag {physics_score:.3f}%"
-    role_label = CHECKPOINT_ROLE_LABELS.get(member, f"member `{member}`")
     fig.suptitle(
-        f"Background efficiency curves -- {role_label} ({member_name}, generation {generation['index']}){score_text}",
+        "Background efficiency curves",
         x=0.07,
-        y=0.965,
+        y=0.96,
         ha="left",
-        fontsize=12.5,
+        fontsize=15,
         fontweight="bold",
     )
+    fig.text(
+        0.07, 0.905,
+        checkpoint_caption(manifest, member, member_name, generation, physics_score),
+        ha="left", va="top", fontsize=10.5, color="0.30",
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output, dpi=180, bbox_inches="tight")
+    fig.savefig(output, dpi=OUTPUT_DPI, facecolor="white")
     plt.close(fig)
     return output
 

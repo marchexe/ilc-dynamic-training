@@ -77,6 +77,7 @@
     "name": "validation_total_reference_mistag_geomean_percent"
   },
   "plots": [
+    "fixed_lr_performance_comparison.png",
     "diagnostics/background_efficiency_curves.png",
     "learning_rate_lineage.png",
     "learning_rate_mistag_correlation.png",

@@ -11,7 +11,6 @@ from training.pbt.reporting.constants import (
     CONDITIONAL_REPORT_PLOT_NAMES,
     CONTROLLER_OBJECTIVE_COLUMN,
     CTAG_SCORE_COLUMN,
-    DECISION_MARKER_STYLE,
     EXPLOIT_TABLE_NAME,
     FIXED_WORKING_POINTS,
     GROUP_SCORE_WARNING_COLUMN,
@@ -36,7 +35,6 @@ from training.pbt.reporting.metrics_rows import (
 from training.pbt.reporting.statistics import (
     best_checkpoint_by_tier,
     corroboration_status,
-    lr_mistag_correlation,
     proxy_overfitting_cases,
     proxy_selected_checkpoint_other_tiers,
     tier_correlation,
@@ -111,8 +109,8 @@ def build_summary(run_dir, manifest):
                 for name, filename in REPORT_PLOT_NAMES.items()
                 if name not in CONDITIONAL_REPORT_PLOT_NAMES or (Path(run_dir) / "plots" / f"{filename}.png").is_file()
             },
-            "physics_performance": str(Path("plots") / "report" / "physics_performance.png"),
-            "background_efficiency_curves": str(Path("plots") / "diagnostics" / "background_efficiency_curves.png"),
+            "physics_performance": str(Path("plots") / "physics_performance.png"),
+            "background_efficiency_curves": str(Path("plots") / "background_efficiency_curves.png"),
             "btag_mistag_table_csv": str(Path("plots") / "report" / "btag_mistag_tables.csv"),
             "ctag_mistag_table_csv": str(Path("plots") / "report" / "ctag_mistag_tables.csv"),
             "exploit_table_csv": EXPLOIT_TABLE_NAME,
@@ -155,7 +153,7 @@ def _final_physics_performance_section_lines(manifest, plots):
     checkpoint separately so the two are never conflated."""
     selection = manifest.get("checkpoint_selection_for_report") or {}
     lines = ["", "## Final Physics Performance"]
-    lines.append(f"- [Background efficiency curves]({plots.get('background_efficiency_curves', 'plots/diagnostics/background_efficiency_curves.png')})")
+    lines.append(f"- [Background efficiency curves]({plots.get('background_efficiency_curves', 'plots/background_efficiency_curves.png')})")
     if selection:
         lines.append(
             f"- Checkpoint: **{selection.get('role_label', selection.get('role', 'n/a'))}** "
@@ -178,148 +176,9 @@ def _final_physics_performance_section_lines(manifest, plots):
                 f"  - Validation: `{dataset}` (`{selection.get('validation_suffix', 'n/a')}`), "
                 f"{_fmt(selection.get('validation_sample_count'))} samples"
             )
-    lines.append(f"- [Physics performance]({plots.get('physics_performance', 'plots/report/physics_performance.png')})")
+    lines.append(f"- [Physics performance]({plots.get('physics_performance', 'plots/physics_performance.png')})")
     lines.append(f"- [C-tag mistag CSV]({plots.get('ctag_mistag_table_csv', 'plots/report/ctag_mistag_tables.csv')})")
     lines.append(f"- [B-tag mistag CSV]({plots.get('btag_mistag_table_csv', 'plots/report/btag_mistag_tables.csv')})")
-    return lines
-
-
-def _pbt_population_selection_section_lines(manifest, plots):
-    """## PBT Population and Selection -- pbt_population_selection.png:
-    every member's trajectory plus each generation's winner, both by the
-    run's actual configured selection metric."""
-    result = _report_plot_result(manifest, "pbt_population_selection")
-    png = plots.get("pbt_population_selection") or result.get("png")
-    lines = ["", "## PBT Population and Selection"]
-    if not png:
-        lines.append("- No completed generations to plot yet.")
-        return lines
-    pbt_config = manifest.get("config", {}).get("pbt", {})
-    lines.append(f"- [Population and selection]({png})")
-    lines.append(
-        f"- Ranking metric: `{pbt_config.get('metric', 'n/a')}` ({pbt_config.get('mode', 'n/a')}); "
-        "winner = each generation's authoritative decision winner (the member that actually drove that generation's "
-        "exploit/anchor/global-best outcome), never re-derived from total_mistag_score."
-    )
-    if pbt_config.get("strategy") == "anchor_copy_lr_recenter":
-        marker_legend = ", ".join(f"`{style['marker']}` {name}" for name, style in DECISION_MARKER_STYLE.items())
-        lines.append(f"- Winner-timeline decision markers: {marker_legend}.")
-    if result.get("warnings"):
-        lines.extend(["", "**Data-quality warnings:**"])
-        lines.extend(f"- {warning}" for warning in result["warnings"])
-    return lines
-
-
-def _mistag_score_evolution_section_lines(manifest, plots):
-    """## Mistag Score Evolution -- mistag_score_evolution.png: ctag_score /
-    btag_score / total_mistag_score for the generation winner, with the
-    total line always the dominant visual accent."""
-    result = _report_plot_result(manifest, "mistag_score_evolution")
-    png = plots.get("mistag_score_evolution") or result.get("png")
-    lines = ["", "## Mistag Score Evolution"]
-    if not png:
-        lines.append("- No completed generations to plot yet.")
-        return lines
-    lines.append(f"- [Mistag score evolution]({png})")
-    if result.get("ranking_metric_is_total_score"):
-        lines.append(
-            "- **`total_mistag_score` (sqrt(ctag_score * btag_score)) is this run's PBT ranking metric** -- "
-            "the thick line above is the ranking metric itself, not just a diagnostic summary."
-        )
-    else:
-        metric_name = manifest.get("config", {}).get("pbt", {}).get("metric", "n/a")
-        lines.append(
-            f"- Physics score summary; PBT ranking metric: `{metric_name}`. The winner marked on each line is still "
-            "selected by that real configured metric, never by total_mistag_score."
-        )
-    lines.append(
-        "- Baseline point: "
-        + ("shown (measured pretrained baseline available)." if result.get("has_baseline_point") else "not available for this run.")
-    )
-    if result.get("warnings"):
-        lines.extend(["", "**Data-quality warnings:**"])
-        lines.extend(f"- {warning}" for warning in result["warnings"])
-    return lines
-
-
-def _learning_rate_lineage_section_lines(manifest, plots):
-    """## Learning-Rate Lineage -- learning_rate_lineage.png: which branch
-    each next-generation member descended from and what LR it got."""
-    result = _report_plot_result(manifest, "learning_rate_lineage")
-    png = plots.get("learning_rate_lineage") or result.get("png")
-    lines = ["", "## Learning-Rate Lineage"]
-    if not png:
-        lines.append("- No learning-rate data to plot yet.")
-        return lines
-    lines.append(f"- [Learning-rate lineage]({png})")
-    lines.append(
-        "- Heavy edge = an applied donor->recipient checkpoint copy (events.jsonl, applied=True only); "
-        "light edge = a member continuing its own branch."
-    )
-    strategy = manifest.get("config", {}).get("pbt", {}).get("strategy")
-    if strategy == "fixed_lr_grid":
-        lines.append("- `fixed_lr_grid`: independent branches, no copy events -- by design, not a data gap.")
-    if result.get("warnings"):
-        lines.extend(["", "**Data-quality warnings:**"])
-        lines.extend(f"- {warning}" for warning in result["warnings"])
-    return lines
-
-
-def _learning_rate_mistag_correlation_section_lines(manifest, plots, rows):
-    """## Learning Rate vs. Mistag Score Correlation --
-    learning_rate_mistag_correlation.png: two independent panels. Left is
-    training dynamics only (population median + min/max band and the
-    generation winner, against generation -- no LR on this panel). Right
-    is the within-generation LR analysis only (log10(LR) vs. each
-    observation's residual against its own generation's median, plus an
-    OLS trend line) -- a direct, by-eye view of the exact quantity the
-    population-wide, generation-confound-controlled correlation below is
-    computed from (statistics.py::lr_mistag_correlation, detrended by each
-    generation's median score so ordinary training progress isn't mistaken
-    for an LR effect). `rows` is the already-persisted metrics.csv
-    round-trip (same rows `_model_selection_score_table_lines` uses below)
-    -- LR and total_mistag_score are both plain CSV columns, so this never
-    needs the manifest-derived member_rows the plot itself was built
-    from."""
-    result = _report_plot_result(manifest, "learning_rate_mistag_correlation")
-    png = plots.get("learning_rate_mistag_correlation") or result.get("png")
-    lines = ["", "## Learning Rate vs. Mistag Score Correlation"]
-    if not png:
-        lines.append("- No generation winners with LR/mistag score to plot yet.")
-        return lines
-    lines.append(f"- [Training dynamics and within-generation LR analysis]({png})")
-    correlation = lr_mistag_correlation(rows)
-    if correlation["reason"] == "insufficient_paired_observations":
-        lines.append(
-            f"- Population-wide, generation-controlled correlation: n={correlation['n']} paired observations -- "
-            "too few for a meaningful correlation"
-        )
-    elif correlation["reason"]:
-        lines.append(f"- Population-wide, generation-controlled correlation: unavailable ({correlation['reason']})")
-    else:
-        pearson_ci = correlation.get("pearson_r_ci")
-        spearman_ci = correlation.get("spearman_rho_ci")
-        pearson_ci_text = f" (95% CI {pearson_ci[0]:.3f} to {pearson_ci[1]:.3f})" if pearson_ci else ""
-        spearman_ci_text = f" (95% CI {spearman_ci[0]:.3f} to {spearman_ci[1]:.3f})" if spearman_ci else ""
-        lines.append(
-            f"- Population-wide, generation-controlled correlation (log10 LR vs. total_mistag_score, detrended by "
-            f"each generation's median): n={correlation['n']}, Pearson r={correlation['pearson_r']:.3f}"
-            f"{pearson_ci_text}, Spearman rho={correlation['spearman_rho']:.3f}{spearman_ci_text}"
-        )
-        if not pearson_ci:
-            lines.append(
-                "- CI unavailable (too few generations to block-bootstrap -- see statistics.py::"
-                "_block_bootstrap_correlation); point estimate above only."
-            )
-        lines.append(
-            "- Detrending removes the ordinary training-progress trend (score improves over generations regardless "
-            "of LR) so this number isolates an LR effect, not a training-progress effect mistaken for one. Sign "
-            "convention: positive means higher LR associates with a worse-than-typical (for that generation) score; "
-            "negative means better-than-typical. Not a causal claim."
-        )
-    if result.get("warnings"):
-        lines.extend(["", "**Data-quality warnings:**"])
-        lines.extend(f"- {warning}" for warning in result["warnings"])
     return lines
 
 
@@ -585,10 +444,6 @@ def write_report(run_dir, manifest, summary):
     )
 
     lines.extend(_final_physics_performance_section_lines(manifest, plots))
-    lines.extend(_pbt_population_selection_section_lines(manifest, plots))
-    lines.extend(_mistag_score_evolution_section_lines(manifest, plots))
-    lines.extend(_learning_rate_lineage_section_lines(manifest, plots))
-    lines.extend(_learning_rate_mistag_correlation_section_lines(manifest, plots, rows))
     lines.extend(_proxy_validation_section_lines(manifest, plots))
 
     lines.extend(_model_selection_score_table_lines(manifest, rows))

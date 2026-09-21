@@ -50,7 +50,10 @@ metric is ``validation_total_reference_mistag_geomean_percent`` on the fixed
 
 Member labels identify persistent branches; they do not encode the current LR.
 The 100-epoch best checkpoint came from the branch named ``lr_3e-6`` at
-generation 88, after PBT had changed learning rates.
+training epoch 89 (internal one-epoch iteration index 88), after PBT had changed
+learning rates. This selected global-best checkpoint is distinct from the best
+member at epoch 100 (``lr_11_25e-6``), which is not highlighted as the selected
+model.
 
 Late-epoch comparison
 ---------------------
@@ -58,16 +61,25 @@ Late-epoch comparison
 The purpose-built comparison uses the mean over full epochs 91–100, avoiding a
 single-checkpoint comparison. It records 0.327181% for PBT and 0.332571% for the
 fixed-``14e-6`` control: 0.005390 percentage points, or 1.62% relative reduction.
+The paired figures use identical epoch axes and member colors. At each exploit,
+the recipient's old path ends and a new branch begins at the donor checkpoint;
+the hollow square is a copied state, not a new validation. The first figure
+shows performance lineage, while the second shows learning-rate lineage. Copy
+and mutation happen together, so the figures do not attribute later changes to
+LR alone.
 
 .. image:: _static/results/pbt_100_performance.png
-   :alt: Windowed PBT trajectories and fixed-learning-rate control over 100 epochs
+   :alt: Branching PBT performance lineage and fixed-learning-rate baseline over 100 epochs
    :width: 100%
 
 The PBT population executed 11 copy/mutation actions at 20 five-epoch decision
-boundaries. Its learning rates moved beyond the initial 3–14 × 10⁻⁶ range.
+boundaries: 20 PBT generations × 5 training epochs = 100 epochs. An epoch-
+boundary validation is recorded before selection; a copied recipient then trains
+the next epoch at its mutated LR before the next validation. Its learning rates
+moved beyond the initial 3–14 × 10⁻⁶ range.
 
 .. image:: _static/results/pbt_100_learning_rates.png
-   :alt: Learning-rate trajectories and copy boundaries for the 100-epoch PBT run
+   :alt: Branching learning-rate lineage and donor-to-recipient copies for the 100-epoch PBT run
    :width: 100%
 
 Proxy measurement qualification

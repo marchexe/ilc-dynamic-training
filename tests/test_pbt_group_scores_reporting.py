@@ -154,10 +154,8 @@ class ReportRerunStabilityTest(unittest.TestCase):
 
             self.assertEqual(first_listing, second_listing)
             for expected in (
-                "pbt_population_selection.png",
-                "learning_rate_lineage.png",
-                "mistag_score_evolution.png",
-                "learning_rate_mistag_correlation.png",
+                "physics_performance.png",
+                "background_efficiency_curves.png",
             ):
                 self.assertIn(expected, second_listing)
 

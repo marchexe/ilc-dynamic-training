@@ -287,8 +287,7 @@ def rst_page(published: dict[str, Any], provenance: dict[str, Any], plot_files: 
     if plot_files:
         lines.extend(("", "Key plots", "---------", ""))
         preferred = [p for p in plot_files if Path(p).name in {
-            "01_performance_progression.png", "02_learning_rate_evolution.png",
-            "physics_performance.png", "mistag_score_evolution.png", "learning_rate_lineage.png"}]
+            "01_performance_progression.png", "02_learning_rate_evolution.png"}]
         for plot in (preferred or plot_files)[:3]:
             lines.extend((f".. image:: ../../published/experiments/{published['slug']}/plots/{plot}",
                           f"   :alt: {title} — {Path(plot).stem.replace('_', ' ')}", ""))

@@ -24,7 +24,7 @@
   "best": {
     "epoch": 67,
     "generation": 49,
-    "lr": 2.0159999999999997e-05,
+    "lr": 0.000020159999999999997,
     "member": "lr_11_25e-6",
     "metric": "validation_total_reference_mistag_geomean_percent",
     "metric_value": 0.337726899098497,
@@ -50,7 +50,7 @@
   "best_improvement_vs_baseline": 0.2605138243626718,
   "final_best": {
     "generation": 49,
-    "lr": 2.0159999999999997e-05,
+    "lr": 0.000020159999999999997,
     "member": "lr_11_25e-6",
     "metric": "validation_total_reference_mistag_geomean_percent",
     "metric_value": 0.337726899098497,
@@ -79,13 +79,8 @@
   "plots": [
     "01_performance_progression.png",
     "02_learning_rate_evolution.png",
-    "03_final_result_comparison.png",
-    "diagnostics/background_efficiency_curves.png",
-    "learning_rate_lineage.png",
-    "learning_rate_mistag_correlation.png",
-    "mistag_score_evolution.png",
-    "pbt_population_selection.png",
-    "report/physics_performance.png"
+    "background_efficiency_curves.png",
+    "physics_performance.png"
   ],
   "purpose": "Verified 50-full-epoch reference run and immutable continuation ancestor.",
   "related_runs": [],
@@ -96,7 +91,7 @@
   "source_run": "runs/pbt/windowed_pbt_v2",
   "status": "completed",
   "strategy": "windowed_pbt_v2",
-  "title": "PBT v2 \u2014 50 epochs",
+  "title": "PBT v2 — 50 epochs",
   "working_point_metrics": {
     "validation_accuracy": 0.8938733333333333,
     "validation_auc": 0.9745742406,

@@ -79,13 +79,8 @@
   "plots": [
     "01_performance_progression.png",
     "02_learning_rate_evolution.png",
-    "03_final_result_comparison.png",
-    "diagnostics/background_efficiency_curves.png",
-    "learning_rate_lineage.png",
-    "learning_rate_mistag_correlation.png",
-    "mistag_score_evolution.png",
-    "pbt_population_selection.png",
-    "report/physics_performance.png"
+    "background_efficiency_curves.png",
+    "physics_performance.png"
   ],
   "purpose": "Verified continuation of the frozen windowed PBT v2 population through 100 full epochs.",
   "related_runs": [],

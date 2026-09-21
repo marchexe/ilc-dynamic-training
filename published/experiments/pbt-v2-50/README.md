@@ -2,6 +2,11 @@
 
 Verified 50-full-epoch reference run and immutable continuation ancestor.
 
+The two primary figures show the recorded performance and learning-rate
+lineages. The retained supplementary physics outputs are
+`physics_performance.png` and `background_efficiency_curves.png`, directly
+under `plots/`.
+
 - Status: `completed`
 - Method: `windowed_pbt_v2`
 - Canonical server path: `runs/pbt/windowed_pbt_v2`

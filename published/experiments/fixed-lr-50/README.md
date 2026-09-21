@@ -2,6 +2,9 @@
 
 Matched five-member fixed-learning-rate control through 50 full epochs.
 
+`plots/fixed_lr_performance_comparison.png` compares the five independent
+fixed-rate branches over the complete 50-epoch horizon.
+
 - Status: `completed`
 - Method: `fixed_lr_grid`
 - Canonical server path: `runs/pbt/foundation_fixed_lr_50epochs_20260916`

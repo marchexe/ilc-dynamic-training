@@ -235,11 +235,8 @@ class PBTArtifactsTest(unittest.TestCase):
             ):
                 self.assertTrue((run_dir / relative).is_file(), relative)
             for name in (
-                "pbt_population_selection.png",
-                "mistag_score_evolution.png",
-                "learning_rate_lineage.png",
-                "report/physics_performance.png",
-                "diagnostics/background_efficiency_curves.png",
+                "physics_performance.png",
+                "background_efficiency_curves.png",
                 "report/btag_mistag_tables.csv",
                 "report/ctag_mistag_tables.csv",
             ):
@@ -300,24 +297,14 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertAlmostEqual(summary["best_improvement_vs_baseline"], (1.5 - 0.9) / 1.5)
             self.assertEqual(summary["evaluation"]["evaluation_type"], "proxy")
             self.assertIn("physics_performance", summary["plots"])
-            self.assertIn("pbt_population_selection", summary["plots"])
-            self.assertIn("mistag_score_evolution", summary["plots"])
-            self.assertIn("learning_rate_lineage", summary["plots"])
-            self.assertIn("learning_rate_mistag_correlation", summary["plots"])
+            self.assertIn("background_efficiency_curves", summary["plots"])
             self.assertNotIn("training_evolution", summary["plots"])
             self.assertNotIn("baseline_comparison", summary["plots"])
             self.assertNotIn("working_point_evolution", summary["plots"])
             self.assertNotIn("lr_vs_metric", summary["plots"])
-            # The report-facing plots (population/selection, mistag score
-            # evolution, LR lineage, ...) live under the returned artifacts key
-            # as the physics-performance bridge outputs now -- see
-            # canonical.py/write_canonical_outputs -- each carrying its
-            # richer {png, warnings, generations, members, metric_keys}
-            # result dict, not just a path string.
             plots_artifacts = artifacts["plots"]
             for key in ("pbt_population_selection", "mistag_score_evolution", "learning_rate_lineage", "learning_rate_mistag_correlation"):
-                self.assertIn(key, plots_artifacts)
-                self.assertTrue(Path(plots_artifacts[key]["png"]).is_file())
+                self.assertNotIn(key, plots_artifacts)
             self.assertNotIn("research_plots", artifacts)
 
             # synthetic_manifest()'s fixed_curve_metrics() reuses the exact
@@ -336,12 +323,12 @@ class PBTArtifactsTest(unittest.TestCase):
 
             report = (run_dir / "report.md").read_text()
             self.assertLess(report.index("## Results"), report.index("## Method"))
-            self.assertLess(report.index("## Final Physics Performance"), report.index("## PBT Population and Selection"))
-            self.assertLess(report.index("## PBT Population and Selection"), report.index("## Mistag Score Evolution"))
-            self.assertLess(report.index("## Mistag Score Evolution"), report.index("## Learning-Rate Lineage"))
-            self.assertLess(report.index("## Learning-Rate Lineage"), report.index("## Learning Rate vs. Mistag Score Correlation"))
-            self.assertLess(report.index("## Learning Rate vs. Mistag Score Correlation"), report.index("## Proxy Validation"))
+            self.assertLess(report.index("## Final Physics Performance"), report.index("## Proxy Validation"))
             self.assertLess(report.index("## Proxy Validation"), report.index("## Model Selection Scores"))
+            self.assertNotIn("## PBT Population and Selection", report)
+            self.assertNotIn("## Mistag Score Evolution", report)
+            self.assertNotIn("## Learning-Rate Lineage", report)
+            self.assertNotIn("## Learning Rate vs. Mistag Score Correlation", report)
             self.assertIn("anchored_lr_sweep", report)
             self.assertIn("Controller objective: mean predefined fixed-WP mistag percent", report)
             self.assertNotIn("## Training Evolution", report)
@@ -540,8 +527,8 @@ class PBTArtifactsTest(unittest.TestCase):
             with (run_dir / "metrics.csv").open() as stream:
                 rows = list(csv.DictReader(stream))
             self.assertEqual(len(rows), 8)
-            self.assertTrue((run_dir / "plots" / "pbt_population_selection.png").is_file())
-            self.assertTrue((run_dir / "plots" / "learning_rate_lineage.png").is_file())
+            self.assertTrue((run_dir / "plots" / "physics_performance.png").is_file())
+            self.assertTrue((run_dir / "plots" / "background_efficiency_curves.png").is_file())
 
     def test_rebuild_command_regenerates_report_without_training(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -595,9 +582,6 @@ class PBTArtifactsTest(unittest.TestCase):
             self.assertNotIn("## Baseline vs. Selected Model", report)
             self.assertFalse((run_dir / "plots" / "baseline_vs_selected.png").exists())
             self.assertIn("No corroboration-tier evaluation was scheduled during this short run.", report)
-            mistag_evolution = summary["canonical_artifacts"]["plots"]["mistag_score_evolution"]
-            self.assertIs(mistag_evolution["has_baseline_point"], False)
-            self.assertIn("not available for this run", report)
 
     def test_epoch_fraction_is_null_when_training_dataset_size_is_unknown(self):
         with tempfile.TemporaryDirectory() as temporary:

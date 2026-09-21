@@ -2,6 +2,9 @@
 
 Matched 14e-6 and 8.5e-6 fixed-learning-rate branches continued from epoch 50 to epoch 100.
 
+`plots/fixed_lr_performance_comparison.png` stitches the shared first 50 epochs
+to both recorded continuation branches and marks the continuation boundary.
+
 - Status: `completed`
 - Method: `fixed_lr_grid`
 - Canonical server path: `runs/pbt/fixed_lr_continuation_20260917_lr_14e-6`

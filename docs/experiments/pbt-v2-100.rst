@@ -9,23 +9,21 @@ Result summary
 * Status: ``completed``
 * Method: ``windowed_pbt_v2``
 * Seed: ``12345``
-* Horizon: ``100``
+* Horizon: ``100`` training epochs (``20`` PBT generations × ``5`` epochs)
 * Best recorded metric: ``0.32138124685977204`` (validation_total_reference_mistag_geomean_percent)
-* Recorded baseline metric: ``0.456704817784357``
-* Relative improvement against the recorded baseline: ``29.6304%``
+* Initial pretrained-checkpoint metric: ``0.456704817784357``
+* Best recorded metric is ``29.6304%`` below that measured starting point
+* Final-10 mean: PBT ``0.327181%`` vs matched fixed-``14e-6`` control
+  ``0.332571%`` (``1.62%`` relative reduction)
 
 Key plots
 ---------
 
 .. image:: ../../published/experiments/pbt-v2-100/plots/01_performance_progression.png
-   :alt: PBT v2 — 100 epochs — 01 performance progression
+   :alt: Branching PBT performance lineage and fixed-learning-rate baseline over 100 epochs
 
 .. image:: ../../published/experiments/pbt-v2-100/plots/02_learning_rate_evolution.png
-   :alt: PBT v2 — 100 epochs — 02 learning rate evolution
-
-.. image:: ../../published/experiments/pbt-v2-100/plots/learning_rate_lineage.png
-   :alt: PBT v2 — 100 epochs — learning rate lineage
-
+   :alt: Branching PBT learning-rate lineage and donor-to-recipient copies over 100 epochs
 
 Metrics and history
 -------------------

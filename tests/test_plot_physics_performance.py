@@ -1,4 +1,5 @@
 import json
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -81,8 +82,11 @@ class PlotPhysicsPerformanceTest(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             output = plot_physics_performance.plot_manifest(manifest_path)
 
-            self.assertEqual(output, Path(temporary) / "plots/report/physics_performance.png")
+            self.assertEqual(output, Path(temporary) / "plots/physics_performance.png")
             self.assertTrue(output.exists())
+            with output.open("rb") as stream:
+                stream.seek(16)
+                self.assertEqual(struct.unpack(">II", stream.read(8)), (3960, 2250))
 
     def test_checkpoint_role_labels_cover_every_worker_for_report_role(self):
         for role in ("best_physics", "global_best", "best_final"):

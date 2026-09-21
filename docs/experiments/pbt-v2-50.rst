@@ -23,9 +23,6 @@ Key plots
 .. image:: ../../published/experiments/pbt-v2-50/plots/02_learning_rate_evolution.png
    :alt: PBT v2 — 50 epochs — 02 learning rate evolution
 
-.. image:: ../../published/experiments/pbt-v2-50/plots/learning_rate_lineage.png
-   :alt: PBT v2 — 50 epochs — learning rate lineage
-
 
 Metrics and history
 -------------------

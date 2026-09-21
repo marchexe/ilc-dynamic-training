@@ -65,7 +65,7 @@ class MetricsSummaryTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             manifest_path = Path(temporary) / "manifest.json"
             plot_paths = {
-                "physics_performance_plot": Path(temporary) / "plots/report/physics_performance.png",
+                "physics_performance_plot": Path(temporary) / "plots/physics_performance.png",
                 "training_diagnostics_plot": Path(temporary) / "plots/report/training_diagnostics.png",
                 "btag_mistag_table_csv": Path(temporary) / "plots/report/btag_mistag_tables.csv",
                 "ctag_mistag_table_csv": Path(temporary) / "plots/report/ctag_mistag_tables.csv",

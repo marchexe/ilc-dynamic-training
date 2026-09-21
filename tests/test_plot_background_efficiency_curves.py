@@ -1,4 +1,5 @@
 import json
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -38,8 +39,11 @@ class PlotBackgroundEfficiencyCurvesTest(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             output = plot_background_efficiency_curves.plot_manifest(manifest_path)
 
-            self.assertEqual(output, Path(temporary) / "plots/diagnostics/background_efficiency_curves.png")
+            self.assertEqual(output, Path(temporary) / "plots/background_efficiency_curves.png")
             self.assertTrue(output.exists())
+            with output.open("rb") as stream:
+                stream.seek(16)
+                self.assertEqual(struct.unpack(">II", stream.read(8)), (3960, 2250))
 
     def test_background_efficiency_is_inverse_rejection(self):
         self.assertEqual(plot_background_efficiency_curves.background_efficiency(20.0), 0.05)

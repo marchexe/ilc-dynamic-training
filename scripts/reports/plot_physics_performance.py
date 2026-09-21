@@ -13,6 +13,11 @@ TAG_BACKGROUNDS = {
     "b": ("c", "d"),
     "c": ("b", "d"),
 }
+
+# Match the two primary PBT lineage figures exactly. Saving without a tight
+# bounding box keeps long text from changing the output canvas dimensions.
+FIGURE_SIZE_INCHES = (13.2, 7.5)
+OUTPUT_DPI = 300
 TAG_PAIRS = {
     "b": ("bc", "bd"),
     "c": ("cb", "cd"),
@@ -267,7 +272,17 @@ def collect_evolution_rows(manifest, tag):
 
 
 def default_output(manifest_path):
-    return Path(manifest_path).parent / "plots" / "report" / "physics_performance.png"
+    return Path(manifest_path).parent / "plots" / "physics_performance.png"
+
+
+def checkpoint_caption(manifest, member, member_name, generation, physics_score):
+    role_label = CHECKPOINT_ROLE_LABELS.get(member, f"member {member_name}")
+    if member == "global_best":
+        value = (manifest.get("best") or {}).get("metric_value")
+        score = "" if value is None else f" · selection metric {value:.4g}%"
+    else:
+        score = "" if physics_score is None else f" · avg fixed-WP mistag {physics_score:.3f}%"
+    return f"{role_label} · {member_name} · generation {generation['index']}{score}"
 
 
 def log_tick_label(value, _position):
@@ -404,39 +419,38 @@ def plot_manifest(manifest_path, output=None, member="best_physics", *, manifest
             "axes.spines.right": False,
         }
     )
-    fig = plt.figure(figsize=(12.0, 8.0), constrained_layout=False)
+    fig = plt.figure(figsize=FIGURE_SIZE_INCHES, constrained_layout=False)
     grid = fig.add_gridspec(
         2,
         2,
         left=0.06,
         right=0.98,
         bottom=0.08,
-        top=0.80,
-        hspace=0.40,
+        top=0.78,
+        hspace=0.34,
         wspace=0.20,
         height_ratios=[0.52, 1.48],
     )
-    fig.text(0.06, 0.835, "Fixed working-point mistag [%]", ha="left", va="bottom", fontsize=12, fontweight="bold")
+    fig.text(0.06, 0.80, "Fixed working-point mistag [%]", ha="left", va="bottom", fontsize=12, fontweight="bold")
     draw_table(fig.add_subplot(grid[0, 0]), metrics, "c")
     draw_table(fig.add_subplot(grid[0, 1]), metrics, "b")
     draw_mistag_bars(fig.add_subplot(grid[1, 0]), metrics, "c")
     draw_mistag_bars(fig.add_subplot(grid[1, 1]), metrics, "b")
-    if member == "global_best":
-        best = manifest.get("best") or {}
-        score_text = "" if best.get("metric_value") is None else f" | {best.get('metric')} {best['metric_value']:.4g}"
-    else:
-        score_text = "" if physics_score is None else f" | avg fixed-WP mistag {physics_score:.3f}%"
-    role_label = CHECKPOINT_ROLE_LABELS.get(member, f"member `{member}`")
     fig.suptitle(
-        f"Checkpoint: {role_label} ({member_name}, generation {generation['index']}){score_text}",
+        "Physics performance",
         x=0.06,
-        y=0.975,
+        y=0.96,
         ha="left",
-        fontsize=13,
+        fontsize=15,
         fontweight="bold",
     )
+    fig.text(
+        0.06, 0.905,
+        checkpoint_caption(manifest, member, member_name, generation, physics_score),
+        ha="left", va="top", fontsize=10.5, color="0.30",
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output, dpi=180, bbox_inches="tight")
+    fig.savefig(output, dpi=OUTPUT_DPI, facecolor="white")
     plt.close(fig)
     return output
 

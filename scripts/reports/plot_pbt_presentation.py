@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Three presentation figures from completed, matched full-epoch manifests.
+"""Presentation figures from completed, matched full-epoch manifests.
 
 Reads recorded results only. Writes PNGs to the candidate run's plots directory
 by default, without invoking training, evaluation, or canonical reporting.
@@ -57,6 +57,21 @@ def presentation_data(run, baseline, baseline_member, baseline_prefixes=()):
         raise ValueError('Reference member must have a fixed LR')
     if any(not math.isfinite(v) for ys in [fixed, *values.values(), *lrs.values()] for v in ys):
         raise ValueError('Non-finite plot data')
+    window_epochs = int(manifest['config']['pbt']['windowed_pbt_v2']['window_epochs'])
+    if len(rows) % window_epochs:
+        raise ValueError('Training horizon is not an integer number of PBT windows')
+    pbt_generations = len(rows) // window_epochs
+    generation_ranges = [
+        dict(generation=i + 1, start_epoch=i * window_epochs + 1, end_epoch=(i + 1) * window_epochs)
+        for i in range(pbt_generations)
+    ]
+    decisions = [g['windowed_pbt_v2'] for g in rows if g.get('windowed_pbt_v2')]
+    if len(decisions) != pbt_generations:
+        raise ValueError('PBT boundary evidence is incomplete')
+    for expected, decision in zip(generation_ranges, decisions):
+        if (decision['window_number'] != expected['generation'] or
+                decision['full_epochs'] != list(range(expected['start_epoch'], expected['end_epoch'] + 1))):
+            raise ValueError('PBT generation-to-epoch mapping is inconsistent')
     events = []
     for epoch, g in zip(epochs, rows):
         for event in g.get('exploit', []):
@@ -65,10 +80,26 @@ def presentation_data(run, baseline, baseline_member, baseline_prefixes=()):
             n = event['recipient']
             if epoch >= len(rows) or lrs[n][epoch] != event['new_lr']:
                 raise ValueError('Copy does not match next epoch LR')
+            state_hashes = [event[key]['state']['sha256']
+                            for key in ('donor_checkpoint', 'copied_checkpoint', 'post_copy')]
+            if len(set(state_hashes)) != 1:
+                raise ValueError('Recipient post-copy weights do not match donor weights')
+            if event['pre_copy']['state']['sha256'] == state_hashes[0]:
+                raise ValueError('Recipient pre-copy weights unexpectedly match donor weights')
             events.append(dict(after_epoch=epoch, active_from_epoch=epoch + 1,
                                donor=event['donor'], recipient=n, old_lr=event['recipient_lr'],
-                               new_lr=event['new_lr'], factor=event['mutation_factor']))
+                               new_lr=event['new_lr'], factor=event['mutation_factor'],
+                               pbt_generation=g['windowed_pbt_v2']['window_number'],
+                               copied_state_sha256=state_hashes[0], copy_state_verified=True,
+                               post_copy_evaluation_recorded=False))
     winner = min(names, key=lambda n: mean(values[n][-10:]))
+    final_member = min(names, key=lambda n: values[n][-1])
+    best_recorded_member, best_recorded_index = min(
+        ((name, index) for name in names for index in range(len(epochs))),
+        key=lambda item: values[item[0]][item[1]],
+    )
+    best_recorded_epoch = epochs[best_recorded_index]
+    best_recorded_value = values[best_recorded_member][best_recorded_index]
     protected_member = manifest['protected_best']['member']
     comparisons = {}
     for label, count in [('final10', 10), ('final5', 5), ('final_checkpoint', 1)]:
@@ -78,8 +109,14 @@ def presentation_data(run, baseline, baseline_member, baseline_prefixes=()):
     sources = [source, *[Path(p) / 'manifest.json' for p in baseline_prefixes], control_source]
     return dict(sources=[dict(path=str(p.resolve()), sha256=sha256(p)) for p in sources],
                 epochs=epochs, identities=identities, values=values, lrs=lrs, fixed=fixed, fixed_lr=fixed_lr,
-                events=events, winner=winner, protected_member=protected_member, comparisons=comparisons,
-                initial_max_lr=max(m['start_lr'] for m in manifest['config']['population']))
+                events=events, winner=winner, final_member=final_member,
+                best_recorded_member=best_recorded_member,
+                best_recorded_epoch=best_recorded_epoch,
+                best_recorded_value=best_recorded_value,
+                protected_member=protected_member, comparisons=comparisons,
+                initial_max_lr=max(m['start_lr'] for m in manifest['config']['population']),
+                window_epochs=window_epochs, pbt_generations=pbt_generations,
+                generation_ranges=generation_ranges)
 
 
 def colors(data):
@@ -96,124 +133,172 @@ def title(fig, heading, subtitle):
     fig.text(.08, .895, subtitle, fontsize=11.5, color='#53616B')
 
 
+def events_by_epoch(data):
+    return [(epoch, [event for event in data['events'] if event['after_epoch'] == epoch])
+            for epoch in sorted({event['after_epoch'] for event in data['events']})]
+
+
+def branch_label(data, events):
+    lines = []
+    for event in events:
+        recipient = f"M{data['identities'][event['recipient']]}"
+        mapping = f"M{data['identities'][event['donor']]}→{recipient}"
+        lines.append(f"{mapping}  ×{event['factor']:g}")
+    return '\n'.join(lines)
+
+
+def linked_epoch_axis(ax, data):
+    """Apply the shared epoch scale used by Figures 1–2."""
+    horizon = data['epochs'][-1]
+    ax.set_xlim(0, horizon)
+    ax.set_xticks(range(0, horizon + 1, 10))
+    ax.set_xlabel('Training epoch')
+    ax.grid(axis='y', color='#E5E9EC', lw=.6)
+
+
 def progression(plt, data):
+    """Figure 1: performance lineage with copies branching from donor states."""
+    from matplotlib.lines import Line2D
+
     fig = plt.figure(figsize=(13.2, 7.5))
-    ax = fig.add_axes([.08, .27, .88, .52])
+    ax = fig.add_axes([.08, .22, .88, .57])
     palette = colors(data)
-    winner = data['winner']
+    highlighted = data['best_recorded_member']
+    horizon = data['epochs'][-1]
+    linked_epoch_axis(ax, data)
+    late_start = data['epochs'][-10]
+    ax.axvspan(late_start - .5, horizon, color=palette[data['winner']], alpha=.055, zorder=0)
+    copy_marker_handles = []
+    grouped_events = events_by_epoch(data)
+    event_order = {epoch: group for epoch, group in grouped_events}
     for name, values in data['values'].items():
-        leading = name == winner
-        ax.plot(data['epochs'], values, color=palette[name], lw=2.7 if leading else 1.1,
-                alpha=1 if leading else .40, zorder=4 if leading else 2, label=member_label(data, name))
+        leading = name == highlighted
+        copies = sorted((event for event in data['events'] if event['recipient'] == name),
+                        key=lambda event: event['after_epoch'])
+        start = 0
+        label = f"Member {data['identities'][name]}"
+        for event in [*copies, None]:
+            stop = event['after_epoch'] if event else len(data['epochs'])
+            if stop > start:
+                ax.plot(data['epochs'][start:stop], values[start:stop], color=palette[name],
+                        lw=2.9 if leading else 1.15, alpha=1 if leading else .48,
+                        zorder=4 if leading else 2, label=label)
+                label = None
+            if event:
+                epoch = event['after_epoch']
+                donor_value = data['values'][event['donor']][epoch - 1]
+                # The copied state exists after selection at epoch E; the next
+                # actual recipient validation is epoch E+1.
+                if epoch < horizon:
+                    ax.plot([epoch, epoch + 1], [donor_value, values[epoch]],
+                            color=palette[name], lw=2.9 if leading else 1.4,
+                            alpha=1 if leading else .72, zorder=5)
+                siblings = event_order[epoch]
+                order = siblings.index(event)
+                ax.scatter(epoch, donor_value, marker='s', s=52 + order * 30,
+                           facecolors='white', edgecolors=palette[name],
+                           linewidths=1.35, zorder=8)
+            start = stop
     ax.plot(data['epochs'], data['fixed'], color='#26343C', ls=(0, (5, 3)), lw=2.1,
             zorder=5, label=f"Fixed {data['fixed_lr'] * 1e6:g}e-6 baseline")
-    boundaries = sorted({e['after_epoch'] for e in data['events']})
-    for i, epoch in enumerate(boundaries):
-        ax.axvline(epoch, color='#78848D', lw=.7, ls=':', alpha=.65, zorder=1)
-        group = [e for e in data['events'] if e['after_epoch'] == epoch]
-        note = '\n'.join(f"M{data['identities'][e['donor']]} → M{data['identities'][e['recipient']]}: {e['new_lr'] * 1e6:g}e-6" for e in group)
-        ax.text(epoch, 1.035 + .10 * (i % 2), note, transform=ax.get_xaxis_transform(),
-                ha='center', va='bottom', fontsize=9, color='#44525B', clip_on=False)
-    late = data['epochs'][-10]
-    ax.axvspan(late - .5, data['epochs'][-1], color=palette[winner], alpha=.055, zorder=0)
-    c = data['comparisons']['final10']
-    ax.text(.98, .91, f"FINAL 10 EPOCHS\nPBT {c['pbt']:.6f}%  ·  Fixed {c['fixed']:.6f}%\n"
-            f"{c['reduction_percent']:.2f}% relative mistag reduction", transform=ax.transAxes,
-            ha='right', va='top', fontsize=12, linespacing=1.6,
-            bbox=dict(boxstyle='round,pad=.65', fc='white', ec='#D6DFE5'))
-    ax.set(xlim=(1, data['epochs'][-1]), xlabel='Full epoch', ylabel='Composite mistag (%)  ↓ lower is better')
-    ax.set_xticks([1, *range(10, data['epochs'][-1] + 1, 10)])
-    ax.grid(axis='y', color='#E5E9EC', lw=.6)
+    best_epoch = data['best_recorded_epoch']
+    best_value = data['best_recorded_value']
+    ax.scatter(best_epoch, best_value, marker='*', s=180, color=palette[highlighted],
+               edgecolors='white', linewidths=1.0, zorder=8, clip_on=False)
+    comparison = data['comparisons']['final10']
+    ax.text(.985, .96,
+            f"FINAL 10 EPOCHS  ({late_start}–{horizon})\n"
+            f"M{data['identities'][data['winner']]} late-window mean:  {comparison['pbt']:.6f}%\n"
+            f"Fixed baseline mean:  {comparison['fixed']:.6f}%\n"
+            f"{comparison['reduction_percent']:.2f}% relative mistag reduction",
+            transform=ax.transAxes, ha='right', va='top', fontsize=10.5, linespacing=1.45,
+            color='#26343C', bbox=dict(boxstyle='round,pad=.55', fc='white', ec='#D6DFE5'))
+    ax.set_ylabel('Composite mistag (%)')
     handles, labels = ax.get_legend_handles_labels()
-    fig.legend(handles, labels, loc='lower left', bbox_to_anchor=(.075, .105), ncol=3,
-               frameon=False, fontsize=10.5, handlelength=3, columnspacing=2)
-    title(fig, 'Adaptive training improves the late-epoch result',
-          'Five persistent PBT members against the matched fixed-LR control')
-    role = 'final protected-best member' if winner == data['protected_member'] else 'best final-10 mean'
-    fig.text(.08, .055, f"Highlight: Member {data['identities'][winner]}, {role}. Actual epoch values; no winner-envelope stitching.",
-             fontsize=10, color='#53616B')
-    overlap = [f"Member {data['identities'][n]}" for n, ys in data['values'].items() if ys == data['fixed']]
-    overlap_note = (' ' + ', '.join(overlap) + ' overlaps the fixed control.') if overlap else ''
-    fig.text(.08, .025, 'Dotted lines mark actual copy boundaries; labels give donor → recipient and new LR.' + overlap_note,
+    copy_marker_handles.append(Line2D([], [], marker='s', linestyle='none', markersize=6,
+                                      markerfacecolor='white', markeredgecolor='#44525B',
+                                      label='Copied checkpoint'))
+    fig.legend([*handles, *copy_marker_handles], [*labels, 'Copied checkpoint'],
+               loc='lower left', bbox_to_anchor=(.075, .105), ncol=7,
+               frameon=False, fontsize=9.5, handlelength=2.4, columnspacing=1.15)
+    title(fig, 'Performance lineage',
+          'Validation outcome versus the matched fixed 14e-6 continuation control')
+    fig.text(.08, .055,
+             f"★ Global best: Member {data['identities'][highlighted]} at E{best_epoch} "
+             f"({best_value:.6f}%).  Shaded: final-10 comparison window.",
+             fontsize=9.5, color=palette[highlighted])
+    fig.text(.08, .025,
+             '□ copied donor checkpoint (not a validation); mutation details are shown in Figure 2.',
              fontsize=9, color='#53616B')
     return fig
 
 
 def learning_rates(plt, data):
+    """Figure 2: LR lineage with recipients branching from donor states."""
+    from matplotlib.lines import Line2D
+
     fig = plt.figure(figsize=(13.2, 7.5))
-    ax = fig.add_axes([.08, .19, .67, .63])
+    ax = fig.add_axes([.08, .22, .88, .57])
     palette = colors(data)
-    ceiling = data['initial_max_lr'] * 1e6
     maximum = max(v * 1e6 for ys in data['lrs'].values() for v in ys)
-    ax.axhspan(ceiling, maximum * 1.18, color=CB_PALETTE['blue'], alpha=.04)
+    linked_epoch_axis(ax, data)
+    grouped_events = events_by_epoch(data)
+    event_order = {epoch: group for epoch, group in grouped_events}
     for name, lrs in data['lrs'].items():
-        # Epoch k's LR occupies (k-1, k]; a boundary after k changes epoch k+1.
-        ax.stairs([v * 1e6 for v in lrs], [0, *data['epochs']], baseline=None,
-                  color=palette[name], lw=2.4, zorder=3)
-        initial = lrs[0] * 1e6
-        ax.text(.7, initial + (-.75 if initial == ceiling else .35),
-                f"M{data['identities'][name]}: {initial:g}", color=palette[name], fontsize=9.5)
-    ax.axhline(ceiling, color='#26343C', ls=(0, (5, 3)), lw=1.25, zorder=4)
-    ax.text(.012, ceiling + .5, f"Initial maximum: {ceiling:g}e-6", transform=ax.get_yaxis_transform(),
-            fontsize=10, color='#26343C')
-    for event in data['events']:
-        n = event['recipient']; x = event['after_epoch']; y = event['new_lr'] * 1e6
-        ax.scatter(x, y, s=40, color=palette[n], edgecolors='white', linewidths=.8, zorder=6)
-        ax.annotate(f"M{data['identities'][event['donor']]} → M{data['identities'][n]} · {y:g}", (x, y),
-                    xytext=(6, 11 if event['factor'] > 1 else -18), textcoords='offset points',
-                    fontsize=9, color=palette[n], fontweight='bold')
-    position = -math.inf
-    for name in sorted(data['lrs'], key=lambda n: data['lrs'][n][-1]):
-        y = data['lrs'][name][-1] * 1e6
-        position = max(y, position + maximum * .075)
-        ax.annotate(member_label(data, name), (data['epochs'][-1], y), xycoords='data',
-                    xytext=(1.035, position), textcoords=ax.get_yaxis_transform(),
-                    va='center', fontsize=10.5, color=palette[name], annotation_clip=False,
-                    arrowprops=dict(arrowstyle='-', color=palette[name], lw=.8))
-    ax.set(xlim=(0, data['epochs'][-1]), ylim=(0, maximum * 1.18), xlabel='Full epoch',
-           ylabel='Learning rate (×10⁻⁶)')
-    ax.grid(axis='y', color='#E5E9EC', lw=.6)
-    title(fig, 'PBT discovers higher learning rates automatically',
-          'Persistent member identities; each step uses the LR actually recorded for that epoch')
-    first = data['events'][0]['after_epoch'] if data['events'] else None
-    timing = f' A change after epoch {first} first trains at the new LR in epoch {first + 1}.' if first else ''
-    fig.text(.08, .105, 'Dots mark copies and LR mutations only.' + timing,
-             fontsize=10, color='#53616B')
-    above = sorted({e['new_lr'] * 1e6 for e in data['events'] if e['new_lr'] > data['initial_max_lr']})
-    fig.text(.08, .055, 'Discovered above the initial range: ' + ' / '.join(f'{v:g}e-6' for v in above) + '.',
-             fontsize=13, fontweight='bold', color=CB_PALETTE['blue'])
-    return fig
-
-
-def final_comparison(plt, data):
-    from matplotlib.ticker import MaxNLocator, FormatStrFormatter
-    fig = plt.figure(figsize=(11.5, 7))
-    ax = fig.add_axes([.29, .47, .64, .29])
-    c = data['comparisons']['final10']; accent = colors(data)[data['winner']]
-    gap = abs(c['fixed'] - c['pbt']) or c['fixed'] * .01
-    ax.scatter([c['fixed'], c['pbt']], [1, 0], s=[110, 150], color=['#26343C', accent], zorder=3)
-    for key, y, color in [('fixed', 1, '#26343C'), ('pbt', 0, accent)]:
-        ax.annotate(f"{c[key]:.6f}%", (c[key], y), xytext=(0, 14), textcoords='offset points',
-                    ha='center', fontsize=15, fontweight='bold', color=color)
-    ax.set(yticks=[0, 1], yticklabels=[f"PBT Member {data['identities'][data['winner']]}\n({data['lrs'][data['winner']][-1] * 1e6:g}e-6 final)",
-                                    f"Fixed {data['fixed_lr'] * 1e6:g}e-6"], ylim=(-.5, 1.7),
-           xlim=(min(c['pbt'], c['fixed']) - gap * .6, max(c['pbt'], c['fixed']) + gap * .6),
-           xlabel='Final-10 mean composite mistag (%)  ·  lower is better')
-    ax.xaxis.set_major_locator(MaxNLocator(5)); ax.xaxis.set_major_formatter(FormatStrFormatter('%.3f'))
-    ax.spines['left'].set_visible(False); ax.tick_params(axis='y', length=0, pad=15)
-    ax.grid(axis='x', color='#E5E9EC', lw=.7)
-    title(fig, 'Lower mistag, sustained over the final 10 epochs',
-          f"Primary comparison: mean over full epochs {data['epochs'][-10]}–{data['epochs'][-1]}")
-    fig.text(.29, .35, f"{c['improvement_pp']:.6f} percentage points", fontsize=15, fontweight='bold', color=accent)
-    fig.text(.29, .31, 'Absolute improvement', fontsize=10, color='#53616B')
-    fig.text(.74, .35, f"{c['reduction_percent']:.2f}%", fontsize=24, fontweight='bold', color=accent)
-    fig.text(.74, .31, 'Relative mistag reduction', fontsize=10, color='#53616B')
-    for y, label, key in [(.20, 'Final-5 mean', 'final5'), (.15, 'Final checkpoint', 'final_checkpoint')]:
-        item = data['comparisons'][key]
-        fig.text(.29, y, f"{label}:  {item['fixed']:.6f}% → {item['pbt']:.6f}%   ({item['reduction_percent']:.2f}% reduction)",
-                 fontsize=10.5, color='#53616B')
-    fig.text(.08, .055, 'Points use a zoomed, labeled axis—not bar lengths. Both runs use the same validation events and training horizon.',
+        copies = sorted((event for event in data['events'] if event['recipient'] == name),
+                        key=lambda event: event['after_epoch'])
+        starts = [0, *[event['after_epoch'] for event in copies]]
+        stops = [*[event['after_epoch'] for event in copies], data['epochs'][-1]]
+        levels = [lrs[0] * 1e6, *[event['new_lr'] * 1e6 for event in copies]]
+        label = f"Member {data['identities'][name]}"
+        for start, stop, level in zip(starts, stops, levels):
+            ax.plot([start, stop], [level, level], color=palette[name], lw=2.5,
+                    zorder=3, label=label)
+            label = None
+        for event in copies:
+            epoch = event['after_epoch']
+            donor_lr = data['lrs'][event['donor']][epoch - 1] * 1e6
+            new_lr = event['new_lr'] * 1e6
+            ax.plot([epoch, epoch], [donor_lr, new_lr], color=palette[name], lw=1.7, zorder=5)
+            siblings = event_order[epoch]
+            order = siblings.index(event)
+            ax.scatter(epoch, donor_lr, marker='s', s=52 + order * 30,
+                       facecolors='white', edgecolors=palette[name],
+                       linewidths=1.35, zorder=7)
+            ax.scatter(epoch, new_lr, marker='D', s=43, color=palette[name],
+                       edgecolors='white', linewidths=.8, zorder=8)
+    for index, (epoch, events) in enumerate(grouped_events):
+        donor_lrs = [data['lrs'][event['donor']][epoch - 1] * 1e6 for event in events]
+        new_lrs = [event['new_lr'] * 1e6 for event in events]
+        anchor = (sum(donor_lrs) + sum(new_lrs)) / (len(donor_lrs) + len(new_lrs))
+        near_right = epoch >= data['epochs'][-1] - 5
+        dy = -22 if index % 2 == 0 else 18
+        ax.annotate(branch_label(data, events), (epoch, anchor),
+                    xytext=(-5 if near_right else 5, dy), textcoords='offset points',
+                    ha='right' if near_right else 'left',
+                    va='top' if dy < 0 else 'bottom', fontsize=7.8,
+                    color='#44525B', linespacing=1.35,
+                    bbox=dict(boxstyle='round,pad=.18', fc='white', ec='none', alpha=.84),
+                    zorder=9)
+    ax.set_ylim(0, maximum * 1.18)
+    ax.set_ylabel('Learning rate (×10⁻⁶)')
+    handles, labels = ax.get_legend_handles_labels()
+    copy_handle = Line2D([], [], marker='s', linestyle='none', markersize=6,
+                         markerfacecolor='white', markeredgecolor='#44525B')
+    mutation_handle = Line2D([], [], marker='D', linestyle='none', markersize=5,
+                             markerfacecolor='#44525B', markeredgecolor='white')
+    fig.legend([*handles, copy_handle, mutation_handle],
+               [*labels, 'Copied checkpoint', 'Mutated LR'],
+               loc='lower left', bbox_to_anchor=(.075, .105), ncol=7,
+               frameon=False, fontsize=9.5, handlelength=2.4, columnspacing=1.15)
+    title(fig, 'Learning-rate lineage',
+          'Each recipient branch originates on its donor, then moves to the mutated LR')
+    fig.text(.08, .055,
+             'Labels give donor→recipient and mutation factor; vertical position gives the resulting LR.',
              fontsize=9.5, color='#53616B')
+    fig.text(.08, .025,
+             '□ copied donor checkpoint  ·  ◆ mutated LR used from the next training epoch.',
+             fontsize=9, color='#53616B')
     return fig
 
 
@@ -221,8 +306,8 @@ def export_figures(run, baseline, baseline_member, output_dir=None, baseline_pre
     run = Path(run).resolve()
     run_dir = run if run.is_dir() else run.parent
     output = Path(output_dir).resolve() if output_dir else run_dir / 'plots'
-    figures = [('01_performance_progression', progression), ('02_learning_rate_evolution', learning_rates),
-               ('03_final_result_comparison', final_comparison)]
+    figures = [('01_performance_progression', progression),
+               ('02_learning_rate_evolution', learning_rates)]
     targets = [output / f'{stem}.png' for stem, _ in figures] + [output / 'presentation_source_values.json']
     if any(path.exists() for path in targets):
         raise FileExistsError(f'Refusing to overwrite presentation files in: {output}')

@@ -17,8 +17,8 @@ Result summary
 Key plots
 ---------
 
-.. image:: ../../published/experiments/fixed-lr-50/plots/learning_rate_lineage.png
-   :alt: Fixed-LR baseline — 50 epochs — learning rate lineage
+.. image:: ../../published/experiments/fixed-lr-50/plots/fixed_lr_performance_comparison.png
+   :alt: Performance comparison of five fixed learning rates over 50 epochs
 
 .. image:: ../../published/experiments/fixed-lr-50/plots/mistag_score_evolution.png
    :alt: Fixed-LR baseline — 50 epochs — mistag score evolution

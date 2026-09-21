@@ -152,11 +152,10 @@ PBT runs write canonical artifacts automatically after completion. Rebuild those
 
 The final PBT artifact set is intentionally small:
 
-- `plots/training_evolution.png`
-- `plots/working_point_evolution.png`
-- `plots/baseline_vs_selected.png` (only when a measured baseline and a global-best checkpoint both exist)
-- `plots/report/physics_performance.png`
-- `plots/diagnostics/background_efficiency_curves.png`
+- `plots/01_performance_progression.png`
+- `plots/02_learning_rate_evolution.png`
+- `plots/physics_performance.png`
+- `plots/background_efficiency_curves.png`
 - `plots/report/btag_mistag_tables.csv`
 - `plots/report/ctag_mistag_tables.csv`
 - `plots/report/exploit_table.csv`
@@ -196,11 +195,16 @@ under its original horizon. For a fixed-LR control split across runs, use
 in chronological order); checkpoint and seed continuity are required.
 
 `scripts/reports/plot_pbt_presentation.py <run> --baseline <control>
---baseline-member <member>` writes three 300-dpi PNGs and their source values
+--baseline-member <member>` writes two 300-dpi PNGs and their source values
 into **that run's `plots/` directory**. It also accepts `--baseline-prefix` for
 split controls. Existing presentation files are protected from overwrite;
 historical/diagnostic figures stay in place. There is no central presentation
 directory or automatic PDF export.
+
+`scripts/reports/plot_fixed_lr_performance.py <run> [<run> ...]` writes the
+fixed-LR performance comparison without PBT lineage semantics. Use repeated
+`--prefix-run` arguments to prepend shared earlier segments when comparing
+continuation branches.
 
 ## Project Layout
 

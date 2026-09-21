@@ -409,13 +409,13 @@ def build_summary(manifest, manifest_path):
 
     plot_layout = {
         "report_plots": {
-            "physics_performance_plot": "report/physics_performance.png",
+            "physics_performance_plot": "physics_performance.png",
             "training_diagnostics_plot": "report/training_diagnostics.png",
             "btag_mistag_table_csv": "report/btag_mistag_tables.csv",
             "ctag_mistag_table_csv": "report/ctag_mistag_tables.csv",
         },
         "diagnostic_plots": {
-            "background_efficiency_curves_plot": "diagnostics/background_efficiency_curves.png",
+            "background_efficiency_curves_plot": "background_efficiency_curves.png",
             "btag_background_efficiency_plot": "diagnostics/btag_background_efficiency_vs_training_size.png",
             "selection_timeline_plot": "diagnostics/selection_timeline.png",
             "controller_diagnostics_plot": "diagnostics/controller_diagnostics.png",

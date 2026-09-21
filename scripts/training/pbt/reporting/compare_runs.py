@@ -2,10 +2,9 @@
 """Compare the LR-vs-mistag-score correlation (statistics.py::
 lr_mistag_correlation) across multiple PBT runs.
 
-Each single-run report.md already states this correlation with a
-generation-block bootstrap CI (markdown_report.py::
-_learning_rate_mistag_correlation_section_lines), but a single run can't
-answer questions phrased as "does a longer run / bigger validation set /
+This opt-in cross-run analysis is intentionally separate from the compact
+single-run report. A single run can't answer questions phrased as
+"does a longer run / bigger validation set /
 bigger per-generation training budget make this trend clearer" -- that
 needs several runs' correlations laid out side by side, e.g. the
 48-generation showcase run against reruns that vary generations,
