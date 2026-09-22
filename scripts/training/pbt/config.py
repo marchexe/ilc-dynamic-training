@@ -141,7 +141,8 @@ def resolve_shared_paths(shared):
         resolved["validation_dataset"] = absolute_project_path(resolved["validation_dataset"])
     if resolved.get("training_controller"):
         resolved["training_controller"] = absolute_project_path(resolved["training_controller"])
-    resolved["checkpoint"] = absolute_project_path(resolved["checkpoint"], resolve=False)
+    if resolved.get("checkpoint"):
+        resolved["checkpoint"] = absolute_project_path(resolved["checkpoint"], resolve=False)
     for key in ("initial_state", "initial_optimizer", "initial_controller"):
         if resolved.get(key):
             resolved[key] = absolute_project_path(resolved[key], resolve=False)
@@ -207,7 +208,9 @@ def load_config(args):
 
 def validate_inputs(config):
     shared = config["shared"]
-    files = ("checkpoint", "data_config", "network_config")
+    files = ("data_config", "network_config")
+    if shared.get("initialization_mode") != "scratch":
+        files = ("checkpoint", *files)
     for key in files:
         if not Path(shared[key]).is_file():
             raise FileNotFoundError(f"{key} not found: {shared[key]}")

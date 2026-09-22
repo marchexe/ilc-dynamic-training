@@ -1,0 +1,21 @@
+# Same one-epoch PBT cadence, but no pretrained model or optimizer load.
+# Uses the same network architecture and dataset/preprocessing definition.
+presets:
+  - cadenced_pbt_v1.yaml
+
+experiment:
+  name: cadenced_pbt_v1_scratch_50epochs
+
+shared:
+  initialization_mode: scratch
+  checkpoint: null
+  initial_epoch: null
+  initial_state: null
+  initial_optimizer: null
+  initial_optimizer_mode: null
+  initial_optimizer_damping: null
+  initial_controller: null
+  freeze_batch_norm: false
+
+pbt:
+  evaluate_initial_checkpoint: false

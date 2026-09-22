@@ -10,7 +10,8 @@ from training.runtime import atomic_json, utc_now
 
 
 def epoch_for_generation(config, generation):
-    initial_epoch = int(config["shared"].get("initial_epoch", -1))
+    initial_epoch = config["shared"].get("initial_epoch")
+    initial_epoch = -1 if initial_epoch is None else int(initial_epoch)
     return initial_epoch + (generation + 1) * int(config["shared"]["weaver_epochs_per_generation"])
 
 def generations_before(manifest, generation_index):

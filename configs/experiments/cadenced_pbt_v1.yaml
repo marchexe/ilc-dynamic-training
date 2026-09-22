@@ -1,0 +1,19 @@
+# New strategy: full-reference, one-full-epoch generations. Never edit the
+# completed windowed_pbt_v2 experiment or its frozen decision implementation.
+# The 50-epoch horizon matches the existing 50-epoch PBT/fixed-LR comparison.
+presets:
+  - foundation_fixed_lr_50epochs.yaml
+
+experiment:
+  name: cadenced_pbt_v1_50epochs
+
+pbt:
+  strategy: cadenced_pbt_v1
+  min_lr: 2.0e-6
+  max_lr: 3.0e-5
+  mutation_factors: [0.8, 1.2]
+  exploit_interval_generations: 1
+  cadenced_pbt_v1:
+    warmup_epochs: 2
+    decision_margin: 0.002
+    max_recipients: 1

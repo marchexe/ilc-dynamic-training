@@ -53,6 +53,11 @@ from training.pbt.planning import (
 )
 from training.pbt.state.transitions import apply_exploit
 from training.pbt.planning.windowed_pbt_v2 import STRATEGY as WINDOWED_PBT, prepare_boundary, apply_window_exploits
+from training.pbt.planning.cadenced_pbt_v1 import (
+    STRATEGY as CADENCED_PBT,
+    prepare_boundary as prepare_cadenced_boundary,
+    apply_cadenced_exploits,
+)
 from training.pbt.state.continuation import plan_continuation, inherit_history, bootstrap_continuation
 
 
@@ -286,7 +291,7 @@ def run_scheduled_tiered_evaluations(config, experiment_dir, manifest, generatio
 
 def initial_manifest(config, fingerprint, command=None, backend_name=None):
     shared = config["shared"]
-    checkpoint = Path(shared["checkpoint"])
+    checkpoint = Path(shared["checkpoint"]) if shared.get("checkpoint") else None
     initial_state = Path(shared["initial_state"]) if shared.get("initial_state") else None
     initial_optimizer = Path(shared["initial_optimizer"]) if shared.get("initial_optimizer") else None
     contract = run_contract(config, command, backend_name)
@@ -306,9 +311,10 @@ def initial_manifest(config, fingerprint, command=None, backend_name=None):
         "next_generation": 0,
         "config": config,
         "checkpoint": {
-            "path": str(checkpoint),
-            "resolved_path": str(checkpoint.resolve()),
-            "sha256": sha256(checkpoint),
+            "path": str(checkpoint) if checkpoint is not None else None,
+            "resolved_path": str(checkpoint.resolve()) if checkpoint is not None else None,
+            "sha256": sha256(checkpoint) if checkpoint is not None else None,
+            **({"initialization_mode": "scratch"} if shared.get("initialization_mode") == "scratch" else {}),
         },
         "optimizer_checkpoint": None if initial_optimizer is None else {
             "path": str(initial_optimizer),
@@ -520,6 +526,36 @@ def _plan_generation_exploit(config, manifest, existing, generation, is_final_ge
             raise
         atomic_json(manifest_path, manifest)
         return
+    if config["pbt"].get("strategy") == CADENCED_PBT:
+        ranking, plan = plan_for_strategy(config, existing, manifest["members"], manifest)
+        existing["ranking"] = ranking
+        existing["raw_ranking"] = ranking
+        update_global_best(experiment_dir, manifest, existing, manifest_path)
+        decision = existing[CADENCED_PBT]
+        existing.update(
+            exploit=plan, early_stop_triggered=False,
+            burn_in=not decision["warmup_complete_at_boundary"], status="exploiting",
+        )
+        try:
+            prepare_cadenced_boundary(experiment_dir, existing)
+        except BaseException:
+            existing["exploit"] = None
+            raise
+        atomic_json(manifest_path, manifest)
+        log_event(
+            pbt_log_path,
+            "cadenced_pbt_v1 generation=%d completed_epoch=%d validated=true "
+            "warmup_training=%s terminal=%s donor=%s recipient=%s gap=%.6g "
+            "copy_planned=%s old_lr=%s new_lr=%s mutation=%s reason=%s"
+            % (
+                generation, decision["completed_epoch"],
+                decision["warmup_active_during_training"], decision["terminal"],
+                decision["donor"], decision["recipient"], decision["metric_gap"],
+                decision["copy_planned"], decision.get("old_lr"), decision.get("new_lr"),
+                decision.get("mutation_reason", "not_attempted"), decision["reason"],
+            ),
+        )
+        return
     ranking, plan = plan_for_strategy(
         config, existing, manifest["members"], manifest
     )
@@ -657,6 +693,8 @@ def _finalize_generation(config, manifest, existing, experiment_dir, manifest_pa
     caller should stop the generation loop (early stop triggered)."""
     if config["pbt"].get("strategy") == WINDOWED_PBT:
         apply_window_exploits(experiment_dir, manifest, existing, manifest_path)
+    elif config["pbt"].get("strategy") == CADENCED_PBT:
+        apply_cadenced_exploits(experiment_dir, manifest, existing, manifest_path)
     else:
         apply_exploit(experiment_dir, manifest, existing, manifest_path)
     existing["status"] = "completed"

@@ -3,6 +3,7 @@
 
 from training.pbt.models.events import normalize_exploit_plan
 from training.pbt.planning.anchor_copy_lr_recenter import anchor_copy_lr_recenter_plan
+from training.pbt.planning.cadenced_pbt_v1 import cadenced_pbt_v1_plan
 from training.pbt.planning.anchored_lr_sweep import anchored_lr_sweep_plan
 from training.pbt.planning.exploit_mutate import exploit_mutate_plan
 from training.pbt.planning.fixed_lr_grid import fixed_lr_grid_plan
@@ -11,6 +12,7 @@ from training.pbt.planning.population_lr_policy import population_lr_policy_plan
 from training.pbt.planning.windowed_pbt_v2 import windowed_pbt_v2_plan
 
 STRATEGY_PLANNERS = {
+    "cadenced_pbt_v1": cadenced_pbt_v1_plan,
     "windowed_pbt_v2": windowed_pbt_v2_plan,
     "anchored_lr_sweep": anchored_lr_sweep_plan,
     "fixed_lr_grid": fixed_lr_grid_plan,

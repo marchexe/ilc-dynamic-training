@@ -158,6 +158,8 @@ def _test_mode_command(shared, slot, validation_paths, checkpoint, log_path):
 
 def make_initial_evaluation_command(config, slot, experiment_dir):
     shared = config["shared"]
+    if shared.get("initialization_mode") == "scratch":
+        raise ValueError("scratch initialization has no initial checkpoint to evaluate")
     validation_paths = data_paths(
         shared["dataset"],
         shared.get("data_extension", "root"),

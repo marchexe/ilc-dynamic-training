@@ -75,23 +75,27 @@ def record_train_finish(run_dir, config, generation_record, trial, worker):
 def record_evaluation(run_dir, config, generation_record, trial, worker):
     metric = config["pbt"]["metric"]
     metrics = worker.get("metrics") or {}
+    full_reference = config["pbt"].get("strategy") == "cadenced_pbt_v1"
+    payload = {
+        "phase": "full_reference" if full_reference else "proxy_validation",
+        "generation": generation_record["index"],
+        "step": generation_record["index"],
+        "trial": trial,
+        "epoch": generation_record.get("epoch"),
+        "lr": worker.get("lr"),
+        "metric": metric,
+        "proxy_metric": metrics.get(metric),
+        "metrics": metrics,
+        "log": worker.get("log"),
+        "status": worker.get("status"),
+        "returncode": worker.get("returncode"),
+    }
+    if full_reference:
+        payload["decision_metric_backend"] = "full_reference"
     append_event(
         run_dir,
         "evaluation",
-        {
-            "phase": "proxy_validation",
-            "generation": generation_record["index"],
-            "step": generation_record["index"],
-            "trial": trial,
-            "epoch": generation_record.get("epoch"),
-            "lr": worker.get("lr"),
-            "metric": metric,
-            "proxy_metric": metrics.get(metric),
-            "metrics": metrics,
-            "log": worker.get("log"),
-            "status": worker.get("status"),
-            "returncode": worker.get("returncode"),
-        },
+        payload,
     )
 
 
@@ -287,6 +291,11 @@ def record_exploit_application(
         "metric_before": event.get("metric_before"),
         "metric_after": event.get("metric_after"),
     }
+    if event.get("source") == "cadenced_pbt_v1":
+        payload.update(
+            mutation_applied=event.get("mutation_applied"),
+            mutation_reason=event.get("mutation_reason"),
+        )
     append_event(run_dir, "exploit", payload)
     append_event(
         run_dir,

@@ -259,7 +259,9 @@ def evaluation_metadata(manifest):
     if proxy:
         active_subset = proxy.get("active_subset", "control")
         sample_count = proxy.get(f"{active_subset}_rows_total", sample_count)
-    if manifest.get("config", {}).get("smoke"):
+    if manifest.get("config", {}).get("pbt", {}).get("strategy") == "cadenced_pbt_v1":
+        evaluation_type = "full_reference"
+    elif manifest.get("config", {}).get("smoke"):
         evaluation_type = "smoke"
     elif proxy and proxy.get("active_subset") != "full":
         evaluation_type = "proxy"

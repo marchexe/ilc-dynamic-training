@@ -123,7 +123,7 @@ def metric_definition(metric):
 def run_contract(config, command, backend_name):
     shared = config["shared"]
     pbt = config["pbt"]
-    checkpoint = Path(shared["checkpoint"])
+    checkpoint = Path(shared["checkpoint"]) if shared.get("checkpoint") else None
     initial_state = Path(shared["initial_state"]) if shared.get("initial_state") else None
     initial_optimizer = Path(shared["initial_optimizer"]) if shared.get("initial_optimizer") else None
     datasets = {
@@ -145,8 +145,9 @@ def run_contract(config, command, backend_name):
         "gpus": [slot.get("label", slot.get("gpu")) if isinstance(slot, dict) else str(slot) for slot in config.get("slots", [])],
         "datasets": datasets,
         "checkpoint": {
-            "path": str(checkpoint),
-            "sha256": sha256(checkpoint) if checkpoint.is_file() else None,
+            "path": str(checkpoint) if checkpoint is not None else None,
+            "sha256": sha256(checkpoint) if checkpoint is not None and checkpoint.is_file() else None,
+            **({"initialization_mode": "scratch"} if shared.get("initialization_mode") == "scratch" else {}),
             "initial_state": None if initial_state is None else {
                 "path": str(initial_state),
                 "sha256": sha256(initial_state) if initial_state.is_file() else None,

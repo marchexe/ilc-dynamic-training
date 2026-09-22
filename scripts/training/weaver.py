@@ -82,7 +82,8 @@ def build_command(
         if shared.get(flag):
             command.append("--" + flag.replace("_", "-"))
     if resume_epoch is None:
-        command.extend(["--load-model-weights", shared["checkpoint"]])
+        if shared.get("initialization_mode") != "scratch":
+            command.extend(["--load-model-weights", shared["checkpoint"]])
     else:
         command.extend(["--load-epoch", str(resume_epoch)])
         if override_load_lr:

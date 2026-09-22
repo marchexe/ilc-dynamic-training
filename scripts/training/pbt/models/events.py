@@ -43,6 +43,15 @@ class PopulationExploitEvent(ExploitEventBase):
     mutation_factor: float | None = None
 
 
+class CadencedPBTEvent(ExploitEventBase):
+    source: Literal["cadenced_pbt_v1"] = "cadenced_pbt_v1"
+    mutation_factor: float | None = None
+    mutation_applied: bool
+    mutation_reason: str
+    metric_gap: float
+    decision_margin: float
+
+
 class AnchoredLrSweepEvent(ExploitEventBase):
     source: Literal["anchored_lr_sweep"]
     anchor_member: str
@@ -208,6 +217,7 @@ class InitialResumeRollbackEvent(ExploitEventBase):
 
 ExploitEvent = Annotated[
     PopulationExploitEvent
+    | CadencedPBTEvent
     | AnchoredLrSweepEvent
     | GlobalBestRollbackEvent
     | InitialResumeRollbackEvent

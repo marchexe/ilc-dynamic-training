@@ -1,0 +1,378 @@
+"""Small CPU fixtures for the new one-full-epoch PBT strategy; no real training."""
+
+import copy
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import torch
+
+from tests.helpers import PROJECT_DIR
+from scripts.launch.experiment import configuration
+from training.checkpoints import bundle_identity, bundle_paths, check_bundle
+from training.pbt.execution.backend import LocalWeaverBackend
+from training.pbt.models.config import ResolvedPBTConfig
+from training.pbt.planning import cadenced_pbt_v1 as strategy
+from training.pbt.planning.dispatch import plan_for_strategy
+from training.pbt import runner
+from training.pbt.state.checkpointing import epoch_for_generation
+from training.pbt.state.optimizer_state import load_optimizer_state
+
+
+CONFIG_PATH = PROJECT_DIR / "configs/experiments/cadenced_pbt_v1.yaml"
+SCRATCH_PATH = PROJECT_DIR / "configs/experiments/cadenced_pbt_v1_scratch.yaml"
+SCRATCH_SMOKE_PATH = PROJECT_DIR / "configs/experiments/cadenced_pbt_v1_scratch_smoke.yaml"
+
+
+def generation(config, members, index, scores=None):
+    names = list(members)
+    scores = scores or [0.400, 0.401, 0.402, 0.403, 0.410]
+    return {
+        "index": index,
+        "epoch": epoch_for_generation(config, index),
+        "workers": {
+            name: {"status": "completed", "returncode": 0, "lr": members[name]["lr"],
+                   "metrics": {config["pbt"]["metric"]: scores[position]}}
+            for position, name in enumerate(names)
+        },
+    }
+
+
+def tiny_bundle(run, name, epoch, lr):
+    paths = bundle_paths(run / name, epoch)
+    paths["state"].parent.mkdir(parents=True, exist_ok=True)
+    model = torch.nn.Linear(1, 1)
+    marker = sum((position + 1) * ord(character) for position, character in enumerate(name))
+    with torch.no_grad():
+        model.weight.fill_(float(marker))
+        model.bias.fill_(float(epoch))
+    optimizer = torch.optim.AdamW([
+        {"params": [model.weight], "lr": lr},
+        {"params": [model.bias], "lr": lr},
+    ])
+    model(torch.ones(1, 1)).sum().backward()
+    optimizer.step()
+    torch.save(model.state_dict(), paths["state"])
+    torch.save(optimizer.state_dict(), paths["optimizer"])
+    torch.save({"scale": 4096.0 + marker, "growth_tracker": epoch}, paths["scaler"])
+    return paths
+
+
+class CadencedPBTTest(unittest.TestCase):
+    def setUp(self):
+        self.config = configuration(CONFIG_PATH)
+        self.names = [item["name"] for item in self.config["population"]]
+        self.members = {
+            item["name"]: {"name": item["name"], "lr": item["start_lr"]}
+            for item in self.config["population"]
+        }
+
+    def plan(self, index, scores=None):
+        record = generation(self.config, self.members, index, scores)
+        ranking, events = plan_for_strategy(self.config, record, self.members)
+        record["ranking"] = ranking
+        record["exploit"] = events
+        return record
+
+    def test_two_epoch_warmup_then_every_epoch_copy_and_mutation_opportunity(self):
+        for index in range(4):
+            record = self.plan(index)
+            decision = record[strategy.STRATEGY]
+            self.assertEqual(decision["completed_epoch"], index + 1)
+            self.assertTrue(decision["validation_complete"])
+            self.assertEqual(decision["warmup_active_during_training"], index < 2)
+            self.assertEqual(decision["copy_opportunity"], index >= 1)
+            self.assertEqual(decision["lr_mutation_opportunity"], index >= 1)
+            self.assertEqual(len(record["exploit"]), 0 if index == 0 else 1)
+            if index >= 1:
+                self.assertEqual(record["exploit"][0]["mutation_factor"] in (0.8, 1.2), True)
+        self.assertEqual(self.plan(1)[strategy.STRATEGY]["completed_epoch"], 2)
+
+    def test_one_epoch_best_worst_strict_margin_noop_and_one_recipient(self):
+        record = self.plan(1)
+        self.assertEqual(record["ranking"][0], self.names[0])
+        self.assertEqual(record["ranking"][-1], self.names[-1])
+        self.assertEqual([event["recipient"] for event in record["exploit"]], [self.names[-1]])
+        self.assertNotEqual(record["exploit"][0]["recipient"], record["ranking"][0])
+        tied = self.plan(1, [0.400, 0.4005, 0.401, 0.4015, 0.402])
+        self.assertEqual(tied["exploit"], [])
+        self.assertEqual(tied[strategy.STRATEGY]["reason"], "within_margin")
+        self.assertEqual(tied[strategy.STRATEGY]["new_lr"], tied[strategy.STRATEGY]["old_lr"])
+        self.config["pbt"][strategy.STRATEGY]["decision_margin"] = 0.011
+        self.assertEqual(self.plan(1)["exploit"], [])
+
+    def test_no_action_until_all_five_current_epoch_validations_complete(self):
+        record = generation(self.config, self.members, 1)
+        record["workers"][self.names[-1]]["status"] = "pending"
+        with self.assertRaisesRegex(ValueError, "completed validation"):
+            plan_for_strategy(self.config, record, self.members)
+        record["workers"][self.names[-1]]["status"] = "completed"
+        record["workers"][self.names[-1]]["metrics"].clear()
+        with self.assertRaisesRegex(ValueError, "finite reference metric"):
+            plan_for_strategy(self.config, record, self.members)
+
+    def test_terminal_generation_suppresses_copy_even_above_margin(self):
+        self.config["shared"]["generations"] = 2
+        record = self.plan(1)
+        self.assertEqual(record["exploit"], [])
+        self.assertTrue(record[strategy.STRATEGY]["terminal"])
+        self.assertFalse(record[strategy.STRATEGY]["copy_opportunity"])
+
+    def test_collision_suppresses_mutation_but_not_weight_copy(self):
+        for name, lr in zip(self.names, [10e-6, 8e-6, 12e-6, 6e-6, 14e-6]):
+            self.members[name]["lr"] = lr
+        record = self.plan(1)
+        self.assertEqual(len(record["exploit"]), 1)
+        event = record["exploit"][0]
+        self.assertEqual(event["new_lr"], 14e-6)
+        self.assertIsNone(event.get("mutation_factor"))
+        self.assertFalse(event["mutation_applied"])
+        self.assertEqual(event["mutation_reason"], "lr_collision")
+        self.assertTrue(record[strategy.STRATEGY]["copy_planned"])
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            for name in self.names:
+                tiny_bundle(run, name, record["epoch"], self.members[name]["lr"])
+            donor_before = bundle_identity(bundle_paths(run / event["donor"], record["epoch"]))
+            recipient_before = bundle_identity(bundle_paths(run / event["recipient"], record["epoch"]))
+            strategy.prepare_boundary(run, record)
+            manifest = {"config": self.config, "members": copy.deepcopy(self.members), "generations": [record]}
+            strategy.apply_cadenced_exploits(run, manifest, record, run / "manifest.json")
+            self.assertTrue(event["applied"])
+            self.assertTrue(record[strategy.STRATEGY]["copy_applied"])
+            self.assertEqual(event["post_copy"]["state"]["sha256"], donor_before["state"]["sha256"])
+            self.assertEqual(event["post_copy"]["scaler"]["sha256"], donor_before["scaler"]["sha256"])
+            self.assertNotEqual(event["post_copy"]["state"]["sha256"], recipient_before["state"]["sha256"])
+            self.assertEqual(manifest["members"][event["recipient"]]["lr"], event["recipient_lr"])
+            optimizer = load_optimizer_state(bundle_paths(run / event["recipient"], record["epoch"])["optimizer"])
+            self.assertTrue(all(group["lr"] == event["recipient_lr"] for group in optimizer["param_groups"]))
+            check_bundle(event["pre_copy_archive"])
+
+    def test_one_valid_factor_and_deterministic_separation_choice(self):
+        self.members[self.names[0]]["lr"] = 10e-6
+        self.members[self.names[1]]["lr"] = 8e-6
+        selected = strategy.select_mutation(self.config, self.members, self.names[0], self.names[-1])
+        self.assertEqual(selected["mutation_factor"], 1.2)
+        self.assertAlmostEqual(selected["new_lr"], 12e-6)
+        first = strategy.select_mutation(self.config, self.members, self.names[0], self.names[-1])
+        second = strategy.select_mutation(self.config, dict(reversed(list(self.members.items()))), self.names[0], self.names[-1])
+        self.assertEqual(first, second)
+        for name, lr in zip(self.names, [10e-6, 3e-6, 5e-6, 15e-6, 20e-6]):
+            self.members[name]["lr"] = lr
+        both_valid = strategy.select_mutation(self.config, self.members, self.names[0], self.names[-1])
+        self.assertEqual(both_valid["mutation_factor"], 0.8)
+        self.assertAlmostEqual(both_valid["new_lr"], 8e-6)
+
+    def test_unchanged_recipient_lr_is_not_a_valid_mutation(self):
+        first = self.plan(1)["exploit"][0]
+        self.assertEqual(first["mutation_factor"], 0.8)
+        recipient = first["recipient"]
+        self.members[recipient]["lr"] = first["new_lr"]
+        next_event = self.plan(2)["exploit"][0]
+        self.assertEqual(next_event["mutation_factor"], 1.2)
+        self.assertAlmostEqual(next_event["new_lr"], 3.6e-6)
+        self.assertTrue(next_event["mutation_applied"])
+        self.assertEqual(next_event["mutation_reason"], "mutated")
+        self.assertEqual(next_event["rejected_mutations"][0]["reason"], "unchanged_recipient_lr")
+
+        # If the only distinct factor collides, exploitation still copies
+        # weights and retains the recipient's previous LR.
+        self.members[self.names[1]]["lr"] = next_event["new_lr"]
+        blocked = self.plan(2)["exploit"][0]
+        self.assertFalse(blocked["mutation_applied"])
+        self.assertEqual(blocked["mutation_reason"], "lr_collision")
+        self.assertEqual(blocked["new_lr"], self.members[recipient]["lr"])
+        self.assertEqual(
+            {item["reason"] for item in blocked["rejected_mutations"]},
+            {"unchanged_recipient_lr", "lr_collision"},
+        )
+
+    def test_bundle_copy_preserves_pre_action_evidence_and_resume_lr(self):
+        record = self.plan(1)
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            for name in self.names:
+                tiny_bundle(run, name, record["epoch"], self.members[name]["lr"])
+            donor = record["exploit"][0]["donor"]
+            recipient = record["exploit"][0]["recipient"]
+            donor_before = bundle_identity(bundle_paths(run / donor, record["epoch"]))
+            recipient_before = bundle_identity(bundle_paths(run / recipient, record["epoch"]))
+            strategy.prepare_boundary(run, record)
+            event = record["exploit"][0]
+            self.assertEqual(event["pre_copy"], recipient_before)
+            self.assertEqual(
+                {key: value["sha256"] for key, value in event["pre_copy_archive"].items()},
+                {key: value["sha256"] for key, value in recipient_before.items()},
+            )
+            manifest = {"config": self.config, "members": copy.deepcopy(self.members), "generations": [record]}
+            strategy.apply_cadenced_exploits(run, manifest, record, run / "manifest.json")
+            self.assertTrue(event["applied"])
+            self.assertTrue(record[strategy.STRATEGY]["copy_applied"])
+            self.assertEqual(bundle_identity(bundle_paths(run / donor, record["epoch"])), donor_before)
+            check_bundle(event["pre_copy_archive"])
+            post = bundle_paths(run / recipient, record["epoch"])
+            for part in ("state", "scaler"):
+                self.assertEqual(event["post_copy"][part]["sha256"], event["donor_archive"][part]["sha256"])
+            donor_optimizer = load_optimizer_state(event["donor_archive"]["optimizer"]["path"])
+            resumed_optimizer = load_optimizer_state(post["optimizer"])
+            self.assertEqual(donor_optimizer["state"].keys(), resumed_optimizer["state"].keys())
+            for key in donor_optimizer["state"]:
+                for slot in ("step", "exp_avg", "exp_avg_sq"):
+                    torch.testing.assert_close(donor_optimizer["state"][key][slot], resumed_optimizer["state"][key][slot])
+            self.assertTrue(all(group["lr"] == event["new_lr"] for group in resumed_optimizer["param_groups"]))
+            fresh = torch.nn.Linear(1, 1)
+            optimizer = torch.optim.AdamW([{"params": [fresh.weight]}, {"params": [fresh.bias]}])
+            optimizer.load_state_dict(resumed_optimizer)
+            self.assertTrue(all(group["lr"] == event["new_lr"] for group in optimizer.param_groups))
+            command, _, _ = LocalWeaverBackend().command_for(
+                self.config, manifest["members"][recipient], "0", run / recipient, generation=2,
+            )
+            self.assertEqual(command[command.index("--load-epoch") + 1], str(record["epoch"]))
+            self.assertEqual(float(command[command.index("--start-lr") + 1]), event["new_lr"])
+            self.assertIn("--override-load-lr", command)
+
+    def test_runner_plans_after_validation_then_applies_at_boundary(self):
+        record = generation(self.config, self.members, 1)
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            for name in self.names:
+                tiny_bundle(run, name, record["epoch"], self.members[name]["lr"])
+            recipient = self.names[-1]
+            before = bundle_identity(bundle_paths(run / recipient, record["epoch"]))
+            manifest = {"config": self.config, "members": copy.deepcopy(self.members), "generations": [record]}
+            with patch.object(runner, "update_global_best", return_value=False):
+                runner._plan_generation_exploit(
+                    self.config, manifest, record, 1, False,
+                    run, run / "manifest.json", run / "pbt.log",
+                )
+            self.assertEqual(len(record["exploit"]), 1)
+            self.assertEqual(record[strategy.STRATEGY]["completed_epoch"], 2)
+            self.assertFalse(record["exploit"][0]["applied"])
+            self.assertEqual(bundle_identity(bundle_paths(run / recipient, record["epoch"])), before)
+            runner._finalize_generation(
+                self.config, manifest, record, run, run / "manifest.json", run / "pbt.log", 1,
+            )
+            self.assertTrue(record["exploit"][0]["applied"])
+            self.assertEqual(manifest["next_generation"], 2)
+            self.assertNotEqual(bundle_identity(bundle_paths(run / recipient, record["epoch"])), before)
+
+    def test_interrupted_copy_replays_from_immutable_archive(self):
+        record = self.plan(1)
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            for name in self.names:
+                tiny_bundle(run, name, record["epoch"], self.members[name]["lr"])
+            strategy.prepare_boundary(run, record)
+            archive = copy.deepcopy(record["exploit"][0]["pre_copy_archive"])
+            manifest = {"config": self.config, "members": copy.deepcopy(self.members), "generations": [record]}
+            with patch.object(strategy, "atomic_set_optimizer_lr", side_effect=RuntimeError("injected interruption")):
+                with self.assertRaisesRegex(RuntimeError, "injected interruption"):
+                    strategy.apply_cadenced_exploits(run, manifest, record, run / "manifest.json")
+            self.assertFalse(record["exploit"][0]["applied"])
+            check_bundle(archive)
+            strategy.apply_cadenced_exploits(run, manifest, record, run / "manifest.json")
+            self.assertTrue(record["exploit"][0]["applied"])
+            check_bundle(archive)
+            before = (run / "manifest.json").read_bytes()
+            strategy.apply_cadenced_exploits(run, manifest, record, run / "manifest.json")
+            self.assertEqual((run / "manifest.json").read_bytes(), before)
+
+    def test_scratch_and_pretrained_command_contracts_are_separate(self):
+        scratch = configuration(SCRATCH_PATH)
+        self.assertEqual(scratch["shared"]["initialization_mode"], "scratch")
+        self.assertIsNone(scratch["shared"].get("checkpoint"))
+        self.assertFalse(scratch["shared"]["freeze_batch_norm"])
+        self.assertIsNone(scratch["shared"].get("initial_state"))
+        command, _, target = LocalWeaverBackend().command_for(
+            scratch, {"name": scratch["population"][0]["name"], "lr": scratch["population"][0]["start_lr"]},
+            "0", Path("/tmp/cadenced-scratch-member"), generation=0,
+        )
+        self.assertEqual(target, 0)
+        self.assertNotIn("--load-epoch", command)
+        self.assertNotIn("--load-model-weights", command)
+        self.assertNotIn("--freeze-batch-norm", command)
+        self.assertIn("--use-amp", command)
+        pretrained, _, target = LocalWeaverBackend().command_for(
+            self.config, {"name": self.names[0], "lr": self.members[self.names[0]]["lr"]},
+            "0", Path("/tmp/cadenced-pretrained-member"), generation=0,
+        )
+        self.assertEqual(target, 18)
+        self.assertEqual(pretrained[pretrained.index("--load-epoch") + 1], "17")
+        self.assertIn("--freeze-batch-norm", pretrained)
+        checkpoint_only = copy.deepcopy(self.config)
+        checkpoint_only["shared"]["initial_epoch"] = None
+        checkpoint_only["shared"]["initial_state"] = None
+        checkpoint_only["shared"]["initial_optimizer"] = None
+        command, _, _ = LocalWeaverBackend().command_for(
+            checkpoint_only, {"name": self.names[0], "lr": self.members[self.names[0]]["lr"]},
+            "0", Path("/tmp/cadenced-checkpoint-only-member"), generation=0,
+        )
+        self.assertIn("--load-model-weights", command)
+
+    def test_scratch_smoke_keeps_full_population_and_real_validation_contract(self):
+        smoke = configuration(SCRATCH_SMOKE_PATH)
+        self.assertEqual(smoke["experiment_name"], "cadenced_pbt_v1_scratch_full_reference_smoke")
+        self.assertEqual(smoke["shared"]["generations"], 3)
+        self.assertEqual(len(smoke["population"]), 5)
+        self.assertEqual(
+            [member["start_lr"] for member in smoke["population"]],
+            [3e-6, 5.75e-6, 8.5e-6, 11.25e-6, 14e-6],
+        )
+        self.assertEqual(smoke["shared"]["initialization_mode"], "scratch")
+        self.assertIsNone(smoke["shared"].get("checkpoint"))
+        self.assertIsNone(smoke["shared"].get("initial_state"))
+        self.assertIsNone(smoke["shared"].get("initial_optimizer"))
+        self.assertFalse(smoke["shared"]["freeze_batch_norm"])
+        self.assertIsNone(smoke["shared"].get("samples_per_epoch"))
+        self.assertIsNone(smoke["shared"].get("samples_per_epoch_val"))
+        self.assertIsNone(smoke["shared"].get("proxy_validation"))
+        self.assertFalse(smoke["pbt"]["evaluate_initial_checkpoint"])
+        self.assertEqual(smoke["pbt"][strategy.STRATEGY]["warmup_epochs"], 2)
+        self.assertEqual(smoke["pbt"][strategy.STRATEGY]["decision_margin"], 0.0)
+        command, _, target = LocalWeaverBackend().command_for(
+            smoke,
+            {"name": smoke["population"][0]["name"], "lr": smoke["population"][0]["start_lr"]},
+            "0", Path("/tmp/cadenced-scratch-smoke-member"), generation=0,
+        )
+        self.assertEqual(target, 0)
+        self.assertNotIn("--load-epoch", command)
+        self.assertNotIn("--load-model-weights", command)
+        self.assertNotIn("--freeze-batch-norm", command)
+
+    def test_schema_rejects_proxy_controller_subepoch_and_scratch_checkpoint(self):
+        for section, key, value in (
+            ("shared", "weaver_epochs_per_generation", 2),
+            ("shared", "samples_per_epoch", 120000),
+            ("shared", "lr_scheduler", "steps"),
+            ("pbt", "exploit_interval_generations", 5),
+            ("pbt", "mutation_factors", [0.9, 1.1]),
+        ):
+            bad = copy.deepcopy(self.config)
+            bad[section][key] = value
+            with self.assertRaises(ValueError, msg=key):
+                ResolvedPBTConfig.model_validate(bad)
+        scratch = configuration(SCRATCH_PATH)
+        scratch["shared"]["checkpoint"] = str(PROJECT_DIR / "checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt")
+        with self.assertRaises(ValueError):
+            ResolvedPBTConfig.model_validate(scratch)
+        for option, value in (("warmup_epochs", 1), ("max_recipients", 2)):
+            bad = copy.deepcopy(self.config)
+            bad["pbt"][strategy.STRATEGY][option] = value
+            with self.assertRaises(ValueError, msg=option):
+                ResolvedPBTConfig.model_validate(bad)
+        scratch = configuration(SCRATCH_PATH)
+        scratch["shared"]["freeze_batch_norm"] = True
+        with self.assertRaises(ValueError):
+            ResolvedPBTConfig.model_validate(scratch)
+
+    def test_manifest_decision_survives_roundtrip(self):
+        record = self.plan(1)
+        reloaded = json.loads(json.dumps(record))
+        self.assertEqual(reloaded[strategy.STRATEGY], record[strategy.STRATEGY])
+        self.assertEqual(len(reloaded["exploit"]), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

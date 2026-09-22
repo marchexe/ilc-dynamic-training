@@ -301,7 +301,9 @@ class TieredValidationConfig(StrictSectionModel):
 class SharedSection(WeaverSharedSection):
     dataset: str
     validation_dataset: str | None = None
-    checkpoint: str
+    checkpoint: str | None
+    # None preserves the resolved shape/fingerprint of all historical configs.
+    initialization_mode: Literal["checkpoint", "scratch"] | None = None
     data_config: str
     network_config: str
     seed: int
@@ -319,14 +321,8 @@ class SharedSection(WeaverSharedSection):
     use_amp: bool
     amp_dtype: str
     no_remake_weights: bool
-    # Every experiment in this repo resumes from a checkpoint (pretrained or
-    # a prior PBT run's global_best) -- never a random init -- so BatchNorm
-    # running stats accumulated over the source training are always worth
-    # preserving by default. model.train() would otherwise let BN momentum
-    # (0.1) overwrite them within ~20 minibatches (confirmed regression:
-    # see bn_freeze_diag_baseline/frozen.yaml, 1.14% -> 7-9% mistag).
-    # Configs that genuinely want BN to adapt can set `freeze_batch_norm:
-    # false` explicitly (e.g. bn_freeze_diag_baseline.yaml).
+    # Historical checkpoint continuations preserve pretrained BN statistics.
+    # A scratch run must explicitly disable this below.
     freeze_batch_norm: bool = True
     proxy_validation: ProxyValidationConfig | None = None
     data_extension: str | None = None
@@ -349,6 +345,18 @@ class SharedSection(WeaverSharedSection):
 
     @model_validator(mode="after")
     def validate_initial_resume(self):
+        if self.initialization_mode == "scratch":
+            if any(value is not None for value in (
+                self.checkpoint, self.initial_epoch, self.initial_state,
+                self.initial_optimizer, self.initial_controller,
+                self.initial_optimizer_mode, self.initial_optimizer_damping,
+            )):
+                raise ValueError("scratch initialization cannot load any model, epoch, optimizer, or controller checkpoint")
+            if self.freeze_batch_norm:
+                raise ValueError("scratch initialization requires freeze_batch_norm: false")
+            return self
+        if not self.checkpoint:
+            raise ValueError("checkpoint initialization requires shared.checkpoint")
         initial_values = (
             self.initial_epoch,
             self.initial_state,
@@ -377,8 +385,17 @@ class WindowedPBTConfig(StrictSectionModel):
         return self
 
 
+class CadencedPBTConfig(StrictSectionModel):
+    """One-full-epoch, one-recipient PBT with a post-validation warm-up boundary."""
+
+    warmup_epochs: Literal[2] = 2
+    decision_margin: float = Field(default=0.002, ge=0.0, allow_inf_nan=False)
+    max_recipients: Literal[1] = 1
+
+
 class PBTSection(StrictSectionModel):
     windowed_pbt_v2: WindowedPBTConfig | None = None
+    cadenced_pbt_v1: CadencedPBTConfig | None = None
     evaluate_initial_checkpoint: bool = False
     evaluate_final_checkpoints: bool = False
     metric: str
@@ -396,7 +413,7 @@ class PBTSection(StrictSectionModel):
     backend: Literal["local_weaver", "ray_weaver", "ray_tune"] | None = None
     strategy: Literal[
         "exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy",
-        "anchor_copy_lr_recenter", "windowed_pbt_v2",
+        "anchor_copy_lr_recenter", "windowed_pbt_v2", "cadenced_pbt_v1",
     ] | None = None
     confidence_aware_selection: bool = True
     selection_uncertainty_sigma: float | None = Field(default=1.0, gt=0.0)
@@ -543,7 +560,7 @@ class ResolvedPBTSection(PBTSection):
     backend: Literal["local_weaver", "ray_weaver", "ray_tune"] = "local_weaver"
     strategy: Literal[
         "exploit_mutate", "anchored_lr_sweep", "fixed_lr_grid", "population_lr_policy",
-        "anchor_copy_lr_recenter", "windowed_pbt_v2",
+        "anchor_copy_lr_recenter", "windowed_pbt_v2", "cadenced_pbt_v1",
     ] = "exploit_mutate"
 
     @model_validator(mode="after")
@@ -686,6 +703,40 @@ class ResolvedPBTConfig(StrictSectionModel):
                 raise ValueError("windowed_pbt_v2 requires one downward and one upward mutation factor")
         elif self.pbt.windowed_pbt_v2 is not None:
             raise ValueError("windowed_pbt_v2 settings require the matching strategy")
+        if self.pbt.strategy == "cadenced_pbt_v1":
+            p, s = self.pbt, self.shared
+            if p.cadenced_pbt_v1 is None:
+                raise ValueError("cadenced_pbt_v1 requires its strategy configuration")
+            if len(self.population) != 5 or p.metric != "validation_total_reference_mistag_geomean_percent" or p.mode != "min":
+                raise ValueError("cadenced_pbt_v1 requires five members and reference mistag minimization")
+            if (s.weaver_epochs_per_generation != 1 or s.samples_per_epoch is not None
+                    or s.samples_per_epoch_val is not None or s.proxy_validation
+                    or not s.deterministic or not s.data_audit or s.lr_scheduler != "none"
+                    or not s.use_amp or s.amp_dtype != "fp16" or s.optimizer != "ranger"
+                    or (s.model_extra or {}).get("auto_clean")):
+                raise ValueError("cadenced_pbt_v1 requires audited full-epoch Ranger/FP16 training and full validation")
+            if (p.backend != "local_weaver" or p.exploit_interval_generations != 1
+                    or p.mutation_factors != [0.8, 1.2] or not p.evaluate_final_checkpoints
+                    or p.windowed_pbt_v2 or p.population_lr_policy or p.anchor_copy_lr_recenter
+                    or p.lr_controller or p.tiered_validation or s.training_controller or s.initial_controller
+                    or (p.dynamic_controller and p.dynamic_controller.mode != "disabled")
+                    or p.rollback_fraction or p.early_stop_degraded_generations or p.burn_in_generations
+                    or p.baseline_guard_seed_initial_best or p.baseline_guard_reject_global_best
+                    or p.baseline_guard_action not in (None, "observe")):
+                raise ValueError("cadenced_pbt_v1 cannot combine with other adaptive or rollback mechanisms")
+            if s.initialization_mode != "scratch":
+                if (not s.initial_state or s.initial_optimizer_mode != "raw"
+                        or not s.freeze_batch_norm or not p.evaluate_initial_checkpoint):
+                    raise ValueError("cadenced_pbt_v1 checkpoint start requires raw optimizer continuation and initial evaluation")
+            else:
+                if p.evaluate_initial_checkpoint:
+                    raise ValueError("scratch initialization cannot evaluate a nonexistent initial checkpoint")
+                if self.continuation is not None:
+                    raise ValueError("scratch initialization cannot bootstrap a prior run")
+                if (s.model_extra or {}).get("freeze_model_weights") or (s.model_extra or {}).get("freeze_model_weights_generations"):
+                    raise ValueError("scratch initialization cannot freeze pretrained model weights")
+        elif self.pbt.cadenced_pbt_v1 is not None:
+            raise ValueError("cadenced_pbt_v1 settings require the matching strategy")
         names = [member.name for member in self.population]
         if len(set(names)) != len(names):
             raise ValueError("Population member names must be unique")

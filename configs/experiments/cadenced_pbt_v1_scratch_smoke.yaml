@@ -1,0 +1,18 @@
+# Minimum real full-data scratch schedule that exercises a post-epoch-2
+# exploit and consumes its copied state in epoch 3. This deliberately does
+# not use the generic --smoke sample/population reductions.
+presets:
+  - cadenced_pbt_v1_scratch.yaml
+
+experiment:
+  name: cadenced_pbt_v1_scratch_full_reference_smoke
+
+shared:
+  generations: 3
+
+pbt:
+  cadenced_pbt_v1:
+    warmup_epochs: 2
+    # Integration-only override. Production cadenced_pbt_v1 remains 0.002.
+    decision_margin: 0.0
+    max_recipients: 1

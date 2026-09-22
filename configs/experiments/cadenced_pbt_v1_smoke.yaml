@@ -1,0 +1,19 @@
+# Minimum full-data schedule that exercises warm-up, one post-epoch-2 copy
+# opportunity, and terminal suppression. This is NOT the --smoke sample-cap
+# mode; it retains the same five-member/full-reference execution contract.
+presets:
+  - cadenced_pbt_v1.yaml
+
+experiment:
+  name: cadenced_pbt_v1_full_reference_smoke
+
+shared:
+  generations: 3
+
+pbt:
+  cadenced_pbt_v1:
+    warmup_epochs: 2
+    # Integration-only override: allow a copy for any nonzero best/worst gap.
+    # The production config retains its 0.002 significance margin.
+    decision_margin: 0.0
+    max_recipients: 1
