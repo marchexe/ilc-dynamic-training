@@ -10,6 +10,25 @@ state, use deterministic full-epoch traversal, mixed precision with scaler state
 and frozen BatchNorm statistics. Every population member sees the same training
 and validation definitions; only its trajectory and current LR may differ.
 
+Historical Ranger restart contract
+----------------------------------
+
+The production ``ranger`` optimizer is Weaver's historical RAdam optimizer
+wrapped by Lookahead.  Its checkpoint ``state_dict`` intentionally serializes
+only the inner RAdam state.  On every worker restart, Weaver restores the RAdam
+per-parameter state (including steps, first moments and second moments), then
+Lookahead rebuilds its slow weights from the restored model parameters.  A new
+worker constructs a fresh Lookahead wrapper with a zero step counter; because
+the counter is absent from the checkpoint, no previous counter value is
+restored.  The slow weights and counter therefore do not continue across a
+one-epoch worker boundary.
+
+This is the existing behavior for both ``windowed_pbt_v2`` and
+``cadenced_pbt_v1``.  Their copy paths transfer the same model, RAdam-state and
+AMP-scaler bundle, and only rewrite the planned learning rate.  The comparison
+must retain this shared restart behavior; this documentation and its regression
+test do not change optimizer serialization or resume semantics.
+
 Validation metric
 -----------------
 
@@ -37,6 +56,29 @@ then receive deterministic ×0.8 or ×1.2 LR mutations bounded to
 2 × 10⁻⁶ through 3 × 10⁻⁵. Decisions, hashes and pre/post-copy evidence are
 recorded for replay. The algorithm's scoring, tie handling, exploration and
 terminal behavior are frozen for reproducibility.
+
+``cadenced_pbt_v1`` also trains and fully validates every member for one full
+epoch, but has two warm-up epochs and then offers one best-to-worst replacement
+at every eligible post-validation boundary.  A replacement copies the complete
+model/RAdam/AMP-scaler bundle.  Exploration deterministically chooses a bounded
+×0.8 or ×1.2 LR mutation when one is collision-free; if no mutation is valid,
+the weight/optimizer/scaler copy still occurs at the recipient's prior LR.
+
+Scientific comparison contract
+------------------------------
+
+The production study compares two complete PBT policies,
+``windowed_pbt_v2`` and ``cadenced_pbt_v1``.  It is not an experiment that
+isolates cadence alone: the evidence window, losing-history rule, recipient
+count and replacement policy differ as well as the decision cadence.
+
+The primary endpoint is the mean over the final ten epochs of the current
+population's best full-reference metric at each epoch.  The metric is
+``validation_total_reference_mistag_geomean_percent`` and lower is better.  A
+single lucky checkpoint or all-time global best is not the primary endpoint.
+The configured ``0.002`` decision margin is an operational threshold used by
+the policies; it is not a p-value, confidence interval, or claim of statistical
+significance.
 
 Adaptive-LR direction
 ---------------------

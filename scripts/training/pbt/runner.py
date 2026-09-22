@@ -14,6 +14,7 @@ import yaml
 from training.pbt.reporting import (
     ensure_run_layout,
     record_anchor_decision,
+    record_cadenced_decision,
     record_controller_lr_change,
     record_initial_evaluation,
     record_skipped_exploit,
@@ -541,6 +542,7 @@ def _plan_generation_exploit(config, manifest, existing, generation, is_final_ge
         except BaseException:
             existing["exploit"] = None
             raise
+        record_cadenced_decision(experiment_dir, existing)
         atomic_json(manifest_path, manifest)
         log_event(
             pbt_log_path,

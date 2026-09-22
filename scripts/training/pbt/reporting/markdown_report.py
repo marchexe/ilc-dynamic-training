@@ -40,6 +40,32 @@ from training.pbt.reporting.statistics import (
     tier_correlation,
 )
 
+
+def _final_window_current_best(rows, mode, window=10):
+    """Primary policy endpoint: mean of each epoch's current population best."""
+    by_generation = {}
+    for row in rows:
+        value = row.get("optimization_metric_value")
+        generation = row.get("generation")
+        if generation is not None and value is not None:
+            by_generation.setdefault(generation, []).append(float(value))
+    selector = max if mode == "max" else min
+    current_best = [
+        {"generation": generation, "value": selector(by_generation[generation])}
+        for generation in sorted(by_generation)
+    ]
+    selected = current_best[-int(window):]
+    return {
+        "name": "final-10 current-best full-reference mean",
+        "mode": mode,
+        "lower_is_better": mode == "min",
+        "window": int(window),
+        "complete": len(selected) == int(window),
+        "generations": [item["generation"] for item in selected],
+        "values": [item["value"] for item in selected],
+        "mean": None if not selected else sum(item["value"] for item in selected) / len(selected),
+    }
+
 def build_summary(run_dir, manifest):
     rows = read_metrics_rows(run_dir)
     events = read_events(run_dir)
@@ -76,6 +102,7 @@ def build_summary(run_dir, manifest):
         "configured_baseline": configured_baseline,
         "best": best,
         "final_best": final_best,
+        "scientific_endpoint": _final_window_current_best(rows, mode),
         "winning_trial": None if best is None else best.get("member"),
         "best_improvement_vs_baseline": relative_change(mode, baseline_value, best_value),
         "final_improvement_vs_baseline": relative_change(
@@ -399,6 +426,59 @@ def _pbt_decision_summary_lines(manifest, rows):
     return lines
 
 
+def _checkpoint_state_sha(identity):
+    return ((identity or {}).get("state") or {}).get("sha256")
+
+
+def _cadenced_decision_summary_lines(manifest):
+    if manifest.get("config", {}).get("pbt", {}).get("strategy") != "cadenced_pbt_v1":
+        return []
+    rows = []
+    for generation in sorted(manifest.get("generations", []), key=lambda item: item.get("index", -1)):
+        decision = generation.get("cadenced_pbt_v1")
+        if not decision:
+            continue
+        event = (generation.get("exploit") or [None])[0]
+        if not decision.get("copy_planned"):
+            action = "no-op"
+        elif decision.get("mutation_applied"):
+            action = "copy+mutation"
+        else:
+            action = "copy-only"
+        rows.append((generation, decision, event, action))
+    if not rows:
+        return []
+    lines = [
+        "",
+        "## Cadenced PBT Boundary Audit",
+        "- Warm-up is two complete training epochs; the epoch-2 post-validation boundary is eligible.",
+        "- The 0.002 margin is an operational policy threshold, not a claim of statistical significance.",
+        "",
+        "| generation | epoch | warm-up training | eligible | margin | gap | reason | donor | recipient | action | pre-copy state | post-copy state | LR before | LR after |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for generation, decision, event, action in rows:
+        lines.append(
+            "| {generation} | {epoch} | {warmup} | {eligible} | {margin} | {gap} | {reason} | {donor} | {recipient} | {action} | `{pre}` | `{post}` | {old_lr} | {new_lr} |".format(
+                generation=generation.get("index"),
+                epoch=decision.get("completed_epoch"),
+                warmup="yes" if decision.get("warmup_active_during_training") else "no",
+                eligible="yes" if decision.get("copy_opportunity") else "no",
+                margin=_fmt(decision.get("decision_margin")),
+                gap=_fmt(decision.get("metric_gap")),
+                reason=decision.get("reason"),
+                donor=decision.get("donor"),
+                recipient=decision.get("recipient"),
+                action=action,
+                pre=_checkpoint_state_sha(None if event is None else event.get("pre_copy")) or "n/a",
+                post=_checkpoint_state_sha(None if event is None else event.get("post_copy")) or "n/a",
+                old_lr=_fmt(decision.get("old_lr"), 4),
+                new_lr=_fmt(decision.get("new_lr"), 4),
+            )
+        )
+    return lines
+
+
 def write_report(run_dir, manifest, summary):
     path = Path(run_dir) / REPORT_NAME
     metric = summary["metric"]
@@ -408,6 +488,7 @@ def write_report(run_dir, manifest, summary):
     final_best = summary.get("final_best") or {}
     improvement = summary.get("best_improvement_vs_baseline")
     evaluation = summary.get("evaluation") or {}
+    endpoint = summary.get("scientific_endpoint") or {}
     schedule = summary.get("schedule") or {}
     eval_schedule = schedule.get("evaluation_interval") or {}
     exploit_schedule = schedule.get("exploit_interval") or {}
@@ -415,6 +496,9 @@ def write_report(run_dir, manifest, summary):
     git = provenance.get("git") or manifest.get("git") or {}
     plots = summary.get("plots") or {}
     rows = read_metrics_rows(run_dir)
+    pbt_config = manifest.get("config", {}).get("pbt", {})
+    method = summary.get("method")
+    policy_comparison = method in {"windowed_pbt_v2", "cadenced_pbt_v1"}
 
     lines = [
         f"# {summary.get('experiment')}",
@@ -442,12 +526,18 @@ def write_report(run_dir, manifest, summary):
             f"- Best checkpoint: `{(summary.get('checkpoints') or {}).get('global_best_state')}`",
         ]
     )
+    if policy_comparison:
+        lines.append(
+            f"- Primary endpoint (final-10 current-best full-reference mean; lower is better): "
+            f"{_fmt(endpoint.get('mean'))} ({len(endpoint.get('values') or [])}/{endpoint.get('window', 10)} epochs available)"
+        )
 
     lines.extend(_final_physics_performance_section_lines(manifest, plots))
     lines.extend(_proxy_validation_section_lines(manifest, plots))
 
     lines.extend(_model_selection_score_table_lines(manifest, rows))
     lines.extend(_pbt_decision_summary_lines(manifest, rows))
+    lines.extend(_cadenced_decision_summary_lines(manifest))
 
     lines.extend(["", "## Exploit History", f"- [Exploit table]({plots.get('exploit_table_csv', EXPLOIT_TABLE_NAME)})"])
     exploits = [event for event in summary.get("exploit_history", []) if event.get("event_type") == "exploit"]
@@ -474,12 +564,11 @@ def write_report(run_dir, manifest, summary):
         f"- [Skipped exploits (significance gating)]({plots.get('skipped_exploit_table_csv', SKIPPED_EXPLOIT_TABLE_NAME)}) -- {len(skipped)} donor->recipient replacement(s) declined for insufficient significance"
     )
 
-    pbt_config = manifest.get("config", {}).get("pbt", {})
     significance_sigma = pbt_config.get("exploit_significance_sigma")
     burn_in = pbt_config.get("burn_in_generations", 0)
     tiered_config = pbt_config.get("tiered_validation") or {}
-    lines.extend(
-        [
+    cadenced_config = pbt_config.get("cadenced_pbt_v1") or {}
+    method_lines = [
             "",
             "## Method",
             f"- Method: `{summary.get('method')}`",
@@ -489,6 +578,13 @@ def write_report(run_dir, manifest, summary):
             f"- Exploit interval: {('disabled' if not exploit_schedule.get('enabled') else 'every ' + str(exploit_schedule.get('training_chunks', 'n/a')) + ' training chunk(s)')}",
             f"- Exploit significance gating: {'disabled (nominal rank order only)' if significance_sigma is None else f'{significance_sigma} sigma (combined uncertainty) required before a donor replaces a recipient'}",
             f"- Burn-in: {burn_in} generation(s) (observe-only, no exploit/controller LR action applied)",
+    ]
+    if method == "cadenced_pbt_v1":
+        method_lines.extend([
+            f"- Cadenced warm-up: {cadenced_config.get('warmup_epochs')} complete training epochs; the post-epoch-2 boundary is eligible",
+            f"- Cadenced operational decision margin: {cadenced_config.get('decision_margin')} (not a statistical-significance threshold)",
+        ])
+    method_lines.extend([
             f"- Monitor-tier cadence: {tiered_config.get('monitor_interval_generations') or 'disabled'} generation(s), all population members, read-only",
             f"- Full-tier cadence: {tiered_config.get('full_interval_generations') or 'disabled'} generation(s), all population members, read-only",
             "",
@@ -496,6 +592,11 @@ def write_report(run_dir, manifest, summary):
             f"- Starting checkpoint: `{(summary.get('starting_checkpoint') or {}).get('state_path') or (summary.get('starting_checkpoint') or {}).get('path')}`",
             f"- Git commit: `{git.get('commit')}`",
             f"- Git dirty: `{git.get('dirty')}`",
+            f"- Resolved config SHA256: `{provenance.get('resolved_config_sha256')}`",
+            f"- Source hashes: `{json.dumps(provenance.get('source_hashes') or {}, sort_keys=True)}`",
+            f"- Runtime versions: `{json.dumps(provenance.get('environment') or {}, sort_keys=True)}`",
+            f"- Configured GPU IDs: `{provenance.get('gpu_ids') or provenance.get('gpus')}`",
+            f"- Dataset fingerprints: `{json.dumps((provenance.get('datasets') or {}).get('fingerprints') or {}, sort_keys=True)}`",
             f"- Launch command: `{provenance.get('command') or manifest.get('command')}`",
             "- [manifest.json](manifest.json)",
             "- [resolved_config.yaml](resolved_config.yaml)",
@@ -508,8 +609,14 @@ def write_report(run_dir, manifest, summary):
             "- Proxy, smoke, and full validation results are reported as distinct evaluation types and should not be mixed in one scorecard.",
             "- Configured reference values are not treated as measured baselines unless a successful runtime initial evaluation exists.",
             "- Control-tier evidence alone is 'provisional' -- see Proxy Validation above. It is never a substitute for monitor/full corroboration.",
-            f"- {_shutdown_warning_summary(manifest)}",
-        ]
-    )
+    ])
+    if policy_comparison:
+        method_lines.extend([
+            "- The policy comparison is `windowed_pbt_v2` versus `cadenced_pbt_v1`; it does not isolate cadence because their selection and replacement policies also differ.",
+            "- The primary scientific endpoint is the final-10 current-best full-reference mean (lower is better), not the single lowest checkpoint.",
+            "- The 0.002 decision margin is an operational policy threshold, not statistical significance.",
+        ])
+    method_lines.append(f"- {_shutdown_warning_summary(manifest)}")
+    lines.extend(method_lines)
     atomic_text(path, "\n".join(lines) + "\n")
     return path

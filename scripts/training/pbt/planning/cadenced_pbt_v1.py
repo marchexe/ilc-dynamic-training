@@ -124,6 +124,7 @@ def cadenced_pbt_v1_plan(config, generation, members, manifest=None):
         return ranking, []
     mutation = select_mutation(config, members, donor, recipient)
     event = {
+        "event_id": f"{STRATEGY}:g{index:03d}:{donor}:{recipient}",
         "source": STRATEGY,
         "donor": donor,
         "recipient": recipient,
@@ -180,6 +181,14 @@ def apply_cadenced_exploits(run, manifest, generation, manifest_path):
     """Replay safely from immutable evidence if copying was interrupted."""
     for event in generation["exploit"]:
         if event["applied"]:
+            post_copy = event.get("post_copy")
+            if not post_copy:
+                raise ValueError("Applied cadenced exploit is missing post-copy checkpoint identity")
+            check_bundle(post_copy)
+            for key in ("donor_archive", "pre_copy_archive"):
+                if not event.get(key):
+                    raise ValueError(f"Applied cadenced exploit is missing {key}")
+                check_bundle(event[key])
             continue
         for key in ("donor_checkpoint", "donor_archive", "pre_copy_archive"):
             check_bundle(event[key])

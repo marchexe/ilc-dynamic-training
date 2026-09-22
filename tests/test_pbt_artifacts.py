@@ -199,6 +199,16 @@ class PBTArtifactsTest(unittest.TestCase):
             val_files = contract["datasets"]["resolved_files"]["val"]
             self.assertEqual(sum(len(row["files"]) for row in train_files), 3)
             self.assertEqual(sum(len(row["files"]) for row in val_files), 3)
+            self.assertTrue(all(item["sha256"] for row in train_files for item in row["identities"]))
+            self.assertTrue(contract["datasets"]["fingerprints"]["train"])
+            self.assertTrue(contract["datasets"]["fingerprints"]["val"])
+            self.assertTrue(contract["resolved_config_sha256"])
+            self.assertEqual(contract["gpu_ids"], [])
+            self.assertEqual(
+                set(contract["environment"]),
+                {"python", "python_executable", "pytorch", "cuda", "cudnn"},
+            )
+            self.assertIn("pbt_runner", contract["source_hashes"])
 
     def test_canonical_outputs_from_synthetic_manifest(self):
         with tempfile.TemporaryDirectory() as temporary:

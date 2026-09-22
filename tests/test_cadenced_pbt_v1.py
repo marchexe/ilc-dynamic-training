@@ -17,8 +17,16 @@ from training.pbt.models.config import ResolvedPBTConfig
 from training.pbt.planning import cadenced_pbt_v1 as strategy
 from training.pbt.planning.dispatch import plan_for_strategy
 from training.pbt import runner
+from training.pbt.reporting.events import record_cadenced_decision
+from training.pbt.reporting.io import append_event, read_events
+from training.pbt.reporting.markdown_report import (
+    _cadenced_decision_summary_lines,
+    _final_window_current_best,
+)
 from training.pbt.state.checkpointing import epoch_for_generation
 from training.pbt.state.optimizer_state import load_optimizer_state
+from training.runtime import atomic_json
+from weaver.utils.nn.optimizer.ranger import Ranger
 
 
 CONFIG_PATH = PROJECT_DIR / "configs/experiments/cadenced_pbt_v1.yaml"
@@ -372,6 +380,153 @@ class CadencedPBTTest(unittest.TestCase):
         reloaded = json.loads(json.dumps(record))
         self.assertEqual(reloaded[strategy.STRATEGY], record[strategy.STRATEGY])
         self.assertEqual(len(reloaded["exploit"]), 1)
+
+    def test_repeated_exploits_allow_donor_recipient_role_reversal(self):
+        first = self.plan(1, [0.400, 0.401, 0.402, 0.403, 0.410])
+        self.assertEqual((first["exploit"][0]["donor"], first["exploit"][0]["recipient"]),
+                         (self.names[0], self.names[-1]))
+        self.members[first["exploit"][0]["recipient"]]["lr"] = first["exploit"][0]["new_lr"]
+        second = self.plan(2, [0.412, 0.404, 0.403, 0.402, 0.399])
+        self.assertEqual((second["exploit"][0]["donor"], second["exploit"][0]["recipient"]),
+                         (self.names[-1], self.names[0]))
+        third = self.plan(3, [0.398, 0.404, 0.403, 0.402, 0.411])
+        self.assertEqual((third["exploit"][0]["donor"], third["exploit"][0]["recipient"]),
+                         (self.names[0], self.names[-1]))
+        self.assertEqual(len({item["exploit"][0]["event_id"] for item in (first, second, third)}), 3)
+
+    def test_ranger_restart_contract_restores_radam_but_resets_lookahead(self):
+        model = torch.nn.Linear(2, 1)
+        optimizer = Ranger(model.parameters(), lr=1e-3)
+        for _ in range(3):
+            optimizer.zero_grad()
+            model(torch.ones(1, 2)).sum().backward()
+            optimizer.step()
+        saved = copy.deepcopy(optimizer.state_dict())
+        self.assertEqual(optimizer.step_counter, 3)
+        self.assertNotIn("cached_params", next(iter(saved["state"].values())))
+
+        resumed_model = torch.nn.Linear(2, 1)
+        resumed_model.load_state_dict(model.state_dict())
+        resumed = Ranger(resumed_model.parameters(), lr=9e-4)
+        self.assertEqual(resumed.step_counter, 0)
+        resumed.load_state_dict(saved)
+        self.assertEqual(resumed.step_counter, 0)
+        for parameter in resumed_model.parameters():
+            torch.testing.assert_close(resumed.state[parameter]["cached_params"], parameter.data)
+        resumed_state = resumed.state_dict()
+        self.assertEqual(saved["state"].keys(), resumed_state["state"].keys())
+        for key in saved["state"]:
+            for slot in ("step", "exp_avg", "exp_avg_sq"):
+                torch.testing.assert_close(saved["state"][key][slot], resumed_state["state"][key][slot])
+        self.assertEqual(self.config["shared"]["optimizer"], "ranger")
+        windowed = configuration(PROJECT_DIR / "configs/experiments/windowed_pbt_v2.yaml")
+        self.assertEqual(windowed["shared"]["optimizer"], "ranger")
+
+    def test_event_replay_deduplicates_ids_and_tolerates_only_truncated_tail(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            payload = {"event_id": "stable-event", "generation": 1, "reason": "fixture"}
+            first = append_event(run, "cadenced_pbt_decision", payload)
+            second = append_event(run, "cadenced_pbt_decision", payload)
+            self.assertEqual(first, second)
+            path = run / "events.jsonl"
+            with path.open("a", encoding="utf-8") as stream:
+                stream.write('{"event_id":"truncated"')
+            self.assertEqual(read_events(run), [first])
+            append_event(run, "cadenced_pbt_decision", {"event_id": "after-repair", "generation": 2})
+            self.assertEqual([event["event_id"] for event in read_events(run)], ["stable-event", "after-repair"])
+            with path.open("a", encoding="utf-8") as stream:
+                stream.write("{broken}\n")
+                stream.write(json.dumps({"event_id": "later"}) + "\n")
+            with self.assertRaisesRegex(ValueError, "Corrupt event log line"):
+                read_events(run)
+
+    def test_interruption_after_event_persistence_replays_once(self):
+        record = self.plan(1)
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            for name in self.names:
+                tiny_bundle(run, name, record["epoch"], self.members[name]["lr"])
+            strategy.prepare_boundary(run, record)
+            manifest_path = run / "manifest.json"
+            manifest = {"config": self.config, "members": copy.deepcopy(self.members), "generations": [record]}
+            atomic_json(manifest_path, manifest)
+            persisted_before = json.loads(manifest_path.read_text())
+            with patch.object(strategy, "atomic_json", side_effect=RuntimeError("after event persistence")):
+                with self.assertRaisesRegex(RuntimeError, "after event persistence"):
+                    strategy.apply_cadenced_exploits(run, manifest, record, manifest_path)
+            self.assertEqual(len(read_events(run)), 4)
+
+            replay = persisted_before
+            replay_record = replay["generations"][0]
+            strategy.apply_cadenced_exploits(run, replay, replay_record, manifest_path)
+            self.assertTrue(replay_record["exploit"][0]["applied"])
+            self.assertEqual(len(read_events(run)), 4)
+            strategy.apply_cadenced_exploits(run, replay, replay_record, manifest_path)
+            self.assertEqual(len(read_events(run)), 4)
+
+    def test_missing_or_corrupt_applied_post_copy_checkpoint_fails_safe(self):
+        for damaged_part, remove in (("state", True), ("optimizer", False)):
+            with self.subTest(damaged_part=damaged_part), tempfile.TemporaryDirectory() as temporary:
+                record = self.plan(1)
+                run = Path(temporary)
+                for name in self.names:
+                    tiny_bundle(run, name, record["epoch"], self.members[name]["lr"])
+                strategy.prepare_boundary(run, record)
+                manifest = {"config": self.config, "members": copy.deepcopy(self.members), "generations": [record]}
+                strategy.apply_cadenced_exploits(run, manifest, record, run / "manifest.json")
+                damaged = Path(record["exploit"][0]["post_copy"][damaged_part]["path"])
+                if remove:
+                    damaged.unlink()
+                    expected = (FileNotFoundError,)
+                else:
+                    damaged.write_bytes(b"corrupt")
+                    expected = (ValueError,)
+                before = copy.deepcopy(manifest)
+                with self.assertRaises(expected):
+                    strategy.apply_cadenced_exploits(run, manifest, record, run / "manifest.json")
+                self.assertEqual(manifest, before)
+
+    def test_decision_reporting_covers_policy_audit_and_primary_endpoint(self):
+        records = []
+        for index, scores in enumerate((
+            [0.400, 0.401, 0.402, 0.403, 0.410],
+            [0.400, 0.4005, 0.401, 0.4015, 0.402],
+            [0.412, 0.404, 0.403, 0.402, 0.399],
+        )):
+            record = self.plan(index, scores)
+            records.append(record)
+        manifest = {"config": self.config, "generations": records}
+        lines = _cadenced_decision_summary_lines(manifest)
+        report = "\n".join(lines)
+        for text in ("warm-up", "eligible", "margin", "reason", "donor", "recipient",
+                     "copy+mutation", "pre-copy", "post-copy", "LR before", "LR after"):
+            self.assertIn(text, report)
+        metric_rows = [
+            {"generation": generation_index, "optimization_metric_value": value}
+            for generation_index in range(12)
+            for value in (1.0 - generation_index * 0.01, 1.2)
+        ]
+        endpoint = _final_window_current_best(metric_rows, "min")
+        self.assertTrue(endpoint["complete"])
+        self.assertEqual(endpoint["generations"], list(range(2, 12)))
+        self.assertAlmostEqual(endpoint["mean"], sum(1.0 - i * 0.01 for i in range(2, 12)) / 10)
+
+    def test_cadenced_decision_events_include_noop_and_checkpoint_evidence(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            warmup = self.plan(0)
+            record_cadenced_decision(run, warmup)
+            exploit = self.plan(1)
+            for name in self.names:
+                tiny_bundle(run, name, exploit["epoch"], self.members[name]["lr"])
+            strategy.prepare_boundary(run, exploit)
+            record_cadenced_decision(run, exploit)
+            events = read_events(run)
+            self.assertEqual([event["action"] for event in events], ["no_op", "copy_and_mutation"])
+            self.assertEqual(events[0]["reason"], "warmup")
+            self.assertIsNotNone(events[1]["pre_copy_checkpoint"])
+            self.assertEqual(events[1]["decision_margin"], 0.002)
 
 
 if __name__ == "__main__":

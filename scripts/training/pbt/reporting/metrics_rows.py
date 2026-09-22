@@ -457,10 +457,15 @@ def write_exploit_table(run_dir, events):
         "generation", "donor", "recipient", "donor_metric", "recipient_metric",
         "weight_source", "optimizer_source", "old_lr", "new_lr",
         "mutation", "significance_margin_sigma", "significance_sigma_required",
+        "action", "mutation_applied", "mutation_reason", "metric_gap", "decision_margin",
+        "pre_copy_state_sha256", "post_copy_state_sha256",
         "pbt_proposed_lr", "final_lr", "controller_applied", "reason",
         "weight_copied", "weight_source_path", "weight_destination_path",
         "optimizer_copied", "optimizer_source_path", "optimizer_destination_path",
     )
+    for row in by_key.values():
+        row["pre_copy_state_sha256"] = (((row.get("pre_copy_checkpoint") or {}).get("state") or {}).get("sha256"))
+        row["post_copy_state_sha256"] = (((row.get("post_copy_checkpoint") or {}).get("state") or {}).get("sha256"))
     rows = sorted(by_key.values(), key=lambda item: (item.get("generation") is None, item.get("generation") or -1, item.get("recipient") or ""))
     return write_atomic_csv(path, columns, rows)
 

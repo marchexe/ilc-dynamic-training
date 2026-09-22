@@ -99,6 +99,39 @@ def record_evaluation(run_dir, config, generation_record, trial, worker):
     )
 
 
+def record_cadenced_decision(run_dir, generation_record):
+    """Persist every cadenced boundary, including warm-up and no-op decisions."""
+    decision = generation_record["cadenced_pbt_v1"]
+    event = (generation_record.get("exploit") or [None])[0]
+    append_event(
+        run_dir,
+        "cadenced_pbt_decision",
+        {
+            "event_id": f"cadenced_pbt_v1:g{int(generation_record['index']):03d}:decision",
+            "generation": generation_record["index"],
+            "completed_epoch": decision.get("completed_epoch"),
+            "warmup_active_during_training": decision.get("warmup_active_during_training"),
+            "eligible_boundary": decision.get("copy_opportunity"),
+            "terminal": decision.get("terminal"),
+            "decision_margin": decision.get("decision_margin"),
+            "metric_gap": decision.get("metric_gap"),
+            "reason": decision.get("reason"),
+            "donor": decision.get("donor"),
+            "recipient": decision.get("recipient"),
+            "action": (
+                "no_op" if not decision.get("copy_planned")
+                else "copy_and_mutation" if decision.get("mutation_applied")
+                else "copy_only"
+            ),
+            "old_lr": decision.get("old_lr"),
+            "new_lr": decision.get("new_lr"),
+            "mutation_reason": decision.get("mutation_reason"),
+            "pre_copy_checkpoint": None if event is None else event.get("pre_copy"),
+            "pre_copy_archive": None if event is None else event.get("pre_copy_archive"),
+        },
+    )
+
+
 def _worker_metric(config, generation_record, member):
     metric = (config.get("pbt") or {}).get("metric")
     if not metric:
@@ -258,7 +291,9 @@ def record_exploit_application(
     old_lr = event.get("recipient_lr")
     new_lr = event.get("new_lr")
     mutation = event.get("mutation_factor", event.get("lr_factor"))
+    base_event_id = event.get("event_id") or f"{event.get('source')}:{generation}:{donor}:{recipient}"
     payload = {
+        "event_id": f"{base_event_id}:exploit",
         "generation": generation,
         "step": generation,
         "donor": donor,
@@ -295,6 +330,12 @@ def record_exploit_application(
         payload.update(
             mutation_applied=event.get("mutation_applied"),
             mutation_reason=event.get("mutation_reason"),
+            action="copy_and_mutation" if event.get("mutation_applied") else "copy_only",
+            metric_gap=event.get("metric_gap"),
+            decision_margin=event.get("decision_margin"),
+            pre_copy_checkpoint=event.get("pre_copy"),
+            pre_copy_archive=event.get("pre_copy_archive"),
+            post_copy_checkpoint=event.get("post_copy"),
         )
     append_event(run_dir, "exploit", payload)
     append_event(
@@ -302,6 +343,7 @@ def record_exploit_application(
         "weight_copy",
         {
             **payload,
+            "event_id": payload["event_id"].removesuffix(":exploit") + ":weight_copy",
             "source_path": str(donor_state),
             "destination_path": str(recipient_state),
             "copied": bool(weight_copied),
@@ -312,6 +354,7 @@ def record_exploit_application(
         "optimizer_copy",
         {
             **payload,
+            "event_id": payload["event_id"].removesuffix(":exploit") + ":optimizer_copy",
             "source_path": str(donor_optimizer),
             "destination_path": str(recipient_optimizer),
             "copied": bool(optimizer_copied),
@@ -322,6 +365,7 @@ def record_exploit_application(
         "lr_change",
         {
             **payload,
+            "event_id": payload["event_id"].removesuffix(":exploit") + ":lr_change",
             "old_lr": old_lr,
             "new_lr": new_lr,
             "changed": old_lr != new_lr,
