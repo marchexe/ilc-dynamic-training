@@ -1,0 +1,9 @@
+# Cadence-5 arm matched to cadenced_pbt_v1_seed32345.yaml.
+presets:
+  - cadenced_pbt_v1_seed32345.yaml
+
+experiment:
+  name: cadenced_pbt_v1_cadence5_seed32345_50epochs
+
+pbt:
+  exploit_interval_generations: 5

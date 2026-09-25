@@ -1,0 +1,107 @@
+schema_version: 1
+config_path: /data/suehara/part/march/configs/experiments/cadenced_pbt_v1_seed22345.yaml
+experiment_name: cadenced_pbt_v1_seed22345_50epochs
+output_root: /data/suehara/part/march/runs/pbt
+shared:
+  dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  validation_dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  checkpoint: /data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+  data_config: /data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
+  network_config: /data/suehara/part/march/networks/pretrained_sgv_particle_transformer.py
+  seed: 22345
+  generations: 50
+  weaver_epochs_per_generation: 1
+  data_audit: true
+  deterministic: true
+  batch_size: 1024
+  optimizer: ranger
+  lr_scheduler: none
+  num_workers: 1
+  fetch_step: 0.01
+  use_amp: true
+  amp_dtype: fp16
+  no_remake_weights: true
+  freeze_batch_norm: true
+  data_extension: parquet
+  train_suffix: train800k
+  validation_suffix: val50k_tail
+  initial_epoch: 17
+  initial_state: /data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+  initial_optimizer: /data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
+  initial_optimizer_mode: raw
+  prefetch_factor: 4
+gpus:
+- '0'
+- '1'
+- '2'
+- '3'
+- '4'
+slots:
+- gpu: '0'
+  label: '0'
+- gpu: '1'
+  label: '1'
+- gpu: '2'
+  label: '2'
+- gpu: '3'
+  label: '3'
+- gpu: '4'
+  label: '4'
+population:
+- name: lr_3e-6
+  start_lr: 3.0e-06
+- name: lr_5_75e-6
+  start_lr: 5.75e-06
+- name: lr_8_5e-6
+  start_lr: 8.5e-06
+- name: lr_11_25e-6
+  start_lr: 1.125e-05
+- name: lr_14e-6
+  start_lr: 1.4e-05
+pbt:
+  cadenced_pbt_v1:
+    warmup_epochs: 2
+    decision_margin: 0.002
+    max_recipients: 1
+  evaluate_initial_checkpoint: true
+  evaluate_final_checkpoints: true
+  metric: validation_total_reference_mistag_geomean_percent
+  mode: min
+  exploit_fraction: 0.25
+  mutation_factors:
+  - 0.8
+  - 1.2
+  min_lr: 2.0e-06
+  max_lr: 3.0e-05
+  seed: 2026
+  degradation_tolerance: 0.02
+  degradation_window: 3
+  early_stop_degraded_generations: 0
+  rollback_fraction: 0.0
+  controller_state_on_exploit: copy
+  backend: local_weaver
+  strategy: cadenced_pbt_v1
+  confidence_aware_selection: false
+  selection_uncertainty_sigma: 1.0
+  burn_in_generations: 0
+  exploit_interval_generations: 1
+  exploit_replacement_policy: fraction
+  anchored_weight_source: self
+  dynamic_controller:
+    mode: disabled
+    policy: legacy
+    direction_patience: 2
+    evaluate_initial_checkpoint: false
+    allowed_actions:
+    - keep
+    metric_delta_tolerance: 0.0
+    ema_beta: 0.7
+    trend_window: 3
+    min_delta_sigma_for_action: 1.0
+    eval_interval_fraction: 0.2
+    action_interval_fraction: 0.2
+    max_cumulative_lr_factor_per_epoch: 2.0
+  baseline_guard_action: observe
+  baseline_guard_reject_global_best: false
+  baseline_guard_seed_initial_best: false
+smoke: false

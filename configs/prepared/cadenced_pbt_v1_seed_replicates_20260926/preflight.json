@@ -1,0 +1,39 @@
+{
+  "dataset_rng_witness_sha256": {
+    "22345": "07b0d638bf51334c7a212c504f20075ad5405de729b5c98e67205a64f138d036",
+    "32345": "7fd9f9aef2dbd29133040d53dda2989e35793f273582ff66f8f44bf1db0c7a42"
+  },
+  "generation_seed_rule": "shared.seed + zero_based_generation",
+  "initialization_hashes": {
+    "data_config": "25c670c3b817a5423d876a989af613be282ce927ea06753e70add611731ff77f",
+    "initial_optimizer": "a1909dd493b3ed07bea41d044fa6cb6862180709a33ad4cd691a094754519f09",
+    "initial_state": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501",
+    "network_config": "f6dfb055921a887ac44fc8b8ac790f7dfa9232595d244438eb07cd1f327e361f"
+  },
+  "pbt_seed_fixed": 2026,
+  "proofs": {
+    "all_initialization_hashes_identical": true,
+    "between_pairs_only_name_path_and_training_seed": true,
+    "disjoint_worker_seed_sequences_between_pairs": true,
+    "same_worker_seed_sequence_within_pair": true,
+    "within_pair_only_name_path_and_interval": true
+  },
+  "resolved_config_sha256": {
+    "seed22345_cadence1": "d515d6b88218fa51241fe9195f1d35f37d5997da83129820c4c62676846ed473",
+    "seed22345_cadence5": "90ca5211f7bd42472253e6976c7cd60f56c7a89ac27c3a653fd051bd575916ba",
+    "seed32345_cadence1": "6aaa1e16273a6205b744400585730d21e31993a1f53c5661eed7e3ef5bdd8c9a",
+    "seed32345_cadence5": "f8d667e04645466f438e9f437ddd2caa229895c4e1e406682261fe95450e9fa8"
+  },
+  "status": "PREPARED_NOT_LAUNCHED",
+  "training_seed_field": "shared.seed",
+  "training_seed_ranges": {
+    "22345": [
+      22345,
+      22394
+    ],
+    "32345": [
+      32345,
+      32394
+    ]
+  }
+}

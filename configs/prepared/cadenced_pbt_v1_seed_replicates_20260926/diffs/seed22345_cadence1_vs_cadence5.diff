@@ -1,0 +1,20 @@
+--- seed22345_cadence1.yaml
++++ seed22345_cadence5.yaml
+@@ -1,6 +1,6 @@
+ schema_version: 1
+-config_path: /data/suehara/part/march/configs/experiments/cadenced_pbt_v1_seed22345.yaml
+-experiment_name: cadenced_pbt_v1_seed22345_50epochs
++config_path: /data/suehara/part/march/configs/experiments/cadenced_pbt_v1_cadence5_seed22345.yaml
++experiment_name: cadenced_pbt_v1_cadence5_seed22345_50epochs
+ output_root: /data/suehara/part/march/runs/pbt
+ shared:
+   dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+@@ -84,7 +84,7 @@
+   confidence_aware_selection: false
+   selection_uncertainty_sigma: 1.0
+   burn_in_generations: 0
+-  exploit_interval_generations: 1
++  exploit_interval_generations: 5
+   exploit_replacement_policy: fraction
+   anchored_weight_source: self
+   dynamic_controller:

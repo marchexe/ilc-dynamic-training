@@ -1,0 +1,20 @@
+--- seed22345_cadence5.yaml
++++ seed32345_cadence5.yaml
+@@ -1,6 +1,6 @@
+ schema_version: 1
+-config_path: /data/suehara/part/march/configs/experiments/cadenced_pbt_v1_cadence5_seed22345.yaml
+-experiment_name: cadenced_pbt_v1_cadence5_seed22345_50epochs
++config_path: /data/suehara/part/march/configs/experiments/cadenced_pbt_v1_cadence5_seed32345.yaml
++experiment_name: cadenced_pbt_v1_cadence5_seed32345_50epochs
+ output_root: /data/suehara/part/march/runs/pbt
+ shared:
+   dataset: /data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+@@ -8,7 +8,7 @@
+   checkpoint: /data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
+   data_config: /data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
+   network_config: /data/suehara/part/march/networks/pretrained_sgv_particle_transformer.py
+-  seed: 22345
++  seed: 32345
+   generations: 50
+   weaver_epochs_per_generation: 1
+   data_audit: true

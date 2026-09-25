@@ -1,0 +1,9 @@
+# Paired-seed cadence control, replicate 2 (training seed 22345).
+presets:
+  - cadenced_pbt_v1.yaml
+
+experiment:
+  name: cadenced_pbt_v1_seed22345_50epochs
+
+shared:
+  seed: 22345
