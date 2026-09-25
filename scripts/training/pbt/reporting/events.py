@@ -110,6 +110,8 @@ def record_cadenced_decision(run_dir, generation_record):
             "event_id": f"cadenced_pbt_v1:g{int(generation_record['index']):03d}:decision",
             "generation": generation_record["index"],
             "completed_epoch": decision.get("completed_epoch"),
+            "cadence_interval_epochs": decision.get("cadence_interval_epochs"),
+            "cadence_boundary": decision.get("cadence_boundary"),
             "warmup_active_during_training": decision.get("warmup_active_during_training"),
             "eligible_boundary": decision.get("copy_opportunity"),
             "terminal": decision.get("terminal"),

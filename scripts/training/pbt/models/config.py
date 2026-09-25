@@ -386,7 +386,7 @@ class WindowedPBTConfig(StrictSectionModel):
 
 
 class CadencedPBTConfig(StrictSectionModel):
-    """One-full-epoch, one-recipient PBT with a post-validation warm-up boundary."""
+    """One-full-epoch, one-recipient PBT with an independent warm-up gate."""
 
     warmup_epochs: Literal[2] = 2
     decision_margin: float = Field(default=0.002, ge=0.0, allow_inf_nan=False)
@@ -715,7 +715,7 @@ class ResolvedPBTConfig(StrictSectionModel):
                     or not s.use_amp or s.amp_dtype != "fp16" or s.optimizer != "ranger"
                     or (s.model_extra or {}).get("auto_clean")):
                 raise ValueError("cadenced_pbt_v1 requires audited full-epoch Ranger/FP16 training and full validation")
-            if (p.backend != "local_weaver" or p.exploit_interval_generations != 1
+            if (p.backend != "local_weaver" or p.exploit_interval_generations is None
                     or p.mutation_factors != [0.8, 1.2] or not p.evaluate_final_checkpoints
                     or p.windowed_pbt_v2 or p.population_lr_policy or p.anchor_copy_lr_recenter
                     or p.lr_controller or p.tiered_validation or s.training_controller or s.initial_controller

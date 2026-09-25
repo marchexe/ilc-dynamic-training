@@ -38,6 +38,8 @@ def synthetic_schedule(config, generations):
             "completed_epoch": decision["completed_epoch"],
             "weaver_epoch": decision["weaver_epoch"],
             "validation": "synthetic_full_reference",
+            "cadence_interval_epochs": decision["cadence_interval_epochs"],
+            "cadence_boundary": decision["cadence_boundary"],
             "warmup_active_during_training": decision["warmup_active_during_training"],
             "warmup_complete_at_boundary": decision["warmup_complete_at_boundary"],
             "terminal": decision["terminal"],

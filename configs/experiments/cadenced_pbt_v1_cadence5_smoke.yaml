@@ -1,0 +1,11 @@
+# Minimum full-data integration schedule containing the real epoch-5 cadence
+# boundary and epoch 6, which must resume any applied epoch-5 copy. This is not
+# generic --smoke mode: population, validation, margin, and data stay production-like.
+presets:
+  - cadenced_pbt_v1_cadence5.yaml
+
+experiment:
+  name: cadenced_pbt_v1_cadence5_full_reference_smoke
+
+shared:
+  generations: 6

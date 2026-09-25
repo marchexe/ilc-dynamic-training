@@ -451,17 +451,19 @@ def _cadenced_decision_summary_lines(manifest):
     lines = [
         "",
         "## Cadenced PBT Boundary Audit",
-        "- Warm-up is two complete training epochs; the epoch-2 post-validation boundary is eligible.",
+        "- Warm-up is two complete training epochs and is independent of the global completed-epoch cadence gate.",
+        f"- Adaptation cadence is every {rows[0][1].get('cadence_interval_epochs', 1)} completed epoch(s); a due terminal boundary is still suppressed.",
         "- The 0.002 margin is an operational policy threshold, not a claim of statistical significance.",
         "",
-        "| generation | epoch | warm-up training | eligible | margin | gap | reason | donor | recipient | action | pre-copy state | post-copy state | LR before | LR after |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| generation | epoch | cadence boundary | warm-up training | eligible | margin | gap | reason | donor | recipient | action | pre-copy state | post-copy state | LR before | LR after |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for generation, decision, event, action in rows:
         lines.append(
-            "| {generation} | {epoch} | {warmup} | {eligible} | {margin} | {gap} | {reason} | {donor} | {recipient} | {action} | `{pre}` | `{post}` | {old_lr} | {new_lr} |".format(
+            "| {generation} | {epoch} | {cadence} | {warmup} | {eligible} | {margin} | {gap} | {reason} | {donor} | {recipient} | {action} | `{pre}` | `{post}` | {old_lr} | {new_lr} |".format(
                 generation=generation.get("index"),
                 epoch=decision.get("completed_epoch"),
+                cadence="yes" if decision.get("cadence_boundary", True) else "no",
                 warmup="yes" if decision.get("warmup_active_during_training") else "no",
                 eligible="yes" if decision.get("copy_opportunity") else "no",
                 margin=_fmt(decision.get("decision_margin")),
@@ -581,7 +583,8 @@ def write_report(run_dir, manifest, summary):
     ]
     if method == "cadenced_pbt_v1":
         method_lines.extend([
-            f"- Cadenced warm-up: {cadenced_config.get('warmup_epochs')} complete training epochs; the post-epoch-2 boundary is eligible",
+            f"- Cadenced warm-up: {cadenced_config.get('warmup_epochs')} complete training epochs, independent of the global cadence anchor",
+            f"- Cadenced adaptation opportunity: completed_epoch % {pbt_config.get('exploit_interval_generations')} == 0, except terminal suppression",
             f"- Cadenced operational decision margin: {cadenced_config.get('decision_margin')} (not a statistical-significance threshold)",
         ])
     method_lines.extend([
@@ -611,8 +614,13 @@ def write_report(run_dir, manifest, summary):
             "- Control-tier evidence alone is 'provisional' -- see Proxy Validation above. It is never a substitute for monitor/full corroboration.",
     ])
     if policy_comparison:
+        comparison_caveat = (
+            "- A cadence-1 versus cadence-N comparison within `cadenced_pbt_v1` isolates adaptation frequency when all other resolved fields and inputs match."
+            if method == "cadenced_pbt_v1" and pbt_config.get("exploit_interval_generations") != 1
+            else "- The policy comparison is `windowed_pbt_v2` versus `cadenced_pbt_v1`; it does not isolate cadence because their selection and replacement policies also differ."
+        )
         method_lines.extend([
-            "- The policy comparison is `windowed_pbt_v2` versus `cadenced_pbt_v1`; it does not isolate cadence because their selection and replacement policies also differ.",
+            comparison_caveat,
             "- The primary scientific endpoint is the final-10 current-best full-reference mean (lower is better), not the single lowest checkpoint.",
             "- The 0.002 decision margin is an operational policy threshold, not statistical significance.",
         ])

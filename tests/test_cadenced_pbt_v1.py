@@ -11,6 +11,7 @@ import torch
 
 from tests.helpers import PROJECT_DIR
 from scripts.launch.experiment import configuration
+from scripts.research.dry_run_cadenced_pbt_v1 import synthetic_schedule
 from training.checkpoints import bundle_identity, bundle_paths, check_bundle
 from training.pbt.execution.backend import LocalWeaverBackend
 from training.pbt.models.config import ResolvedPBTConfig
@@ -30,6 +31,8 @@ from weaver.utils.nn.optimizer.ranger import Ranger
 
 
 CONFIG_PATH = PROJECT_DIR / "configs/experiments/cadenced_pbt_v1.yaml"
+CADENCE5_PATH = PROJECT_DIR / "configs/experiments/cadenced_pbt_v1_cadence5.yaml"
+CADENCE5_SMOKE_PATH = PROJECT_DIR / "configs/experiments/cadenced_pbt_v1_cadence5_smoke.yaml"
 SCRATCH_PATH = PROJECT_DIR / "configs/experiments/cadenced_pbt_v1_scratch.yaml"
 SCRATCH_SMOKE_PATH = PROJECT_DIR / "configs/experiments/cadenced_pbt_v1_scratch_smoke.yaml"
 
@@ -97,6 +100,119 @@ class CadencedPBTTest(unittest.TestCase):
             if index >= 1:
                 self.assertEqual(record["exploit"][0]["mutation_factor"] in (0.8, 1.2), True)
         self.assertEqual(self.plan(1)[strategy.STRATEGY]["completed_epoch"], 2)
+
+    def test_cadence5_changes_only_the_generic_adaptation_interval(self):
+        cadence5 = configuration(CADENCE5_PATH)
+        self.assertEqual(cadence5["experiment_name"], "cadenced_pbt_v1_cadence5_50epochs")
+        self.assertEqual(cadence5["shared"], self.config["shared"])
+        self.assertEqual(cadence5["population"], self.config["population"])
+        self.assertEqual(cadence5["slots"], self.config["slots"])
+        self.assertEqual(cadence5["gpus"], self.config["gpus"])
+        self.assertEqual(cadence5["output_root"], self.config["output_root"])
+        baseline_pbt = copy.deepcopy(self.config["pbt"])
+        control_pbt = copy.deepcopy(cadence5["pbt"])
+        self.assertEqual(baseline_pbt.pop("exploit_interval_generations"), 1)
+        self.assertEqual(control_pbt.pop("exploit_interval_generations"), 5)
+        self.assertEqual(control_pbt, baseline_pbt)
+
+    def test_cadence5_global_boundaries_warmup_off_cadence_and_terminal(self):
+        config = configuration(CADENCE5_PATH)
+        members = {
+            item["name"]: {"name": item["name"], "lr": item["start_lr"]}
+            for item in config["population"]
+        }
+        records = []
+        for index in range(50):
+            record = generation(config, members, index)
+            ranking, events = plan_for_strategy(config, record, members)
+            record.update(ranking=ranking, exploit=events)
+            records.append(record)
+        decisions = [record[strategy.STRATEGY] for record in records]
+        expected = list(range(5, 50, 5))
+        self.assertEqual(
+            [item["completed_epoch"] for item in decisions if item["copy_opportunity"]],
+            expected,
+        )
+        self.assertEqual(
+            [record[strategy.STRATEGY]["completed_epoch"] for record in records if record["exploit"]],
+            expected,
+        )
+        self.assertEqual(decisions[0]["reason"], "warmup")
+        self.assertEqual([item["reason"] for item in decisions[1:4]], ["off_cadence"] * 3)
+        self.assertTrue(decisions[4]["cadence_boundary"])
+        self.assertEqual(decisions[4]["reason"], "metric_gap_exceeds_margin")
+        self.assertTrue(decisions[-1]["cadence_boundary"])
+        self.assertTrue(decisions[-1]["terminal"])
+        self.assertEqual(decisions[-1]["reason"], "terminal_generation")
+        self.assertFalse(decisions[-1]["copy_opportunity"])
+        self.assertEqual(records[-1]["exploit"], [])
+
+    def test_cadence5_eligible_boundary_matches_cadence1_selection_and_mutation(self):
+        cadence5 = configuration(CADENCE5_PATH)
+        members = copy.deepcopy(self.members)
+        scores = [0.412, 0.404, 0.403, 0.402, 0.399]
+        baseline = generation(self.config, members, 4, scores)
+        control = generation(cadence5, members, 4, scores)
+        baseline_ranking, baseline_events = plan_for_strategy(self.config, baseline, members)
+        control_ranking, control_events = plan_for_strategy(cadence5, control, members)
+        self.assertEqual(control_ranking, baseline_ranking)
+        self.assertEqual(control_events, baseline_events)
+        self.assertEqual(control[strategy.STRATEGY]["donor"], baseline[strategy.STRATEGY]["donor"])
+        self.assertEqual(control[strategy.STRATEGY]["recipient"], baseline[strategy.STRATEGY]["recipient"])
+        self.assertEqual(control[strategy.STRATEGY]["metric_gap"], baseline[strategy.STRATEGY]["metric_gap"])
+        self.assertEqual(control[strategy.STRATEGY]["new_lr"], baseline[strategy.STRATEGY]["new_lr"])
+
+    def test_cadence5_interrupted_boundary_replays_and_resumes_next_generation(self):
+        config = configuration(CADENCE5_PATH)
+        members = {
+            item["name"]: {"name": item["name"], "lr": item["start_lr"]}
+            for item in config["population"]
+        }
+        record = generation(config, members, 4)
+        ranking, events = plan_for_strategy(config, record, members)
+        record.update(ranking=ranking, exploit=events)
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            for name in members:
+                tiny_bundle(run, name, record["epoch"], members[name]["lr"])
+            strategy.prepare_boundary(run, record)
+            manifest_path = run / "manifest.json"
+            manifest = {"config": config, "members": copy.deepcopy(members), "generations": [record]}
+            with patch.object(strategy, "atomic_set_optimizer_lr", side_effect=RuntimeError("cadence5 interruption")):
+                with self.assertRaisesRegex(RuntimeError, "cadence5 interruption"):
+                    strategy.apply_cadenced_exploits(run, manifest, record, manifest_path)
+            self.assertFalse(record["exploit"][0]["applied"])
+            check_bundle(record["exploit"][0]["donor_archive"])
+            check_bundle(record["exploit"][0]["pre_copy_archive"])
+            strategy.apply_cadenced_exploits(run, manifest, record, manifest_path)
+            event = record["exploit"][0]
+            self.assertTrue(event["applied"])
+            command, _, _ = LocalWeaverBackend().command_for(
+                config, manifest["members"][event["recipient"]], "0",
+                run / event["recipient"], generation=5,
+            )
+            self.assertEqual(command[command.index("--load-epoch") + 1], str(record["epoch"]))
+            self.assertEqual(float(command[command.index("--start-lr") + 1]), event["new_lr"])
+            before = manifest_path.read_bytes()
+            strategy.apply_cadenced_exploits(run, manifest, record, manifest_path)
+            self.assertEqual(manifest_path.read_bytes(), before)
+
+    def test_cadence5_smoke_reaches_boundary_and_subsequent_generation(self):
+        production = configuration(CADENCE5_PATH)
+        smoke = configuration(CADENCE5_SMOKE_PATH)
+        self.assertEqual(smoke["experiment_name"], "cadenced_pbt_v1_cadence5_full_reference_smoke")
+        self.assertEqual(smoke["shared"]["generations"], 6)
+        comparable_shared = copy.deepcopy(smoke["shared"])
+        comparable_shared["generations"] = production["shared"]["generations"]
+        self.assertEqual(comparable_shared, production["shared"])
+        self.assertEqual(smoke["population"], production["population"])
+        self.assertEqual(smoke["pbt"], production["pbt"])
+        self.assertEqual(smoke["pbt"][strategy.STRATEGY]["decision_margin"], 0.002)
+        rows = list(synthetic_schedule(smoke, 6))
+        self.assertEqual([row["completed_epoch"] for row in rows if row["copy_planned"]], [5])
+        self.assertTrue(rows[4]["cadence_boundary"])
+        self.assertFalse(rows[5]["copy_planned"])
+        self.assertTrue(rows[5]["terminal"])
 
     def test_one_epoch_best_worst_strict_margin_noop_and_one_recipient(self):
         record = self.plan(1)
@@ -354,7 +470,7 @@ class CadencedPBTTest(unittest.TestCase):
             ("shared", "weaver_epochs_per_generation", 2),
             ("shared", "samples_per_epoch", 120000),
             ("shared", "lr_scheduler", "steps"),
-            ("pbt", "exploit_interval_generations", 5),
+            ("pbt", "exploit_interval_generations", 0),
             ("pbt", "mutation_factors", [0.9, 1.1]),
         ):
             bad = copy.deepcopy(self.config)

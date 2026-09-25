@@ -2,6 +2,8 @@
 
 Selection has no window or persistence rule.  A qualifying metric gap always
 copies one complete checkpoint bundle; LR collision can suppress only explore.
+The generic exploit interval is a global completed-epoch cadence: interval N
+is due after epochs N, 2N, 3N, ...; warm-up is an independent eligibility gate.
 """
 
 import math
@@ -67,6 +69,8 @@ def cadenced_pbt_v1_plan(config, generation, members, manifest=None):
     completed_epochs = index + 1
     terminal = completed_epochs == int(config["shared"]["generations"])
     warmup_epochs = int(options["warmup_epochs"])
+    cadence_interval_epochs = int(pbt["exploit_interval_generations"])
+    cadence_boundary = completed_epochs % cadence_interval_epochs == 0
     values = {}
     for name in members:
         worker = generation["workers"][name]
@@ -83,11 +87,13 @@ def cadenced_pbt_v1_plan(config, generation, members, manifest=None):
     decimal_gap = Decimal(str(values[recipient])) - Decimal(str(values[donor]))
     gap = float(decimal_gap)
     margin = float(options["decision_margin"])
-    opportunity = completed_epochs >= warmup_epochs and not terminal
+    opportunity = completed_epochs >= warmup_epochs and cadence_boundary and not terminal
     if terminal:
         reason = "terminal_generation"
     elif completed_epochs < warmup_epochs:
         reason = "warmup"
+    elif not cadence_boundary:
+        reason = "off_cadence"
     elif decimal_gap <= Decimal(str(margin)):
         reason = "within_margin"
     else:
@@ -110,6 +116,8 @@ def cadenced_pbt_v1_plan(config, generation, members, manifest=None):
         "mutation_reason": "not_attempted",
         "metric_gap": gap,
         "decision_margin": margin,
+        "cadence_interval_epochs": cadence_interval_epochs,
+        "cadence_boundary": cadence_boundary,
         "warmup_active_during_training": completed_epochs <= warmup_epochs,
         "warmup_complete_at_boundary": completed_epochs >= warmup_epochs,
         "copy_opportunity": opportunity,

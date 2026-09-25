@@ -547,10 +547,12 @@ def _plan_generation_exploit(config, manifest, existing, generation, is_final_ge
         log_event(
             pbt_log_path,
             "cadenced_pbt_v1 generation=%d completed_epoch=%d validated=true "
-            "warmup_training=%s terminal=%s donor=%s recipient=%s gap=%.6g "
+            "cadence_interval=%d cadence_boundary=%s warmup_training=%s "
+            "terminal=%s donor=%s recipient=%s gap=%.6g "
             "copy_planned=%s old_lr=%s new_lr=%s mutation=%s reason=%s"
             % (
                 generation, decision["completed_epoch"],
+                decision["cadence_interval_epochs"], decision["cadence_boundary"],
                 decision["warmup_active_during_training"], decision["terminal"],
                 decision["donor"], decision["recipient"], decision["metric_gap"],
                 decision["copy_planned"], decision.get("old_lr"), decision.get("new_lr"),

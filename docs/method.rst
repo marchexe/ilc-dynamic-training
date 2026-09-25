@@ -64,6 +64,14 @@ model/RAdam/AMP-scaler bundle.  Exploration deterministically chooses a bounded
 ×0.8 or ×1.2 LR mutation when one is collision-free; if no mutation is valid,
 the weight/optimizer/scaler copy still occurs at the recipient's prior LR.
 
+Its generic ``exploit_interval_generations`` setting uses global completed-epoch
+cadence: interval *N* is due when ``completed_epoch % N == 0``.  The two-epoch
+warm-up is an independent eligibility gate and never shifts that anchor.  Thus
+the cadence-5 control has opportunities after epochs 5, 10, ..., 45; the due
+epoch-50 boundary is terminal-suppressed.  Apart from that interval, the
+cadence-1 production arm and cadence-5 control share the same resolved policy,
+initialization, data, execution, checkpoint, recovery and reporting contracts.
+
 Scientific comparison contract
 ------------------------------
 

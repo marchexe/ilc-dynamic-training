@@ -1,0 +1,12 @@
+# Cadence-only control for the pretrained cadenced_pbt_v1 production run.
+# All inherited scientific and execution settings are unchanged; only the
+# global completed-epoch adaptation interval differs (epochs 5, 10, ..., 45;
+# epoch 50 is a due boundary but terminal-suppressed).
+presets:
+  - cadenced_pbt_v1.yaml
+
+experiment:
+  name: cadenced_pbt_v1_cadence5_50epochs
+
+pbt:
+  exploit_interval_generations: 5
