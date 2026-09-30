@@ -18,25 +18,45 @@ Completed
 * Completed the 96-generation ``representative_60k`` shadow audit. The run was
   intact, but only two UP proposals fired, no DOWN proposal was exercised, and
   the cumulative-factor bound clamped both proposed LR changes to no-ops.
+* Completed two matched-seed pretrained comparisons of supervisor Variant A
+  (one-epoch generations, adapt every epoch) against the additional cadence5
+  control (one-epoch generations, adapt every five epochs). Variant A recorded
+  the lower final-10 current-best mean for both deterministic seeds.
+* Implemented and tested scratch initialization semantics and completed a real
+  three-generation scratch smoke. No full scratch production comparison has
+  run.
 
 Current work
 ------------
 
-The first eight-member fixed-LR shadow run is complete. Its evidence is not
-sufficient for a live adaptive-LR run: six members never proposed a change,
-DOWN behavior remains untested, and ``max_cumulative_lr_factor_per_epoch: 1.0``
-made the two UP proposals mechanically ineffective.
+The :doc:`supervisor PBT milestone <pbt_interim_status>` is ready for review.
+The true 0.2-epoch supervisor Variant B is blocked before implementation:
+historical Ranger checkpoints restore RAdam but omit Lookahead slow weights and
+the step counter, so restarting at five sub-epoch boundaries changes the
+optimizer trajectory. The deterministic continuation-equivalence gate failed.
+
+Separately, the first eight-member fixed-LR shadow run is complete. Its evidence
+is not sufficient for a live adaptive-LR run: six members never proposed a
+change, DOWN behavior remains untested, and
+``max_cumulative_lr_factor_per_epoch: 1.0`` made the two UP proposals
+mechanically ineffective.
 
 Next research steps
 -------------------
 
-1. Run a pre-registered continuation shadow with a non-zero cumulative LR
+1. Design a new versioned Ranger/Lookahead checkpoint contract and prove exact
+   restarted continuation before implementing supervisor Variant B.
+2. Compare Variant B only with a newly matched corrected Variant A; do not use
+   historical ``cadenced_pbt_v1`` as the corrected comparator.
+3. Treat full scratch production runs as a separate initialization-regime
+   robustness track.
+4. Run a pre-registered continuation shadow with a non-zero cumulative LR
    allowance while retaining shadow mode and the qualified measurement tiers.
-2. Require real DOWN coverage, non-clamped proposals and no meaningful
+5. Require real DOWN coverage, non-clamped proposals and no meaningful
    opposite reference direction before considering live control.
-3. Specify the rule-based adaptive LR controller as a separately versioned
+6. Specify the rule-based adaptive LR controller as a separately versioned
    policy only after replay and shadow checks pass.
-4. Compare it against frozen ``windowed_pbt_v2`` and matched fixed-LR controls,
+7. Compare it against frozen ``windowed_pbt_v2`` and matched fixed-LR controls,
    with an independent validation tier that never drives selection.
 
 Open questions

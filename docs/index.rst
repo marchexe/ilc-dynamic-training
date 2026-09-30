@@ -26,10 +26,16 @@ smoothing, short-window trends, patience and cooldown. No adaptive-LR policy is
 part of the frozen reference algorithm, and the proxy study establishes
 measurement quality rather than a training improvement claim.
 
+The current supervisor-facing PBT milestone is summarized in
+:doc:`pbt_interim_status`.  It distinguishes the historical windowed baseline,
+the implemented one-epoch Variant A, the additional one-epoch cadence5 control,
+and the blocked 0.2-epoch Variant B.
+
 .. toctree::
    :maxdepth: 1
 
    results
+   pbt_interim_status
    proxy_validation
    method
    experiments
