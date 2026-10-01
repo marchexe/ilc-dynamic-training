@@ -1,0 +1,282 @@
+{
+  "checkpoint_selection": {
+    "agrees_with_best_physics": false,
+    "best_physics_generation": 42,
+    "best_physics_member": "lr_14e-6",
+    "fallback_reason": null,
+    "generation": 41,
+    "member": "lr_5_75e-6",
+    "role": "global_best",
+    "role_label": "global best (PBT selection)",
+    "selection_metric_mode": "min",
+    "selection_metric_name": "validation_total_reference_mistag_geomean_percent",
+    "validation_dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "validation_sample_count": null,
+    "validation_suffix": "val50k_tail"
+  },
+  "config_fingerprint": "91f1d861df090b9ab34cff67b64c0d1e6742072aa10bdb47e4b31192ee7d434c",
+  "config_sha256": "a935a2a7cfd589ef7934b0d6655c42206147c091ba36d77172861998c0c80d1c",
+  "dataset": {
+    "data_extension": "parquet",
+    "fingerprints": {
+      "train": "83cd373df93aba62ef1faafc0d25c37af2c20bb4bbe567c972c76d57a439b0a3",
+      "val": "831619c8ec495885fe0a98fa83382a48f341508b2beb1b250a60206ba24090c9"
+    },
+    "proxy_validation": null,
+    "resolved_files": {
+      "train": [
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_train800k.parquet"
+          ],
+          "identities": [
+            {
+              "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_train800k.parquet",
+              "sha256": "699cf13f467f8488a3a52f038d654fa7cb5402cc5426fbc11037e89224963c32",
+              "size": 2137665603
+            }
+          ],
+          "label": "nnbb",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_bb_train800k.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_train800k.parquet"
+          ],
+          "identities": [
+            {
+              "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_train800k.parquet",
+              "sha256": "2264b44b6229dc88c3dfbf57949e5b63c5c89cd155fe05023642837b742d5366",
+              "size": 1944160609
+            }
+          ],
+          "label": "nncc",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_cc_train800k.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_train800k.parquet"
+          ],
+          "identities": [
+            {
+              "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_train800k.parquet",
+              "sha256": "529ce5ab893e534ba2182a71a8e497dbbfb515c731e0531b0ad02bcd72f6ff7b",
+              "size": 1819344727
+            }
+          ],
+          "label": "nndd",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_dd_train800k.parquet"
+        }
+      ],
+      "val": [
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val50k_tail.parquet"
+          ],
+          "identities": [
+            {
+              "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val50k_tail.parquet",
+              "sha256": "543a6d47bb6959a5984294ac000dc5e849ffe5a90ecc351211eabbee22503a6a",
+              "size": 158970217
+            }
+          ],
+          "label": "nnbb",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_bb_val50k_tail.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val50k_tail.parquet"
+          ],
+          "identities": [
+            {
+              "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val50k_tail.parquet",
+              "sha256": "06f7f95e5c7dd8a20b69d2b84522a07492fd250426c86f05e1f1517e6f843e23",
+              "size": 147719635
+            }
+          ],
+          "label": "nncc",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_cc_val50k_tail.parquet"
+        },
+        {
+          "files": [
+            "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val50k_tail.parquet"
+          ],
+          "identities": [
+            {
+              "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val50k_tail.parquet",
+              "sha256": "22d7072156ae1db3237cbe780b3a6dea786c56f7747e8e6086c2ee6211009411",
+              "size": 140442377
+            }
+          ],
+          "label": "nndd",
+          "missing": false,
+          "pattern": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/*_dd_val50k_tail.parquet"
+        }
+      ]
+    },
+    "train_dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "train_suffix": "train800k",
+    "validation_dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "validation_suffix": "val50k_tail"
+  },
+  "dataset_fingerprints": {
+    "train": "83cd373df93aba62ef1faafc0d25c37af2c20bb4bbe567c972c76d57a439b0a3",
+    "val": "831619c8ec495885fe0a98fa83382a48f341508b2beb1b250a60206ba24090c9"
+  },
+  "events_sha256": "77c1d4afd119ee5358540aaba751ac709d9a0ec5b16ba9db610c02b8adb6a44c",
+  "fingerprint": "91f1d861df090b9ab34cff67b64c0d1e6742072aa10bdb47e4b31192ee7d434c",
+  "manifest_sha256": "57dcee6b08b7e429adcee6c7c88e2af633fa1a932875bd340a1c88d577ab82a5",
+  "metrics_sha256": "cbfadaaa8050999c78d70fab95f932247ab5f2c68b395b8ba378624d977f14e4",
+  "models": [
+    {
+      "epoch": 59,
+      "file": "global_best_state.pt",
+      "kind": "state",
+      "member": "lr_5_75e-6",
+      "metric_name": "validation_total_reference_mistag_geomean_percent",
+      "metric_value": 0.3309306510368319,
+      "role": "global_best_state",
+      "selection_reason": "best checkpoint according to the primary full-reference metric",
+      "sha256": "ab44b098b5f7b11b4b730e4530e5c60d2c616387dbe2fd0761ee070ecf2c60f2",
+      "size_bytes": 3587665,
+      "source_path": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_50epochs/checkpoints/global_best_state.pt"
+    },
+    {
+      "epoch": 59,
+      "file": "global_best_optimizer.pt",
+      "kind": "optimizer",
+      "member": "lr_5_75e-6",
+      "metric_name": "validation_total_reference_mistag_geomean_percent",
+      "metric_value": 0.3309306510368319,
+      "role": "global_best_optimizer",
+      "selection_reason": "optimizer paired with the primary-metric global best",
+      "sha256": "d3afc5e126d7dac1398fc449b35ac7f1f6cca8e6e6e8a0b4e425ed02b73de35c",
+      "size_bytes": 7144151,
+      "source_path": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_50epochs/checkpoints/global_best_optimizer.pt"
+    },
+    {
+      "epoch": 59,
+      "file": "global_best_scaler.pt",
+      "kind": "scaler",
+      "member": "lr_5_75e-6",
+      "metric_name": "validation_total_reference_mistag_geomean_percent",
+      "metric_value": 0.3309306510368319,
+      "role": "global_best_scaler",
+      "selection_reason": "AMP scaler paired with the primary-metric global best",
+      "sha256": "aed8e45e70dd8e00fa34c78942f17fbb24bb11056588b327fe641b57e10c938f",
+      "size_bytes": 1461,
+      "source_path": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_50epochs/checkpoints/global_best_scaler.pt"
+    },
+    {
+      "epoch": 67,
+      "file": "final_best_state.pt",
+      "kind": "state",
+      "member": "lr_8_5e-6",
+      "metric_name": "validation_total_reference_mistag_geomean_percent",
+      "metric_value": 0.3330581809576899,
+      "role": "final_best_state",
+      "selection_reason": "top-ranked population member at the final horizon",
+      "sha256": "54e015db0508c45e1c3e95ebb39825ede4ad9cb6867f546c6ee6fd511489a8df",
+      "size_bytes": 3587665,
+      "source_path": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_50epochs/lr_8_5e-6/net_epoch-67_state.pt"
+    }
+  ],
+  "path_compatibility": {
+    "runs/dev": "runs/archive/diagnostics",
+    "runs/launch_logs": "logs/experiments",
+    "runs/launchers": "logs/experiments/launchers",
+    "runs/prepared": "configs/prepared",
+    "runs/showcase": "runs/archive/showcases"
+  },
+  "publication": {
+    "repository_commit": "060c1d4b29ed4d5be2f4beebe3765508dd71fffd",
+    "schema_version": 2,
+    "scripts": [
+      {
+        "path": "scripts/publish/export_run.py",
+        "sha256": "c51b0f0ef3cc03ec025a4aaa1b951c26a1ab5968abd5ca635acd309684889e11"
+      },
+      {
+        "path": "scripts/publish/cadenced_pbt_v1.py",
+        "sha256": "c6d282720b3dfcb2d19d126f1cb420a434929e9fc6f13e274f19811f7246e942"
+      }
+    ]
+  },
+  "related_runs": [],
+  "resume_bundle": {
+    "assets": [
+      {
+        "epoch": 59,
+        "file": "global_best_state.pt",
+        "kind": "state",
+        "member": "lr_5_75e-6",
+        "metric_name": "validation_total_reference_mistag_geomean_percent",
+        "metric_value": 0.3309306510368319,
+        "role": "global_best_state",
+        "selection_reason": "best checkpoint according to the primary full-reference metric",
+        "sha256": "ab44b098b5f7b11b4b730e4530e5c60d2c616387dbe2fd0761ee070ecf2c60f2",
+        "size_bytes": 3587665,
+        "source_path": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_50epochs/checkpoints/global_best_state.pt"
+      },
+      {
+        "epoch": 59,
+        "file": "global_best_optimizer.pt",
+        "kind": "optimizer",
+        "member": "lr_5_75e-6",
+        "metric_name": "validation_total_reference_mistag_geomean_percent",
+        "metric_value": 0.3309306510368319,
+        "role": "global_best_optimizer",
+        "selection_reason": "optimizer paired with the primary-metric global best",
+        "sha256": "d3afc5e126d7dac1398fc449b35ac7f1f6cca8e6e6e8a0b4e425ed02b73de35c",
+        "size_bytes": 7144151,
+        "source_path": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_50epochs/checkpoints/global_best_optimizer.pt"
+      },
+      {
+        "epoch": 59,
+        "file": "global_best_scaler.pt",
+        "kind": "scaler",
+        "member": "lr_5_75e-6",
+        "metric_name": "validation_total_reference_mistag_geomean_percent",
+        "metric_value": 0.3309306510368319,
+        "role": "global_best_scaler",
+        "selection_reason": "AMP scaler paired with the primary-metric global best",
+        "sha256": "aed8e45e70dd8e00fa34c78942f17fbb24bb11056588b327fe641b57e10c938f",
+        "size_bytes": 1461,
+        "source_path": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_50epochs/checkpoints/global_best_scaler.pt"
+      }
+    ],
+    "epoch": 59,
+    "member": "lr_5_75e-6",
+    "selection": "global_best"
+  },
+  "schema_version": 1,
+  "source_commit": "90fa89d7eeb351fa2c787489f77faea286bbb31a",
+  "source_git": {
+    "branch": "main",
+    "commit": "90fa89d7eeb351fa2c787489f77faea286bbb31a",
+    "dirty": false
+  },
+  "source_run": "runs/pbt/cadenced_pbt_v1_50epochs",
+  "source_run_absolute": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_50epochs",
+  "starting_checkpoint": {
+    "initial_state": {
+      "epoch": 17,
+      "path": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt",
+      "sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501"
+    },
+    "path": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt",
+    "sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501"
+  },
+  "starting_optimizer": {
+    "damping": 0.1,
+    "mode": "raw",
+    "path": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt",
+    "sha256": "a1909dd493b3ed07bea41d044fa6cb6862180709a33ad4cd691a094754519f09"
+  },
+  "summary_sha256": "afa5291f81cb226712db4025e01afa8f5b8d31bfcd6eaae9cca800bd1d29041f"
+}

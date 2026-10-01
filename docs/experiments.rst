@@ -19,6 +19,9 @@ server paths and historical member identifiers.
    * - :doc:`PBT v2 — 100 epochs <experiments/pbt-v2-100>`
      - Current primary result
      - Verified continuation through 100 full epochs.
+   * - :doc:`Cadenced PBT v1 — 50 epochs <experiments/cadenced-pbt-v1-50>`
+     - Frequent-adaptation PBT
+     - One-epoch generations with copy and LR adaptation opportunities after each eligible epoch.
    * - :doc:`Fixed-LR baseline — 50 epochs <experiments/fixed-lr-50>`
      - Matched control
      - Five-member fixed-learning-rate grid.
@@ -34,6 +37,7 @@ server paths and historical member identifiers.
 
    experiments/pbt-v2-50
    experiments/pbt-v2-100
+   experiments/cadenced-pbt-v1-50
    experiments/fixed-lr-50
    experiments/fixed-lr-100
    experiments/pretrained-0-19

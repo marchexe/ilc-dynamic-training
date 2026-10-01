@@ -1,0 +1,2 @@
+gh release create cadenced-pbt-v1-50 --title 'Cadenced PBT v1 — 50 epochs models' --notes 'Global-best resume assets and final-best state; hashes are in provenance.json.'
+gh release upload cadenced-pbt-v1-50 published/experiments/cadenced-pbt-v1-50/models/* --clobber
