@@ -1,0 +1,10 @@
+checkpoint_id,path,sha256,generation,completed_training_epochs,weaver_epoch,training_seed,selection_worker_seed,pbt_seed,effective_seed_base,horizon
+pretrained17,/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt,ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501,-1,0,17,,,,,0
+fixed50_s12345,/data/suehara/part/march/runs/pbt/foundation_fixed_lr_50epochs_20260916/checkpoints/global_best_state.pt,aea8a2cf3ed82c283444393e4ff3bedb8090950716621106af95ee1a5e76c3df,43,44,61,12345,12388,2026,12345,50
+windowed50_s12345,/data/suehara/part/march/runs/pbt/windowed_pbt_v2/checkpoints/global_best_state.pt,e29d7a766993d37172f6901992d4dbd35321946f491cb4f3adb33f0556246837,49,50,67,12345,12394,2026,12345,50
+windowed100_s12345,/data/suehara/part/march/runs/pbt/windowed_pbt_v2_100epochs/checkpoints/global_best_state.pt,9dd5319c225603dd29fcd6a0cb33a72f2b5610d62e8bf2dda96174209dd6691d,88,89,106,12345,12433,2026,12345,100
+fixed14_100_s12345,/data/suehara/part/march/runs/pbt/fixed_lr_continuation_20260917_lr_14e-6/checkpoints/global_best_state.pt,7b3cac7b62ae591639e1e3cde09bd0b6b36f6105fff4a99a8419253c4cdcce06,48,99,116,12395,12443,2026,12345,100
+cadence1_s12345,/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_50epochs/checkpoints/global_best_state.pt,ab44b098b5f7b11b4b730e4530e5c60d2c616387dbe2fd0761ee070ecf2c60f2,41,42,59,12345,12386,2026,12345,50
+cadence5_s12345,/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_cadence5_50epochs/checkpoints/global_best_state.pt,e0ca39caabcfba368ec9269fb3966f37ff3def350d46a16da22968797eade6d0,46,47,64,12345,12391,2026,12345,50
+cadence1_s22345,/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_seed22345_50epochs/checkpoints/global_best_state.pt,e839b58781ed0feafdd313f06092f32892cc154057b88854dc209cb8c286dbea,43,44,61,22345,22388,2026,22345,50
+cadence5_s22345,/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_cadence5_seed22345_50epochs/checkpoints/global_best_state.pt,3b0b1903dbdec90981c0b3090cf744af47760071b4c80122370d49663b3c3574,48,49,66,22345,22393,2026,22345,50

@@ -199,6 +199,8 @@ parser.add_argument('--predict', action=argparse.BooleanOptionalAction, default=
                     help='run prediction instead of training')
 parser.add_argument('--predict-output', type=str,
                     help='path to save the prediction output, support `.root` and `.parquet` format')
+parser.add_argument('--save-prediction-row-ids', action='store_true',
+                    help='include audited Parquet row-position IDs in test predictions for paired comparisons')
 parser.add_argument('--export-onnx', type=str, default=None,
                     help='export the PyTorch model to ONNX model and save it at the given path (path must ends w/ .onnx); '
                          'needs to set `--data-config`, `--network-config`, and `--model-prefix` (requires the full model path)')

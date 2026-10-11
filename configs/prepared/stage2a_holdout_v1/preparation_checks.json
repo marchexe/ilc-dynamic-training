@@ -1,0 +1,96 @@
+{
+  "gpu_training_launched": false,
+  "historical_artifact_verification": {
+    "changed_critical_checksums": 0,
+    "changed_size_or_mtime": [
+      "weaver-core/weaver/train.py",
+      "weaver-core/weaver/utils/nn/tools.py"
+    ],
+    "changes_are_only_opt_in_prediction_observer_code": true,
+    "critical_checksums_verified": 659,
+    "missing_files": 0,
+    "snapshot_files": 48357
+  },
+  "input_verification": {
+    "all_checkpoints_strict_cpu_load": true,
+    "checkpoint_count": 9,
+    "exact_source_window_scalar_identity": true,
+    "holdout_rows": 2825125,
+    "physical_event_ids_available": false,
+    "pinned_execution_files": 50,
+    "training_scalar_overlap_rows": 0,
+    "training_sources_checked": 6
+  },
+  "persistent_tmux_smoke": {
+    "host": "iutgpu05",
+    "inference_launched": false,
+    "remote_marker": "/tmp/stage2a-tmux-preflight-marker.json",
+    "tmux_survived_submission_ssh_exit": true,
+    "workload": "two-second CPU-only stdlib marker write"
+  },
+  "protocol_sha256": "cabf6703bf3d70fc2a91c92bd65513c9de791490b267ce4309ae1a26498f2d90",
+  "real_cluster_dry_run": {
+    "artifact": "dry_run.json",
+    "checked_at": "2026-10-11T23:40:09.291880+00:00",
+    "gpu_model": "NVIDIA A100 80GB PCIe",
+    "gpus_reserved": false,
+    "host": "iutgpu05",
+    "inference_launched": false,
+    "job_count": 9,
+    "max_parallelism": 3,
+    "status": "ready"
+  },
+  "real_holdout_inference_launched": false,
+  "stage1_commit": "efa003bde5d6fa8f1dfa83c11572c4fd0942804f",
+  "static_checks": {
+    "bash_syntax": "passed",
+    "compileall": "passed",
+    "git_diff_whitespace": "passed"
+  },
+  "synthetic_integration": {
+    "artifact_path_at_preparation": "/tmp/stage2a-synthetic-integration/output/report.md",
+    "checkpoint_count": 9,
+    "report_and_figures_generated": true,
+    "scientific_results": false,
+    "status": "completed",
+    "verified_restart_passed": true
+  },
+  "tests": {
+    "commands": [
+      ".venv/bin/python -m unittest tests.test_stage2a_holdout tests.test_stage2a_prediction_ids",
+      ".venv/bin/python -m unittest discover -s tests -t ."
+    ],
+    "full_suite": {
+      "errors": 0,
+      "failed": 0,
+      "passed": 525,
+      "run": 526,
+      "skip_reason": "optional Ray dependency unavailable",
+      "skipped": 1
+    },
+    "logs": {
+      "full_suite": {
+        "path_at_preparation": "/tmp/stage2a-passed-suite.log",
+        "sha256": "50e888017037775231a8a3884901bbf1fc160bf30da4f6e7d270f9dc745094f9"
+      },
+      "stage1_regression": {
+        "path_at_preparation": "/tmp/stage2a-stage1-verification.log",
+        "sha256": "43dd97f8c15ededc59791d510726611a00db852ce45b32dfc534d13b18edf1e9"
+      },
+      "stage2a_focused": {
+        "path_at_preparation": "/tmp/stage2a-final-focused.log",
+        "sha256": "e48fda40b78caea31365fa74ceabc14432c01326e2cf57da514f0ee83fa8784c"
+      }
+    },
+    "stage1_regression": {
+      "passed": 44,
+      "run": 44
+    },
+    "stage2a_focused": {
+      "passed": 33,
+      "run": 33
+    }
+  },
+  "train8m_conversion_launched": false,
+  "verified_at": "2026-10-11T23:54:55.951922+00:00"
+}

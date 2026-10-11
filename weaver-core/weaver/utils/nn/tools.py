@@ -403,7 +403,9 @@ def evaluate_classification(model, test_loader, dev, epoch, for_training=True, l
                     labels[k].append(_flatten_label(v, mask).numpy(force=True))
                 if not for_training:
                     for k, v in Z.items():
-                        if k != ID_KEY:
+                        if k != ID_KEY or getattr(extra_args['args'], 'save_prediction_row_ids', False):
+                            if k == ID_KEY and torch.is_tensor(v):
+                                v = v.numpy(force=True)
                             observers[k].append(v)
 
                 num_examples = label.shape[0]
