@@ -107,14 +107,14 @@ class ResultCompatibilityTest(unittest.TestCase):
             path.write_bytes(b"checkpoint")
             digest = checkpoints.sha256(path)
             record = dict(status="completed", metrics={"loss": 0.5})
-            self.assertIs(require_checkpoint_result(record, path, digest, "control/member"), record)
+            self.assertIs(require_checkpoint_result(record, path, digest, "control/member", "loss"), record)
             self.assertEqual(record["checkpoint_sha256"], digest)
             for invalid in ({}, {"status": "failed"}):
                 with self.assertRaisesRegex(RuntimeError, "control/member"):
-                    require_checkpoint_result(invalid, path, digest, "control/member")
+                    require_checkpoint_result(invalid, path, digest, "control/member", "loss")
             path.write_bytes(b"changed")
             with self.assertRaisesRegex(RuntimeError, "checkpoint changed"):
-                require_checkpoint_result(record, path, digest, "control/member")
+                require_checkpoint_result(record, path, digest, "control/member", "loss")
 
 
 class ReadOnlyReportingTest(unittest.TestCase):

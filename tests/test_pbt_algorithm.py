@@ -613,6 +613,8 @@ class PBTAlgorithmTest(unittest.TestCase):
             state, optimizer = checkpointing.checkpoint_paths(member_dir, 3)
             state.write_bytes(b"best-state")
             optimizer.write_bytes(b"best-optimizer")
+            (member_dir / "net_epoch-3_scaler.pt").write_bytes(b"best-scaler")
+            (member_dir / "net_epoch-3_controller.pt").write_bytes(b"controller")
             manifest_path = root / "manifest.json"
             config = pbt_smoke_config()
             manifest = {
@@ -640,9 +642,9 @@ class PBTAlgorithmTest(unittest.TestCase):
             self.assertTrue(improved)
             self.assertEqual(manifest["best"]["member"], "member_00")
             self.assertEqual(manifest["best"]["generation"], 1)
-            self.assertEqual((root / "checkpoints" / "global_best_state.pt").read_bytes(), b"best-state")
-            self.assertEqual((root / "checkpoints" / "global_best_optimizer.pt").read_bytes(), b"best-optimizer")
-            self.assertTrue((root / "checkpoints" / "global_best_metadata.json").is_file())
+            self.assertEqual(Path(manifest["best"]["state_path"]).read_bytes(), b"best-state")
+            self.assertEqual(Path(manifest["best"]["optimizer_path"]).read_bytes(), b"best-optimizer")
+            self.assertTrue(Path(manifest["best"]["metadata_path"]).is_file())
 
     def test_global_best_selection_respects_min_mode(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -653,6 +655,8 @@ class PBTAlgorithmTest(unittest.TestCase):
                 state, optimizer = checkpointing.checkpoint_paths(member_dir, epoch)
                 state.write_bytes(f"{name}-epoch{epoch}-state".encode())
                 optimizer.write_bytes(f"{name}-epoch{epoch}-optimizer".encode())
+                (member_dir / f"net_epoch-{epoch}_scaler.pt").write_bytes(b"scaler")
+                (member_dir / f"net_epoch-{epoch}_controller.pt").write_bytes(b"controller")
             manifest_path = root / "manifest.json"
             config = pbt_smoke_config()
             config["pbt"]["metric"] = "validation_working_point_mistag_percent"
@@ -695,7 +699,7 @@ class PBTAlgorithmTest(unittest.TestCase):
             self.assertFalse(improved_again)
             self.assertEqual(manifest["best"]["member"], "member_01")
             self.assertEqual(manifest["best"]["metric_value"], 0.8)
-            self.assertEqual((root / "checkpoints" / "global_best_state.pt").read_bytes(), b"member_01-epoch1-state")
+            self.assertEqual(Path(manifest["best"]["state_path"]).read_bytes(), b"member_01-epoch1-state")
 
     def test_degraded_generation_rolls_back_worst_member_from_global_best(self):
         config = pbt_smoke_config()

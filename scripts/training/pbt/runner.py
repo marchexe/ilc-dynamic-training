@@ -25,6 +25,7 @@ from training.pbt.reporting import (
 )
 from training.pbt.execution.backend import backend_from_config, format_duration, log_event, run_tiered_evaluation
 from validation.results import finite_metric_ok, require_checkpoint_result
+from training.checkpoints import selected_best_bundle
 from training.pbt.config import contract_fingerprint, load_config, validate_inputs
 from training.pbt.models.manifest import PBTManifest
 from training.runtime import (
@@ -437,6 +438,8 @@ def _bootstrap_members(args, config, backend, experiment_dir, manifest, manifest
     """Per-member checkpoint bootstrap, global-best seeding, the initial
     checkpoint evaluation, and the "run started" log line -- everything that
     happens exactly once before the first generation."""
+    if (manifest.get('best') or {}).get('bundle_schema_version'):
+        selected_best_bundle(manifest['best'])
     if manifest.get('continuation'):
         bootstrap_continuation(experiment_dir, manifest, manifest_path)
     else:
@@ -739,6 +742,8 @@ def run_final_checkpoint_evaluations(config, manifest, experiment_dir, manifest_
     checkpoints = {name: checkpoint_paths(Path(experiment_dir) / name, final["epoch"])[0]
                    for name in manifest["members"]}
     if manifest.get("best"):
+        if manifest["best"].get("bundle_schema_version"):
+            selected_best_bundle(manifest["best"])
         checkpoints["selected_best"] = Path(manifest["best"]["state_path"])
     if config["pbt"].get("strategy") == WINDOWED_PBT and manifest.get("protected_best"):
         checkpoints["protected_best"] = Path(manifest["protected_best"]["state_path"])
@@ -755,11 +760,15 @@ def run_final_checkpoint_evaluations(config, manifest, experiment_dir, manifest_
     for tier, (dataset, suffix) in tiers.items():
         results = run_tiered_evaluation(config, experiment_dir, final["index"],
                                        "final_" + tier, dataset, suffix, checkpoints, pbt_log_path)
-        for name, path in checkpoints.items():
-            record = results.get(name, {})
-            results[name] = require_checkpoint_result(record, path, hashes[name], f"{tier}/{name}")
         manifest["final_evaluations"][tier] = results
-        atomic_json(manifest_path, manifest)
+        try:
+            for name, path in checkpoints.items():
+                record = results.setdefault(name, {})
+                if not isinstance(record, dict):
+                    record = results[name] = dict(status="failed", error="Invalid final evaluation record")
+                require_checkpoint_result(record, path, hashes[name], f"{tier}/{name}", config["pbt"]["metric"])
+        finally:
+            atomic_json(manifest_path, manifest)
 
 
 def _finalize_run(config, manifest, experiment_dir, manifest_path, pbt_log_path, run_started_monotonic):

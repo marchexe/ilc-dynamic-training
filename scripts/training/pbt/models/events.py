@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
+from training.checkpoints import selected_best_bundle
 from training.pbt.state.checkpointing import population_lr_policy_snapshot_paths
 
 
@@ -69,6 +70,8 @@ class GlobalBestRollbackEvent(ExploitEventBase):
     def donor_paths(self, experiment_dir, recipient_dir, epoch, manifest):
         experiment_dir = Path(experiment_dir)
         best = manifest.get("best") or {}
+        if best.get("bundle_schema_version"):
+            selected_best_bundle(best)
         return (
             Path(best.get("state_path") or experiment_dir / "checkpoints" / "global_best_state.pt"),
             Path(best.get("optimizer_path") or experiment_dir / "checkpoints" / "global_best_optimizer.pt"),

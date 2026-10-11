@@ -49,9 +49,9 @@ def _final_window_current_best(rows, mode, window=10):
         generation = row.get("generation")
         if generation is not None and value is not None:
             by_generation.setdefault(generation, []).append(float(value))
-    selector = max if mode == "max" else min
+    from training.pbt.reporting.endpoints import population_best
     current_best = [
-        {"generation": generation, "value": selector(by_generation[generation])}
+        {"generation": generation, "value": population_best(by_generation[generation], mode)}
         for generation in sorted(by_generation)
     ]
     selected = current_best[-int(window):]

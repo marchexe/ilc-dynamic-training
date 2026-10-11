@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from training.checkpoints import atomic_copy_pair, checkpoint_paths
+from training.checkpoints import archive_selected_best, atomic_copy_pair, checkpoint_paths, selected_best_bundle
 from training.pbt.reporting import record_new_best
 from training.pbt.state.optimizer_state import atomic_copy, prepare_initial_optimizer
 from training.runtime import atomic_json, utc_now
@@ -81,11 +81,13 @@ def bootstrap_initial_checkpoint(config, member_dir):
     return initial_epoch
 
 def global_best_paths(experiment_dir):
+    """Legacy flat layout; new selections use the paths in manifest['best']."""
     checkpoint_dir = Path(experiment_dir) / "checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     return {
         "state_path": str(checkpoint_dir / "global_best_state.pt"),
         "optimizer_path": str(checkpoint_dir / "global_best_optimizer.pt"),
+        "scaler_path": str(checkpoint_dir / "global_best_scaler.pt"),
         "controller_path": str(checkpoint_dir / "global_best_controller.pt"),
         "metadata_path": str(checkpoint_dir / "global_best_metadata.json"),
     }
@@ -94,6 +96,8 @@ def seed_initial_global_best(config, experiment_dir, manifest):
     if not config["pbt"].get("baseline_guard_seed_initial_best"):
         return False
     if manifest.get("best"):
+        if manifest["best"].get("bundle_schema_version"):
+            selected_best_bundle(manifest["best"])
         return False
 
     shared = config["shared"]
@@ -105,22 +109,9 @@ def seed_initial_global_best(config, experiment_dir, manifest):
         raise ValueError("baseline_guard_seed_initial_best requires initial_state/initial_optimizer")
 
     experiment_dir = Path(experiment_dir)
-    paths = global_best_paths(experiment_dir)
-    atomic_copy(Path(shared["initial_state"]), Path(paths["state_path"]))
-    optimizer_metadata = prepare_initial_optimizer(
-        Path(shared["initial_optimizer"]),
-        Path(paths["optimizer_path"]),
-        mode=shared.get("initial_optimizer_mode", "raw"),
-        damping_factor=shared.get("initial_optimizer_damping", 0.1),
-    )
-
-    controller_path = Path(paths["controller_path"])
-    has_controller = False
-    if shared.get("initial_controller"):
-        atomic_copy(Path(shared["initial_controller"]), controller_path)
-        has_controller = True
-    elif controller_path.exists():
-        controller_path.unlink()
+    has_controller = bool(shared.get("initial_controller"))
+    scaler_source = Path(shared["initial_optimizer"]).with_name(
+        Path(shared["initial_optimizer"]).name.removesuffix("_optimizer.pt") + "_scaler.pt")
 
     best_record = {
         "generation": -1,
@@ -133,12 +124,22 @@ def seed_initial_global_best(config, experiment_dir, manifest):
         "updated_at": utc_now(),
         "source_state_path": str(shared["initial_state"]),
         "source_optimizer_path": str(shared["initial_optimizer"]),
+        "source_scaler_path": str(scaler_source) if scaler_source.is_file() else None,
         "source_controller_path": str(shared.get("initial_controller")) if has_controller else None,
-        "optimizer_resume": optimizer_metadata,
-        **paths,
     }
+    best_record = archive_selected_best(
+        experiment_dir / "checkpoints",
+        dict(state=shared["initial_state"], optimizer=shared["initial_optimizer"],
+             scaler=scaler_source, controller=shared.get("initial_controller")),
+        best_record,
+        # Reference epoch-17 checkpoints predate separate scaler serialization.
+        # Record that absence explicitly; never manufacture a replacement.
+        require_scaler=False,
+        optimizer_transform=lambda path: prepare_initial_optimizer(
+            path, path, mode=shared.get("initial_optimizer_mode", "raw"),
+            damping_factor=shared.get("initial_optimizer_damping", 0.1)),
+    )
     manifest["best"] = best_record
     record_new_best(experiment_dir, manifest, {"index": -1}, best_record)
     manifest["updated_at"] = utc_now()
-    atomic_json(Path(paths["metadata_path"]), best_record)
     return True

@@ -75,6 +75,11 @@ def run_tiered_evaluation(config, experiment_dir, generation_index, tier, datase
         log_path = eval_dir / f"generation-{generation_index:03d}.log"
         console_path = log_path.with_suffix(".console.log")
         command, _ = make_tiered_evaluation_command(config, slot, checkpoint_path, dataset, suffix, log_path)
+        if tier.startswith("final_"):
+            # A successful process must not inherit metrics/predictions from a
+            # previous failed final evaluation at the same generation.
+            log_path.unlink(missing_ok=True)
+            log_path.with_suffix(".predictions.parquet").unlink(missing_ok=True)
         stream = console_path.open("w")
         try:
             process = subprocess.Popen(command, cwd=PROJECT_DIR, stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
@@ -112,7 +117,8 @@ def run_tiered_evaluation(config, experiment_dir, generation_index, tier, datase
             elapsed_seconds = time.monotonic() - started_monotonic.pop(name)
             elapsed = format_duration(elapsed_seconds)
             metrics = read_metrics(log_path)
-            metric_ok = metrics is not None and metrics.get("validation_bkg_rejection_at_eff") is not None
+            metric_ok = (finite_metric_ok(metrics, config["pbt"]["metric"]) if tier.startswith("final_")
+                         else metrics is not None and metrics.get("validation_bkg_rejection_at_eff") is not None)
             status = "completed" if returncode == 0 and metric_ok else "failed"
             results[name] = {
                 "status": status,

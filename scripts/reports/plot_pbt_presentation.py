@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from reports.export_research_result import load_manifest
 from training.pbt.reporting.constants import CB_PALETTE
 from training.pbt.reporting.style import plot_setup
+from training.pbt.reporting.endpoints import current_best_trajectory, final_window_mean
 from training.runtime import sha256
 from validation.verify_fixed_lr import load_control
 
@@ -101,11 +102,14 @@ def presentation_data(run, baseline, baseline_member, baseline_prefixes=()):
     best_recorded_epoch = epochs[best_recorded_index]
     best_recorded_value = values[best_recorded_member][best_recorded_index]
     protected_member = manifest['protected_best']['member']
+    current_best = current_best_trajectory(values, manifest['config']['pbt']['mode'])
     comparisons = {}
+    individual_member_comparisons = {}
     for label, count in [('final10', 10), ('final5', 5), ('final_checkpoint', 1)]:
-        pbt, ref = mean(values[winner][-count:]), mean(fixed[-count:])
+        pbt, ref = final_window_mean(current_best, count), mean(fixed[-count:])
         comparisons[label] = dict(pbt=pbt, fixed=ref, improvement_pp=ref - pbt,
                                   reduction_percent=100 * (ref - pbt) / ref)
+        individual_member_comparisons[label] = dict(member=winner, pbt=mean(values[winner][-count:]))
     sources = [source, *[Path(p) / 'manifest.json' for p in baseline_prefixes], control_source]
     return dict(sources=[dict(path=str(p.resolve()), sha256=sha256(p)) for p in sources],
                 epochs=epochs, identities=identities, values=values, lrs=lrs, fixed=fixed, fixed_lr=fixed_lr,
@@ -114,6 +118,11 @@ def presentation_data(run, baseline, baseline_member, baseline_prefixes=()):
                 best_recorded_epoch=best_recorded_epoch,
                 best_recorded_value=best_recorded_value,
                 protected_member=protected_member, comparisons=comparisons,
+                endpoint='mean of per-epoch current-best full-reference metric',
+                current_best=current_best,
+                individual_member_comparisons=individual_member_comparisons,
+                global_best=dict(member=best_recorded_member, epoch=best_recorded_epoch, value=best_recorded_value),
+                independent_holdout=(manifest.get('final_evaluations') or {}).get('full_holdout'),
                 initial_max_lr=max(m['start_lr'] for m in manifest['config']['population']),
                 window_epochs=window_epochs, pbt_generations=pbt_generations,
                 generation_ranges=generation_ranges)
@@ -201,6 +210,8 @@ def progression(plt, data):
             start = stop
     ax.plot(data['epochs'], data['fixed'], color='#26343C', ls=(0, (5, 3)), lw=2.1,
             zorder=5, label=f"Fixed {data['fixed_lr'] * 1e6:g}e-6 baseline")
+    ax.plot(data['epochs'], data['current_best'], color='#007C83', ls=':', lw=1.8,
+            zorder=6, label='Current population best')
     best_epoch = data['best_recorded_epoch']
     best_value = data['best_recorded_value']
     ax.scatter(best_epoch, best_value, marker='*', s=180, color=palette[highlighted],
@@ -208,7 +219,7 @@ def progression(plt, data):
     comparison = data['comparisons']['final10']
     ax.text(.985, .96,
             f"FINAL 10 EPOCHS  ({late_start}–{horizon})\n"
-            f"M{data['identities'][data['winner']]} late-window mean:  {comparison['pbt']:.6f}%\n"
+            f"Current-best mean:  {comparison['pbt']:.6f}%\n"
             f"Fixed baseline mean:  {comparison['fixed']:.6f}%\n"
             f"{comparison['reduction_percent']:.2f}% relative mistag reduction",
             transform=ax.transAxes, ha='right', va='top', fontsize=10.5, linespacing=1.45,
@@ -219,7 +230,7 @@ def progression(plt, data):
                                       markerfacecolor='white', markeredgecolor='#44525B',
                                       label='Copied checkpoint'))
     fig.legend([*handles, *copy_marker_handles], [*labels, 'Copied checkpoint'],
-               loc='lower left', bbox_to_anchor=(.075, .105), ncol=7,
+               loc='lower left', bbox_to_anchor=(.075, .085), ncol=4,
                frameon=False, fontsize=9.5, handlelength=2.4, columnspacing=1.15)
     title(fig, 'Performance lineage',
           'Validation outcome versus the matched fixed 14e-6 continuation control')

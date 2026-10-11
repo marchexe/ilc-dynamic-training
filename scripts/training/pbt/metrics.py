@@ -3,12 +3,11 @@
 
 from pathlib import Path
 
+from training.checkpoints import archive_selected_best, selected_best_bundle
 from training.pbt.reporting import record_new_best
 from training.pbt.state.checkpointing import (
-    atomic_copy,
     checkpoint_paths,
     controller_checkpoint_path,
-    global_best_paths,
 )
 from training.runtime import atomic_json, utc_now
 
@@ -80,6 +79,8 @@ def update_global_best(experiment_dir, manifest, generation_record, manifest_pat
         }
         return False
     current_best = manifest.get("best")
+    if current_best and current_best.get("bundle_schema_version"):
+        selected_best_bundle(current_best)
     if not metric_is_better(
         config,
         value,
@@ -92,17 +93,11 @@ def update_global_best(experiment_dir, manifest, generation_record, manifest_pat
     if not state_path.is_file() or not optimizer_path.is_file():
         raise FileNotFoundError(f"Best checkpoint is incomplete: {member_name}")
 
-    paths = global_best_paths(experiment_dir)
-    atomic_copy(state_path, Path(paths["state_path"]))
-    atomic_copy(optimizer_path, Path(paths["optimizer_path"]))
-
     controller_source = controller_checkpoint_path(member_dir, generation_record["epoch"])
-    controller_path = Path(paths["controller_path"])
     has_controller = bool(config["shared"].get("training_controller")) and controller_source.is_file()
-    if has_controller:
-        atomic_copy(controller_source, controller_path)
-    elif controller_path.exists():
-        controller_path.unlink()
+    if config["shared"].get("training_controller") and not has_controller:
+        raise FileNotFoundError(f"Best checkpoint is incomplete: missing controller for {member_name}")
+    scaler_source = optimizer_path.with_name(optimizer_path.name.removesuffix("_optimizer.pt") + "_scaler.pt")
 
     best_record = {
         "generation": generation_record["index"],
@@ -115,11 +110,22 @@ def update_global_best(experiment_dir, manifest, generation_record, manifest_pat
         "updated_at": utc_now(),
         "source_state_path": str(state_path),
         "source_optimizer_path": str(optimizer_path),
+        "source_scaler_path": str(scaler_source) if scaler_source.is_file() else None,
         "source_controller_path": str(controller_source) if has_controller else None,
-        **paths,
     }
+    best_record = archive_selected_best(
+        Path(experiment_dir) / "checkpoints",
+        dict(state=state_path, optimizer=optimizer_path, scaler=scaler_source,
+             controller=controller_source if has_controller else None),
+        best_record,
+        require_scaler=bool(config["shared"].get("use_amp")) and config["shared"].get("amp_dtype", "fp16") == "fp16",
+    )
     manifest["best"] = best_record
-    atomic_json(Path(paths["metadata_path"]), best_record)
+    try:
+        atomic_json(manifest_path, manifest)
+    except BaseException:
+        manifest["best"] = current_best
+        raise
     record_new_best(experiment_dir, manifest, generation_record, best_record)
     manifest["updated_at"] = utc_now()
     atomic_json(manifest_path, manifest)

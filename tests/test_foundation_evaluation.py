@@ -32,7 +32,7 @@ class FoundationEvaluationTest(unittest.TestCase):
             (root / name / "net_epoch-2_state.pt").write_bytes(name.encode())
         best = root / "selected.pt"
         best.write_bytes(b"an earlier selected checkpoint")
-        config = dict(pbt=dict(evaluate_final_checkpoints=True),
+        config = dict(pbt=dict(evaluate_final_checkpoints=True, metric="primary"),
                       shared=dict(dataset="data", validation_suffix="val", proxy_validation={}))
         manifest = dict(members={"a": {}, "b": {}}, generations=[dict(index=1, epoch=2)],
                         best=dict(state_path=str(best)))
@@ -47,7 +47,7 @@ class FoundationEvaluationTest(unittest.TestCase):
                 self.assertEqual(set(checkpoints), {"a", "b", "selected_best"})
                 self.assertEqual(checkpoints["a"].read_bytes(), b"a")
                 self.assertEqual(checkpoints["selected_best"].read_bytes(), b"an earlier selected checkpoint")
-                return {name: dict(status="completed", metrics={}) for name in checkpoints}
+                return {name: dict(status="completed", metrics={"primary": 0.5}) for name in checkpoints}
             with patch("training.pbt.runner.run_tiered_evaluation", side_effect=evaluate):
                 run_final_checkpoint_evaluations(config, manifest, root, root / "manifest.json", root / "log")
             self.assertTrue(manifest["final_evaluations"]["control"]["selected_best"]["checkpoint_sha256"])

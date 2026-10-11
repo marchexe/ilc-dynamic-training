@@ -15,6 +15,11 @@ import shutil
 import subprocess
 import tempfile
 from typing import Any
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from training.checkpoints import selected_best_bundle
+from validation.results import require_checkpoint_result, require_evaluation_metrics
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -184,6 +189,8 @@ def model_record(source: Path, target: Path, *, role: str, reason: str,
     else:
         shutil.copy2(source, target)
         existing[digest] = target
+    if sha256(target) != digest or sha256(source) != digest:
+        raise ValueError(f"Exported checkpoint identity changed: {source}")
     return {
         "file": target.name,
         "role": role,
@@ -199,6 +206,8 @@ def model_record(source: Path, target: Path, *, role: str, reason: str,
 
 def export_models(source_run: Path, manifest: dict[str, Any], destination: Path,
                   *, resume_bundle: str | None) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    if (manifest.get('best') or {}).get('bundle_schema_version'):
+        selected_best_bundle(manifest['best'], resolve=lambda path: resolve_recorded_path(path, source_run=source_run))
     method = manifest.get("method")
     if method == "cadenced_pbt_v1":
         if resume_bundle:
@@ -206,6 +215,9 @@ def export_models(source_run: Path, manifest: dict[str, Any], destination: Path,
         models: list[dict[str, Any]] = []
         existing: dict[str, Path] = {}
         best = manifest.get("best") or {}
+        identity = selected_best_bundle(
+            best, require_scaler=True,
+            resolve=lambda path: resolve_recorded_path(path, source_run=source_run))
         final = (manifest.get("generations") or [{}])[-1]
         final_member = (final.get("ranking") or [None])[0]
         if final_member is None:
@@ -235,6 +247,13 @@ def export_models(source_run: Path, manifest: dict[str, Any], destination: Path,
             record["kind"] = kind
             record["member"] = best.get("member") if filename.startswith("global_best") else final_member
             models.append(record)
+        after = selected_best_bundle(best, require_scaler=True,
+                                     resolve=lambda path: resolve_recorded_path(path, source_run=source_run))
+        if identity != after:
+            raise ValueError("Selected-best checkpoint changed during export")
+        for record in models:
+            if record['file'].startswith('global_best_') and record['sha256'] != identity[record['kind']]['sha256']:
+                raise ValueError("Exported selected-best bundle mixes checkpoint generations")
         bundle = {
             "selection": "global_best",
             "epoch": best.get("epoch"),
@@ -493,6 +512,38 @@ def export(args: argparse.Namespace) -> Path:
     config_source = next((source_run / name for name in ("resolved_config.yaml", "config.yaml")
                           if (source_run / name).is_file()), None)
     manifest = load_json(manifest_path)
+    primary = (manifest.get("config", {}).get("pbt", {}) or {}).get("metric", METRIC)
+    finals = manifest.get("final_evaluations") or {}
+    if manifest.get("config", {}).get("pbt", {}).get("evaluate_final_checkpoints"):
+        shared = manifest["config"]["shared"]
+        pairs = {"control": (shared.get("validation_dataset") or shared["dataset"], shared.get("validation_suffix"))}
+        proxy = shared.get("proxy_validation") or {}
+        for tier in ("monitor", "full", "full_holdout"):
+            pair = (proxy.get(tier + "_dataset"), proxy.get(tier + "_suffix"))
+            if all(pair) and pair not in pairs.values():
+                pairs[tier] = pair
+        expected = set(manifest.get("members") or {})
+        if manifest.get("best"):
+            expected.add("selected_best")
+        if manifest.get("method") == "windowed_pbt_v2" and manifest.get("protected_best"):
+            expected.add("protected_best")
+        if any(not expected.issubset(finals.get(tier) or {}) for tier in pairs):
+            raise ValueError("Publication requires complete final evaluation evidence")
+    for tier, results in finals.items():
+        if not results:
+            raise ValueError(f"Publication is missing final evaluations: {tier}")
+        for name, record in results.items():
+            require_evaluation_metrics(record, primary, f"{tier}/{name}")
+            if record.get("checkpoint") and record.get("checkpoint_sha256"):
+                resolved = dict(record)
+                for key in ("checkpoint", "log", "prediction_path"):
+                    if resolved.get(key):
+                        resolved[key] = str(resolve_recorded_path(resolved[key], source_run=source_run))
+                expected = ((manifest.get("best") or {}).get("state_path") if name == "selected_best" else
+                            (manifest.get("protected_best") or {}).get("state_path") if name == "protected_best" else
+                            source_run / name / f"net_epoch-{manifest['generations'][-1]['epoch']}_state.pt")
+                checkpoint = resolve_recorded_path(expected, source_run=source_run)
+                require_checkpoint_result(resolved, checkpoint, record["checkpoint_sha256"], f"{tier}/{name}", primary)
     source_summary = load_json(summary_path)
     evidence_paths = [manifest_path, summary_path, source_run / "metrics.csv", source_run / "events.jsonl"]
     if config_source:

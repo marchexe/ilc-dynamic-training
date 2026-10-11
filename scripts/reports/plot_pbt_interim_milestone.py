@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from training.pbt.reporting.constants import CB_PALETTE
 from training.pbt.reporting.style import plot_setup
+from training.pbt.reporting.endpoints import population_best, final_window_mean
 from training.runtime import sha256
 
 
@@ -82,7 +83,7 @@ def summarize_run(path, expected_seed, expected_interval):
             if value is None or not math.isfinite(float(value)):
                 raise ValueError(f"non-finite metric {expected_index}/{name}: {source}")
             scores.append(float(value))
-        trajectory.append(min(scores))
+        trajectory.append(population_best(scores))
         before = dict(ancestors)
         for event in generation.get("exploit", []):
             if not event.get("applied"):
@@ -112,7 +113,7 @@ def summarize_run(path, expected_seed, expected_interval):
         "training_seed": expected_seed,
         "exploit_interval_generations": expected_interval,
         "trajectory": trajectory,
-        "final10_current_best_mean": mean(trajectory[-10:]),
+        "final10_current_best_mean": final_window_mean(trajectory),
         "global_best": float(best["metric_value"]),
         "global_best_member": best.get("member"),
         "global_best_generation": int(best.get("generation")),

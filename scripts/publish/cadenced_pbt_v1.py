@@ -7,6 +7,7 @@ import csv
 import json
 from pathlib import Path
 from typing import Any
+from training.pbt.reporting.endpoints import current_best_trajectory, final_window_mean
 
 
 METRIC = "validation_total_reference_mistag_geomean_percent"
@@ -223,7 +224,7 @@ def evidence(source_run: Path, manifest: dict[str, Any]) -> dict[str, Any]:
                 "post_copy_scaler_sha256": (post_copy.get("scaler") or {}).get("sha256", ""),
             })
 
-    current_best = [min(scores[member][i] for member in members) for i in range(len(generations))]
+    current_best = current_best_trajectory(scores)
     best_so_far: list[float] = []
     for value in current_best:
         best_so_far.append(min(value, best_so_far[-1]) if best_so_far else value)
@@ -487,7 +488,8 @@ def build(source_run: Path, destination: Path, manifest: dict[str, Any]) -> dict
         "lineage_collapse_completed_epoch": data["collapse_epoch"],
         "unique_lr_counts": [len({data["trajectories"][member][i] for member in data["members"]})
                              for i in range(len(data["generations"]))],
-        "final10_current_best_mean": sum(data["current_best"][-10:]) / 10,
+        "final10_current_best_mean": (final_window_mean(data["current_best"])
+                                       if len(data["current_best"]) >= 10 else None),
         "plots": [
             "01_performance_progression.png",
             "02_population_lr_trajectories.png",

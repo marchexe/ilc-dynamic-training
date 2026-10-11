@@ -12,7 +12,7 @@ from pathlib import Path
 
 from training.pbt.config import contract_fingerprint
 from training.pbt.reference.windowed_v2 import STRATEGY
-from training.checkpoints import bundle_identity, bundle_paths, check_bundle, copy_bundle as _copy_bundle
+from training.checkpoints import bundle_identity, bundle_paths, check_bundle, copy_bundle as _copy_bundle, selected_best_bundle
 from training.pbt.state.optimizer_state import atomic_copy, load_optimizer_state
 from training.runtime import atomic_json, sha256
 
@@ -52,9 +52,7 @@ def source_state(run, manifest):
     protected = manifest['protected_best']['checkpoint']
     check_bundle(protected)
     best = manifest['best']
-    paths = {part: Path(best[part + '_path']) for part in ('state', 'optimizer')}
-    paths['scaler'] = paths['optimizer'].with_name(paths['optimizer'].name.replace('_optimizer.pt', '_scaler.pt'))
-    archives = dict(protected=protected, best=bundle_identity(paths))
+    archives = dict(protected=protected, best=selected_best_bundle(best, require_scaler=True))
     payload = dict(members=members, **archives)
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     return payload, digest
