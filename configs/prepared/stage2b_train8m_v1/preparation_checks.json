@@ -1,0 +1,171 @@
+{
+  "gpu_training_launched": false,
+  "historical_artifacts_modified": false,
+  "implementation_commit": "9edb46fdf8c7b7b457913855acfcddd2f91690eb",
+  "measurements": {
+    "conversion_benchmark": {
+      "bytes_per_row_lz4": 2675,
+      "end_to_end_rows_per_second_per_process": "~11000",
+      "peak_rss_gb_50k_chunk": 1.08,
+      "rows_per_second_read": "10382-15893",
+      "rows_per_second_write": "~33000",
+      "streamed_schema_equals_train800k": true
+    },
+    "gpu_node_ram_tb": {
+      "iutgpu01": 2.0,
+      "iutgpu02": 1.5,
+      "iutgpu05": 1.5
+    },
+    "login_node_cpu_batch1024_fp32": "SIGKILL at ~33 GB user-slice peak (44 GB host); CPU test uses batch 128",
+    "parquet_footer": {
+      "row_groups_800": {
+        "footer_bytes": 11713879,
+        "open_seconds": [
+          0.34,
+          0.12,
+          0.12
+        ]
+      },
+      "row_groups_8000": {
+        "footer_bytes": 113074984,
+        "open_seconds": [
+          0.92,
+          1.51,
+          1.18
+        ]
+      }
+    },
+    "train800k_production_worker": {
+      "accepted_rows": 2150922,
+      "batches": 2101,
+      "max_cuda_memory_mb": 21539.7,
+      "optimizer_steps": 2099,
+      "rows_per_second": 12399.7,
+      "source": "runs/pbt/windowed_pbt_v2/logs/lr_14e-6/generation-010.log",
+      "training_seconds": 173,
+      "validation_seconds": 36
+    }
+  },
+  "parity": {
+    "budget": {
+      "generations": 20,
+      "member_epochs": 100,
+      "members": 5,
+      "per_member_samples": "generations x one full train8m epoch (identical seeds per generation)"
+    },
+    "cadence": {
+      "boundaries_epochs": [
+        5,
+        10,
+        15,
+        20
+      ],
+      "earliest_copy_boundary_epoch": 10,
+      "max_copies": 4,
+      "non_terminal_copy_boundaries": [
+        10,
+        15
+      ],
+      "window_epochs": 5
+    },
+    "checks": 52,
+    "passed": true
+  },
+  "provenance": {
+    "file": "provenance.json",
+    "peak_rss_gb": 2.8,
+    "seconds": 116,
+    "sha256": "d3c455f6abddd48799eddc8785a27d5629b4d7df770cc06d4e235058fbf75d26"
+  },
+  "real_cluster_dry_run": {
+    "checked_at": "2026-10-12T23:25:23.623089+00:00",
+    "cohort": {
+      "gpu_indices": [
+        0,
+        1
+      ],
+      "gpu_model": "NVIDIA A100 80GB PCIe",
+      "host": "iutgpu05"
+    },
+    "conversion_launched": false,
+    "dataset_state": "absent",
+    "free_bytes": 11639856300032,
+    "git_commit": "9edb46fdf8c7b7b457913855acfcddd2f91690eb",
+    "gpus_reserved": false,
+    "mode": "full",
+    "note": "observation, not a reservation",
+    "policy_sha256": "12a7f5116d94e134b54ebf737df16364f88cebcdaefc5c07ca95edd3b6cc98ba",
+    "required_free_bytes": 92521540010,
+    "spec_sha256": "20e321fd19a918be1d2f7e33be7f2f48a971484b0174999cca010fe294079236",
+    "status": "ready",
+    "training_launched": false
+  },
+  "stage1_commit": "efa003bde5d6fa8f1dfa83c11572c4fd0942804f",
+  "stage2a_commit": "953a170e2281faca37ee976b02ec2d0a1a208804",
+  "static_checks": {
+    "bash_syntax": "passed",
+    "compileall": "passed",
+    "git_diff_whitespace": "passed",
+    "unused_imports": "none (AST check)"
+  },
+  "tests": {
+    "baseline_before_stage2b": {
+      "errors": 0,
+      "failed": 0,
+      "passed": 525,
+      "run": 526,
+      "skipped": 1
+    },
+    "commands": [
+      ".venv/bin/python -m unittest discover -s tests -t .",
+      ".venv/bin/python -m unittest tests.test_stage2b_train8m",
+      "STAGE2B_CPU_INTEGRATION=1 .venv/bin/python -m unittest -v tests.test_stage2b_cpu_integration"
+    ],
+    "full_suite": {
+      "errors": 0,
+      "failed": 0,
+      "log_sha256": "38362642312131ca2146bba092db5cfcd6d26a077544057df24d25363a97bb6c",
+      "passed": 565,
+      "run": 567,
+      "skip_reasons": [
+        "optional Ray dependency unavailable",
+        "opt-in CPU integration (run separately)"
+      ],
+      "skipped": 2
+    },
+    "policy_and_compatibility": {
+      "passed": 51,
+      "run": 51
+    },
+    "stage1_modules": {
+      "passed": 113,
+      "run": 114,
+      "skipped": 1
+    },
+    "stage2a": {
+      "passed": 33,
+      "run": 33
+    },
+    "stage2b_cpu_integration": {
+      "batch_size": 128,
+      "bitwise_reproduced_in_two_runs": true,
+      "final_train_loss": 0.33912068605422974,
+      "final_validation_primary_val5k_tail": 0.44905338626169544,
+      "generations": 2,
+      "log_sha256": "04c0d0d0eba60126891dbe9ba39bf1ca5b088a005e32fa5334910af6c503de6b",
+      "note": "real train8m rows, production command builder, CPU without AMP; not a GPU or scientific result",
+      "passed": 1,
+      "rows": 36000,
+      "run": 1,
+      "seconds": 135.8,
+      "steps_per_generation": 4
+    },
+    "stage2b_focused": {
+      "log_sha256": "f0894cb04dd8454513891a9c3ad78fedee2604c57cb9f122c2b7f5084f06e2ef",
+      "passed": 40,
+      "run": 40
+    }
+  },
+  "train8m_conversion_launched": false,
+  "verified_at": "2026-10-12T23:40:00+00:00"
+}
