@@ -1,0 +1,17 @@
+# DRAFT / INACTIVE (Stage 3, not approved). Arm A: fixed-LR baseline on train8m.
+# Inherits the frozen fixed-LR contract unchanged; only data and horizon differ.
+# Verify with: .venv/bin/python scripts/experiments/stage2b_campaign.py --parity
+presets:
+  - configs/experiments/foundation_fixed_lr_50epochs.yaml
+experiment:
+  name: stage3_train8m_fixed_lr_draft_v1
+shared:
+  dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet
+  train_suffix: train8m
+  validation_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  validation_suffix: val50k_tail
+  # 20 full train8m epochs ~= 430M accepted samples per member (see README).
+  generations: 20
+pbt:
+  # Keep the exploit gate outside the whole horizon (fixed_lr_grid never copies).
+  exploit_interval_generations: 21

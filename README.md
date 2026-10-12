@@ -46,6 +46,7 @@ configs/experiments/pretrained_exploit_mutate_smoke_tiered.yaml                 
 configs/experiments/pretrained_exploit_mutate_smoke_tiered_ownership_fix_verify.yaml # same smoke, shortened to 4 generations -- verification run for the PBT/dynamic-controller LR-ownership fix
 configs/experiments/bn_freeze_diag_baseline.yaml            # single-gen BatchNorm-drift diagnostic (freeze_batch_norm: false)
 configs/experiments/bn_freeze_diag_frozen.yaml              # paired diagnostic confirming --freeze-batch-norm fixes the gen-0 mistag regression
+configs/experiments/stage2b_train8m_smoke.yaml              # Stage 2B bounded train8m GPU smoke (launch only via run_stage2b_smoke.sh)
 ```
 
 Reusable preset blocks live in:
@@ -205,6 +206,25 @@ directory or automatic PDF export.
 fixed-LR performance comparison without PBT lineage semantics. Use repeated
 `--prefix-run` arguments to prepend shared earlier segments when comparing
 continuation branches.
+
+### Stage 2B: train8m readiness
+
+The ten-times larger `train8m` input (23,921,449 b/c/d rows; train800k is its
+exact prefix; disjoint from val1000k and therefore from `val50k_tail`,
+`val5k_tail` and the Stage 2A holdout) is prepared and smoke-tested with one
+command, which submits a detached tmux supervisor to an idle authorized node:
+
+```bash
+bash scripts/experiments/run_stage2b_smoke.sh             # convert/verify if needed, then bounded GPU smoke + report
+bash scripts/experiments/run_stage2b_smoke.sh --status    # dataset conversion vs GPU smoke progress
+bash scripts/experiments/run_stage2b_smoke.sh --dry-run   # read-only preflight and GPU discovery
+bash scripts/experiments/run_stage2b_smoke.sh --parity    # Stage 3 draft parity and cadence analysis
+```
+
+Details, verified facts, budgets and limitations:
+`configs/prepared/stage2b_train8m_v1/README.md`. Inactive Stage 3 drafts:
+`configs/drafts/stage3_train8m_v1/`. Legacy `val5k`/`val50k` lie inside
+train8m and are rejected for train8m selection.
 
 ## Project Layout
 

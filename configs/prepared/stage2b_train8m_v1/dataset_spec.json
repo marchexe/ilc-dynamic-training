@@ -1,0 +1,99 @@
+{
+  "conversion": {
+    "branches": "all",
+    "chunk_entries": 100000,
+    "compression": "lz4",
+    "engine": "awkward.to_parquet_row_groups",
+    "row_group_size": 10000,
+    "row_group_size_rationale": "train800k used 1000-row groups (799 per file, 12 MB footer). At 8M rows that is 8000 groups and a ~113 MB footer that Weaver reparses on every fetch (~1.2 s each). 10000 keeps ~800 groups per file; content, order and Weaver row IDs are layout-independent."
+  },
+  "disk": {
+    "estimate_basis": "measured 2675 bytes/row for an lz4 test conversion of train8m entries",
+    "estimated_bytes_per_row": 2700,
+    "minimum_free_bytes_after": 21474836480,
+    "safety_factor": 1.1
+  },
+  "expected_rows_total": 23921449,
+  "flavors": {
+    "bb": {
+      "class_index": 0,
+      "label": 5
+    },
+    "cc": {
+      "class_index": 1,
+      "label": 4
+    },
+    "dd": {
+      "class_index": 2,
+      "label": 2
+    }
+  },
+  "name": "20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet_v1",
+  "output_dir": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet",
+  "reference": {
+    "parquet": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_train800k.parquet",
+    "schema_sha256": "5f7c537e7517a858df4008ea20a46c0105d16cb7241155f04ad84b4ccf04f860"
+  },
+  "role": "training",
+  "schema_version": 1,
+  "source_dir": "/data/suehara/mldata/flavortag/20250711_ilc_nnqq_sgv_10m",
+  "source_selection": {
+    "common_cut": "pfcand_px[0]>-250&&pfcand_pz[0]>-250&&pfcand_e[0]<250&&neu_pfcand_pz[0]<60&&neu_pfcand_e[0]<120",
+    "entry_window": "Entry$<8000000",
+    "macro": "/data/suehara/mldata/flavortag/20250711_ilc_nnqq_sgv_10m/divide_energy_10m.C",
+    "macro_sha256": "ae02e19491a7969a26dc526c881cb05385476cb09ed0301f711eef4e6c1d4109",
+    "note": "The ROOT split files already contain these cuts; conversion copies rows 1:1.",
+    "raw_entries_per_flavor": 8000000,
+    "split_cuts": {
+      "_test1500k": "Entry$>=8500000&&Entry$<10000000",
+      "_train8m": "Entry$<8000000",
+      "_val500k": "Entry$>=8000000&&Entry$<8500000"
+    }
+  },
+  "sources": [
+    {
+      "branches": 135,
+      "entries": 7989060,
+      "flavor": "bb",
+      "mtime_ns": 1752419837362394366,
+      "path": "/data/suehara/mldata/flavortag/20250711_ilc_nnqq_sgv_10m/ml_flavtag_6cat_bb_train8m.root",
+      "schema_sha256": "f021d24b67a5269cd8943d7c40627848919eafbc5da653d11b1caf5433935f37",
+      "size_bytes": 23673096113
+    },
+    {
+      "branches": 135,
+      "entries": 7976224,
+      "flavor": "cc",
+      "mtime_ns": 1752424213366497822,
+      "path": "/data/suehara/mldata/flavortag/20250711_ilc_nnqq_sgv_10m/ml_flavtag_6cat_cc_train8m.root",
+      "schema_sha256": "f021d24b67a5269cd8943d7c40627848919eafbc5da653d11b1caf5433935f37",
+      "size_bytes": 21839555755
+    },
+    {
+      "branches": 135,
+      "entries": 7956165,
+      "flavor": "dd",
+      "mtime_ns": 1752436119002416428,
+      "path": "/data/suehara/mldata/flavortag/20250711_ilc_nnqq_sgv_10m/ml_flavtag_6cat_dd_train8m.root",
+      "schema_sha256": "f021d24b67a5269cd8943d7c40627848919eafbc5da653d11b1caf5433935f37",
+      "size_bytes": 20647435946
+    }
+  ],
+  "suffix": "train8m",
+  "tree": "ntp",
+  "validation": {
+    "approved_suffixes": [
+      "val50k_tail",
+      "val5k_tail"
+    ],
+    "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "forbidden_suffixes": {
+      "train800k": "training data (prefix of train8m)",
+      "val1000k": "contains the Stage 2A holdout rows",
+      "val50k": "original 1m-ladder split lies inside the train8m window",
+      "val5k": "original 100k-ladder split (Entry$ 80000-85000) lies inside the train8m window",
+      "val_holdout": "Stage 2A holdout; never used for training-time selection"
+    },
+    "selection_suffix": "val50k_tail"
+  }
+}

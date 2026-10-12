@@ -1,0 +1,28 @@
+# Stage 2B bounded GPU smoke on the real train8m Parquet (never train800k).
+# Same execution contract as the fixed-LR baseline (epoch-17 raw Ranger, FP16,
+# frozen BN, deterministic, audited data, val50k_tail), except a 256-step cap
+# per generation. windowed/cadenced schemas forbid sample caps, so the smoke
+# uses the Stage 3 baseline strategy; launch only through
+# scripts/experiments/run_stage2b_smoke.sh (it pins GPUs and interrupts/resumes).
+presets:
+  - foundation_fixed_lr_20epochs.yaml
+experiment:
+  name: stage2b_train8m_smoke_v1
+  output_root: runs/eval/stage2b_train8m_readiness_v1/pbt
+resources:
+  gpus: [0, 1]
+shared:
+  dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet
+  train_suffix: train8m
+  validation_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  validation_suffix: val50k_tail
+  generations: 3
+  # 256 steps x 1024: more than one 1% fetch of train8m (~216k accepted rows).
+  samples_per_epoch: 262144
+pbt:
+  exploit_interval_generations: 4
+population:
+  - name: lr_3e-6
+    start_lr: 3.0e-6
+  - name: lr_14e-6
+    start_lr: 1.4e-5

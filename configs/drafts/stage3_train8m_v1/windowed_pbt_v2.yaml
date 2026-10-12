@@ -1,0 +1,14 @@
+# DRAFT / INACTIVE (Stage 3, not approved). Arm B: frozen windowed_pbt_v2 on train8m.
+# Inherits configs/experiments/windowed_pbt_v2.yaml (policy unchanged: 5-epoch
+# windows, 3-epoch score, margin 0.002, 2 losing windows, <=2 recipients, x0.8/x1.2).
+# Verify with: .venv/bin/python scripts/experiments/stage2b_campaign.py --parity
+presets:
+  - configs/experiments/windowed_pbt_v2.yaml
+experiment:
+  name: stage3_train8m_windowed_pbt_v2_draft_v1
+shared:
+  dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet
+  train_suffix: train8m
+  validation_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  validation_suffix: val50k_tail
+  generations: 20
