@@ -1,0 +1,85 @@
+{
+  "correction": {
+    "corrected_sha256": "c373cd0835e21cc07b2ce8547e7ea7282779a88a193627575bf57c770c5424ac",
+    "diagnostics": "Both checks now report the failing metric keys or the logged value, counters and reason.",
+    "file": "scripts/experiments/stage3/gate.py",
+    "original_commit": "7f972a1444a84a4dca2cfcd31a80ab1c22392ec8",
+    "original_sha256": "6ef5275e92d826e6e0d6b2bc3f096b992e94ccae67d2c6b8515d25f1917ea6d6",
+    "rule": [
+      "Unchanged: train_loss, validation_loss, the primary metric and all eight working points must be finite (check 'finite loss, primary metric and eight working points').",
+      "The gradient norm is read from the worker log: exactly one 'Max Grad Norm' line and one 'AMP skipped optimizer steps' line are required.",
+      "A finite non-negative decimal passes if the manifest records the same value.",
+      "'inf' passes only if the AMP skip count is identical in the log, the manifest and the data-audit accounting (batches - optimizer_steps), is at least 1, the manifest records no gradient norm, and the existing step-accounting and AMP-fraction checks pass.",
+      "'nan', '-inf', malformed, overflowing, missing or duplicated values, a missing log, missing or boolean AMP counters and inconsistent counters fail."
+    ]
+  },
+  "effect": "The campaign remains gate_blocked. It continues only through a manually authorized --retry-gate, which trains a new gate attempt evaluated by the corrected rule; its epoch-18 state is expected to reproduce the attempt-1 reference state bit for bit.",
+  "evidence": {
+    "amp_skipped_fraction": 0.00033314296592423375,
+    "audit": {
+      "accepted_rows": 21516158,
+      "batches": 21012,
+      "optimizer_steps": 21005
+    },
+    "final_scaler": {
+      "growth_interval": 2000,
+      "growth_tracker": 114,
+      "initial_scale": 65536.0,
+      "scale": 262144.0
+    },
+    "finite_metrics": {
+      "primary": 0.3623252920813684,
+      "train_loss": 0.29294573294391363,
+      "validation_loss": 0.2830945703125,
+      "working_points": "all eight finite"
+    },
+    "history": "In all earlier recorded production and smoke runs, 1,369 worker-epochs logged 'Max Grad Norm: inf' and lack train_max_grad_norm; every one recorded at least one AMP-skipped step, and no worker-epoch logged inf without AMP skips. The Stage 2B smoke (256 steps per epoch, below the 2000-step scaler growth interval) had no AMP skips and so never exercised this case. The gate skip rate (3.3e-4 per step) is below the production train800k rate (3.75e-4 to 4.28e-4).",
+    "log_lines": {
+      "AMP skipped optimizer steps": 7,
+      "Max Grad Norm": "inf"
+    },
+    "manifest_amp_skipped": 7,
+    "manifest_train_max_grad_norm": "absent",
+    "max_amp_skipped_fraction": 0.01,
+    "worker_log": "runs/eval/stage3_train8m_v1/gate/stage3_train8m_gate_v1_a001/logs/lr_14e-6/generation-000.log"
+  },
+  "failed_attempt": {
+    "attempt": 1,
+    "attempt_file": "runs/eval/stage3_train8m_v1/gate/attempt-001.json",
+    "attempt_sha256": "b5c217ee971cdccac58fda810ba08a7b6bf9d33c85f9a9a1d33ed3c077e8d3f5",
+    "failed_check": "finite loss, gradient norm, primary metric and eight working points",
+    "preserved": "The attempt-1 verdict, run directory and epoch-18 checkpoint are kept unmodified; attempt 1 stays failed.",
+    "reference_state_sha256": "ffba767225efefeafbb5366d62332d1639af3738b6c49faffa2d66851c04db9d",
+    "run": "runs/eval/stage3_train8m_v1/gate/stage3_train8m_gate_v1_a001",
+    "verdict": "failed_criteria",
+    "verdict_file": "runs/eval/stage3_train8m_v1/gate/verdict.json",
+    "verdict_sha256": "b5c217ee971cdccac58fda810ba08a7b6bf9d33c85f9a9a1d33ed3c077e8d3f5"
+  },
+  "limitation": "The maximum gradient norm over applied steps alone is not observable from the pinned Weaver logging. Finite gradients on applied steps follow from GradScaler skipping every step with non-finite gradients, together with the finite model, optimizer and scaler bundle check.",
+  "observed_defect": [
+    "Weaver (weaver/utils/nn/tools.py) logs 'Max Grad Norm' as the epoch maximum over every step, including AMP-skipped steps. After grad_scaler.unscale_ the gradients of a skipped step are non-finite by construction, so clip_grad_norm_ returns inf and the logged epoch maximum becomes 'inf'.",
+    "scripts/training/runtime.py parses only decimal values ([0-9.eE+-]+); for 'inf' it records no train_max_grad_norm in the worker manifest.",
+    "gate.py required finite(train_max_grad_norm) and therefore failed every epoch with at least one AMP overflow step, although protocol_v2.json (gate.max_amp_skipped_fraction = 0.01) explicitly permits AMP-skipped steps. The check reported no detail."
+  ],
+  "protocol": {
+    "changed": false,
+    "file": "configs/prepared/stage3_train8m_v1/protocol_v2.json",
+    "sha256": "b696ff639a4f24bc700984076411944bd0647760db60bdcc338b3f102b309339"
+  },
+  "revised_at": "2026-10-13T17:45:48.863223+00:00",
+  "revision": 1,
+  "schema_version": 1,
+  "scope": "Implementation of the full-epoch gate verdict only (scripts/experiments/stage3/gate.py, not a protocol execution file). protocol_v2.json, its SHA256 and scientific sections, all gate thresholds, the 29 pinned execution files (including Weaver and scripts/training/runtime.py), training logic, configs and hyperparameters are unchanged.",
+  "timing": "Implemented on 2026-10-14 after inspecting the attempt-1 verdict, worker log, manifest and checkpoint. No threshold was changed, and no criterion was relaxed for the loss, validation, primary-metric or working-point values.",
+  "verification": {
+    "attempt_1_read_only": {
+      "checks": 19,
+      "failed": 0,
+      "protocol_drift": [],
+      "reference_state_sha256": "ffba767225efefeafbb5366d62332d1639af3738b6c49faffa2d66851c04db9d",
+      "runs_directory_unchanged": true,
+      "verdict": "passed"
+    },
+    "note": "Read-only recomputation; it does not change the recorded attempt-1 verdict."
+  }
+}

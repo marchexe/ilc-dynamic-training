@@ -1,5 +1,6 @@
 """Stage 3 preparation: protocol, gate, orchestration, recovery and analysis (CPU only)."""
 import copy
+import hashlib
 import io
 import json
 import math
@@ -143,32 +144,52 @@ class ProtocolTest(unittest.TestCase):
                 self.assertFalse(cli.parity_checks()['passed'])
 
 
-def gate_fixture(root, *, accepted=21_512_000, primary=0.41, skipped=3, cuda=21539.7, caps=False, scaler=True):
-    """Synthetic single-member gate run in the real checkpoint formats."""
+def gate_fixture(root, *, accepted=21_512_000, primary=0.41, skipped=3, cuda=21539.7, caps=False, scaler=True,
+                 grad_norm='2.00000', log_skipped=None, audit_skipped=None, log_lines=None, metric_changes=None,
+                 extra_batches=0):
+    """Synthetic single-member gate run in the real checkpoint and Weaver log formats.
+
+    The manifest gradient norm mirrors the shared log parser, which records only decimal values.
+    """
     run = Path(root) / 'gate_a001'
     member = run / 'lr_14e-6'
     member.mkdir(parents=True)
     torch.save(dict(w=torch.tensor([1.0, 2.0])), member / 'net_epoch-17_state.pt')
     torch.save(dict(state={0: dict(step=torch.tensor(100.0))}, param_groups=[dict(lr=1e-4, params=[0])]), member / 'net_epoch-17_optimizer.pt')
-    batches = math.ceil(accepted / 1024)
+    batches = math.ceil(accepted / 1024) + extra_batches
     torch.save(dict(w=torch.tensor([1.1, 2.1])), member / 'net_epoch-18_state.pt')
     torch.save(dict(state={0: dict(step=torch.tensor(100.0 + batches - skipped))}, param_groups=[dict(lr=1.4e-5, params=[0])]),
                member / 'net_epoch-18_optimizer.pt')
     if scaler:
         torch.save(dict(scale=65536.0, _growth_tracker=3), member / 'net_epoch-18_scaler.pt')
     metrics = {k: primary for k in (PRIMARY, *WORKING_POINTS)}
-    metrics.update(train_loss=0.3, validation_loss=0.29, train_max_grad_norm=2.0, train_amp_skipped_optimizer_steps=skipped,
+    audit_skipped = skipped if audit_skipped is None else audit_skipped
+    metrics.update(train_loss=0.3, validation_loss=0.29, train_amp_skipped_optimizer_steps=skipped,
                    train_max_cuda_memory_mb=cuda,
-                   train_data_audit=dict(exhausted=True, batches=batches, optimizer_steps=batches - skipped,
+                   train_data_audit=dict(exhausted=True, batches=batches, optimizer_steps=batches - audit_skipped,
                                          consumed=dict(count=accepted, unique_ids=accepted, repeated_ids=0),
                                          traversal=[dict(scanned=dict(count=23_921_449), accepted=dict(count=accepted),
                                                          exhausted=True, wraps=0)]),
                    validation_data_audit=dict(exhausted=True, consumed=dict(count=150000)))
+    if grad_norm is not None and gate_module.DECIMAL.fullmatch(grad_norm):
+        metrics['train_max_grad_norm'] = float(grad_norm)
+    for key, value in (metric_changes or {}).items():
+        if value is None:
+            metrics.pop(key, None)
+        else:
+            metrics[key] = value
+    if log_lines is None:
+        log_lines = ([] if grad_norm is None else [f'Max Grad Norm: {grad_norm}']) + \
+                    [f'AMP skipped optimizer steps: {skipped if log_skipped is None else log_skipped}']
+    log = run / 'logs' / 'lr_14e-6' / 'generation-000.log'
+    log.parent.mkdir(parents=True)
+    log.write_text(''.join(f'[2026-10-20 00:44:00,000] INFO: {line}\n' for line in
+                           ['Epoch #18 training', 'Train AvgLoss: 0.30000, AvgAcc: 0.88000', *log_lines]))
     command = ['weaver', '--data-train', 'x'] + (['--samples-per-epoch', '1'] if caps else [])
     manifest = dict(status='completed', config=dict(shared=dict(samples_per_epoch=None)),
                     initial_evaluation=dict(metrics={PRIMARY: 0.45}),
                     generations=[dict(index=0, epoch=18, status='completed', workers={'lr_14e-6': dict(
-                        lr=1.4e-5, status='completed', returncode=0, command=command, metrics=metrics,
+                        lr=1.4e-5, status='completed', returncode=0, command=command, metrics=metrics, log=str(log),
                         started_at='2026-10-20T00:00:00+00:00', finished_at='2026-10-20T00:45:00+00:00')})])
     (run / 'manifest.json').write_text(json.dumps(manifest))
     observations = dict(exit_code=0, leftover_processes=[], foreign_gpu_events=[], peak_gpu_memory_mib=24894,
@@ -222,6 +243,87 @@ class GateTest(unittest.TestCase):
         self.policy['budgets']['max_campaign_gpu_hours'] = 10
         _, failed, _ = self.verdict()
         self.assertIn('projected campaign GPU-hours within budget', failed)
+
+    GRADIENT = 'maximum gradient norm finite, or +inf only with confirmed AMP-skipped steps'
+    METRICS = 'finite loss, primary metric and eight working points'
+
+    def checks(self, **fixture):
+        run, observations = gate_fixture(Path(self.tmp.name) / str(len(list(Path(self.tmp.name).iterdir()))), **fixture)
+        verdict, checks, _ = gate_module.verify_gate(run, self.protocol, self.policy, observations)
+        return verdict, {c['check']: c for c in checks}
+
+    def test_gradient_norm_finite_or_inf_only_from_amp_skips(self):
+        for fixture, reason in ((dict(), 'finite'), (dict(grad_norm='0.00000', skipped=0), 'finite'),
+                                (dict(grad_norm='inf', skipped=7), 'inf only from AMP-skipped steps')):
+            verdict, checks = self.checks(**fixture)
+            self.assertEqual(verdict, 'passed', (fixture, [c for c in checks.values() if not c['passed']]))
+            self.assertEqual(checks[self.GRADIENT]['detail']['reason'], reason)
+        _, checks = self.checks(grad_norm='inf', skipped=7)
+        self.assertEqual(checks[self.GRADIENT]['detail'], dict(
+            logged='inf', amp_skipped_log='7', amp_skipped_manifest=7, amp_skipped_audit=7, manifest_value=None,
+            reason='inf only from AMP-skipped steps'))
+
+    def test_gradient_norm_rejections(self):
+        cases = [(dict(grad_norm='inf', skipped=0), 'without AMP-skipped steps'),
+                 (dict(grad_norm='nan'), 'NaN'), (dict(grad_norm='-inf'), 'NaN'), (dict(grad_norm='2.0x'), 'malformed'),
+                 (dict(grad_norm='1e999'), 'overflows'), (dict(grad_norm=None), 'found 0 and 1'),
+                 (dict(log_lines=['Max Grad Norm: 2.00000', 'Max Grad Norm: 2.00000', 'AMP skipped optimizer steps: 3']),
+                  'found 2 and 1'),
+                 (dict(log_lines=['Max Grad Norm: inf']), 'found 1 and 0'),
+                 (dict(grad_norm='inf', metric_changes=dict(train_amp_skipped_optimizer_steps=None)), 'AMP skip counter'),
+                 (dict(grad_norm='inf', metric_changes=dict(train_amp_skipped_optimizer_steps=True)), 'AMP skip counter'),
+                 (dict(grad_norm='inf', skipped=7, log_skipped=6), 'between log and manifest'),
+                 (dict(grad_norm='inf', skipped=7, log_skipped='x'), 'malformed'),
+                 (dict(grad_norm='inf', skipped=7, audit_skipped=6), 'data-audit step accounting'),
+                 (dict(grad_norm='inf', skipped=7, metric_changes=dict(train_max_grad_norm=3.0)), 'manifest records'),
+                 (dict(metric_changes=dict(train_max_grad_norm=None)), 'disagrees with the log'),
+                 (dict(metric_changes=dict(train_max_grad_norm=2.5)), 'disagrees with the log'),
+                 (dict(grad_norm='inf', skipped=500), 'AMP fraction'),
+                 (dict(grad_norm='inf', skipped=7, extra_batches=1), 'step accounting or AMP fraction')]
+        for fixture, reason in cases:
+            verdict, checks = self.checks(**fixture)
+            self.assertEqual(verdict, gate_module.CRITERIA, fixture)
+            self.assertFalse(checks[self.GRADIENT]['passed'], fixture)
+            self.assertIn(reason, checks[self.GRADIENT]['detail']['reason'], fixture)
+            json.dumps(checks[self.GRADIENT]['detail'], allow_nan=False)
+
+    def test_missing_worker_log_fails(self):
+        run, observations = gate_fixture(Path(self.tmp.name) / 'nolog')
+        (run / 'logs' / 'lr_14e-6' / 'generation-000.log').unlink()
+        verdict, checks, _ = gate_module.verify_gate(run, self.protocol, self.policy, observations)
+        failed = {c['check']: c for c in checks if not c['passed']}
+        self.assertEqual(verdict, gate_module.CRITERIA)
+        self.assertEqual(failed[self.GRADIENT]['detail']['reason'], 'worker log missing')
+
+    def test_nonfinite_loss_and_working_points_report_observed_values(self):
+        working_point = WORKING_POINTS[3]
+        for changes, expected in ((dict(train_loss=float('nan')), {'train_loss': 'nan'}),
+                                  (dict(validation_loss=float('inf')), {'validation_loss': 'inf'}),
+                                  (dict(train_loss=None), {'train_loss': 'missing'}),
+                                  ({PRIMARY: float('-inf'), working_point: float('nan')}, {PRIMARY: '-inf', working_point: 'nan'}),
+                                  ({working_point: None}, {working_point: 'missing'}),
+                                  ({working_point: '0.1'}, {working_point: "'0.1'"})):
+            for grad in ('2.00000', 'inf'):
+                verdict, checks = self.checks(metric_changes=changes, grad_norm=grad, skipped=7)
+                self.assertEqual(verdict, gate_module.CRITERIA, changes)
+                self.assertFalse(checks[self.METRICS]['passed'])
+                self.assertEqual(checks[self.METRICS]['detail'], expected)
+                self.assertTrue(checks[self.GRADIENT]['passed'], changes)
+
+    def test_gate_revision_record_is_pinned_and_recoverable(self):
+        path = common.PREPARED / 'gate_revision_1.json'
+        record = common.load_json(path)
+        self.assertEqual(common.sha256(path), (common.PREPARED / 'gate_revision_1.sha256').read_text().strip())
+        self.assertEqual(record['protocol']['sha256'], (common.PREPARED / 'protocol_v2.sha256').read_text().strip())
+        self.assertFalse(record['protocol']['changed'])
+        correction = record['correction']
+        self.assertEqual(correction['corrected_sha256'], common.sha256(PROJECT_DIR / correction['file']))
+        original = subprocess.run(['git', 'show', f'{correction["original_commit"]}:{correction["file"]}'], cwd=PROJECT_DIR,
+                                  capture_output=True, check=True).stdout
+        self.assertEqual(hashlib.sha256(original).hexdigest(), correction['original_sha256'])
+        self.assertNotIn(correction['file'], frozen.EXECUTION_FILES)
+        self.assertEqual(record['failed_attempt']['verdict_sha256'],
+                         'b5c217ee971cdccac58fda810ba08a7b6bf9d33c85f9a9a1d33ed3c077e8d3f5')
 
 
 def bundle(directory, epoch, value, lr=1e-5):
