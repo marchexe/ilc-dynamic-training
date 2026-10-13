@@ -1,0 +1,82 @@
+{
+  "gate_executed": false,
+  "gpu_training_launched": false,
+  "historical_artifacts_modified": false,
+  "horizon": {
+    "decision": "fixed_50_epochs",
+    "differing_boundaries": [
+      30,
+      35,
+      40
+    ],
+    "first_divergence_epoch": 30
+  },
+  "implementation_commits": [
+    "4b175ff",
+    "e48c6af",
+    "21d20c5"
+  ],
+  "launcher_dry_run": {
+    "gpu_model": "NVIDIA A100 80GB PCIe",
+    "gpus_reserved": false,
+    "note": "read-only preflight; node identities and availability are not recorded",
+    "protocol_drift": [],
+    "status": "ready",
+    "training_launched": false
+  },
+  "local_configuration": "requires configs/local/site.json (untracked) or ILC_SITE_CONFIG; template configs/site.example.json",
+  "protocol": {
+    "administrative_v2_sha256": "b696ff639a4f24bc700984076411944bd0647760db60bdcc338b3f102b309339",
+    "checkpoint_hashes_identical": true,
+    "config_fingerprints_identical": true,
+    "identity_drift": [],
+    "original_v1_sha256": "cee93a284e836118c1ebc0b907763f745ab37c5671f8e2f1a5d39da08b16da75",
+    "scientific_sections_identical": true
+  },
+  "runner_dry_runs": {
+    "stage3_train8m_fixed_lr": "exit 0, 6 Weaver commands, train8m only, no caps",
+    "stage3_train8m_gate": "exit 0, 2 Weaver commands, train8m only, no caps",
+    "stage3_train8m_windowed_pbt_v2": "exit 0, 6 Weaver commands, train8m only, no caps"
+  },
+  "sealed_test": {
+    "provenance_seconds": 121,
+    "rows": 8970477,
+    "scalar_overlap_all_inputs": 0
+  },
+  "sealed_test_converted_or_evaluated": false,
+  "stage2a_provenance": {
+    "administratively_revised": [
+      "scripts/cluster/check.sh"
+    ],
+    "command": ".venv/bin/python scripts/validation/verify_stage2a_provenance.py",
+    "passed": true
+  },
+  "static_checks": {
+    "bash_syntax": "passed",
+    "compileall": "passed",
+    "git_diff_whitespace": "passed"
+  },
+  "tests": {
+    "full_suite": {
+      "command": ".venv/bin/python -m unittest discover -s tests -t .",
+      "errors": 0,
+      "every_unpublished_commit_passes": true,
+      "failed": 0,
+      "passed": 613,
+      "run": 615,
+      "skip_reasons": [
+        "optional Ray dependency unavailable",
+        "opt-in Stage 2B CPU integration"
+      ],
+      "skipped": 2
+    },
+    "stage2b_cpu_integration": {
+      "bitwise_identical_to_previous_runs": true,
+      "command": "STAGE2B_CPU_INTEGRATION=1 .venv/bin/python -m unittest tests.test_stage2b_cpu_integration",
+      "final_primary": 0.44905338626169544,
+      "passed": 1,
+      "run": 1,
+      "train_loss": 0.33912068605422974
+    }
+  }
+}
