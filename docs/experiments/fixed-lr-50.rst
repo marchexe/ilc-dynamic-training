@@ -11,7 +11,7 @@ Result summary
 * Final-10 current-best validation (population endpoint, epochs 41–50): ``0.345568``
 * Global best (selected checkpoint): ``0.344561``, member ``lr_14e-6`` at training epoch 44
 * Starting checkpoint: ``0.456705``
-* Independent holdout of the selected checkpoint: ``0.326934`` (:doc:`../holdout_evaluation`)
+* Independent holdout of the selected checkpoint: ``0.326934`` (:doc:`../results`)
 
 Key plots
 ---------
@@ -46,5 +46,3 @@ Provenance and reproducibility
 * Source manifest SHA256: ``ac32758770f4755ef7cdaec3fe4342760105830b83b8d01438bb2643038766b8``
 * :download:`Resolved configuration <../../published/experiments/fixed-lr-50/public/config.yaml>`
 * :download:`Publication provenance <../../published/experiments/fixed-lr-50/public/provenance.json>`
-
-Downloads are path-free copies of the recorded bundle files (``published/experiments/fixed-lr-50/public/``). Model epochs in file descriptions are Weaver checkpoint epochs, equal to the training epoch plus 17.

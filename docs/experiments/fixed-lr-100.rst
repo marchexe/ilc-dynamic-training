@@ -14,7 +14,7 @@ runs. The seed schedule continues that of the 50-epoch run (seed 12395 = 12345 +
   (8.5 × 10\ :sup:`-6`)
 * Global best: ``0.331445`` (1.4 × 10\ :sup:`-5`, training epoch 99) and ``0.339059``
   (8.5 × 10\ :sup:`-6`, training epoch 100)
-* Independent holdout of the 1.4 × 10\ :sup:`-5` global best: ``0.315582`` (:doc:`../holdout_evaluation`)
+* Independent holdout of the 1.4 × 10\ :sup:`-5` global best: ``0.315582`` (:doc:`../results`)
 
 These runs serve as the comparator for :doc:`pbt-v2-100`. Because the member was chosen after epoch 50
 and is a single member rather than a population, that comparison is asymmetric (:doc:`../results`).
@@ -52,5 +52,3 @@ Provenance and reproducibility
 * Source manifest SHA256: ``ff3e2d751a44d2649cd31a5a53f97c951021dfda283c6d07bde94fe02134e3cc``
 * :download:`Resolved configuration <../../published/experiments/fixed-lr-100/public/config.yaml>`
 * :download:`Publication provenance <../../published/experiments/fixed-lr-100/public/provenance.json>`
-
-Downloads are path-free copies of the recorded bundle files (``published/experiments/fixed-lr-100/public/``). Model epochs in file descriptions are Weaver checkpoint epochs, equal to the training epoch plus 17.

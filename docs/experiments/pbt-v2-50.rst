@@ -12,7 +12,7 @@ Result summary
   learning rate 2.016 × 10\ :sup:`-5`
 * Applied copies: 6
 * Starting checkpoint: ``0.456705``
-* Independent holdout of the selected checkpoint: ``0.322484`` (:doc:`../holdout_evaluation`)
+* Independent holdout of the selected checkpoint: ``0.322484`` (:doc:`../results`)
 * Matched comparator: :doc:`fixed-lr-50` (:doc:`../results`)
 
 Key plots
@@ -49,5 +49,3 @@ Provenance and reproducibility
 * Source manifest SHA256: ``fb1964a8f2d6d087008297ffad1ac3dac6499ecb156079de41d0c9e5e7e523b6``
 * :download:`Resolved configuration <../../published/experiments/pbt-v2-50/public/config.yaml>`
 * :download:`Publication provenance <../../published/experiments/pbt-v2-50/public/provenance.json>`
-
-Downloads are path-free copies of the recorded bundle files (``published/experiments/pbt-v2-50/public/``). Model epochs in file descriptions are Weaver checkpoint epochs, equal to the training epoch plus 17.

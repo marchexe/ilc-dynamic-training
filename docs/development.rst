@@ -3,4 +3,4 @@
 Development
 ===========
 
-Setup, verification and publishing instructions are in :doc:`reproducibility`.
+See :doc:`reproducibility`.

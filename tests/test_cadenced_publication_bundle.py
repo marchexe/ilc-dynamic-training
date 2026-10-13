@@ -71,8 +71,8 @@ class CadencedPublicationBundleTest(unittest.TestCase):
         index = (PROJECT_DIR / "docs/experiments.rst").read_text()
         page = PROJECT_DIR / "docs/experiments/cadenced-pbt-v1-50.rst"
         self.assertTrue(page.is_file())
-        self.assertIn("Cadenced PBT v1 — 50 epochs", index)
         self.assertIn("experiments/cadenced-pbt-v1-50", index)
+        self.assertTrue(page.read_text().startswith("Every-Epoch PBT — 50 epochs\n"))
 
 
 if __name__ == "__main__":

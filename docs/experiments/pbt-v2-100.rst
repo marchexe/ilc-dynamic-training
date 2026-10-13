@@ -12,17 +12,13 @@ Result summary
 * Global best (selected checkpoint): ``0.321381``, member ``lr_3e-6`` at training epoch 89,
   learning rate 2.90304 × 10\ :sup:`-5`
 * Applied copies: 11 over 100 epochs
-* Independent holdout of the selected checkpoint: ``0.311050`` (:doc:`../holdout_evaluation`)
+* Independent holdout of the selected checkpoint: ``0.311050`` (:doc:`../results`)
 * Comparator: the single fixed-learning-rate member 1.4 × 10\ :sup:`-5`, final-10 ``0.332571``
   (:doc:`fixed-lr-100`). Difference −0.005627 pp (−1.69%). The comparison is asymmetric: the
   comparator is one member chosen after epoch 50, not a population.
 
-.. admonition:: Correction
-
-   An earlier version of this page reported a final-10 mean of 0.327181% and a 1.62% relative
-   reduction. That value is the final-10 mean of the ``lr_3e-6`` member's lineage. The population
-   endpoint used throughout the documentation is 0.326944% (1.69%). The annotation box in the
-   performance figure below predates the correction and still shows the member-lineage value.
+The annotation box in the first figure predates a correction: its 0.327181% (1.62%) is the
+``lr_3e-6`` member's final-10 mean, not the population endpoint (:doc:`../results`).
 
 Key plots
 ---------
@@ -57,5 +53,3 @@ Provenance and reproducibility
 * Source manifest SHA256: ``6baf6613787787635b054043a453b0334726fc2bb446178d48e9d790ecb64bb8``
 * :download:`Resolved configuration <../../published/experiments/pbt-v2-100/public/config.yaml>`
 * :download:`Publication provenance <../../published/experiments/pbt-v2-100/public/provenance.json>`
-
-Downloads are path-free copies of the recorded bundle files (``published/experiments/pbt-v2-100/public/``). Model epochs in file descriptions are Weaver checkpoint epochs, equal to the training epoch plus 17.

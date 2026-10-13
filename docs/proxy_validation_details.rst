@@ -3,4 +3,4 @@
 Proxy-Validation Technical Supplement
 =====================================
 
-The technical details have been merged into :doc:`proxy_validation`.
+Summarised in :doc:`results` (supporting studies).

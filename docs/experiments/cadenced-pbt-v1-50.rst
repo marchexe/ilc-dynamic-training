@@ -5,7 +5,7 @@ Every-epoch PBT (``cadenced_pbt_v1`` with an adaptation interval of one epoch), 
 learning-rate mutation opportunities after every epoch following a two-epoch warm-up; five members;
 50 training epochs. The matched every-five-epochs control and the second seed are reported in
 :doc:`../results`; their validation ranking reverses on the independent holdout. Independent holdout of
-the global best: ``0.317738`` (:doc:`../holdout_evaluation`).
+the global best: ``0.317738`` (:doc:`../results`).
 
 Primary results
 ---------------
@@ -96,5 +96,3 @@ Provenance and reproducibility
 * Source manifest SHA256: ``57dcee6b08b7e429adcee6c7c88e2af633fa1a932875bd340a1c88d577ab82a5``
 * :download:`Resolved configuration <../../published/experiments/cadenced-pbt-v1-50/public/config.yaml>`
 * :download:`Publication provenance <../../published/experiments/cadenced-pbt-v1-50/public/provenance.json>`
-
-Downloads are path-free copies of the recorded bundle files (``published/experiments/cadenced-pbt-v1-50/public/``). Model epochs in file descriptions are Weaver checkpoint epochs, equal to the training epoch plus 17.
