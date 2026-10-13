@@ -57,17 +57,7 @@ checkpoints/**
 !checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt
 !checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt
 
-runs/*
-!runs/archive/
-runs/archive/*
-!runs/archive/showcases/
-!runs/archive/showcases/**/
-!runs/archive/showcases/**/*.csv
-!runs/archive/showcases/**/*.json
-!runs/archive/showcases/**/*.jsonl
-!runs/archive/showcases/**/*.md
-!runs/archive/showcases/**/*.png
-!runs/archive/showcases/**/*.yaml
+runs/
 
 # Curated publication metadata/plots are versioned; model binaries are release assets.
 published/experiments/**/models/
