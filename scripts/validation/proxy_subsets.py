@@ -2,7 +2,6 @@
 """Build deterministic proxy-validation parquet subsets for physics-aware control."""
 
 import hashlib
-import json
 import random
 import re
 from dataclasses import dataclass

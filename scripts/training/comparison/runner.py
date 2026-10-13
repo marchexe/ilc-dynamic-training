@@ -4,7 +4,6 @@
 import argparse
 import hashlib
 import json
-import os
 import re
 import shlex
 import signal
@@ -18,13 +17,10 @@ import yaml
 from training.runtime import (
     PROJECT_DIR,
     atomic_json,
-    data_command_args,
-    data_paths,
     git_metadata,
     normalize_data_extension,
     project_path,
     read_metrics,
-    required_sample_patterns,
     sha256,
     terminate,
     utc_now,

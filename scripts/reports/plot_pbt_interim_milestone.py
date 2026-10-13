@@ -12,7 +12,6 @@ import json
 import math
 import os
 from pathlib import Path
-from statistics import mean
 import sys
 
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
