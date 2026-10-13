@@ -1,312 +1,64 @@
-# ILC Dynamic Training
+# Adaptive Learning-Rate Training for ILC Jet-Flavour Tagging
 
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://marchexe.github.io/ilc-dynamic-training/)
 
-Continuation experiments for a pretrained SGV `pp` ParticleTransformer using Weaver.
-The repo is organized around one active pretrained checkpoint, parallel training runs,
-and Population Based Training experiments.
+This repository studies whether learning-rate adaptation during training improves a
+Particle Transformer that separates b, c and light-quark jets in simulated ILC
+events. A pretrained three-class tagger is fine-tuned under matched conditions with
+constant per-member learning rates or with Population Based Training (PBT). The
+results are measured as background mistag rates at fixed signal efficiencies, on the
+selection validation set and on an independent holdout of 2.8 million jets.
 
-**[Documentation](https://marchexe.github.io/ilc-dynamic-training/)** ·
-[Results](https://marchexe.github.io/ilc-dynamic-training/results.html) ·
-[Published experiments](https://marchexe.github.io/ilc-dynamic-training/experiments.html)
+## Findings so far
 
-## Active Inputs
+- **50 epochs, matched.** Windowed PBT beat the fixed-learning-rate population by
+  1.26% on the population validation endpoint and by 1.36% on the independent holdout.
+- **100 epochs.** Windowed PBT was again lower: 1.69% on validation and 1.44% on the
+  holdout. The comparator here is a single fixed-learning-rate member chosen after
+  epoch 50, so this comparison is asymmetric.
+- **Adaptation frequency: inconclusive.** Every-epoch PBT is ahead of every-five-epochs
+  PBT on validation for both seeds, but the order reverses on the holdout.
+- **Limits.** One training seed per policy comparison and no event-level confidence
+  intervals. The holdout was inspected in earlier diagnostics. All runs share an
+  epoch-restarted optimizer contract.
+- **Ongoing.** A preregistered comparison on a ten-times larger training set with a
+  sealed test set is running. No results from it are reported yet.
+
+## Documentation
+
+- [Overview](https://marchexe.github.io/ilc-dynamic-training/)
+- [Methodology](https://marchexe.github.io/ilc-dynamic-training/method.html)
+- [Experimental design and evaluation](https://marchexe.github.io/ilc-dynamic-training/evaluation.html)
+- [Results and limitations](https://marchexe.github.io/ilc-dynamic-training/results.html)
+- [Ongoing research](https://marchexe.github.io/ilc-dynamic-training/ongoing.html)
+- [Reproducibility and experiment records](https://marchexe.github.io/ilc-dynamic-training/reproducibility.html)
+
+The documentation sources are in `docs/` (Sphinx). Curated results, figures and
+experiment bundles are in `published/`.
+
+## Getting started
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt -c requirements-lock.txt
+cp configs/site.example.json configs/local/site.json   # machine-specific settings, not committed
+.venv/bin/python -m unittest discover -s tests -t .
+```
+
+Datasets, checkpoints and run directories are not tracked; their identities are
+recorded in `datasets/manifests/` and in the frozen protocols under
+`configs/prepared/`. See
+[Reproducibility](https://marchexe.github.io/ilc-dynamic-training/reproducibility.html)
+for running, verifying and publishing experiments.
+
+## Repository layout
 
 ```text
-model:      networks/pretrained_sgv_particle_transformer.py
-checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
-data cfg:   checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
-dataset:    datasets/20250218_ilc_nnqq_sgvnew_parquet
-format:     parquet
-```
-
-`checkpoints/.../source.txt` records where the local checkpoint symlinks came from.
-Large checkpoint/data/run artifacts are not tracked by Git.
-
-## Experiments
-
-Active experiment configs:
-
-```text
-configs/experiments/pretrained_guarded_8gpu_smooth_lr.yaml  # labeled canonical full run, but no run/ has ever used it -- audit as of 2026-08-04
-configs/experiments/pretrained_guarded_4gpu_smooth_lr.yaml  # shorter test run
-configs/experiments/pbt_smoke.yaml                          # local unit/smoke PBT
-configs/experiments/pbt_ray_smoke.yaml                      # Ray executor smoke PBT
-configs/experiments/pbt_anchored_lr_sweep.yaml              # legacy local sweep fixture
-configs/experiments/pbt_anchored_lr_sweep_ray.yaml          # legacy Ray sweep fixture
-configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml    # Ray trial fixture
-configs/experiments/parallel_baseline_vs_controller.yaml    # comparison runner fixture
-configs/experiments/pbt_control_fixed_lr.yaml               # comparison test fixture
-configs/experiments/pbt_no_controller.yaml                  # controller fixture
-configs/experiments/pbt_observe_controller.yaml             # controller fixture
-configs/experiments/pretrained_exploit_mutate_8gpu_10m_tiered_pilot.yaml            # 8-member exploit_mutate + tiered-validation pilot, 10m proxy-control dataset
-configs/experiments/pretrained_fixed_lr_8gpu_10m_proxy_control.yaml                 # fixed-LR grid (no exploit), same 8-member ladder/dataset as the tiered pilot
-configs/experiments/pretrained_guarded_8gpu_smooth_lr_10m_proxy_control.yaml        # guarded smooth-LR sweep on the 10m proxy-control dataset (see line ~132)
-configs/experiments/pretrained_exploit_mutate_smoke_tiered.yaml                     # architecture-complete smoke of the exploit_mutate/tiered-validation stack (4 members, 6 generations)
-configs/experiments/pretrained_exploit_mutate_smoke_tiered_ownership_fix_verify.yaml # same smoke, shortened to 4 generations -- verification run for the PBT/dynamic-controller LR-ownership fix
-configs/experiments/bn_freeze_diag_baseline.yaml            # single-gen BatchNorm-drift diagnostic (freeze_batch_norm: false)
-configs/experiments/bn_freeze_diag_frozen.yaml              # paired diagnostic confirming --freeze-batch-norm fixes the gen-0 mistag regression
-configs/experiments/stage2b_train8m_smoke.yaml              # Stage 2B bounded train8m GPU smoke (launch only via run_stage2b_smoke.sh)
-configs/experiments/stage3_train8m_fixed_lr.yaml            # Stage 3 arm A (launch only via run_stage3_train8m.sh)
-configs/experiments/stage3_train8m_windowed_pbt_v2.yaml     # Stage 3 arm B
-configs/experiments/stage3_train8m_gate.yaml                # Stage 3 full-epoch gate (never reused by the arms)
-```
-
-Reusable preset blocks live in:
-
-```text
-configs/presets/shared/pretrained_epoch17_ranger_parquet.yaml
-configs/presets/resources/local_8gpu.yaml
-configs/presets/resources/local_4gpu.yaml
-configs/presets/population/members_8.yaml
-configs/presets/population/members_4.yaml
-configs/presets/pbt/guarded_smooth_lr_mistag.yaml
-```
-
-Archived old presets live in:
-
-```text
-configs/experiments/archive/
-configs/experiments/archive/legacy_finetune/
-```
-
-Controller presets:
-
-```text
-configs/controllers/linucb_lr_pp_active.yaml
-configs/controllers/linucb_lr_pp_observe.yaml
-```
-
-## Local configuration
-
-Cluster node names and private data roots are deployment details and are not
-committed. Copy `configs/site.example.json` to `configs/local/site.json`
-(gitignored, or point `ILC_SITE_CONFIG` at another file) and fill in the GPU
-nodes, the preferred node and `ILC_SGV10M_SOURCE_DIR` (the 20250711 SGV ROOT
-source). Launchers fail with an explicit message when it is missing; tests use
-the template. In the commands below, `<gpu-node>` is one of your configured
-nodes and `<project-dir>` is this checkout.
-
-## Commands
-
-Install/update the Python 3.10 GPU-node environment:
-
-```bash
-ssh <gpu-node> 'cd <project-dir> && python3 -m venv .venv'
-ssh <gpu-node> 'cd <project-dir> && .venv/bin/python -m pip install --upgrade pip'
-ssh <gpu-node> 'cd <project-dir> && .venv/bin/python -m pip install -r requirements.txt -c requirements-lock.txt'
-```
-
-Inspect commands without launching training:
-
-```bash
-ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/training/run_comparison.py --dry-run'
-ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml --gpus 0,1,2,3 --experiment-name ray_anchored_lr_sweep_epochwise --dry-run'
-```
-
-Run the current Ray PBT trial:
-
-```bash
-ssh <gpu-node>
-cd <project-dir>
-tmux new -s ray_pbt
-source .venv/bin/activate
-.venv/bin/python scripts/training/run_pbt.py \
-  --config configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml \
-  --gpus 0,1,2,3 \
-  --experiment-name ray_anchored_lr_sweep_epochwise
-```
-
-Run smoke checks on a GPU node:
-
-```bash
-ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/training/run_comparison.py --smoke --gpus 0,2'
-ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/training/run_pbt.py --smoke --gpus 0,2'
-```
-
-Validate the pretrained checkpoint:
-
-```bash
-scripts/validation/validate_pretrained_sgv_3cat.sh 0
-```
-
-Fine-tuning architecture for the pretrained best checkpoint:
-
-```bash
-# Full 8GPU guarded continuation from pretrained epoch17 + optimizer state.
-.venv/bin/python scripts/training/run_pbt.py \
-  --config configs/experiments/pretrained_guarded_8gpu_smooth_lr.yaml \
-  --slots <gpu-node>:0,<gpu-node>:1,<gpu-node>:2,<gpu-node>:3,<gpu-node>:4,<gpu-node>:5,<gpu-node>:6,<gpu-node>:7 \
-  --experiment-name pretrained_guarded_8gpu_$(date +%Y%m%d)
-
-# Shorter 4GPU guarded test run using the same pretrained/safety presets.
-.venv/bin/python scripts/training/run_pbt.py \
-  --config configs/experiments/pretrained_guarded_4gpu_smooth_lr.yaml \
-  --gpus 0,1,2,3 \
-  --experiment-name pretrained_guarded_4gpu_test_$(date +%Y%m%d)
-```
-
-The guarded fine-tuning runs rank workers by `validation_working_point_mistag_percent`, the average mistag at b-tag 80/90% and c-tag 50/80% reference working points. They resume the canonical pretrained epoch-17 state and optimizer from the self-contained `checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/` bundle, seed the initial checkpoint as global best, and reject any worse global-best replacement. Selection is confidence-aware when exact background pass/total counters are available, so near-ties inside the configured uncertainty margin keep the previous/stable ordering instead of over-selecting noisy tails. The guarded presets use `anchored_weight_source: self`: LR is still centered on the best branch, but each member keeps its own weights across generations. This preserves long-horizon branch diversity; `anchored_weight_source: anchor` remains available for aggressive exploit-and-copy sweeps. Historical fixed-grid and rescue experiments are kept under `configs/experiments/archive/legacy_finetune/` for reproducibility only.
-
-Datasets are not committed; the expected local parquet layout is recorded in `datasets/manifests/`.
-
-The main proxy-validation dataset is a local 3-category subset of the 20250711 SGV source (`ILC_SGV10M_SOURCE_DIR`), restricted to `bb/cc/dd` to match the current pretrained 3cat head and working-point metrics. Rebuild its parquet form with:
-
-```bash
-bash scripts/data/convert_20250711_sgv10m_3cat_to_parquet.sh
-```
-
-Its tracked base manifest is `datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_parquet.json`; the active proxy manifest is `datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json`. Use `configs/experiments/pretrained_guarded_8gpu_smooth_lr_10m_proxy_control.yaml` for an adaptive run that trains on `train800k` parquet while validating on the fixed `val5k_tail` control proxy. The `val5k_tail` control proxy uses the final rows of each `val1000k` file; `val50k_tail` monitor uses the immediately preceding rows, so monitor/control are disjoint and both come from the dataset tail.
-
-PBT runs write canonical artifacts automatically after completion. Rebuild those artifacts for an existing completed run without training with:
-
-```bash
-.venv/bin/python scripts/training/pbt/rebuild_artifacts.py runs/pbt/<run>
-```
-
-The final PBT artifact set is intentionally small:
-
-- `plots/01_performance_progression.png`
-- `plots/02_learning_rate_evolution.png`
-- `plots/physics_performance.png`
-- `plots/background_efficiency_curves.png`
-- `plots/report/btag_mistag_tables.csv`
-- `plots/report/ctag_mistag_tables.csv`
-- `plots/report/exploit_table.csv`
-
-Run tests:
-
-```bash
-ssh <gpu-node> 'cd <project-dir> && .venv/bin/python -m unittest discover -v'
-```
-
-### Windowed PBT continuation and presentation
-
-A completed `windowed_pbt_v2` population can continue into a **new** run.
-Keep its training configuration and population identities, increase
-`shared.generations` to the desired total horizon (complete windows), choose a
-new experiment name, and add:
-
-```yaml
-continuation:
-  source_run: runs/pbt/<completed-run>
-  source_manifest_sha256: <SHA256 of its manifest.json>
-  source_state_sha256: <digest returned by state.continuation.source_state>
-```
-
-`source_state(run_path, manifest)` returns checkpoint identities and their combined
-digest. The normal runner `--dry-run` validates these pins and prints the first
-new epoch's commands. Launch and interruption recovery use the existing
-`scripts/launch/experiment.py start|resume --config ...` commands.
-Live model/optimizer/scaler files copy without transformation; historical records,
-terminal decisions, loss counters and best archives carry forward. The source
-and its ancestors remain required read-only dependencies. A continuation can be
-extended the same way after completion; never edit an existing run's horizon.
-
-`scripts/validation/verify_fixed_lr.py <run>` replays each historical segment
-under its original horizon. For a fixed-LR control split across runs, use
-`--baseline <last-segment> --baseline-prefix <earlier-segment>` (repeat prefixes
-in chronological order); checkpoint and seed continuity are required.
-
-`scripts/reports/plot_pbt_presentation.py <run> --baseline <control>
---baseline-member <member>` writes two 300-dpi PNGs and their source values
-into **that run's `plots/` directory**. It also accepts `--baseline-prefix` for
-split controls. Existing presentation files are protected from overwrite;
-historical/diagnostic figures stay in place. There is no central presentation
-directory or automatic PDF export.
-
-`scripts/reports/plot_fixed_lr_performance.py <run> [<run> ...]` writes the
-fixed-LR performance comparison without PBT lineage semantics. Use repeated
-`--prefix-run` arguments to prepend shared earlier segments when comparing
-continuation branches.
-
-### Stage 2B: train8m readiness
-
-The ten-times larger `train8m` input (23,921,449 b/c/d rows; train800k is its
-exact prefix; disjoint from val1000k and therefore from `val50k_tail`,
-`val5k_tail` and the Stage 2A holdout) is prepared and smoke-tested with one
-command, which submits a detached tmux supervisor to an idle authorized node:
-
-```bash
-bash scripts/experiments/run_stage2b_smoke.sh             # convert/verify if needed, then bounded GPU smoke + report
-bash scripts/experiments/run_stage2b_smoke.sh --status    # dataset conversion vs GPU smoke progress
-bash scripts/experiments/run_stage2b_smoke.sh --dry-run   # read-only preflight and GPU discovery
-bash scripts/experiments/run_stage2b_smoke.sh --parity    # Stage 3 draft parity and cadence analysis
-```
-
-Details, verified facts, budgets and limitations:
-`configs/prepared/stage2b_train8m_v1/README.md`. Inactive Stage 3 drafts:
-`configs/drafts/stage3_train8m_v1/`. Legacy `val5k`/`val50k` lie inside
-train8m and are rejected for train8m selection.
-
-### Stage 3: fixed LR vs windowed PBT on train8m
-
-Preregistered matched comparison (`configs/prepared/stage3_train8m_v1/PROTOCOL.md`):
-fixed-LR population vs frozen `windowed_pbt_v2`, both from epoch 17 on train8m
-for a fixed 50-epoch horizon (a 30->50 continuation would replay the terminal
-epoch-30 window boundary and change the policy trajectory). A real full-epoch
-gate must pass first; checkpoints are ledgered; the sealed `test3000k` split
-is opened only after both arms complete and validate.
-
-```bash
-bash scripts/experiments/run_stage3_train8m.sh            # gate, both arms, analysis, sealed test, report
-bash scripts/experiments/run_stage3_train8m.sh --status   # gate verdict, per-arm progress, GPU-hours
-bash scripts/experiments/run_stage3_train8m.sh --dry-run  # read-only preflight and GPU discovery
-```
-
-Operations, recovery and resources: `configs/prepared/stage3_train8m_v1/README.md`.
-
-## Project Layout
-
-```text
-configs/               experiment and controller presets (see configs/presets/README.md)
-  prepared/             preserved run preparations and resolved launch inputs
-networks/               checkpoint-compatible pretrained SGV model
-scripts/
-  training/
-    pbt/                 the PBT engine, split by concern:
-      models/              pydantic schema for config/manifest/controller/exploit-events
-      planning/            population ranking + one module per pbt.strategy (exploit_mutate,
-                            anchored_lr_sweep, fixed_lr_grid, population_lr_policy) + rollback injection
-      controller/           the dynamic (fine-grained LR) controller: observation/decision/apply
-      execution/            backend/ray_backend/weaver_command -- runs the actual Weaver subprocesses
-      state/                 checkpoint paths, optimizer-state transforms, exploit-application
-      reporting/            canonical run-directory artifacts: events, CSVs, plots, report.md
-      runner.py             the generation-loop orchestrator (this package's entrypoint)
-    comparison/            independent (non-PBT) baseline-vs-controller runner
-    runtime.py             shared utilities (paths, data layout, Weaver log/metric parsing) used by
-                            pbt/, comparison/, and validation/ alike
-    weaver.py               generic Weaver train/val command builder, wrapped by pbt/execution/weaver_command.py
-  validation/              offline proxy-validation dataset construction + standalone checkpoint evaluation
-  reports/                 plotting/summary library shared by pbt/reporting/ and validation/
-  cluster/, data/          GPU-fleet status and dataset-conversion shell scripts (no Python coupling)
-  publish/                read-only experiment bundle exporter
-tests/                   unit and compatibility tests (python -m unittest discover)
-weaver-core/             editable local Weaver checkout (vendored, but actively patched -- see git log)
-checkpoints/, datasets/  pretrained checkpoint and dataset manifests (heavy artifacts are gitignored)
-runs/                    experiment results only: pbt/, eval/, and archive/
-logs/experiments/        launcher logs and preserved launch records
-published/experiments/   curated public metadata, plots, and release-ready model exports
-```
-
-## Git Policy
-
-Tracked:
-
-```text
-source code
-experiment/controller configs
-requirements.txt
-requirements-lock.txt
-checkpoint provenance text
-```
-
-Ignored:
-
-```text
-.venv/
-datasets/
-checkpoints/* except source.txt
-runs/
-*.pt, *.root, *.onnx, *.log, *.auto.yaml
+configs/      experiment configurations and frozen study protocols (configs/prepared/)
+networks/     Particle Transformer model
+scripts/      training engine, verification, campaign launchers, publishing
+published/    curated results, figures and experiment bundles
+docs/         documentation sources
+weaver-core/  vendored and patched Weaver framework
+tests/        unit, integration and provenance tests
 ```
