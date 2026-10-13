@@ -1,0 +1,21 @@
+{
+  "config_sha256": null,
+  "dataset": null,
+  "fingerprint": null,
+  "manifest_sha256": null,
+  "models": [],
+  "path_compatibility": {
+    "runs/dev": "runs/archive/diagnostics",
+    "runs/launch_logs": "logs/experiments",
+    "runs/launchers": "logs/experiments/launchers",
+    "runs/prepared": "configs/prepared",
+    "runs/showcase": "runs/archive/showcases"
+  },
+  "related_runs": [],
+  "resume_bundle": null,
+  "schema_version": 1,
+  "source_commit": null,
+  "source_run": "runs/eval/original_pretrained_0_19_20260917",
+  "starting_checkpoint": null,
+  "summary_sha256": "eb39acbb74e0fb0dcdb668055da10b992ec73a49a7ec52864dea9ec57f5181c2"
+}

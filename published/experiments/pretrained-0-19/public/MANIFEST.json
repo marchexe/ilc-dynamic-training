@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "rule": "absolute checkout prefix removed; paths become repository-relative",
+  "files": [
+    {
+      "file": "metrics.csv",
+      "source_sha256": "8f92c084b190bf1eb567482ba02aaaf4536807071e00108605be8d6b13fd5cef",
+      "public_sha256": "8f92c084b190bf1eb567482ba02aaaf4536807071e00108605be8d6b13fd5cef",
+      "redacted_occurrences": 0
+    },
+    {
+      "file": "provenance.json",
+      "source_sha256": "626c25028f4f947beba676f8a61b08ad5d8c830c41a8f009d21981724c5f8371",
+      "public_sha256": "626c25028f4f947beba676f8a61b08ad5d8c830c41a8f009d21981724c5f8371",
+      "redacted_occurrences": 0
+    },
+    {
+      "file": "summary.json",
+      "source_sha256": "ec19c1ed7bd0d9aa1af25c5cfac75414b1c7e09c706bd5f793b97405ff6754a6",
+      "public_sha256": "ec19c1ed7bd0d9aa1af25c5cfac75414b1c7e09c706bd5f793b97405ff6754a6",
+      "redacted_occurrences": 0
+    }
+  ]
+}

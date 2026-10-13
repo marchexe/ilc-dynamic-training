@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "rule": "absolute checkout prefix removed; paths become repository-relative",
+  "files": [
+    {
+      "file": "config.yaml",
+      "source_sha256": "02c652b6ff4ad74f40a1e9d08336e9c9b22f99e36af022bba535a1833f8187c9",
+      "public_sha256": "acb46b22b5f8f0d5695266b4855819040052881c46364315fc227c94c1f42622",
+      "redacted_occurrences": 9
+    },
+    {
+      "file": "metrics.csv",
+      "source_sha256": "c3debe7b140eb491c3a067fae3e3876265640210e3964088dc3ab0fb3e111de1",
+      "public_sha256": "98ab43cf4898075f463d7d83f08b225a0d608426f0dabf42933a8a765a33d30d",
+      "redacted_occurrences": 250
+    },
+    {
+      "file": "provenance.json",
+      "source_sha256": "f9c6d517c15c945656964e68ef51f6478d24721e9baa14a57fbe91b5ac755b97",
+      "public_sha256": "ff7f6a081dccd0b2f89f49d7deb558f5db094c5800ae766d1c874b93e151c2f5",
+      "redacted_occurrences": 16
+    },
+    {
+      "file": "summary.json",
+      "source_sha256": "1d7ce9e0078b4f23b52fa2a70ff0aff8f1d86084509e11a593327ad0ac2c9582",
+      "public_sha256": "1d7ce9e0078b4f23b52fa2a70ff0aff8f1d86084509e11a593327ad0ac2c9582",
+      "redacted_occurrences": 0
+    },
+    {
+      "file": "lr_history.csv",
+      "source_sha256": "3cd0d604b05c41cb23b7784c3b5ff08836c073a2073f10e1a335d9bf4170eeea",
+      "public_sha256": "3cd0d604b05c41cb23b7784c3b5ff08836c073a2073f10e1a335d9bf4170eeea",
+      "redacted_occurrences": 0
+    }
+  ]
+}

@@ -47,41 +47,41 @@
       "global_best_member": "lr_5_75e-6",
       "initial_checkpoint_sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501",
       "lineage_collapse_epoch": 5,
-      "manifest": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_50epochs/manifest.json",
+      "manifest": "runs/pbt/cadenced_pbt_v1_50epochs/manifest.json",
       "manifest_sha256": "57dcee6b08b7e429adcee6c7c88e2af633fa1a932875bd340a1c88d577ab82a5",
       "resolved_config_sha256": "91f1d861df090b9ab34cff67b64c0d1e6742072aa10bdb47e4b31192ee7d434c",
-      "run": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_50epochs",
+      "run": "runs/pbt/cadenced_pbt_v1_50epochs",
       "source_hashes": {
         "data_config": {
-          "path": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml",
+          "path": "checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml",
           "sha256": "25c670c3b817a5423d876a989af613be282ce927ea06753e70add611731ff77f"
         },
         "entry_config": {
-          "path": "/data/suehara/part/march/configs/experiments/cadenced_pbt_v1.yaml",
+          "path": "configs/experiments/cadenced_pbt_v1.yaml",
           "sha256": "244b10e5b836030a6c2a74a4145b8a294e6cd34edabb38734eae0396f71af226"
         },
         "lookahead": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/utils/nn/optimizer/lookahead.py",
+          "path": "weaver-core/weaver/utils/nn/optimizer/lookahead.py",
           "sha256": "cd6afed14ada54a3307c3daa86c2c4fde4fcec86308b110b1cdf2991aaf874bb"
         },
         "network_config": {
-          "path": "/data/suehara/part/march/networks/pretrained_sgv_particle_transformer.py",
+          "path": "networks/pretrained_sgv_particle_transformer.py",
           "sha256": "f6dfb055921a887ac44fc8b8ac790f7dfa9232595d244438eb07cd1f327e361f"
         },
         "pbt_runner": {
-          "path": "/data/suehara/part/march/scripts/training/pbt/runner.py",
+          "path": "scripts/training/pbt/runner.py",
           "sha256": "e36dea8bcb6838ea428e02a1743e175930246b27bd191d84eafcfe1292ee3420"
         },
         "ranger": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/utils/nn/optimizer/ranger.py",
+          "path": "weaver-core/weaver/utils/nn/optimizer/ranger.py",
           "sha256": "bb52dd7faa6d77e32e4ecf44a528b9a50f4bebc213f4a43223a25d84417abe3c"
         },
         "strategy": {
-          "path": "/data/suehara/part/march/scripts/training/pbt/planning/cadenced_pbt_v1.py",
+          "path": "scripts/training/pbt/planning/cadenced_pbt_v1.py",
           "sha256": "a10560de49e2209def75efcb9b242a01e233de751a3ef401312bce8981e050b0"
         },
         "weaver_train": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/train.py",
+          "path": "weaver-core/weaver/train.py",
           "sha256": "cde4f09456e16cc02ba8f03f6bf1fae44f409b5c487ed1c203e32ff673a612e9"
         }
       },
@@ -210,41 +210,41 @@
       "global_best_member": "lr_5_75e-6",
       "initial_checkpoint_sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501",
       "lineage_collapse_epoch": 20,
-      "manifest": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_cadence5_50epochs/manifest.json",
+      "manifest": "runs/pbt/cadenced_pbt_v1_cadence5_50epochs/manifest.json",
       "manifest_sha256": "9cce1dfc77205f9baf9badb782f9e6700a648821a3b1fea3371eeabebcc0912b",
       "resolved_config_sha256": "f1e8a11209340efc51d5b9de84029c4b7bfff6936a9a85665987e485a84e5c9d",
-      "run": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_cadence5_50epochs",
+      "run": "runs/pbt/cadenced_pbt_v1_cadence5_50epochs",
       "source_hashes": {
         "data_config": {
-          "path": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml",
+          "path": "checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml",
           "sha256": "25c670c3b817a5423d876a989af613be282ce927ea06753e70add611731ff77f"
         },
         "entry_config": {
-          "path": "/data/suehara/part/march/configs/experiments/cadenced_pbt_v1_cadence5.yaml",
+          "path": "configs/experiments/cadenced_pbt_v1_cadence5.yaml",
           "sha256": "9ca05840ca5e7ac661994d39af2880f88ba46134133f80d1e117d40a774c6974"
         },
         "lookahead": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/utils/nn/optimizer/lookahead.py",
+          "path": "weaver-core/weaver/utils/nn/optimizer/lookahead.py",
           "sha256": "cd6afed14ada54a3307c3daa86c2c4fde4fcec86308b110b1cdf2991aaf874bb"
         },
         "network_config": {
-          "path": "/data/suehara/part/march/networks/pretrained_sgv_particle_transformer.py",
+          "path": "networks/pretrained_sgv_particle_transformer.py",
           "sha256": "f6dfb055921a887ac44fc8b8ac790f7dfa9232595d244438eb07cd1f327e361f"
         },
         "pbt_runner": {
-          "path": "/data/suehara/part/march/scripts/training/pbt/runner.py",
+          "path": "scripts/training/pbt/runner.py",
           "sha256": "876375f02508f07c1ee1a409e191594b2cbe9eb672210fa9b315b645f37a19fd"
         },
         "ranger": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/utils/nn/optimizer/ranger.py",
+          "path": "weaver-core/weaver/utils/nn/optimizer/ranger.py",
           "sha256": "bb52dd7faa6d77e32e4ecf44a528b9a50f4bebc213f4a43223a25d84417abe3c"
         },
         "strategy": {
-          "path": "/data/suehara/part/march/scripts/training/pbt/planning/cadenced_pbt_v1.py",
+          "path": "scripts/training/pbt/planning/cadenced_pbt_v1.py",
           "sha256": "f5509f3b42ebafd22b2981e855cea4b4a83b9d0a0f86ab88232b18b89f3964c7"
         },
         "weaver_train": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/train.py",
+          "path": "weaver-core/weaver/train.py",
           "sha256": "cde4f09456e16cc02ba8f03f6bf1fae44f409b5c487ed1c203e32ff673a612e9"
         }
       },
@@ -373,41 +373,41 @@
       "global_best_member": "lr_14e-6",
       "initial_checkpoint_sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501",
       "lineage_collapse_epoch": 5,
-      "manifest": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_seed22345_50epochs/manifest.json",
+      "manifest": "runs/pbt/cadenced_pbt_v1_seed22345_50epochs/manifest.json",
       "manifest_sha256": "d9937a1ba79a93f3d67227dbbbc2c209cc146fa7340ebf06c797e6a0201c4628",
       "resolved_config_sha256": "7dfd2a45e77525e4d2c2f8c6415b7cb4c4a893567450172f7eaceee6db697a18",
-      "run": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_seed22345_50epochs",
+      "run": "runs/pbt/cadenced_pbt_v1_seed22345_50epochs",
       "source_hashes": {
         "data_config": {
-          "path": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml",
+          "path": "checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml",
           "sha256": "25c670c3b817a5423d876a989af613be282ce927ea06753e70add611731ff77f"
         },
         "entry_config": {
-          "path": "/data/suehara/part/march/configs/experiments/cadenced_pbt_v1_seed22345.yaml",
+          "path": "configs/experiments/cadenced_pbt_v1_seed22345.yaml",
           "sha256": "267aed082e81c8214f861949226f6dac4d0d0c4bea88ca2cb3725e210ff190ce"
         },
         "lookahead": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/utils/nn/optimizer/lookahead.py",
+          "path": "weaver-core/weaver/utils/nn/optimizer/lookahead.py",
           "sha256": "cd6afed14ada54a3307c3daa86c2c4fde4fcec86308b110b1cdf2991aaf874bb"
         },
         "network_config": {
-          "path": "/data/suehara/part/march/networks/pretrained_sgv_particle_transformer.py",
+          "path": "networks/pretrained_sgv_particle_transformer.py",
           "sha256": "f6dfb055921a887ac44fc8b8ac790f7dfa9232595d244438eb07cd1f327e361f"
         },
         "pbt_runner": {
-          "path": "/data/suehara/part/march/scripts/training/pbt/runner.py",
+          "path": "scripts/training/pbt/runner.py",
           "sha256": "876375f02508f07c1ee1a409e191594b2cbe9eb672210fa9b315b645f37a19fd"
         },
         "ranger": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/utils/nn/optimizer/ranger.py",
+          "path": "weaver-core/weaver/utils/nn/optimizer/ranger.py",
           "sha256": "bb52dd7faa6d77e32e4ecf44a528b9a50f4bebc213f4a43223a25d84417abe3c"
         },
         "strategy": {
-          "path": "/data/suehara/part/march/scripts/training/pbt/planning/cadenced_pbt_v1.py",
+          "path": "scripts/training/pbt/planning/cadenced_pbt_v1.py",
           "sha256": "f5509f3b42ebafd22b2981e855cea4b4a83b9d0a0f86ab88232b18b89f3964c7"
         },
         "weaver_train": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/train.py",
+          "path": "weaver-core/weaver/train.py",
           "sha256": "cde4f09456e16cc02ba8f03f6bf1fae44f409b5c487ed1c203e32ff673a612e9"
         }
       },
@@ -536,41 +536,41 @@
       "global_best_member": "lr_11_25e-6",
       "initial_checkpoint_sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501",
       "lineage_collapse_epoch": 20,
-      "manifest": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_cadence5_seed22345_50epochs/manifest.json",
+      "manifest": "runs/pbt/cadenced_pbt_v1_cadence5_seed22345_50epochs/manifest.json",
       "manifest_sha256": "ad5a0d9d377bc6b6e916a9886d5ea56a951661e84d1eaa14b61852630ae89987",
       "resolved_config_sha256": "3d411fe15a62966909a7da7b2f556f07ad8fdbea79e7b85a3c33cd9f87c0d46c",
-      "run": "/data/suehara/part/march/runs/pbt/cadenced_pbt_v1_cadence5_seed22345_50epochs",
+      "run": "runs/pbt/cadenced_pbt_v1_cadence5_seed22345_50epochs",
       "source_hashes": {
         "data_config": {
-          "path": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml",
+          "path": "checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml",
           "sha256": "25c670c3b817a5423d876a989af613be282ce927ea06753e70add611731ff77f"
         },
         "entry_config": {
-          "path": "/data/suehara/part/march/configs/experiments/cadenced_pbt_v1_cadence5_seed22345.yaml",
+          "path": "configs/experiments/cadenced_pbt_v1_cadence5_seed22345.yaml",
           "sha256": "cb5d3bcaad4fa21a3ba29e95551debd76801f1bac570702964200c4c4d3a7274"
         },
         "lookahead": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/utils/nn/optimizer/lookahead.py",
+          "path": "weaver-core/weaver/utils/nn/optimizer/lookahead.py",
           "sha256": "cd6afed14ada54a3307c3daa86c2c4fde4fcec86308b110b1cdf2991aaf874bb"
         },
         "network_config": {
-          "path": "/data/suehara/part/march/networks/pretrained_sgv_particle_transformer.py",
+          "path": "networks/pretrained_sgv_particle_transformer.py",
           "sha256": "f6dfb055921a887ac44fc8b8ac790f7dfa9232595d244438eb07cd1f327e361f"
         },
         "pbt_runner": {
-          "path": "/data/suehara/part/march/scripts/training/pbt/runner.py",
+          "path": "scripts/training/pbt/runner.py",
           "sha256": "876375f02508f07c1ee1a409e191594b2cbe9eb672210fa9b315b645f37a19fd"
         },
         "ranger": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/utils/nn/optimizer/ranger.py",
+          "path": "weaver-core/weaver/utils/nn/optimizer/ranger.py",
           "sha256": "bb52dd7faa6d77e32e4ecf44a528b9a50f4bebc213f4a43223a25d84417abe3c"
         },
         "strategy": {
-          "path": "/data/suehara/part/march/scripts/training/pbt/planning/cadenced_pbt_v1.py",
+          "path": "scripts/training/pbt/planning/cadenced_pbt_v1.py",
           "sha256": "f5509f3b42ebafd22b2981e855cea4b4a83b9d0a0f86ab88232b18b89f3964c7"
         },
         "weaver_train": {
-          "path": "/data/suehara/part/march/weaver-core/weaver/train.py",
+          "path": "weaver-core/weaver/train.py",
           "sha256": "cde4f09456e16cc02ba8f03f6bf1fae44f409b5c487ed1c203e32ff673a612e9"
         }
       },

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "rule": "absolute checkout prefix removed; paths become repository-relative",
+  "files": [
+    {
+      "file": "config.yaml",
+      "source_sha256": "a935a2a7cfd589ef7934b0d6655c42206147c091ba36d77172861998c0c80d1c",
+      "public_sha256": "03c64ef28bc7dc58dbf931c23b3a6538a8ebcc02c6fa94b13c7311674009068b",
+      "redacted_occurrences": 9
+    },
+    {
+      "file": "metrics.csv",
+      "source_sha256": "cbfadaaa8050999c78d70fab95f932247ab5f2c68b395b8ba378624d977f14e4",
+      "public_sha256": "97126726d44ebb3ca79bfae294838628dffd0f03bab340d417cb5a646adb16cf",
+      "redacted_occurrences": 250
+    },
+    {
+      "file": "provenance.json",
+      "source_sha256": "4e7173eed019b51c9bf0664135e3112f26a54135db2162d147787e84915858a1",
+      "public_sha256": "bdc513b4c68029b9889daa1f34e87c584e21573ec91400760986404795c4facb",
+      "redacted_occurrences": 32
+    },
+    {
+      "file": "exploit_history.csv",
+      "source_sha256": "3557d7b3e38a86a36279165a430725598ecd3c69b305bce2a5407dd5041f1d95",
+      "public_sha256": "3557d7b3e38a86a36279165a430725598ecd3c69b305bce2a5407dd5041f1d95",
+      "redacted_occurrences": 0
+    },
+    {
+      "file": "summary.json",
+      "source_sha256": "a825a63cc8891361c21d2cf94d0b30baedeb32248d3a3ddb928934d0f067ecbe",
+      "public_sha256": "a952e78683091a660363c97df7b4b273f8604838b4b561b68b4bbbd9f05c6043",
+      "redacted_occurrences": 1
+    },
+    {
+      "file": "lr_history.csv",
+      "source_sha256": "2bcc8212727d93dec7be9aef96236eb464f0a4426a73a66b68de0e17e9182ef1",
+      "public_sha256": "2bcc8212727d93dec7be9aef96236eb464f0a4426a73a66b68de0e17e9182ef1",
+      "redacted_occurrences": 0
+    },
+    {
+      "file": "decision_history.csv",
+      "source_sha256": "5ed7793ecf8e23b5161876a85416c44d48603ddff30618aa62d36d9ea7f293d9",
+      "public_sha256": "5ed7793ecf8e23b5161876a85416c44d48603ddff30618aa62d36d9ea7f293d9",
+      "redacted_occurrences": 0
+    }
+  ]
+}
