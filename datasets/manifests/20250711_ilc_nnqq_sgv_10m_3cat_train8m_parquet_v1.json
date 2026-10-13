@@ -1,0 +1,83 @@
+{
+  "created_at": "2026-10-13T05:42:47.594990+00:00",
+  "data_extension": "parquet",
+  "files": [
+    {
+      "flavor": "bb",
+      "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet/ml_flavtag_6cat_bb_train8m.parquet",
+      "row_groups": 799,
+      "rows": 7989060,
+      "sha256": "1a4527b87228b1a2b7ca5bb08e8f1fab9ffe6732db59e6211d13bdef843a303b",
+      "size_bytes": 20887862520,
+      "source_entries": 7989060,
+      "source_root_file": "ml_flavtag_6cat_bb_train8m.root",
+      "source_root_sha256": "072a9e89fe9e25f68f2da5be61559665428aa7953576c4ac25d1fab6db6464d1",
+      "source_root_size_bytes": 23673096113
+    },
+    {
+      "flavor": "cc",
+      "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet/ml_flavtag_6cat_cc_train8m.parquet",
+      "row_groups": 798,
+      "rows": 7976224,
+      "sha256": "ea14aa30e744b599c5a4ced97a8f1f3c702aee0bbe81575ce894b83e296ddcef",
+      "size_bytes": 19036048563,
+      "source_entries": 7976224,
+      "source_root_file": "ml_flavtag_6cat_cc_train8m.root",
+      "source_root_sha256": "94f3ce0bf6177eeeb4a74e7e02c719006ea91f7c6c37d933927031aeca6a3f8d",
+      "source_root_size_bytes": 21839555755
+    },
+    {
+      "flavor": "dd",
+      "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet/ml_flavtag_6cat_dd_train8m.parquet",
+      "row_groups": 796,
+      "rows": 7956165,
+      "sha256": "be349cb0a52cc17d111e224df9a8214ab6fa3ce661051821c5d551edad6ea1aa",
+      "size_bytes": 17831794624,
+      "source_entries": 7956165,
+      "source_root_file": "ml_flavtag_6cat_dd_train8m.root",
+      "source_root_sha256": "7efaa6a384924d963e274e60d15d8d23499e57834c7e56ae6a527614daed1c2e",
+      "source_root_size_bytes": 20647435946
+    }
+  ],
+  "flavors": [
+    "bb",
+    "cc",
+    "dd"
+  ],
+  "local_full_manifest": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet/MANIFEST.json",
+  "local_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet",
+  "name": "20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet_v1",
+  "portable": true,
+  "reason_not_tracked": "About 64 GB of Parquet; keep only this manifest in Git.",
+  "role": "training",
+  "rows_by_flavor": {
+    "bb": 7989060,
+    "cc": 7976224,
+    "dd": 7956165
+  },
+  "rows_total": 23921449,
+  "schema_version": 1,
+  "size_bytes_total": 57755705707,
+  "spec_sha256": "20e321fd19a918be1d2f7e33be7f2f48a971484b0174999cca010fe294079236",
+  "suffix": "train8m",
+  "tracked_in_git": false,
+  "validation": {
+    "approved_suffixes": [
+      "val50k_tail",
+      "val5k_tail"
+    ],
+    "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "forbidden_suffixes": {
+      "train800k": "training data (prefix of train8m)",
+      "val1000k": "contains the Stage 2A holdout rows",
+      "val50k": "original 1m-ladder split lies inside the train8m window",
+      "val5k": "original 100k-ladder split (Entry$ 80000-85000) lies inside the train8m window",
+      "val_holdout": "Stage 2A holdout; never used for training-time selection"
+    },
+    "selection_suffix": "val50k_tail"
+  },
+  "weaver_audit": {
+    "fingerprint": "4a7d377188fc6a2fc833dfff4c082455a1725153e3b3cbd5fbec551fbd23d070",
+    "total_rows": 23921449
+  }
+}
