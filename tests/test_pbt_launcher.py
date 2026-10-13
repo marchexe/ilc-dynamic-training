@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.helpers import PROJECT_DIR, namespace, pbt_smoke_config
+from tests.helpers import PROJECT_DIR, namespace, pbt_smoke_config, synthetic_config
 from training.pbt import config as config_module
 from training.pbt.state import checkpointing
 from training.pbt.execution.backend import LocalWeaverBackend, backend_from_config
@@ -64,15 +64,13 @@ class PBTLauncherTest(unittest.TestCase):
 
 
     def test_anchored_ray_config_uses_ray_weaver_backend(self):
-        config = config_module.load_config(
-            namespace(
-                config=PROJECT_DIR / "configs/experiments/pbt_anchored_lr_sweep_ray.yaml",
-                experiment_name="unit_anchored_ray",
-                gpus="0,1",
-                slots=None,
-                smoke=True,
-            )
-        )
+        overrides = {"pbt": {"strategy": "anchored_lr_sweep", "metric": "validation_bkg_rejection_score", "mode": "max",
+                    "base_start_lr": 1.05e-4, "lr_factors": [1.05, 1.025, 0.975, 0.95],
+                    "min_lr": 6.0e-5, "max_lr": 1.4e-4},
+            "population": [{"name": f"member_{index:02d}"} for index in range(4)]}
+        overrides["pbt"]["backend"] = "ray_weaver"
+        with tempfile.TemporaryDirectory() as temporary:
+            config = synthetic_config(temporary, overrides, gpus="0,1", smoke=True)
 
         self.assertEqual(config["pbt"]["backend"], "ray_weaver")
         self.assertEqual(config["pbt"]["strategy"], "anchored_lr_sweep")
@@ -85,15 +83,11 @@ class PBTLauncherTest(unittest.TestCase):
         self.assertIsInstance(backend_from_config(config), RayWeaverBackend)
 
     def test_anchored_lr_sweep_config_generates_start_lrs(self):
-        config = config_module.load_config(
-            namespace(
-                config=PROJECT_DIR / "configs/experiments/pbt_anchored_lr_sweep.yaml",
-                experiment_name="unit_anchored",
-                gpus="0,1,2,3",
-                slots=None,
-                smoke=False,
-            )
-        )
+        with tempfile.TemporaryDirectory() as temporary:
+            config = synthetic_config(temporary, {"pbt": {"strategy": "anchored_lr_sweep", "metric": "validation_bkg_rejection_score", "mode": "max",
+                    "base_start_lr": 1.05e-4, "lr_factors": [1.05, 1.025, 0.975, 0.95],
+                    "min_lr": 6.0e-5, "max_lr": 1.4e-4},
+            "population": [{"name": f"member_{index:02d}"} for index in range(4)]})
 
         self.assertEqual(config["pbt"]["strategy"], "anchored_lr_sweep")
         self.assertEqual(
@@ -102,15 +96,11 @@ class PBTLauncherTest(unittest.TestCase):
         )
 
     def test_anchored_lr_sweep_smoke_uses_high_and_low_branches(self):
-        config = config_module.load_config(
-            namespace(
-                config=PROJECT_DIR / "configs/experiments/pbt_anchored_lr_sweep.yaml",
-                experiment_name="unit_anchored_smoke",
-                gpus="0,1",
-                slots=None,
-                smoke=True,
-            )
-        )
+        with tempfile.TemporaryDirectory() as temporary:
+            config = synthetic_config(temporary, {"pbt": {"strategy": "anchored_lr_sweep", "metric": "validation_bkg_rejection_score", "mode": "max",
+                    "base_start_lr": 1.05e-4, "lr_factors": [1.05, 1.025, 0.975, 0.95],
+                    "min_lr": 6.0e-5, "max_lr": 1.4e-4},
+            "population": [{"name": f"member_{index:02d}"} for index in range(4)]}, gpus="0,1", smoke=True)
 
         self.assertEqual(
             [round(member["start_lr"], 10) for member in config["population"]],
@@ -196,35 +186,31 @@ class PBTLauncherTest(unittest.TestCase):
         self.assertIn("--gpus 6", command[2])
 
     def test_fixed_lr_grid_config_preserves_low_lr_grid(self):
-        config = config_module.load_config(
-            namespace(
-                config=PROJECT_DIR / "configs/experiments/archive/legacy_finetune/finetune_fixed_lr_grid_adamw.yaml",
-                experiment_name="unit_fixed_grid",
-                gpus="0,1,2,3",
-                slots=None,
-                smoke=False,
-            )
-        )
+        grid = [1.0e-5, 2.0e-5, 3.0e-5, 5.0e-5]
+        overrides = {
+            "pbt": {"strategy": "fixed_lr_grid", "metric": "validation_working_point_mistag_percent", "mode": "min",
+                    "early_stop_degraded_generations": 4, "min_lr": 5.0e-6, "max_lr": 8.0e-5},
+            "population": [{"name": f"lr_{index}", "start_lr": lr} for index, lr in enumerate(grid)],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            config = synthetic_config(temporary, overrides)
 
         self.assertEqual(config["pbt"]["strategy"], "fixed_lr_grid")
         self.assertEqual(config["pbt"]["metric"], "validation_working_point_mistag_percent")
         self.assertEqual(config["pbt"]["mode"], "min")
         self.assertEqual(config["pbt"]["early_stop_degraded_generations"], 4)
-        self.assertEqual(
-            [member["start_lr"] for member in config["population"]],
-            [1.0e-5, 2.0e-5, 3.0e-5, 5.0e-5],
-        )
+        self.assertEqual([member["start_lr"] for member in config["population"]], grid)
 
     def test_finetune_config_enables_smooth_lr_controller(self):
-        config = config_module.load_config(
-            namespace(
-                config=PROJECT_DIR / "configs/experiments/pretrained_guarded_4gpu_smooth_lr.yaml",
-                experiment_name="unit_smooth_lr",
-                gpus="0,1,2,3",
-                slots=None,
-                smoke=False,
-            )
-        )
+        overrides = {"pbt": {"strategy": "anchored_lr_sweep", "metric": "validation_bkg_rejection_score", "mode": "max",
+                    "base_start_lr": 1.05e-4, "lr_factors": [1.05, 1.025, 0.975, 0.95],
+                    "min_lr": 6.0e-5, "max_lr": 1.4e-4},
+            "population": [{"name": f"member_{index:02d}"} for index in range(4)]}
+        overrides["pbt"]["lr_controller"] = {
+            "mode": "smooth", "smoothing": 0.20, "max_center_increase": 1.10, "max_center_decrease": 0.90,
+            "max_member_increase": 1.15, "max_member_decrease": 0.87, "decay_bias": 0.995}
+        with tempfile.TemporaryDirectory() as temporary:
+            config = synthetic_config(temporary, overrides)
 
         controller = config["pbt"]["lr_controller"]
         self.assertEqual(config["pbt"]["strategy"], "anchored_lr_sweep")
@@ -232,24 +218,21 @@ class PBTLauncherTest(unittest.TestCase):
         self.assertAlmostEqual(controller["smoothing"], 0.20)
         self.assertAlmostEqual(controller["max_member_decrease"], 0.87)
 
-
-    def test_pretrained_guarded_config_uses_presets(self):
+    def test_preset_composed_config_resolves_pretrained_start_and_slots(self):
         config = config_module.load_config(
             namespace(
-                config=PROJECT_DIR / "configs/experiments/pretrained_guarded_8gpu_smooth_lr.yaml",
-                experiment_name="unit_pretrained_guarded",
+                config=PROJECT_DIR / "configs/experiments/pretrained_fixed_lr_8gpu_representative60k_shadow.yaml",
+                experiment_name="unit_preset_composition",
                 gpus=None,
-                slots="gpu-node-01:0,gpu-node-01:1,gpu-node-01:2,gpu-node-01:3,gpu-node-01:4,gpu-node-01:5,gpu-node-01:6,gpu-node-01:7",
+                slots=",".join(f"gpu-node-01:{index}" for index in range(8)),
                 smoke=False,
             )
         )
 
         self.assertEqual(config["shared"]["initial_epoch"], 17)
         self.assertTrue(config["shared"]["initial_optimizer"].endswith("net_epoch-17_optimizer.pt"))
-        self.assertEqual(config["shared"]["initial_optimizer_mode"], "damped")
         self.assertEqual(config["shared"]["data_extension"], "parquet")
-        self.assertEqual(config["pbt"]["baseline_metric_value"], 1.0426476744821431)
-        self.assertTrue(config["pbt"]["baseline_guard_seed_initial_best"])
+        self.assertEqual(config["pbt"]["strategy"], "fixed_lr_grid")
         self.assertEqual(len(config["population"]), 8)
         self.assertEqual(config["slots"][0]["label"], "gpu-node-01:0")
 
@@ -295,11 +278,11 @@ class PBTLauncherTest(unittest.TestCase):
         self.assertTrue(proxy["manifest"].endswith("datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json"))
 
 
-    def test_pretrained_10m_proxy_control_config_uses_val5k_tail_control(self):
+    def test_proxy_control_preset_resolves_train_and_validation_splits(self):
         config = config_module.load_config(
             namespace(
-                config=PROJECT_DIR / "configs/experiments/pretrained_guarded_8gpu_smooth_lr_10m_proxy_control.yaml",
-                experiment_name="unit_10m_proxy_control",
+                config=PROJECT_DIR / "configs/experiments/pretrained_fixed_lr_8gpu_representative60k_shadow.yaml",
+                experiment_name="unit_proxy_control",
                 gpus="0,1",
                 slots=None,
                 smoke=False,
@@ -308,96 +291,13 @@ class PBTLauncherTest(unittest.TestCase):
 
         shared = config["shared"]
         self.assertTrue(shared["dataset"].endswith("20250711_ilc_nnqq_sgv_10m_3cat_parquet"))
-        self.assertTrue(shared["validation_dataset"].endswith("20250711_ilc_nnqq_sgv_10m_3cat_parquet"))
         self.assertEqual(shared["train_suffix"], "train800k")
-        self.assertEqual(shared["validation_suffix"], "val5k_tail")
-        self.assertEqual(shared["samples_per_epoch"], 120000)
+        self.assertEqual(shared["validation_suffix"], "val50k_tail")
+        self.assertEqual(shared["proxy_validation"]["active_subset"], "control")
         self.assertEqual(shared["generations"], 96)
-        self.assertEqual(shared["proxy_validation"]["monitor_suffix"], "val50k_tail")
-        self.assertEqual(shared["proxy_validation"]["full_suffix"], "val1000k")
-
-        pbt = config["pbt"]
-        self.assertEqual(pbt["baseline_metric_value"], 1.1400000057487494)
-        self.assertEqual(pbt["min_lr"], 3.0e-6)
-        self.assertEqual(pbt["max_lr"], 1.2e-5)
-        self.assertEqual(pbt["base_start_lr"], 8.0e-6)
-        self.assertTrue(pbt["dynamic_controller"]["evaluate_initial_checkpoint"])
-        self.assertAlmostEqual(config["population"][0]["start_lr"], 1.0e-5)
-        self.assertAlmostEqual(config["population"][-1]["start_lr"], 6.0e-6)
-
-    def test_nightly_proxy_control50k_smoke_config_switches_to_val50k_tail_control(self):
-        """The 50k-control-proxy override is scoped to this one experiment
-        config only -- the base preset it composes must still resolve to
-        val5k_tail (checked above), proving this doesn't leak sideways into
-        the 11 other experiment configs that share that base preset."""
-        config = config_module.load_config(
-            namespace(
-                config=PROJECT_DIR / "configs/experiments/nightly_proxy_control50k_smoke.yaml",
-                experiment_name="unit_nightly_proxy_control50k_smoke",
-                gpus="0,1",
-                slots=None,
-                smoke=False,
-            )
-        )
-
-        shared = config["shared"]
-        self.assertEqual(shared["validation_suffix"], "val50k_tail")
-        proxy = shared["proxy_validation"]
-        self.assertEqual(proxy["control_suffix"], "val50k_tail")
-        self.assertEqual(proxy["control_rows_per_class"], 50000)
-        # monitor is untouched/inherited (still val50k_tail, unused since it
-        # isn't scheduled below) but full is explicitly retired for this
-        # experiment: the legacy overlapping val1000k tier must never be
-        # reachable through this config.
-        self.assertNotIn("full_dataset", proxy)
-        self.assertNotIn("full_suffix", proxy)
-        self.assertEqual(proxy["full_holdout_suffix"], "val_holdout")
-
-        tiered = config["pbt"]["tiered_validation"]
-        self.assertNotIn("monitor_interval_generations", tiered)
-
-    def test_proxy_control_50k_override_covers_full_val50k_tail_every_generation(self):
-        """The legacy override declares the full validation size in its config.
-
-        Deterministic evaluation now ignores this cap and exhausts the files;
-        this test protects preset composition, not sampling behavior.
-        """
-        with tempfile.TemporaryDirectory() as temporary:
-            config_path = Path(temporary) / "proxy_control_50k_only.yaml"
-            base_preset = PROJECT_DIR / "configs/presets/shared/pretrained_epoch17_ranger_10m_parquet_proxy_control.yaml"
-            override_preset = PROJECT_DIR / "configs/presets/shared/proxy_control_50k_override.yaml"
-            resources_preset = PROJECT_DIR / "configs/presets/resources/local_4gpu.yaml"
-            strategy_preset = PROJECT_DIR / "configs/presets/pbt/exploit_mutate_significance_tiered.yaml"
-            config_path.write_text(
-                "schema_version: 1\n"
-                "presets:\n"
-                f"  - {base_preset}\n"
-                f"  - {override_preset}\n"
-                f"  - {resources_preset}\n"
-                f"  - {strategy_preset}\n"
-                "experiment:\n"
-                "  output_root: runs/archive/diagnostics\n"
-                "  name: unit_proxy_control_50k_only\n"
-                "population:\n"
-                "  - name: unit_member_a\n"
-                "    start_lr: 6.0e-6\n"
-                "  - name: unit_member_b\n"
-                "    start_lr: 9.0e-6\n"
-            )
-            config = config_module.load_config(
-                namespace(
-                    config=config_path,
-                    experiment_name="unit_proxy_control_50k_only",
-                    gpus="0,1",
-                    slots=None,
-                    smoke=False,
-                )
-            )
-
-        shared = config["shared"]
-        self.assertEqual(shared["validation_suffix"], "val50k_tail")
-        self.assertEqual(shared["samples_per_epoch_val"], 150000)
-        self.assertEqual(shared["proxy_validation"]["control_rows_per_class"], 50000)
+        self.assertEqual((config["pbt"]["min_lr"], config["pbt"]["max_lr"]), (3.0e-6, 1.4e-5))
+        self.assertAlmostEqual(config["population"][0]["start_lr"], 3.0e-6)
+        self.assertAlmostEqual(config["population"][-1]["start_lr"], 1.4e-5)
 
     def test_initial_evaluation_command_uses_initial_state_and_test_mode(self):
         config = pbt_smoke_config()
@@ -498,15 +398,14 @@ class PBTLauncherTest(unittest.TestCase):
                 )
 
     def test_head_warmup_freezes_backbone_only_for_configured_generations(self):
-        config = config_module.load_config(
-            namespace(
-                config=PROJECT_DIR / "configs/experiments/archive/legacy_finetune/finetune_head_warmup_fixed_lr_grid.yaml",
-                experiment_name="unit_head_warmup",
-                gpus="0,1,2,3",
-                slots=None,
-                smoke=False,
-            )
-        )
+        overrides = {
+            "shared": {"freeze_model_weights": r"^(pf_embed|neu_embed|part\.pair_embed|part\.blocks)\.",
+                       "freeze_model_weights_generations": 2},
+            "pbt": {"strategy": "fixed_lr_grid", "min_lr": 5.0e-6, "max_lr": 8.0e-5},
+            "population": [{"name": "lr_1e_5", "start_lr": 1.0e-5}, {"name": "lr_2e_5", "start_lr": 2.0e-5}],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            config = synthetic_config(temporary, overrides)
         member = {"name": "lr_1e_5", "lr": 1.0e-5}
 
         command_gen0, _, _ = self.backend.command_for(

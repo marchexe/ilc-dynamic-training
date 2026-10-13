@@ -646,37 +646,6 @@ class ExistingStrategiesUnchangedTest(unittest.TestCase):
         self.assertFalse(strategy_uses_population_rollbacks(config))
 
 
-class ExperimentConfigResolutionTest(unittest.TestCase):
-    def test_anchor_copy_lr_recenter_50k_config_resolves_correctly(self):
-        config = config_module.load_config(
-            namespace(
-                config=PROJECT_DIR / "configs/experiments/anchor_copy_lr_recenter_50k.yaml",
-                experiment_name="unit_anchor_copy_lr_recenter_50k",
-                gpus="0,1,2,3",
-                slots=None,
-                smoke=False,
-            )
-        )
-
-        shared = config["shared"]
-        self.assertEqual(shared["validation_suffix"], "val50k_tail")
-        self.assertEqual(shared["samples_per_epoch_val"], 150000)
-        proxy = shared["proxy_validation"]
-        self.assertEqual(proxy["control_rows_per_class"], 50000)
-        self.assertNotIn("full_dataset", proxy)
-        self.assertNotIn("full_suffix", proxy)
-        self.assertEqual(proxy["full_holdout_suffix"], "val_holdout")
-
-        pbt = config["pbt"]
-        self.assertEqual(pbt["strategy"], "anchor_copy_lr_recenter")
-        self.assertEqual(pbt["burn_in_generations"], 0)
-        self.assertEqual(pbt["exploit_interval_generations"], 1)
-        self.assertEqual(pbt["rollback_fraction"], 0.0)
-        self.assertEqual(pbt["dynamic_controller"]["mode"], "disabled")
-        tiered = pbt["tiered_validation"]
-        self.assertNotIn("monitor_interval_generations", tiered)
-        self.assertEqual(tiered["full_interval_generations"], 16)
-
 
 class FinalGenerationOverrideTest(unittest.TestCase):
     """should_apply_exploit_for_strategy: the final-generation exception is

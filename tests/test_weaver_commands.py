@@ -5,30 +5,23 @@ from pathlib import Path
 
 from tests.helpers import PROJECT_DIR, namespace
 
-from training.comparison import runner as comparison_runner
 from training import runtime, weaver
 
 
-class ParallelTrainingTest(unittest.TestCase):
-    def test_parallel_worker_can_override_seed_and_lr(self):
-        resolved = comparison_runner.load_and_resolve(
-            namespace(
-                config=PROJECT_DIR / "configs/experiments/pbt_control_fixed_lr.yaml",
-                experiment_name="unit_fixed_sweep",
-                gpus=None,
-                smoke=True,
-            )
-        )
-        worker = next(
-            item for item in resolved["workers"]
-            if item["name"] == "fixed_lr_125e-4"
-        )
-        command = weaver.build_command(
-            resolved,
-            worker,
-            PROJECT_DIR / "runs/parallel/unit_fixed_sweep/fixed_lr_125e-4",
-            resume_epoch=None,
-        )
+def resolved_config(**shared):
+    """Minimal resolved configuration accepted by weaver.build_command."""
+    base = dict(dataset="/tmp/sgv", data_extension="root", checkpoint=str(PROJECT_DIR / "checkpoint.pt"),
+                data_config="/tmp/data.yaml", network_config="/tmp/network.py", seed=12345, epochs=1,
+                samples_per_epoch=1024, samples_per_epoch_val=1024, batch_size=512, start_lr=1.0e-4,
+                optimizer="ranger", lr_scheduler="none", num_workers=1, fetch_step=0.01, use_amp=True,
+                amp_dtype="fp16", no_remake_weights=True)
+    return dict(shared=dict(base, **shared))
+
+
+class WeaverCommandTest(unittest.TestCase):
+    def test_worker_overrides_seed_and_lr(self):
+        worker = dict(name="fixed_lr_125e-4", gpu="0", seed=12347, start_lr=1.25e-4, controller=None)
+        command = weaver.build_command(resolved_config(), worker, Path("/tmp/unit/fixed_lr_125e-4"), resume_epoch=None)
 
         self.assertEqual(command[command.index("--start-lr") + 1], "0.000125")
         self.assertEqual(command[command.index("--seed") + 1], "12347")
@@ -67,27 +60,10 @@ class ParallelTrainingTest(unittest.TestCase):
         self.assertEqual(args[5], "nnbb:/tmp/proxy_sgv/*_bb_val5k_tail.parquet")
         self.assertEqual(args[7], "nndd:/tmp/proxy_sgv/*_dd_val5k_tail.parquet")
 
-
-    def test_parallel_command_can_use_parquet_data_and_prefetch(self):
-        resolved = comparison_runner.load_and_resolve(
-            namespace(
-                config=PROJECT_DIR / "configs/experiments/pbt_control_fixed_lr.yaml",
-                experiment_name="unit_fixed_sweep",
-                gpus=None,
-                smoke=True,
-            )
-        )
-        resolved["shared"]["dataset"] = "/tmp/sgv_parquet"
-        resolved["shared"]["data_extension"] = "parquet"
-        resolved["shared"]["prefetch_factor"] = 4
-        worker = resolved["workers"][0]
-
-        command = weaver.build_command(
-            resolved,
-            worker,
-            PROJECT_DIR / "runs/parallel/unit_fixed_sweep/fixed_lr_100e-4",
-            resume_epoch=None,
-        )
+    def test_command_can_use_parquet_data_and_prefetch(self):
+        resolved = resolved_config(dataset="/tmp/sgv_parquet", data_extension="parquet", prefetch_factor=4)
+        worker = dict(name="fixed_lr_100e-4", gpu="0", seed=12345, start_lr=1.0e-4, controller=None)
+        command = weaver.build_command(resolved, worker, Path("/tmp/unit/fixed_lr_100e-4"), resume_epoch=None)
 
         joined = " ".join(command)
         self.assertIn("nnbb:/tmp/sgv_parquet/*_bb_train800k.parquet", joined)
