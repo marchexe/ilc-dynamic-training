@@ -1,0 +1,84 @@
+{
+  "conversion": {
+    "branches": "all",
+    "chunk_entries": 100000,
+    "compression": "lz4",
+    "engine": "awkward.to_parquet_row_groups",
+    "row_group_size": 10000,
+    "row_group_size_rationale": "train800k used 1000-row groups (799 per file, 12 MB footer). At 8M rows that is 8000 groups and a ~113 MB footer that Weaver reparses on every fetch (~1.2 s each). 10000 keeps ~800 groups per file; content, order and Weaver row IDs are layout-independent."
+  },
+  "disk": {
+    "estimate_basis": "measured 2675 bytes/row for an lz4 test conversion of train8m entries",
+    "estimated_bytes_per_row": 2700,
+    "minimum_free_bytes_after": 21474836480,
+    "safety_factor": 1.1
+  },
+  "expected_rows_total": 8970477,
+  "flavors": {
+    "bb": {
+      "class_index": 0,
+      "label": 5
+    },
+    "cc": {
+      "class_index": 1,
+      "label": 4
+    },
+    "dd": {
+      "class_index": 2,
+      "label": 2
+    }
+  },
+  "name": "20250711_ilc_nnqq_sgv_10m_3cat_test3000k_parquet_v1",
+  "output_dir": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_test3000k_parquet",
+  "reference": {
+    "parquet": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_train800k.parquet",
+    "schema_sha256": "5f7c537e7517a858df4008ea20a46c0105d16cb7241155f04ad84b4ccf04f860"
+  },
+  "role": "sealed_test",
+  "schema_version": 1,
+  "source_dir": "${ILC_SGV10M_SOURCE_DIR}",
+  "source_selection": {
+    "common_cut": "pfcand_px[0]>-250&&pfcand_pz[0]>-250&&pfcand_e[0]<250&&neu_pfcand_pz[0]<60&&neu_pfcand_e[0]<120",
+    "entry_window": "Entry$>=17000000&&Entry$<20000000",
+    "macro": "${ILC_SGV10M_SOURCE_DIR}/divide_energy_20m.C",
+    "macro_sha256": "f88ae4fa053d42e121a9b3b1bce8b89d9ed5aac5b5889a97f9536ed411a82b81",
+    "note": "The ROOT split files already contain these cuts; conversion copies rows 1:1.",
+    "raw_entries_per_flavor": 3000000,
+    "split_cuts": {
+      "_test3000k": "Entry$>=17000000&&Entry$<20000000",
+      "_train16m": "Entry$<16000000",
+      "_val1000k": "Entry$>=16000000&&Entry$<17000000"
+    }
+  },
+  "sources": [
+    {
+      "branches": 135,
+      "entries": 2995907,
+      "flavor": "bb",
+      "mtime_ns": 1758802971006226125,
+      "path": "${ILC_SGV10M_SOURCE_DIR}/ml_flavtag_6cat_bb_test3000k.root",
+      "schema_sha256": "f021d24b67a5269cd8943d7c40627848919eafbc5da653d11b1caf5433935f37",
+      "size_bytes": 8878494046
+    },
+    {
+      "branches": 135,
+      "entries": 2991086,
+      "flavor": "cc",
+      "mtime_ns": 1757408117119224749,
+      "path": "${ILC_SGV10M_SOURCE_DIR}/ml_flavtag_6cat_cc_test3000k.root",
+      "schema_sha256": "f021d24b67a5269cd8943d7c40627848919eafbc5da653d11b1caf5433935f37",
+      "size_bytes": 8190127771
+    },
+    {
+      "branches": 135,
+      "entries": 2983484,
+      "flavor": "dd",
+      "mtime_ns": 1757423286543133987,
+      "path": "${ILC_SGV10M_SOURCE_DIR}/ml_flavtag_6cat_dd_test3000k.root",
+      "schema_sha256": "f021d24b67a5269cd8943d7c40627848919eafbc5da653d11b1caf5433935f37",
+      "size_bytes": 7742425734
+    }
+  ],
+  "suffix": "test3000k",
+  "tree": "ntp"
+}

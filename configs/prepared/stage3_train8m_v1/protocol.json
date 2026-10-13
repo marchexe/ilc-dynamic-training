@@ -1,0 +1,519 @@
+{
+  "design": {
+    "arms": {
+      "fixed_lr": "A: fixed_lr_grid (five fixed LRs, never copies)",
+      "windowed_pbt_v2": "B: frozen windowed_pbt_v2 (5-epoch windows, 3-epoch score, margin 0.002, 2 losing windows, <=2 recipients, x0.8/x1.2)"
+    },
+    "batch_size": 1024,
+    "data": {
+      "descriptive_holdout": "Stage 2A val_holdout (previously inspected; descriptive only)",
+      "sealed_test": {
+        "name": "20250711_ilc_nnqq_sgv_10m_3cat_test3000k_parquet_v1",
+        "rows": 8970477,
+        "suffix": "test3000k"
+      },
+      "selection_validation": {
+        "fingerprint": "4f05bd8ff27d0ad957920cf3acb7986bb0cef0580a521830b1d7d16c515f0d47",
+        "suffix": "val50k_tail",
+        "total_rows": 150000
+      },
+      "train": {
+        "name": "20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet_v1",
+        "rows": 23921449,
+        "size_bytes": 57755705707,
+        "weaver_fingerprint": "4a7d377188fc6a2fc833dfff4c082455a1725153e3b3cbd5fbec551fbd23d070"
+      }
+    },
+    "horizon_epochs": 50,
+    "initial_epoch": 17,
+    "only_intended_difference": "adaptive selection/copy/mutation of windowed_pbt_v2",
+    "population": [
+      {
+        "name": "lr_3e-6",
+        "start_lr": 3e-06
+      },
+      {
+        "name": "lr_5_75e-6",
+        "start_lr": 5.75e-06
+      },
+      {
+        "name": "lr_8_5e-6",
+        "start_lr": 8.5e-06
+      },
+      {
+        "name": "lr_11_25e-6",
+        "start_lr": 1.125e-05
+      },
+      {
+        "name": "lr_14e-6",
+        "start_lr": 1.4e-05
+      }
+    ],
+    "seed_base": 12345,
+    "seed_rule": "Weaver seed = seed_base + generation (identical across arms)",
+    "seeds": "one matched training seed schedule; no seed replication in this campaign"
+  },
+  "endpoints": {
+    "descriptive_holdout": {
+      "checkpoints": "per arm validation global-best only",
+      "split": "Stage 2A val_holdout",
+      "use": "continuity with Stage 2A; never for selection or tuning"
+    },
+    "independent": {
+      "checkpoints": "per arm: validation global-best bundle and all five final members",
+      "comparisons": [
+        "selected_best: B - A",
+        "final_current_best_member: B - A",
+        "final_member_<name>: B - A (paired by original member identity)",
+        "final population mean: B - A"
+      ],
+      "confidence": "no physical event IDs: no event-level interval; no training-seed interval",
+      "metrics": [
+        "validation_total_reference_mistag_geomean_percent",
+        "eight reference working points"
+      ],
+      "split": "test3000k (sealed until both arms complete and selection is frozen)",
+      "unit": "jet rows; paired background pass counts"
+    },
+    "primary": {
+      "comparison": "delta = B - A in percentage points and relative = delta / A; lower is better",
+      "epochs": "full epochs 41-50",
+      "implementation": "training.pbt.reporting.endpoints.current_best_trajectory + final_window_mean (Stage 1)",
+      "interpretation": "|delta| < 0.002 pp (the frozen windowed decision margin on the same split) is reported as within the selection-noise margin",
+      "metric": "validation_total_reference_mistag_geomean_percent",
+      "name": "final-10 current-best population mean",
+      "selection_bias": "The same split drives windowed copy decisions and all validation selection; B is adapted to it.",
+      "split": "val50k_tail"
+    },
+    "secondary": [
+      "global-best validation value and epoch",
+      "final-member validation metrics and population mean",
+      "training/validation losses and AMP skipped steps",
+      "exploit/explore events and LR trajectories",
+      "population diversity (metric spread, LR spread, final parameter distances)",
+      "optimizer steps and accepted samples per member and arm",
+      "GPU-hours and wall time",
+      "checkpoint/resume reliability and determinism checks"
+    ]
+  },
+  "frozen_at": "2026-10-13T07:18:21.169328+00:00",
+  "gate": {
+    "accepted_rows_tolerance": 8831,
+    "cuda_max_allocated_mb": {
+      "reference": 21539.7,
+      "relative_tolerance": 0.1
+    },
+    "expected_accepted_rows": 21512820.977254987,
+    "full_epoch": true,
+    "max_amp_skipped_fraction": 0.01,
+    "max_run_disk_bytes": 2147483648,
+    "max_startup_seconds": 900,
+    "max_tree_rss_bytes": 34359738368,
+    "member": "lr_14e-6",
+    "rationale": "highest LR: most likely to expose AMP/non-finite behaviour",
+    "reuse": "outputs never reused by the arms; determinism reference only",
+    "scanned_rows": 23921449,
+    "training_rows_per_second": [
+      3000,
+      20000
+    ],
+    "validation_rows": 150000
+  },
+  "horizon": {
+    "decision": "fixed_50_epochs",
+    "evidence": {
+      "continuation_30_to_50": [
+        {
+          "copies": [],
+          "epoch": 5,
+          "loss_counters": {
+            "lr_11_25e-6": 1,
+            "lr_14e-6": 0,
+            "lr_3e-6": 1,
+            "lr_5_75e-6": 1,
+            "lr_8_5e-6": 1
+          },
+          "terminal": false
+        },
+        {
+          "copies": [
+            [
+              "lr_3e-6",
+              1.68e-05
+            ],
+            [
+              "lr_5_75e-6",
+              1.1200000000000001e-05
+            ]
+          ],
+          "epoch": 10,
+          "loss_counters": {
+            "lr_11_25e-6": 2,
+            "lr_14e-6": 0,
+            "lr_3e-6": 0,
+            "lr_5_75e-6": 0,
+            "lr_8_5e-6": 2
+          },
+          "terminal": false
+        },
+        {
+          "copies": [],
+          "epoch": 15,
+          "loss_counters": {
+            "lr_11_25e-6": 3,
+            "lr_14e-6": 0,
+            "lr_3e-6": 1,
+            "lr_5_75e-6": 1,
+            "lr_8_5e-6": 3
+          },
+          "terminal": false
+        },
+        {
+          "copies": [
+            [
+              "lr_3e-6",
+              1.68e-05
+            ],
+            [
+              "lr_5_75e-6",
+              1.1200000000000001e-05
+            ]
+          ],
+          "epoch": 20,
+          "loss_counters": {
+            "lr_11_25e-6": 4,
+            "lr_14e-6": 0,
+            "lr_3e-6": 0,
+            "lr_5_75e-6": 0,
+            "lr_8_5e-6": 4
+          },
+          "terminal": false
+        },
+        {
+          "copies": [],
+          "epoch": 25,
+          "loss_counters": {
+            "lr_11_25e-6": 5,
+            "lr_14e-6": 0,
+            "lr_3e-6": 1,
+            "lr_5_75e-6": 1,
+            "lr_8_5e-6": 5
+          },
+          "terminal": false
+        },
+        {
+          "copies": [],
+          "epoch": 30,
+          "loss_counters": {
+            "lr_11_25e-6": 6,
+            "lr_14e-6": 0,
+            "lr_3e-6": 2,
+            "lr_5_75e-6": 2,
+            "lr_8_5e-6": 6
+          },
+          "terminal": true
+        },
+        {
+          "copies": [
+            [
+              "lr_3e-6",
+              1.68e-05
+            ],
+            [
+              "lr_5_75e-6",
+              1.1200000000000001e-05
+            ]
+          ],
+          "epoch": 35,
+          "loss_counters": {
+            "lr_11_25e-6": 7,
+            "lr_14e-6": 0,
+            "lr_3e-6": 0,
+            "lr_5_75e-6": 0,
+            "lr_8_5e-6": 7
+          },
+          "terminal": false
+        },
+        {
+          "copies": [],
+          "epoch": 40,
+          "loss_counters": {
+            "lr_11_25e-6": 8,
+            "lr_14e-6": 0,
+            "lr_3e-6": 1,
+            "lr_5_75e-6": 1,
+            "lr_8_5e-6": 8
+          },
+          "terminal": false
+        }
+      ],
+      "differing_boundaries": [
+        30,
+        35,
+        40
+      ],
+      "epochs_simulated": 40,
+      "equivalent": false,
+      "first_divergence_epoch": 30,
+      "live_lr_after": {
+        "continuation_30_to_50": {
+          "lr_11_25e-6": 1.125e-05,
+          "lr_14e-6": 1.4e-05,
+          "lr_3e-6": 1.68e-05,
+          "lr_5_75e-6": 1.1200000000000001e-05,
+          "lr_8_5e-6": 8.5e-06
+        },
+        "native_50": {
+          "lr_11_25e-6": 1.125e-05,
+          "lr_14e-6": 1.4e-05,
+          "lr_3e-6": 1.68e-05,
+          "lr_5_75e-6": 1.1200000000000001e-05,
+          "lr_8_5e-6": 8.5e-06
+        }
+      },
+      "native_50": [
+        {
+          "copies": [],
+          "epoch": 5,
+          "loss_counters": {
+            "lr_11_25e-6": 1,
+            "lr_14e-6": 0,
+            "lr_3e-6": 1,
+            "lr_5_75e-6": 1,
+            "lr_8_5e-6": 1
+          },
+          "terminal": false
+        },
+        {
+          "copies": [
+            [
+              "lr_3e-6",
+              1.68e-05
+            ],
+            [
+              "lr_5_75e-6",
+              1.1200000000000001e-05
+            ]
+          ],
+          "epoch": 10,
+          "loss_counters": {
+            "lr_11_25e-6": 2,
+            "lr_14e-6": 0,
+            "lr_3e-6": 0,
+            "lr_5_75e-6": 0,
+            "lr_8_5e-6": 2
+          },
+          "terminal": false
+        },
+        {
+          "copies": [],
+          "epoch": 15,
+          "loss_counters": {
+            "lr_11_25e-6": 3,
+            "lr_14e-6": 0,
+            "lr_3e-6": 1,
+            "lr_5_75e-6": 1,
+            "lr_8_5e-6": 3
+          },
+          "terminal": false
+        },
+        {
+          "copies": [
+            [
+              "lr_3e-6",
+              1.68e-05
+            ],
+            [
+              "lr_5_75e-6",
+              1.1200000000000001e-05
+            ]
+          ],
+          "epoch": 20,
+          "loss_counters": {
+            "lr_11_25e-6": 4,
+            "lr_14e-6": 0,
+            "lr_3e-6": 0,
+            "lr_5_75e-6": 0,
+            "lr_8_5e-6": 4
+          },
+          "terminal": false
+        },
+        {
+          "copies": [],
+          "epoch": 25,
+          "loss_counters": {
+            "lr_11_25e-6": 5,
+            "lr_14e-6": 0,
+            "lr_3e-6": 1,
+            "lr_5_75e-6": 1,
+            "lr_8_5e-6": 5
+          },
+          "terminal": false
+        },
+        {
+          "copies": [
+            [
+              "lr_3e-6",
+              1.68e-05
+            ],
+            [
+              "lr_5_75e-6",
+              1.1200000000000001e-05
+            ]
+          ],
+          "epoch": 30,
+          "loss_counters": {
+            "lr_11_25e-6": 6,
+            "lr_14e-6": 0,
+            "lr_3e-6": 0,
+            "lr_5_75e-6": 0,
+            "lr_8_5e-6": 6
+          },
+          "terminal": false
+        },
+        {
+          "copies": [],
+          "epoch": 35,
+          "loss_counters": {
+            "lr_11_25e-6": 7,
+            "lr_14e-6": 0,
+            "lr_3e-6": 1,
+            "lr_5_75e-6": 1,
+            "lr_8_5e-6": 7
+          },
+          "terminal": false
+        },
+        {
+          "copies": [
+            [
+              "lr_3e-6",
+              1.68e-05
+            ],
+            [
+              "lr_5_75e-6",
+              1.1200000000000001e-05
+            ]
+          ],
+          "epoch": 40,
+          "loss_counters": {
+            "lr_11_25e-6": 8,
+            "lr_14e-6": 0,
+            "lr_3e-6": 0,
+            "lr_5_75e-6": 0,
+            "lr_8_5e-6": 8
+          },
+          "terminal": false
+        }
+      ],
+      "outcomes": {
+        "lr_11_25e-6": 0.405,
+        "lr_14e-6": 0.4,
+        "lr_3e-6": 0.5,
+        "lr_5_75e-6": 0.42,
+        "lr_8_5e-6": 0.41
+      }
+    },
+    "interim": "Optional descriptive interim report (--interim-report) at any completed epoch, e.g. 30; it never stops, extends or changes either arm and is not an endpoint.",
+    "rationale": "A 30-epoch run marks its epoch-30 window boundary terminal (copies suppressed, loss counters not reset); state/continuation.py replays that terminal decision as recorded. A run configured for 50 epochs treats epoch 30 as a normal boundary. Conditional on identical outcomes the policy trajectories therefore diverge from epoch 30 on, so a 30->50 continuation is not the intended 50-epoch treatment. Fixed-LR arm continuation would be equivalent, but both arms must share one horizon contract.",
+    "resume": "Resuming an interrupted run keeps the configured 50-epoch horizon and is equivalent."
+  },
+  "identity": {
+    "configs": {
+      "fixed_lr": {
+        "experiment": "stage3_train8m_fixed_lr_v1",
+        "fingerprint": "485bc95f86cd6b22ebec3b0f09954dccd8adab80ab28bad81c1c842eeaad294e",
+        "output_root": "runs/pbt",
+        "path": "configs/experiments/stage3_train8m_fixed_lr.yaml"
+      },
+      "windowed_pbt_v2": {
+        "experiment": "stage3_train8m_windowed_pbt_v2_v1",
+        "fingerprint": "103feac701e85aa0f3bfd3f10bd365e64459a045a3f369131546690f38bee0b3",
+        "output_root": "runs/pbt",
+        "path": "configs/experiments/stage3_train8m_windowed_pbt_v2.yaml"
+      }
+    },
+    "data_config_sha256": "25c670c3b817a5423d876a989af613be282ce927ea06753e70add611731ff77f",
+    "execution_files": {
+      "networks/pretrained_sgv_particle_transformer.py": "f6dfb055921a887ac44fc8b8ac790f7dfa9232595d244438eb07cd1f327e361f",
+      "scripts/training/checkpoints.py": "0ebfa949e0faec8caedbd7a549c81ffabc18fd77c22df2e85a13d864db13e017",
+      "scripts/training/pbt/config.py": "ef727934ed533c8df5d94d4986bf4f2e555e2bdfd0eed9ff8e008acedac755b2",
+      "scripts/training/pbt/execution/backend.py": "c28b77be3f7ea0362c3806c104e33d832b4a48a0354e1d638a1f14bfb0c4116d",
+      "scripts/training/pbt/execution/weaver_command.py": "a7b5351fc3e574ca8061c8fd967530814478825d21b452e981eb4f323f5ef118",
+      "scripts/training/pbt/metrics.py": "a06968ef81a28e9697761825483026bfcd5e0ae109e7c8c16b057f5f5272ecd0",
+      "scripts/training/pbt/models/config.py": "c8026d59391c380ef25523e90dfc156fe32a71a54198279ecdcc15535b6424fe",
+      "scripts/training/pbt/planning/dispatch.py": "757d03dcfd5126270902b7ed17c987fb409f295a0ff9b2f5e7d0670afe5f1a42",
+      "scripts/training/pbt/planning/fixed_lr_grid.py": "846f48f01561b45dd675c4441cf509b0962c0d96663a44a360a600caff915720",
+      "scripts/training/pbt/planning/windowed_pbt_v2.py": "19783bf6ef3325454cb82d9b4c7d7718c8da797d4c7bae3775821173a04b3091",
+      "scripts/training/pbt/reference/windowed_v2.py": "0a162ec6d21a11610450e23c525f7515dea686c7c9179c9cd51061e7e5531c57",
+      "scripts/training/pbt/reporting/endpoints.py": "70b80fc8eaca0d82d0948aa05105df5b4877e0ff1edfc6167e84dbc91ad27519",
+      "scripts/training/pbt/runner.py": "d2ea8bfbf27be8f50b6384c4c7847f57a088c5e2f1f875051ef015a31e29e65c",
+      "scripts/training/pbt/state/checkpointing.py": "d893ebcab1756d30f798d33e4ba55ef4488fcdc4d062ae7c457a1c2c2374affb",
+      "scripts/training/pbt/state/optimizer_state.py": "35612ec588eaa4f4397a52008c46419f8d62d91c519e970874941f9d7bbf7efc",
+      "scripts/training/run_pbt.py": "cc1c1967ff56fc7e3feb0438e0ef927600d4f81e889009ac3f5bb660c4b264fa",
+      "scripts/training/runtime.py": "e81c59cdb29eed59a1c0c1d6c80e94ac15d8d7c5d5f3f87be81dcd74fed59c0a",
+      "scripts/training/weaver.py": "f7fa5146812229cff900af8dffe417fa81c05f0ba98c01315aca3a251f47b62a",
+      "scripts/validation/results.py": "351368232c82059523d00e694d730de2c75640e6d784f1e447f4dfdc1888be5d",
+      "scripts/validation/verify_fixed_lr.py": "285b09269f287149084a880dca3651e242ffedfecf64d47a2b368f7616aebdd4",
+      "weaver-core/weaver/train.py": "5682b38e9a3f86ca3bd1dc35835a1a91a06b4b4144e56bbdf5a9002f4b92c334",
+      "weaver-core/weaver/utils/data/config.py": "81045a27db02a0bbae59b1141e0dd735104ce9febfd0bfda3b0e05932f0e78db",
+      "weaver-core/weaver/utils/data/fileio.py": "d16adcd9c4858faa9e10b73d07843479ac66d34570286e147cbcaefb71aeb92f",
+      "weaver-core/weaver/utils/data_audit.py": "2ae70e08c3385fdf749cbbecd335a1b9b8223ae48178928049c44bb5b7f0fab5",
+      "weaver-core/weaver/utils/dataset.py": "980cefc5fa4a140ebbcb8cad0a35021579298e6e665d2f2961c92d233797cdb1",
+      "weaver-core/weaver/utils/nn/optimizer/lookahead.py": "cd6afed14ada54a3307c3daa86c2c4fde4fcec86308b110b1cdf2991aaf874bb",
+      "weaver-core/weaver/utils/nn/optimizer/radam.py": "168f23fe2e11631dd60ef223f2a4097979d7530cab8d8000204bdaa5e0251242",
+      "weaver-core/weaver/utils/nn/optimizer/ranger.py": "bb52dd7faa6d77e32e4ecf44a528b9a50f4bebc213f4a43223a25d84417abe3c",
+      "weaver-core/weaver/utils/nn/tools.py": "d100e8233d58a6a2f99565d6bd4970786a698efa9b7d74698ff709a6e45262ab"
+    },
+    "gate": {
+      "experiment": "stage3_train8m_gate_v1",
+      "fingerprint": "159ca5fbfde99b1cde4c8bd978b53059658200b2ce8a416c8660a052d20aa192",
+      "output_root": "runs/eval/stage3_train8m_v1/gate",
+      "path": "configs/experiments/stage3_train8m_gate.yaml"
+    },
+    "initial_checkpoint": {
+      "optimizer": {
+        "path": "checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_optimizer.pt",
+        "sha256": "a1909dd493b3ed07bea41d044fa6cb6862180709a33ad4cd691a094754519f09"
+      },
+      "state": {
+        "path": "checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_epoch-17_state.pt",
+        "sha256": "ae4928aa088b73538597f23b78b51678298e59d23552c9cd2c2e849fb3ced501"
+      }
+    },
+    "network_config_sha256": "f6dfb055921a887ac44fc8b8ac790f7dfa9232595d244438eb07cd1f327e361f",
+    "policy_sha256": "f9c81be5f337ae13efbd243d257ac166f77ae9fdfa10ccb7cb7d933f98c76b6c",
+    "test_spec_sha256": "75f29df2c6e589cac839f792abf3e6275727fbcc868dde4a1b78cb0a46bd2aee",
+    "train_manifest": {
+      "path": "datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet_v1.json",
+      "sha256": "8a092e0292efab3ac7d53423842169010961779c627955c81705d8dd327a2fd7"
+    },
+    "train_spec_sha256": "20e321fd19a918be1d2f7e33be7f2f48a971484b0174999cca010fe294079236"
+  },
+  "name": "stage3_train8m_fixed_vs_windowed_v1",
+  "references": {
+    "stage1_commit": "efa003bde5d6fa8f1dfa83c11572c4fd0942804f",
+    "stage2a_commit": "953a170e2281faca37ee976b02ec2d0a1a208804",
+    "stage2b_commits": [
+      "9edb46fdf8c7b7b457913855acfcddd2f91690eb",
+      "7882df065702fe5728b0198a34706293375006b5"
+    ],
+    "windowed_reference_revision": "a4f750793911508812b5b09296afe5306306c930"
+  },
+  "schema_version": 1,
+  "validity": {
+    "determinism": [
+      "same-named members bit-identical across arms until that member's first windowed copy (and its recorded pre-copy state)",
+      "gate epoch-18 state equals both arms lr_14e-6 epoch-18 state"
+    ],
+    "determinism_failure": "reported prominently as \"determinism not confirmed\"; it does not invalidate the comparison but qualifies attributing differences to the policy",
+    "invalid_or_incomplete": "reported as INVALID/INCOMPLETE; no comparison is declared successful and the sealed test is not opened",
+    "required": [
+      "both arms complete 50 generations",
+      "scripts/validation/verify_fixed_lr.py passes for both arms",
+      "identical accepted training rows per generation across all ten workers (compare())",
+      "identical initial evaluation and validation traversal",
+      "complete finite final evaluations",
+      "protocol identity unchanged at every launch"
+    ]
+  }
+}

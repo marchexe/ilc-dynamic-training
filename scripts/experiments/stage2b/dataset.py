@@ -18,10 +18,14 @@ import time
 
 import numpy as np
 
+from experiments.site_config import expand
 from experiments.stage2b.common import (PROJECT_DIR, SPEC, digest_json, disk_free, load_json, lock_file,
                                         project_relative, sha256, utc_now, write_json)
 
 FLAVORS = ('bb', 'cc', 'dd')
+# Frozen split windows of the 20250711 source (raw Entry$ ranges per flavour file).
+SPLITS = {'train8m': dict(role='training', raw_entries=8_000_000, window='Entry$<8000000'),
+          'test3000k': dict(role='sealed_test', raw_entries=3_000_000, window='Entry$>=17000000&&Entry$<20000000')}
 FROZEN_CLASSES = {'bb': dict(label=5, class_index=0), 'cc': dict(label=4, class_index=1), 'dd': dict(label=2, class_index=2)}
 SCALAR_FLOATS = ('jet_e', 'jet_px', 'jet_py', 'jet_pz', 'jet_phi', 'jet_theta')
 STATE_DIR = '.stage2b'
@@ -36,6 +40,11 @@ class DatasetError(ValueError):
 
 def output_name(flavor, suffix='train8m'):
     return f'ml_flavtag_6cat_{flavor}_{suffix}.parquet'
+
+
+def source_path(source):
+    """Source ROOT file; `${NAME}` roots resolve from the environment or the local site config."""
+    return Path(expand(source['path']))
 
 
 def output_dir(spec):
@@ -68,14 +77,19 @@ def root_metadata(path, tree_name):
 
 def validate_spec(spec):
     required = ('schema_version', 'name', 'suffix', 'source_dir', 'output_dir', 'tree', 'flavors', 'sources',
-                'expected_rows_total', 'source_selection', 'conversion', 'reference', 'validation', 'disk')
+                'expected_rows_total', 'source_selection', 'conversion', 'reference', 'disk')
+    split = SPLITS.get(spec.get('suffix'), {})
+    if split.get('role') == 'training':
+        required += ('validation',)
     missing = [key for key in required if key not in spec]
     if missing:
         raise DatasetError(f'Dataset specification is missing: {", ".join(missing)}')
-    if spec['schema_version'] != 1 or spec['suffix'] != 'train8m':
-        raise DatasetError('Unsupported train8m dataset specification')
+    if spec['schema_version'] != 1 or not split or spec.get('role', 'training') != split['role']:
+        raise DatasetError('Unsupported dataset specification (split/role)')
+    if spec['source_selection'].get('entry_window') != split['window']:
+        raise DatasetError(f'{spec["suffix"]} must keep its frozen Entry$ window {split["window"]}')
     if spec['flavors'] != FROZEN_CLASSES:
-        raise DatasetError('train8m must keep the frozen b/c/d classes (labels 5/4/2, class order b,c,d)')
+        raise DatasetError(f'{spec["suffix"]} must keep the frozen b/c/d classes (labels 5/4/2, class order b,c,d)')
     out = output_dir(spec).resolve()
     for protected in PROTECTED_DATASETS:
         protected = (PROJECT_DIR / protected).resolve()
@@ -84,8 +98,8 @@ def validate_spec(spec):
     if [s['flavor'] for s in spec['sources']] != list(FLAVORS):
         raise DatasetError('Exactly one bb, cc and dd source is required, in class order')
     for source in spec['sources']:
-        if Path(source['path']).name != f'ml_flavtag_6cat_{source["flavor"]}_train8m.root':
-            raise DatasetError(f'Source is not the {source["flavor"]} train8m split: {source["path"]}')
+        if Path(source['path']).name != f'ml_flavtag_6cat_{source["flavor"]}_{spec["suffix"]}.root':
+            raise DatasetError(f'Source is not the {source["flavor"]} {spec["suffix"]} split: {source["path"]}')
         if not (isinstance(source['entries'], int) and source['entries'] > 0):
             raise DatasetError('Source entry counts must be positive integers')
         if source['entries'] > spec['source_selection']['raw_entries_per_flavor']:
@@ -98,11 +112,12 @@ def validate_spec(spec):
         raise DatasetError('Chunks must be whole multiples of the row-group size')
     if conversion['compression'] not in ('lz4', 'zstd', 'snappy', 'gzip'):
         raise DatasetError('Unsupported Parquet compression')
-    validation = spec['validation']
-    if validation['selection_suffix'] not in validation['approved_suffixes']:
-        raise DatasetError('Population-selection validation must use an approved isolated split')
-    if set(validation['approved_suffixes']) & set(validation['forbidden_suffixes']):
-        raise DatasetError('A validation split cannot be both approved and forbidden')
+    if split['role'] == 'training':
+        validation = spec['validation']
+        if validation['selection_suffix'] not in validation['approved_suffixes']:
+            raise DatasetError('Population-selection validation must use an approved isolated split')
+        if set(validation['approved_suffixes']) & set(validation['forbidden_suffixes']):
+            raise DatasetError('A validation split cannot be both approved and forbidden')
     return spec
 
 
@@ -125,7 +140,7 @@ def verify_sources(spec, *, metadata=root_metadata):
     """Cheap pinned source identity (size, mtime, entries, branch schema)."""
     records = []
     for source in spec['sources']:
-        path = Path(source['path'])
+        path = source_path(source)
         if not path.is_file():
             raise DatasetError(f'Missing source ROOT file: {path}')
         stat = path.stat()
@@ -152,7 +167,7 @@ def preflight(spec, *, metadata=root_metadata, free=disk_free):
     needed = required_free_bytes(spec, status['completed'])
     available = free(output_dir(spec))
     if available < needed:
-        raise OSError(28, f'Insufficient disk for train8m: need {needed} bytes, {available} free')
+        raise OSError(28, f'Insufficient disk for {spec["suffix"]}: need {needed} bytes, {available} free')
     reference = project_relative(spec['reference']['parquet'])
     if not reference.is_file():
         raise DatasetError(f'Missing reference schema file: {reference}')
@@ -164,7 +179,7 @@ def _record_path(spec, flavor):
 
 
 def _quick_valid(spec, record, flavor):
-    final = output_dir(spec) / output_name(flavor)
+    final = output_dir(spec) / output_name(flavor, spec['suffix'])
     return (record.get('status') == 'verified' and record.get('spec_name') == spec['name']
             and record.get('flavor') == flavor and final.is_file()
             and final.stat().st_size == record['size_bytes'] and final.stat().st_mtime_ns == record['mtime_ns'])
@@ -183,8 +198,8 @@ def dataset_status(spec):
         record = read_record(spec, flavor)
         if record and _quick_valid(spec, record, flavor):
             completed.append(flavor)
-        elif (output_dir(spec) / output_name(flavor)).exists() or any(
-                output_dir(spec).glob(f'.{output_name(flavor)}.partial-*')):
+        elif (output_dir(spec) / output_name(flavor, spec['suffix'])).exists() or any(
+                output_dir(spec).glob(f'.{output_name(flavor, spec["suffix"])}.partial-*')):
             partial.append(flavor)
     state = 'complete' if len(completed) == len(FLAVORS) else 'partial' if completed or partial else 'absent'
     return dict(state=state, completed=completed, partial=partial)
@@ -227,7 +242,7 @@ def _chunks(spec, source, flavor, started, *, stop=None):
     import uproot
     chunk, total = spec['conversion']['chunk_entries'], source['entries']
     label = spec['flavors'][flavor]['label']
-    with uproot.open(source['path']) as handle:
+    with uproot.open(source_path(source)) as handle:
         tree = handle[spec['tree']]
         if tree.num_entries != total:
             raise DatasetError(f'Source entries changed during conversion: {source["path"]}')
@@ -264,24 +279,24 @@ def convert_flavor(spec, flavor, *, stop=None, write=None, hash_file=sha256):
     write = write or ak.to_parquet_row_groups
     source = next(s for s in spec['sources'] if s['flavor'] == flavor)
     out = output_dir(spec)
-    final = out / output_name(flavor)
+    final = out / output_name(flavor, spec['suffix'])
     state_dir(spec).mkdir(parents=True, exist_ok=True)
     with lock_file(state_dir(spec) / f'{flavor}.lock'):
         record = read_record(spec, flavor)
         if record and _quick_valid(spec, record, flavor):
             return dict(record, action='skipped_verified')
-        for stale in out.glob(f'.{output_name(flavor)}.partial-*'):
+        for stale in out.glob(f'.{output_name(flavor, spec["suffix"])}.partial-*'):
             stale.unlink()
         if final.exists():
             # Published without a valid record: re-verify fully, otherwise keep as evidence.
             try:
                 return _publish_record(spec, flavor, source, final, hash_file, action='reverified_existing')
             except DatasetError:
-                final.rename(out / f'.{output_name(flavor)}.invalid-{int(time.time())}')
+                final.rename(out / f'.{output_name(flavor, spec["suffix"])}.invalid-{int(time.time())}')
         started = time.monotonic()
         _write_progress(spec, flavor, phase='hashing_source', rows_done=0, rows_total=source['entries'])
-        source_sha256 = hash_file(Path(source['path']))
-        partial = out / f'.{output_name(flavor)}.partial-{socket.gethostname().split(".")[0]}-{os.getpid()}'
+        source_sha256 = hash_file(source_path(source))
+        partial = out / f'.{output_name(flavor, spec["suffix"])}.partial-{socket.gethostname().split(".")[0]}-{os.getpid()}'
         conversion = spec['conversion']
         try:
             write(_chunks(spec, source, flavor, time.monotonic(), stop=stop), str(partial),
@@ -290,7 +305,7 @@ def convert_flavor(spec, flavor, *, stop=None, write=None, hash_file=sha256):
                 os.fsync(stream.fileno())
             _write_progress(spec, flavor, phase='verifying', rows_done=source['entries'], rows_total=source['entries'])
             verify_parquet(partial, spec, flavor, source['entries'])
-            stat = Path(source['path']).stat()
+            stat = source_path(source).stat()
             if stat.st_size != source['size_bytes'] or stat.st_mtime_ns != source['mtime_ns']:
                 raise DatasetError(f'Source changed during conversion: {source["path"]}')
             os.replace(partial, final)
@@ -333,7 +348,7 @@ def verify_dataset(spec, *, rehash=True, hash_file=sha256):
     for flavor in FLAVORS:
         record = read_record(spec, flavor)
         if not record or not _quick_valid(spec, record, flavor):
-            raise DatasetError(f'train8m {flavor} file is missing, incomplete or changed')
+            raise DatasetError(f'{spec["suffix"]} {flavor} file is missing, incomplete or changed')
         matches = sorted(p for p in out.glob(f'*_{flavor}_{spec["suffix"]}.parquet'))
         if [p.resolve() for p in matches] != [Path(record['path'])]:
             raise DatasetError(f'Weaver glob for {flavor} must resolve to exactly one verified file: {matches}')
@@ -342,13 +357,14 @@ def verify_dataset(spec, *, rehash=True, hash_file=sha256):
         files.append(record)
     unexpected = sorted(p.name for p in out.glob('*.parquet') if p.resolve() not in {Path(r['path']) for r in files})
     if unexpected:
-        raise DatasetError(f'Unexpected Parquet files in the train8m directory: {unexpected}')
+        raise DatasetError(f'Unexpected Parquet files in the {spec["suffix"]} directory: {unexpected}')
     rows = {r['flavor']: r['rows'] for r in files}
     if sum(rows.values()) != spec['expected_rows_total']:
         raise DatasetError('Converted rows disagree with the frozen expectation')
     fingerprint, audit_files, total = audit_fingerprint(files)
     return dict(schema_version=1, name=spec['name'], created_at=utc_now(), data_extension='parquet',
-                spec_sha256=digest_json(spec), local_path=spec['output_dir'], role='training', suffix=spec['suffix'],
+                spec_sha256=digest_json(spec), local_path=spec['output_dir'], role=spec.get('role', 'training'),
+                suffix=spec['suffix'],
                 flavors=list(FLAVORS), rows_by_flavor=rows, rows_total=total,
                 size_bytes_total=sum(r['size_bytes'] for r in files),
                 files=[dict(flavor=r['flavor'], path=str(Path(r['path']).relative_to(PROJECT_DIR)) if Path(r['path']).is_relative_to(PROJECT_DIR) else r['path'],
@@ -357,25 +373,35 @@ def verify_dataset(spec, *, rehash=True, hash_file=sha256):
                             source_root_size_bytes=r['source']['size_bytes'], source_root_sha256=r['source']['sha256'],
                             source_entries=r['source']['entries']) for r in files],
                 weaver_audit=dict(fingerprint=fingerprint, files=audit_files, total_rows=total),
-                validation=spec['validation'], tracked_in_git=False,
-                reason_not_tracked='About 64 GB of Parquet; keep only this manifest in Git.')
+                validation=spec.get('validation'), tracked_in_git=False,
+                reason_not_tracked='Large Parquet data; keep only this manifest in Git.')
+
+
+def portable_manifest(manifest):
+    """Publishable manifest: hashes, rows and relative paths, no machine-specific locations."""
+    files = [{k: v for k, v in f.items() if k not in ('resolved_path', 'source_root_path')}
+             | dict(source_root_file=Path(f['source_root_path']).name) for f in manifest['files']]
+    audit = {k: v for k, v in manifest['weaver_audit'].items() if k != 'files'}
+    return dict(manifest, files=files, weaver_audit=audit, portable=True,
+                local_full_manifest=f'{manifest["local_path"]}/MANIFEST.json')
 
 
 def publish_manifest(spec, manifest):
-    """Write the realized manifest beside the data and in datasets/manifests/."""
+    """Full manifest beside the data (local); portable manifest in datasets/manifests/."""
     write_json(output_dir(spec) / 'MANIFEST.json', manifest)
     path = PROJECT_DIR / 'datasets/manifests' / f'{spec["name"]}.json'
-    write_json(path, manifest)
+    write_json(path, portable_manifest(manifest))
     return path
 
 
-def build_spec(*, name, source_dir, output, macro, reference, metadata=root_metadata):
+def build_spec(*, name, source_dir, output, macro, reference, metadata=root_metadata, suffix='train8m'):
     """Freeze source identities and split facts (read-only metadata, no conversion)."""
     import pyarrow.parquet as pq
+    split = SPLITS[suffix]
     source_dir = Path(source_dir)
     sources = []
     for flavor in FLAVORS:
-        path = source_dir / f'ml_flavtag_6cat_{flavor}_train8m.root'
+        path = source_dir / f'ml_flavtag_6cat_{flavor}_{suffix}.root'
         stat = path.stat()
         sources.append(dict(flavor=flavor, path=str(path), size_bytes=stat.st_size, mtime_ns=stat.st_mtime_ns,
                             **metadata(path, 'ntp')))
@@ -383,16 +409,16 @@ def build_spec(*, name, source_dir, output, macro, reference, metadata=root_meta
     text = macro.read_text()
     cuts = dict(zip(re.findall(r'"(_[a-z0-9]+)"', text), re.findall(r'"(Entry\$[^"]*)"', text)))
     common = re.search(r'TCut commoncut\("([^"]+)"\)', text)
-    window = cuts.get('_train8m')
-    if window != 'Entry$<8000000' or not common:
-        raise DatasetError('Unexpected train8m split macro')
+    window = cuts.get('_' + suffix)
+    if window != split['window'] or not common:
+        raise DatasetError(f'Unexpected {suffix} split macro')
     reference = project_relative(reference)
-    return dict(
-        schema_version=1, name=name, suffix='train8m', role='training', source_dir=str(source_dir), output_dir=output,
+    spec = dict(
+        schema_version=1, name=name, suffix=suffix, role=split['role'], source_dir=str(source_dir), output_dir=output,
         tree='ntp', flavors=FROZEN_CLASSES, sources=sources,
         expected_rows_total=sum(s['entries'] for s in sources),
         source_selection=dict(macro=str(macro), macro_sha256=sha256(macro), entry_window=window,
-                              raw_entries_per_flavor=8_000_000, common_cut=common.group(1), split_cuts=cuts,
+                              raw_entries_per_flavor=split['raw_entries'], common_cut=common.group(1), split_cuts=cuts,
                               note='The ROOT split files already contain these cuts; conversion copies rows 1:1.'),
         conversion=dict(engine='awkward.to_parquet_row_groups', branches='all', compression='lz4',
                         row_group_size=10_000, chunk_entries=100_000,
@@ -402,6 +428,12 @@ def build_spec(*, name, source_dir, output, macro, reference, metadata=root_meta
                                                   'file; content, order and Weaver row IDs are layout-independent.')),
         reference=dict(parquet=str(reference.relative_to(PROJECT_DIR)),
                        schema_sha256=schema_digest(pq.ParquetFile(reference))),
+        disk=dict(estimated_bytes_per_row=2700, safety_factor=1.10, minimum_free_bytes_after=20 * 1024**3,
+                  estimate_basis='measured 2675 bytes/row for an lz4 test conversion of train8m entries'),
+    )
+    if split['role'] != 'training':
+        return spec
+    return dict(spec,
         validation=dict(dataset='datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet', selection_suffix='val50k_tail',
                         approved_suffixes=['val50k_tail', 'val5k_tail'],
                         forbidden_suffixes={
@@ -410,6 +442,4 @@ def build_spec(*, name, source_dir, output, macro, reference, metadata=root_meta
                             'val_holdout': 'Stage 2A holdout; never used for training-time selection',
                             'val1000k': 'contains the Stage 2A holdout rows',
                             'train800k': 'training data (prefix of train8m)'}),
-        disk=dict(estimated_bytes_per_row=2700, safety_factor=1.10, minimum_free_bytes_after=20 * 1024**3,
-                  estimate_basis='measured 2675 bytes/row for an lz4 test conversion of train8m entries'),
     )

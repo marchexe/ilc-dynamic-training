@@ -65,23 +65,25 @@ class Status:
 
 # ---------------------------------------------------------------- dataset phase
 
-def conversion_command(flavor):
-    return [sys.executable, str(PROJECT_DIR / 'scripts/experiments/stage2b_campaign.py'), '--convert-flavor', flavor]
+def conversion_command(flavor, spec_path=None):
+    command = [sys.executable, str(PROJECT_DIR / 'scripts/experiments/stage2b_campaign.py'), '--convert-flavor', flavor]
+    return command + (['--spec', str(spec_path)] if spec_path else [])
 
 
 def run_dataset_phase(spec, policy, status, stop, *, launch=subprocess.Popen, poll_seconds=10, log_seconds=60,
-                      verify=data.verify_dataset, isolation=None, publish=data.publish_manifest):
+                      verify=data.verify_dataset, isolation=None, publish=data.publish_manifest, spec_path=None,
+                      prefix='dataset', kind='DATASET'):
     """Prepare (if needed) and fully verify train8m; returns the realized manifest."""
     from experiments.stage2b.provenance import verify_realized_isolation
     isolation = isolation or verify_realized_isolation
-    status.phase('dataset_preflight', 'DATASET')
+    status.phase(f'{prefix}_preflight', kind)
     pre = data.preflight(spec)
     status.update(dataset=dict(state=pre['status']['state'], free_bytes=pre['free_bytes'],
                                required_free_bytes=pre['required_free_bytes']))
     pending = [f for f in data.FLAVORS if f not in pre['status']['completed']]
     if pending:
-        status.phase('dataset_conversion', 'DATASET')
-        status.log('DATASET', f'converting {",".join(pending)} (expected {spec["expected_rows_total"]:,} rows in total)')
+        status.phase(f'{prefix}_conversion', kind)
+        status.log(kind, f'converting {",".join(pending)} (expected {spec["expected_rows_total"]:,} rows in total)')
         workers = int(policy['budgets']['conversion_workers'])
         queue, running, logged = list(pending), {}, None
         try:
@@ -91,7 +93,7 @@ def run_dataset_phase(spec, policy, status, stop, *, launch=subprocess.Popen, po
                     stream = (Path(status.path.parent) / 'logs' / f'convert-{flavor}.log')
                     stream.parent.mkdir(parents=True, exist_ok=True)
                     handle = stream.open('a')
-                    running[flavor] = (launch(conversion_command(flavor), cwd=PROJECT_DIR, stdout=handle,
+                    running[flavor] = (launch(conversion_command(flavor, spec_path), cwd=PROJECT_DIR, stdout=handle,
                                               stderr=subprocess.STDOUT, start_new_session=True,
                                               preexec_fn=lambda: os.nice(int(policy['budgets']['conversion_nice']))), handle)
                 for flavor, (process, handle) in list(running.items()):
@@ -102,7 +104,7 @@ def run_dataset_phase(spec, policy, status, stop, *, launch=subprocess.Popen, po
                     running.pop(flavor)
                     if code != 0:
                         raise SmokeFailure(f'train8m {flavor} conversion failed (exit {code}); see logs/convert-{flavor}.log')
-                    status.log('DATASET', f'{flavor} converted and verified')
+                    status.log(kind, f'{flavor} converted and verified')
                 progress = {}
                 for flavor in data.FLAVORS:
                     try:
@@ -114,7 +116,7 @@ def run_dataset_phase(spec, policy, status, stop, *, launch=subprocess.Popen, po
                                            rows_done=done, rows_total=spec['expected_rows_total']))
                 if logged is None or time.monotonic() - logged >= log_seconds or not (queue or running):
                     logged = time.monotonic()
-                    status.log('DATASET', f'conversion {100 * done / spec["expected_rows_total"]:.1f}% '
+                    status.log(kind, f'conversion {100 * done / spec["expected_rows_total"]:.1f}% '
                                + ' '.join(f'{f}:{p.get("phase")}:{p.get("rows_done", 0):,}' for f, p in progress.items()))
                 if (queue or running) and stop.wait(poll_seconds):
                     raise InterruptedError('Supervisor stopped during conversion')
@@ -127,16 +129,16 @@ def run_dataset_phase(spec, policy, status, stop, *, launch=subprocess.Popen, po
                     except subprocess.TimeoutExpired:
                         os.killpg(process.pid, signal.SIGKILL)
                 handle.close()
-    status.phase('dataset_verification', 'DATASET')
+    status.phase(f'{prefix}_verification', kind)
     manifest = verify(spec, rehash=True)
     manifest_path = publish(spec, manifest)
-    status.phase('split_isolation', 'DATASET')
+    status.phase(f'{prefix}_isolation' if prefix != 'dataset' else 'split_isolation', kind)
     evidence = isolation(spec)
-    write_json(Path(status.path.parent) / 'dataset_isolation.json', evidence)
+    write_json(Path(status.path.parent) / f'{prefix}_isolation.json', evidence)
     status.update(dataset=dict(state='complete_verified', manifest=str(manifest_path), rows_total=manifest['rows_total'],
                                size_bytes_total=manifest['size_bytes_total'],
                                fingerprint=manifest['weaver_audit']['fingerprint']))
-    status.log('DATASET', f'train8m ready: {manifest["rows_total"]:,} rows, {manifest["size_bytes_total"]:,} bytes')
+    status.log(kind, f'train8m ready: {manifest["rows_total"]:,} rows, {manifest["size_bytes_total"]:,} bytes')
     return manifest
 
 
@@ -188,8 +190,11 @@ class Observer:
         self.foreign_streak, self.foreign_events = 0, []
 
     def sample(self, root):
+        """`root` is one runner PID or several (concurrent arms share one budget)."""
         table = self.table()
-        tree = descendants(root, table) if root in table else {root}
+        tree = set()
+        for pid in (root if isinstance(root, (list, tuple, set)) else [root]):
+            tree |= descendants(pid, table) if pid in table else {pid}
         apps = [a for a in self.apps() if a['uuid'] in self.uuids]
         per_gpu = {}
         for app in apps:

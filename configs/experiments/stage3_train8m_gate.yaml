@@ -1,0 +1,18 @@
+# Stage 3 full-epoch gate: one real, uncapped train8m epoch of the arm-A
+# contract for the highest-LR member (most likely to expose AMP/non-finite
+# problems). Its outputs are never reused by either arm; its epoch-18
+# checkpoint is a preregistered determinism reference for both arms.
+presets:
+  - configs/experiments/stage3_train8m_fixed_lr.yaml
+experiment:
+  name: stage3_train8m_gate_v1
+  output_root: runs/eval/stage3_train8m_v1/gate
+resources:
+  gpus: [0]
+shared:
+  generations: 1
+pbt:
+  exploit_interval_generations: 2
+population:
+  - name: lr_14e-6
+    start_lr: 1.4e-5

@@ -47,6 +47,9 @@ configs/experiments/pretrained_exploit_mutate_smoke_tiered_ownership_fix_verify.
 configs/experiments/bn_freeze_diag_baseline.yaml            # single-gen BatchNorm-drift diagnostic (freeze_batch_norm: false)
 configs/experiments/bn_freeze_diag_frozen.yaml              # paired diagnostic confirming --freeze-batch-norm fixes the gen-0 mistag regression
 configs/experiments/stage2b_train8m_smoke.yaml              # Stage 2B bounded train8m GPU smoke (launch only via run_stage2b_smoke.sh)
+configs/experiments/stage3_train8m_fixed_lr.yaml            # Stage 3 arm A (launch only via run_stage3_train8m.sh)
+configs/experiments/stage3_train8m_windowed_pbt_v2.yaml     # Stage 3 arm B
+configs/experiments/stage3_train8m_gate.yaml                # Stage 3 full-epoch gate (never reused by the arms)
 ```
 
 Reusable preset blocks live in:
@@ -236,6 +239,22 @@ Details, verified facts, budgets and limitations:
 `configs/drafts/stage3_train8m_v1/`. Legacy `val5k`/`val50k` lie inside
 train8m and are rejected for train8m selection.
 
+### Stage 3: fixed LR vs windowed PBT on train8m
+
+Preregistered matched comparison (`configs/prepared/stage3_train8m_v1/PROTOCOL.md`):
+fixed-LR population vs frozen `windowed_pbt_v2`, both from epoch 17 on train8m
+for a fixed 50-epoch horizon (a 30->50 continuation would replay the terminal
+epoch-30 window boundary and change the policy trajectory). A real full-epoch
+gate must pass first; checkpoints are ledgered; the sealed `test3000k` split
+is opened only after both arms complete and validate.
+
+```bash
+bash scripts/experiments/run_stage3_train8m.sh            # gate, both arms, analysis, sealed test, report
+bash scripts/experiments/run_stage3_train8m.sh --status   # gate verdict, per-arm progress, GPU-hours
+bash scripts/experiments/run_stage3_train8m.sh --dry-run  # read-only preflight and GPU discovery
+```
+
+Operations, recovery and resources: `configs/prepared/stage3_train8m_v1/README.md`.
 
 ## Project Layout
 

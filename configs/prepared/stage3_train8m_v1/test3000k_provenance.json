@@ -1,0 +1,65 @@
+{
+  "entry_window": "Entry$>=17000000&&Entry$<20000000",
+  "flavors": [
+    {
+      "flavor": "bb",
+      "label": 5,
+      "reference_rows": {
+        "pretraining_20250218_train800k": 799662,
+        "pretraining_20250218_val50k": 49980,
+        "train8m": 7989060,
+        "val1000k": 998645
+      },
+      "rows": 2995907,
+      "scalar_overlap": {
+        "pretraining_20250218_train800k": 0,
+        "pretraining_20250218_val50k": 0,
+        "train8m": 0,
+        "val1000k": 0
+      },
+      "unique_scalar_records": 2995907
+    },
+    {
+      "flavor": "cc",
+      "label": 4,
+      "reference_rows": {
+        "pretraining_20250218_train800k": 799294,
+        "pretraining_20250218_val50k": 49962,
+        "train8m": 7976224,
+        "val1000k": 996995
+      },
+      "rows": 2991086,
+      "scalar_overlap": {
+        "pretraining_20250218_train800k": 0,
+        "pretraining_20250218_val50k": 0,
+        "train8m": 0,
+        "val1000k": 0
+      },
+      "unique_scalar_records": 2991086
+    },
+    {
+      "flavor": "dd",
+      "label": 2,
+      "reference_rows": {
+        "pretraining_20250218_train800k": 798561,
+        "pretraining_20250218_val50k": 49891,
+        "train8m": 7956165,
+        "val1000k": 994485
+      },
+      "rows": 2983484,
+      "scalar_overlap": {
+        "pretraining_20250218_train800k": 0,
+        "pretraining_20250218_val50k": 0,
+        "train8m": 0,
+        "val1000k": 0
+      },
+      "unique_scalar_records": 2983484
+    }
+  ],
+  "physical_event_ids_available": false,
+  "project_usage": "No configuration, script, manifest or run of this repository references test3000k before Stage 3 (checked by search). Use by other researchers cannot be verified.",
+  "rows_total": 8970477,
+  "schema_version": 1,
+  "spec_name": "20250711_ilc_nnqq_sgv_10m_3cat_test3000k_parquet_v1",
+  "verified_at": "2026-10-13T06:59:51.921914+00:00"
+}

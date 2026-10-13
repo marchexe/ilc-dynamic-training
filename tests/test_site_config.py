@@ -11,6 +11,7 @@ from unittest.mock import patch
 from tests.helpers import PROJECT_DIR
 from experiments import site_config
 from experiments.stage2b import common as stage2b_common, dataset as data
+from experiments.stage3 import common as stage3_common
 
 
 def write(directory, payload):
@@ -59,11 +60,11 @@ class SiteConfigTest(unittest.TestCase):
             for nodes in (['a', 'b'], ['x', 'y', 'z']):
                 payload = dict(VALID, cluster=dict(nodes=nodes, preferred_node=nodes[-1]))
                 with patch.dict(os.environ, {site_config.ENV: write(tmp, payload)}):
-                    for loader in (stage2b_common.load_policy,):
+                    for loader in (stage2b_common.load_policy, stage3_common.load_policy):
                         policy, digest = loader()
                         self.assertEqual(policy['allocation']['authorized_nodes'], nodes)
                         digests.append(digest)
-            self.assertEqual(digests[0], digests[1])
+            self.assertEqual(digests[:2], digests[2:])
         historical = dict(authorized_nodes=['old'], preferred_node='old')
         self.assertEqual(site_config.with_cluster(historical), historical)
 
@@ -76,13 +77,19 @@ class SiteConfigTest(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn('site configuration', result.stderr)
 
+    def test_launcher_refuses_without_site_configuration(self):
+        from scripts.experiments import stage3_campaign as cli
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {site_config.ENV: '/nonexistent'}), \
+             patch.object(cli, 'repository_revision', lambda: dict(commit='abc')):
+            self.assertEqual(cli.main(['--output', tmp, '--dry-run']), stage3_common.EXIT_INVALID)
+
 
 class PortableRecordsTest(unittest.TestCase):
     def committed(self, path):
         return json.loads((PROJECT_DIR / path).read_text())
 
     def test_policies_do_not_list_nodes(self):
-        for path in ('configs/prepared/stage2b_train8m_v1/smoke_policy.json',):
+        for path in ('configs/prepared/stage2b_train8m_v1/smoke_policy.json', 'configs/prepared/stage3_train8m_v1/policy.json'):
             allocation = self.committed(path)['allocation']
             self.assertNotIn('authorized_nodes', allocation)
             self.assertNotIn('preferred_node', allocation)
@@ -97,9 +104,26 @@ class PortableRecordsTest(unittest.TestCase):
                     yield from strings(item)
             elif isinstance(value, str):
                 yield value
-        for path in ('datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet_v1.json',):
+        for path in ('configs/prepared/stage3_train8m_v1/protocol.json', 'configs/prepared/stage3_train8m_v1/protocol_v2.json',
+                     'configs/prepared/stage3_train8m_v1/test3000k_spec.json',
+                     'datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet_v1.json'):
             absolute = [s for s in strings(self.committed(path)) if s.startswith('/')]
             self.assertEqual(absolute, [], path)
+
+    def test_portable_manifest_drops_machine_specific_locations(self):
+        full = dict(local_path='datasets/x', weaver_audit=dict(fingerprint='f', total_rows=3, files=[dict(path='/abs/x.parquet')]),
+                    files=[dict(path='datasets/x/a.parquet', resolved_path='/abs/a.parquet', sha256='s',
+                                source_root_path='/private/a.root', rows=3)])
+        portable = data.portable_manifest(full)
+        self.assertEqual(portable['files'], [dict(path='datasets/x/a.parquet', sha256='s', rows=3, source_root_file='a.root')])
+        self.assertEqual(portable['weaver_audit'], dict(fingerprint='f', total_rows=3))
+        self.assertTrue(portable['portable'])
+
+    def test_sealed_test_sources_resolve_through_the_site_configuration(self):
+        spec = data.validate_spec(self.committed('configs/prepared/stage3_train8m_v1/test3000k_spec.json'))
+        self.assertTrue(all(s['path'].startswith('${ILC_SGV10M_SOURCE_DIR}/') for s in spec['sources']))
+        self.assertEqual(str(data.source_path(spec['sources'][0])),
+                         '/path/to/20250711_ilc_nnqq_sgv_10m/ml_flavtag_6cat_bb_test3000k.root')
 
     def test_local_configuration_and_outputs_are_ignored(self):
         for path in ('configs/local/site.json', 'runs/eval/x/status.json', 'logs/x.log', '.env', 'id_ed25519', 'x.pem',

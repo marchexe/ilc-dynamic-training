@@ -1,0 +1,15 @@
+# Stage 3 arm B (frozen protocol configs/prepared/stage3_train8m_v1): frozen
+# windowed_pbt_v2 on train8m. Inherits configs/experiments/windowed_pbt_v2.yaml
+# unchanged; only the training input differs. Fixed 50-epoch horizon (a 30->50
+# continuation would replay the terminal epoch-30 boundary; see protocol).
+presets:
+  - configs/experiments/windowed_pbt_v2.yaml
+experiment:
+  name: stage3_train8m_windowed_pbt_v2_v1
+  output_root: runs/pbt
+shared:
+  dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet
+  train_suffix: train8m
+  validation_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  validation_suffix: val50k_tail
+  generations: 50

@@ -1,4 +1,8 @@
-# Stage 3 train8m drafts — INACTIVE, not approved
+# Stage 3 train8m drafts — INACTIVE, SUPERSEDED
+
+Superseded by the frozen Stage 3 protocol (`configs/prepared/stage3_train8m_v1/`):
+the active arms are `configs/experiments/stage3_train8m_*.yaml` with a fixed
+50-epoch horizon. These 20-epoch drafts are kept as the Stage 2B record.
 
 Two versioned drafts for a future matched comparison on the Stage 2B `train8m`
 input. Nothing launches them automatically; Stage 3 requires explicit approval.

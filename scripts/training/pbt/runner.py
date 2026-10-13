@@ -77,7 +77,7 @@ def parse_args():
         help=(
             "Comma-separated host:gpu slots for multi-node runs. "
             "Every host must see the project .venv at the same path, "
-            "e.g. iutgpu01:6,iutgpu05:4"
+            "e.g. node-a:6,node-b:4"
         ),
     )
     parser.add_argument(

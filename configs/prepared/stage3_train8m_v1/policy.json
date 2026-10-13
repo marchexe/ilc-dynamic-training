@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "allocation": {
+    "gpus_per_arm": 5,
+    "max_concurrent_gpus": 10,
+    "schedule": "Arms start independently as soon as five idle GPUs of the campaign GPU model are free on the campaign node (both concurrently when ten are idle). GPUs are never hoarded: a partial set is released.",
+    "min_gpu_memory_mib": 40000,
+    "max_used_memory_mib": 500,
+    "max_util_percent": 5,
+    "max_resource_wait_seconds": 120,
+    "arm_wait_poll_seconds": 300,
+    "max_arm_wait_hours": 72,
+    "foreign_process_grace_samples": 3,
+    "nodes": "Authorized nodes and the preferred node come from the local site configuration (configs/site.example.json); never GPUs in use by others."
+  },
+  "budgets": {
+    "max_cuda_memory_mib": 36000,
+    "worker_host_ram_bytes": 21474836480,
+    "node_ram_margin_factor": 1.25,
+    "min_free_disk_bytes": 107374182400,
+    "max_campaign_gpu_hours": 800,
+    "max_campaign_wall_hours": 240,
+    "gate_max_wall_hours": 4,
+    "projection_safety_factor": 1.3,
+    "monitor_poll_seconds": 30,
+    "runner_stop_timeout_seconds": 180,
+    "max_auto_resumes_per_arm": 0,
+    "test_eval_timeout_hours": 6,
+    "test_eval_parallelism": 10,
+    "conversion_workers": 3,
+    "conversion_nice": 10
+  }
+}
