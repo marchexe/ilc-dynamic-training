@@ -1,20 +1,28 @@
-PBT v2 — 100 epochs
-===================
+Windowed PBT — 100 epochs
+=========================
 
-Verified continuation of the frozen windowed PBT v2 population through 100 full epochs.
+The windowed-PBT population continued from epoch 50 to epoch 100.
 
 Result summary
 --------------
 
-* Status: ``completed``
-* Method: ``windowed_pbt_v2``
-* Seed: ``12345``
-* Horizon: ``100`` training epochs (``20`` PBT generations × ``5`` epochs)
-* Best recorded metric: ``0.32138124685977204`` (validation_total_reference_mistag_geomean_percent)
-* Initial pretrained-checkpoint metric: ``0.456704817784357``
-* Best recorded metric is ``29.6304%`` below that measured starting point
-* Final-10 mean: PBT ``0.327181%`` vs matched fixed-``14e-6`` control
-  ``0.332571%`` (``1.62%`` relative reduction)
+* Status: completed; policy ``windowed_pbt_v2``; seed 12345; 100 training epochs (continuation of
+  :doc:`pbt-v2-50`); five members.
+* Final-10 current-best validation (population endpoint, epochs 91–100): ``0.326944``
+* Global best (selected checkpoint): ``0.321381``, member ``lr_3e-6`` at training epoch 89,
+  learning rate 2.90304 × 10\ :sup:`-5`
+* Applied copies: 11 over 100 epochs
+* Independent holdout of the selected checkpoint: ``0.311050`` (:doc:`../holdout_evaluation`)
+* Comparator: the single fixed-learning-rate member 1.4 × 10\ :sup:`-5`, final-10 ``0.332571``
+  (:doc:`fixed-lr-100`). Difference −0.005627 pp (−1.69%). The comparison is asymmetric: the
+  comparator is one member chosen after epoch 50, not a population.
+
+.. admonition:: Correction
+
+   An earlier version of this page reported a final-10 mean of 0.327181% and a 1.62% relative
+   reduction. That value is the final-10 mean of the ``lr_3e-6`` member's lineage. The population
+   endpoint used throughout the documentation is 0.326944% (1.69%). The annotation box in the
+   performance figure below predates the correction and still shows the member-lineage value.
 
 Key plots
 ---------
@@ -28,9 +36,9 @@ Key plots
 Metrics and history
 -------------------
 
-* :download:`Recorded metrics <../../published/experiments/pbt-v2-100/metrics.csv>`
+* :download:`Recorded metrics <../../published/experiments/pbt-v2-100/public/metrics.csv>`
 * :download:`Learning-rate history <../../published/experiments/pbt-v2-100/lr_history.csv>`
-* :download:`Exploit history <../../published/experiments/pbt-v2-100/exploit_history.csv>`
+* :download:`Exploit history <../../published/experiments/pbt-v2-100/public/exploit_history.csv>`
 
 Models
 ------
@@ -44,8 +52,10 @@ Model files are prepared as release assets and are intentionally excluded from t
 Provenance and reproducibility
 ------------------------------
 
-* Canonical server path: ``runs/pbt/windowed_pbt_v2_100epochs``
+* Run directory (local, not published): ``runs/pbt/windowed_pbt_v2_100epochs``
 * Source commit: ``59b9a3a92b5f8b2241817a1facbc71e097e13fdd``
 * Source manifest SHA256: ``6baf6613787787635b054043a453b0334726fc2bb446178d48e9d790ecb64bb8``
-* :download:`Resolved configuration <../../published/experiments/pbt-v2-100/config.yaml>`
-* :download:`Publication provenance <../../published/experiments/pbt-v2-100/provenance.json>`
+* :download:`Resolved configuration <../../published/experiments/pbt-v2-100/public/config.yaml>`
+* :download:`Publication provenance <../../published/experiments/pbt-v2-100/public/provenance.json>`
+
+Downloads are path-free copies of the recorded bundle files (``published/experiments/pbt-v2-100/public/``). Model epochs in file descriptions are Weaver checkpoint epochs, equal to the training epoch plus 17.

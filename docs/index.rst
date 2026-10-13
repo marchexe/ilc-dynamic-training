@@ -1,44 +1,67 @@
-ILC jet-flavour tagging with adaptive training
-==============================================
+Adaptive Learning-Rate Training for ILC Jet-Flavour Tagging
+===========================================================
 
-This project fine-tunes a Particle Transformer to distinguish ``bb``, ``cc``
-and light-quark ``dd`` jets in simulated ILC events. The research question is
-whether Population Based Training (PBT) can choose useful learning-rate
-trajectories while preserving reproducible model, optimizer and AMP-scaler
-state.
+This project studies whether adapting the learning rate during training improves a
+Particle Transformer that separates b-, c- and light-quark (d) jets in simulated
+International Linear Collider (ILC) events. A pretrained three-class tagger is
+fine-tuned under matched conditions with either a constant learning rate per
+population member or Population Based Training (PBT), which periodically copies
+well-performing models and perturbs their learning rates. The outcome is measured as
+background mistag rates at fixed signal efficiencies.
 
-The current reference is ``windowed_pbt_v2``: five persistent population
-members are evaluated every full epoch, while copy/mutation decisions use
-multi-epoch evidence. Fixed-learning-rate runs are matched controls rather than
-the primary method.
+Research question
+-----------------
 
-Current stage
+Under a fixed training budget, does PBT-style learning-rate adaptation produce a
+better b/c/light tagger than a matched population trained with constant learning
+rates, and does any advantage persist on data that was never used for model
+selection?
+
+Summary of findings
+-------------------
+
+* **Windowed PBT versus a matched fixed-learning-rate population (50 epochs).**
+  Windowed PBT reached a 1.26% lower population validation endpoint and a 1.36%
+  lower composite mistag on an independent holdout of 2.8 million jets. The
+  direction agrees on both evaluations, but this is a single training seed and no
+  confidence interval at the level of physical events is available.
+* **100 epochs.** Windowed PBT was again lower on validation (1.69%) and on the
+  holdout (1.44%). The comparator is a single fixed-learning-rate member that was
+  continued after it had been identified at epoch 50, not a matched population, so
+  this comparison is asymmetric.
+* **Adaptation frequency is inconclusive.** Adapting every epoch gave a lower
+  validation endpoint than adapting every five epochs for both tested seeds, but the
+  ordering reversed on the independent holdout for both seeds.
+* **Negative and blocked results.** An adaptive learning-rate controller audited in
+  shadow mode produced too few actionable decisions to be evaluated, and adaptation
+  more often than once per epoch is blocked by the optimizer restart contract.
+* **Ongoing.** A preregistered comparison of fixed-learning-rate training and
+  windowed PBT on a training set ten times larger is in progress. No results from it
+  are reported yet.
+
+All differences are small, of order 0.004–0.006 percentage points of composite
+mistag (about 1–2% relative), and must be read together with the
+:doc:`limitations <results>`.
+
+Documentation
 -------------
 
-The deterministic training foundation and reference PBT algorithm are complete,
-with verified 50- and 100-full-epoch runs. A completed offline
-:doc:`proxy-validation qualification <proxy_validation>` study evaluated 38
-existing checkpoints on nine frozen candidates and selected
-``representative_60k`` as the control signal for shadow adaptive-LR testing.
-
-The next stage is offline controller replay and shadow measurement using
-smoothing, short-window trends, patience and cooldown. No adaptive-LR policy is
-part of the frozen reference algorithm, and the proxy study establishes
-measurement quality rather than a training improvement claim.
-
-The current supervisor-facing PBT milestone is summarized in
-:doc:`pbt_interim_status`.  It distinguishes the historical windowed baseline,
-the implemented one-epoch Variant A, the additional one-epoch cadence5 control,
-and the blocked 0.2-epoch Variant B.
-
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
-   results
-   pbt_interim_status
-   proxy_validation
    method
-   experiments
-   status
-   changelog
-   development
+   evaluation
+   results
+   ongoing
+   reproducibility
+
+* :doc:`method` — data, model, training protocol and the learning-rate policies.
+* :doc:`evaluation` — data splits, metrics, endpoints, comparisons and the
+  statistical policy. These definitions are used throughout.
+* :doc:`results` — completed comparisons, the independent holdout evaluation,
+  supporting studies, cost and limitations.
+* :doc:`ongoing` — design and verified status of the large-dataset comparison.
+* :doc:`reproducibility` — environment, verification tools, experiment records,
+  research history and archived reports.
+
+Source code: `github.com/marchexe/ilc-dynamic-training <https://github.com/marchexe/ilc-dynamic-training>`_.

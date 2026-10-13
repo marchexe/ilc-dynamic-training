@@ -1,112 +1,112 @@
-Method
-======
+Methodology
+===========
 
-Particle Transformer training
------------------------------
-
-The project continues a pretrained three-class Particle Transformer with Weaver.
-Reference experiments resume epoch 17 with the recorded model and raw optimizer
-state, use deterministic full-epoch traversal, mixed precision with scaler state,
-and frozen BatchNorm statistics. Every population member sees the same training
-and validation definitions; only its trajectory and current LR may differ.
-
-Historical Ranger restart contract
-----------------------------------
-
-The production ``ranger`` optimizer is Weaver's historical RAdam optimizer
-wrapped by Lookahead.  Its checkpoint ``state_dict`` intentionally serializes
-only the inner RAdam state.  On every worker restart, Weaver restores the RAdam
-per-parameter state (including steps, first moments and second moments), then
-Lookahead rebuilds its slow weights from the restored model parameters.  A new
-worker constructs a fresh Lookahead wrapper with a zero step counter; because
-the counter is absent from the checkpoint, no previous counter value is
-restored.  The slow weights and counter therefore do not continue across a
-one-epoch worker boundary.
-
-This is the existing behavior for both ``windowed_pbt_v2`` and
-``cadenced_pbt_v1``.  Their copy paths transfer the same model, RAdam-state and
-AMP-scaler bundle, and only rewrite the planned learning rate.  The comparison
-must retain this shared restart behavior; this documentation and its regression
-test do not change optimizer serialization or resume semantics.
-
-Validation metric
------------------
-
-Physics performance is evaluated through background mistag percentages at fixed
-signal efficiencies:
-
-* b-tag at 80% and 90% efficiency, against c and d backgrounds;
-* c-tag at 50% and 80% efficiency, against b and d backgrounds.
-
-Four b-tag mistags form a geometric-mean b-tag score; four c-tag mistags form a
-geometric-mean c-tag score. The PBT selection metric is the geometric mean of
-those two scores. This balances the two taggers and remains finite only when all
-required working-point measurements exist.
-
-Population Based Training
--------------------------
-
-``windowed_pbt_v2`` maintains five persistent member identities. Every member
-trains and validates for one full epoch. Every five epochs, the strategy ranks
-the mean score over the last three epochs. A branch becomes eligible for
-replacement only after two losing windows outside a 0.002 decision margin.
-
-At most two recipients copy the donor's model, optimizer and AMP scaler bundle,
-then receive deterministic ×0.8 or ×1.2 LR mutations bounded to
-2 × 10⁻⁶ through 3 × 10⁻⁵. Decisions, hashes and pre/post-copy evidence are
-recorded for replay. The algorithm's scoring, tie handling, exploration and
-terminal behavior are frozen for reproducibility.
-
-``cadenced_pbt_v1`` also trains and fully validates every member for one full
-epoch, but has two warm-up epochs and then offers one best-to-worst replacement
-at every eligible post-validation boundary.  A replacement copies the complete
-model/RAdam/AMP-scaler bundle.  Exploration deterministically chooses a bounded
-×0.8 or ×1.2 LR mutation when one is collision-free; if no mutation is valid,
-the weight/optimizer/scaler copy still occurs at the recipient's prior LR.
-
-Its generic ``exploit_interval_generations`` setting uses global completed-epoch
-cadence: interval *N* is due when ``completed_epoch % N == 0``.  The two-epoch
-warm-up is an independent eligibility gate and never shifts that anchor.  Thus
-the cadence-5 control has opportunities after epochs 5, 10, ..., 45; the due
-epoch-50 boundary is terminal-suppressed.  Apart from that interval, the
-cadence-1 production arm and cadence-5 control share the same resolved policy,
-initialization, data, execution, checkpoint, recovery and reporting contracts.
-
-Scientific comparison contract
-------------------------------
-
-The production study compares two complete PBT policies,
-``windowed_pbt_v2`` and ``cadenced_pbt_v1``.  It is not an experiment that
-isolates cadence alone: the evidence window, losing-history rule, recipient
-count and replacement policy differ as well as the decision cadence.
-
-The primary endpoint is the mean over the final ten epochs of the current
-population's best full-reference metric at each epoch.  The metric is
-``validation_total_reference_mistag_geomean_percent`` and lower is better.  A
-single lucky checkpoint or all-time global best is not the primary endpoint.
-The configured ``0.002`` decision margin is an operational threshold used by
-the policies; it is not a p-value, confidence interval, or claim of statistical
-significance.
-
-Adaptive-LR direction
+Physics task and data
 ---------------------
 
-The offline :doc:`proxy-validation qualification <proxy_validation>` selected
-the deterministic 60k representative subset as a sufficiently reliable signal
-for shadow testing. This qualifies the measurement, not the controller:
-temporal direction agreement is 0.720, so a future policy must use smoothed
-short-window evidence, patience and cooldown instead of reacting to one
-measurement.
+The tagger classifies hadronic jets from simulated e⁺e⁻ → νν̄qq̄
+events at the ILC into three classes: b, c and light (d) quark jets. Events were
+generated and passed through the SGV fast detector simulation; each jet is
+represented by up to 75 charged and up to 75 neutral particle-flow candidates
+with 27 and 28 per-particle features respectively, plus their four-momenta.
 
-The prepared shadow policy uses an EMA with beta 0.50 and a 0.00457953
-percentage-point threshold estimated as one robust sigma of paired adjacent
-proxy-minus-reference changes. Two consistent directional observations are
-required, followed by two complete cooldown observations. Proposed ×1.05,
-KEEP and ×0.95 actions are logged only. Training remains an eight-member
-fixed-LR grid, and the deterministic 150k reference runs every five
-generations as an observational tier that is not read by the controller.
+Training uses the 2025-07 SGV sample restricted to the three classes. Most
+completed experiments train on a 2.39-million-jet subset (``train800k``); the
+ongoing study uses a ten-times larger training set (``train8m``, 23.9 million
+jets) of which ``train800k`` is an exact prefix. During training, fixed
+preselection cuts and Weaver's class-balancing reweighting (flat method, equal class
+weights) are applied, so about 90% of the jets in a training file are used in each
+epoch. Evaluation never reweights. The splits and their isolation are defined
+in :doc:`evaluation`.
 
-That controller is not yet part of the reference method. Shadow mode tests its
-behavior, not whether adaptive LR improves training. Any live policy must be
-introduced as a separately reviewed version and evaluated against both
-``windowed_pbt_v2`` and fixed-LR controls.
+Model
+-----
+
+The network is a Particle Transformer (ParT) with particle-pair interaction
+features: three particle-attention blocks with eight heads and 128-dimensional
+embeddings, pair embeddings of width 64, and a three-class output
+(``networks/pretrained_sgv_particle_transformer.py``). Training uses the Weaver
+framework (vendored and patched in ``weaver-core/``).
+
+All experiments start from the same pretrained checkpoint, epoch 17 of an earlier
+training on an independent 2025-02 SGV sample, together with its recorded
+optimizer state. Training epochs in this documentation are counted from that
+start: training epoch *t* corresponds to Weaver checkpoint epoch 17 + *t*.
+
+Training protocol
+-----------------
+
+Every population member is trained with the same contract:
+
+* Ranger optimizer (RAdam wrapped by Lookahead), batch size 1024, no learning-rate
+  schedule within an epoch;
+* mixed precision (FP16) with dynamic loss scaling; steps whose scaled gradients
+  overflow are skipped by the gradient scaler;
+* frozen BatchNorm statistics;
+* deterministic, audited data loading: every epoch traverses the full training set
+  in a recorded order, and the consumed rows are verified;
+* one complete epoch per training process. After each epoch the model, optimizer
+  and loss-scaler state are saved and the population policy may act before the next
+  epoch starts.
+
+Optimizer restart contract
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Weaver's checkpoint of the Ranger optimizer stores the inner RAdam state (step
+counts and moment estimates) but not the Lookahead slow weights or its step counter.
+Because every epoch runs in a new process, Lookahead is re-initialised from the
+current model weights at every epoch boundary. This *epoch-restarted* behaviour is
+identical for all compared policies, including fixed-learning-rate training, so it
+does not bias the comparisons. It does mean that results describe this training
+contract rather than uninterrupted Ranger training, and it prevents adaptation at
+finer than one-epoch granularity without a new checkpoint format (see
+:doc:`exploratory_studies`).
+
+Learning-rate policies
+----------------------
+
+All policies use a population of five members with initial learning rates
+3.0, 5.75, 8.5, 11.25 and 14.0 × 10\ :sup:`-6`. Member names (for example
+``lr_3e-6``) are stable identities and do not indicate the current learning rate
+after PBT has changed it.
+
+**Fixed learning rate** (``fixed_lr_grid``)
+   Each member keeps its initial learning rate; members never interact. This is the
+   comparator for PBT.
+
+**Windowed PBT** (``windowed_pbt_v2``)
+   Every member is validated after every epoch. Every five epochs the policy ranks
+   members by their mean validation score over the last three epochs. A member is
+   replaced only after losing in two decision windows by more than an operational
+   margin of 0.002 percentage points; at most two members are replaced per
+   decision. A replaced member copies the donor's model, optimizer and loss-scaler
+   state and continues with the donor's learning rate multiplied by 0.8 or 1.2,
+   bounded to 2 × 10\ :sup:`-6` – 3 × 10\ :sup:`-5`. No copy is made at the final
+   boundary of a run. The decision logic is frozen
+   (``scripts/training/pbt/reference/windowed_v2.py``) and every decision is
+   recorded for replay.
+
+**Cadenced PBT** (``cadenced_pbt_v1``)
+   Every member is validated after every epoch. After a two-epoch warm-up, at every
+   eligible boundary the best member may replace the worst one (at most one
+   replacement), copying the full model, optimizer and loss-scaler state. A ×0.8 or
+   ×1.2 learning-rate mutation within the same bounds is applied when it does not
+   duplicate another member's learning rate; otherwise only the state is copied. With an
+   adaptation interval of one epoch this is called *every-epoch PBT*. An otherwise
+   identical control with an interval of five epochs (*every-five-epochs PBT*)
+   isolates the effect of adaptation frequency.
+
+Windowed and cadenced PBT differ in their evidence window, losing-history rule,
+number of replacements and replacement rule, not only in cadence. A comparison
+between them is therefore a comparison of two complete policies.
+
+The decision margin of 0.002 percentage points is an operational threshold used
+by the policies. It is not a statistical test.
+
+Scope
+-----
+
+No learning-rate schedule, adaptive controller, rollback or early stopping is part
+of any compared method. An adaptive learning-rate controller was studied separately
+in shadow mode, where its proposals were logged but never applied
+(:doc:`exploratory_studies`).

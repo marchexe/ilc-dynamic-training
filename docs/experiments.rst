@@ -1,36 +1,41 @@
-Published experiments
-=====================
+Experiment Records
+==================
 
-This page presents the small set of experiments used for the current research
-claims. Each entry is generated from recorded run evidence with
-``scripts/publish/export_run.py``. Display names are independent of stable
-server paths and historical member identifiers.
+Each record documents one completed run: its result summary, figures, learning-rate
+and copy histories, model identities and provenance. Records were generated from the
+recorded run evidence by ``scripts/publish/export_run.py`` and later annotated with the
+endpoints and corrections used in :doc:`results`. Downloads are path-free copies of the
+publication bundles in ``published/experiments/``.
 
-.. list-table:: Public experiment set
+.. list-table::
    :header-rows: 1
-   :widths: 32 28 40
+   :widths: 34 26 40
 
-   * - Experiment
+   * - Record
      - Role
-     - Evidence
-   * - :doc:`PBT v2 — 50 epochs <experiments/pbt-v2-50>`
-     - Reference milestone
-     - Complete 50-epoch population and continuation ancestor.
-   * - :doc:`PBT v2 — 100 epochs <experiments/pbt-v2-100>`
-     - Current primary result
-     - Verified continuation through 100 full epochs.
-   * - :doc:`Cadenced PBT v1 — 50 epochs <experiments/cadenced-pbt-v1-50>`
-     - Frequent-adaptation PBT
-     - One-epoch generations with copy and LR adaptation opportunities after each eligible epoch.
-   * - :doc:`Fixed-LR baseline — 50 epochs <experiments/fixed-lr-50>`
-     - Matched control
-     - Five-member fixed-learning-rate grid.
-   * - :doc:`Fixed-LR baseline — 100 epochs <experiments/fixed-lr-100>`
-     - Matched controls
-     - The 14e-6 and 8.5e-6 branches continued to the same horizon.
-   * - :doc:`Original pretrained checkpoints <experiments/pretrained-0-19>`
-     - Starting-point evaluation
-     - Recorded evaluation of pretrained epochs 0–19.
+     - Note
+   * - :doc:`Windowed PBT — 50 epochs <experiments/pbt-v2-50>`
+     - PBT, matched comparison
+     - comparator: fixed-learning-rate population, 50 epochs
+   * - :doc:`Windowed PBT — 100 epochs <experiments/pbt-v2-100>`
+     - PBT, longer horizon
+     - continuation of the 50-epoch run; corrected final-10 endpoint
+   * - :doc:`Every-epoch PBT — 50 epochs <experiments/cadenced-pbt-v1-50>`
+     - adaptation-frequency study
+     - seed 12345; the other three runs of the study are summarised in :doc:`results`
+   * - :doc:`Fixed learning rate — 50 epochs <experiments/fixed-lr-50>`
+     - comparator
+     - five-member population
+   * - :doc:`Fixed learning rate — 100 epochs <experiments/fixed-lr-100>`
+     - comparator (asymmetric)
+     - two single members continued after epoch 50
+   * - :doc:`Pretrained checkpoints — epochs 0–19 <experiments/pretrained-0-19>`
+     - starting point
+     - re-evaluation on the selection validation set
+
+The complete set of validation endpoints, including the runs without a record page, is
+in ``published/results/validation_endpoints.csv``; the independent holdout evaluation
+is documented in :doc:`holdout_evaluation`.
 
 .. toctree::
    :hidden:
@@ -41,19 +46,3 @@ server paths and historical member identifiers.
    experiments/fixed-lr-50
    experiments/fixed-lr-100
    experiments/pretrained-0-19
-
-Publishing another run
-----------------------
-
-After a run is complete and verified, export its evidence and selected model
-assets with one command:
-
-.. code-block:: bash
-
-   python scripts/publish/export_run.py runs/pbt/<run> \
-     --slug <public-slug> --title "Public title"
-
-The command reads the source run, writes ``published/experiments/<slug>`` and
-updates its Sphinx page. It checks source manifest and summary hashes before and
-after export. Model binaries remain local release assets; publication metadata,
-plots and pages are suitable for Git and GitHub Pages.

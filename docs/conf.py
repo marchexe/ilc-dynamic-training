@@ -1,6 +1,6 @@
 """Minimal documentation build; never import training code or inspect runs."""
 
-project = "ILC Particle Transformer"
+project = "Adaptive Learning-Rate Training for ILC Jet-Flavour Tagging"
 extensions = [
     "sphinx.ext.githubpages",
 ]
