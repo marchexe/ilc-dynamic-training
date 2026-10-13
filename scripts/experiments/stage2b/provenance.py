@@ -45,7 +45,8 @@ def verify_root_provenance(spec, *, readers=None):
     scalars = readers.get('scalars', root_scalars)
     metadata = readers.get('metadata', root_metadata)
     parquet_scalars = readers.get('parquet_scalars', scalar_rows)
-    source_dir = Path(spec['source_dir'])
+    from experiments.site_config import expand
+    source_dir = Path(expand(spec['source_dir']))
     train_parquet = PROJECT_DIR / spec['validation']['dataset']
     tail = load_json(PROJECT_DIR / 'datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_tail_proxy_v1.json')
     flavors, files = [], []

@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument("--metric", default=DEFAULT_METRIC)
     parser.add_argument("--data-config", type=Path, default=Path("checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml"))
     parser.add_argument("--network-config", type=Path, default=Path("networks/pretrained_sgv_particle_transformer.py"))
-    parser.add_argument("--host", default="iutgpu01")
+    parser.add_argument("--host", default=None, help="GPU node (default: preferred node of the local site configuration)")
     parser.add_argument("--gpus", default="0,1,2,3,4,5,6,7")
     parser.add_argument("--batch-size", type=int, default=1024)
     parser.add_argument("--num-workers", type=int, default=1)
@@ -55,7 +55,20 @@ def parse_args():
     parser.add_argument("--finalize-only", action="store_true")
     parser.add_argument("--rebuild-panel", action="store_true")
     parser.add_argument("--prepare-only", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.host = default_host(args.host)
+    return args
+
+
+def default_host(host):
+    """Explicit --host, else the local site's preferred node, else local GPUs."""
+    if host is not None:
+        return host
+    from experiments.site_config import SiteConfigError, cluster
+    try:
+        return cluster()['preferred_node']
+    except SiteConfigError:
+        return None
 
 
 def slots(args):

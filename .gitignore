@@ -22,6 +22,17 @@ __pycache__/
 # Runtime launch records live outside runs/ and remain local.
 logs/
 
+# Local deployment configuration (cluster nodes, private data roots) and
+# credentials never belong in the repository; see configs/site.example.json.
+configs/local/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+id_rsa*
+id_ed25519*
+
 # Preserved preparation inputs are versionable; generated reviews/plots stay local.
 configs/prepared/**/analysis/
 configs/prepared/**/phase1_review/

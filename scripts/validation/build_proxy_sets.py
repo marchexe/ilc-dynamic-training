@@ -38,9 +38,22 @@ def parse_args():
     parser.add_argument("--num-workers", type=int, default=1)
     parser.add_argument("--fetch-step", default="0.01")
     parser.add_argument("--gpu", default="0")
-    parser.add_argument("--host", default="iutgpu01")
+    parser.add_argument("--host", default=None, help="GPU node (default: preferred node of the local site configuration)")
     parser.add_argument("--force", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.host = default_host(args.host)
+    return args
+
+
+def default_host(host):
+    """Explicit --host, else the local site's preferred node, else local GPUs."""
+    if host is not None:
+        return host
+    from experiments.site_config import SiteConfigError, cluster
+    try:
+        return cluster()['preferred_node']
+    except SiteConfigError:
+        return None
 
 
 def ensure_anchor_predictions(args, prediction_path):

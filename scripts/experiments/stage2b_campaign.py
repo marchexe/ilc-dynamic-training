@@ -9,6 +9,7 @@ verification failure, 2 invalid configuration/inputs, 69 unavailable resources
 """
 import argparse
 import json
+import os
 from pathlib import Path
 import shlex
 import signal
@@ -95,8 +96,10 @@ def preflight(output, spec, policy):
 
 def cluster_snapshot():
     # check.sh is an independent operational record, not allocation authority.
+    from experiments.site_config import cluster
+    env = dict(os.environ, ML_PFA_CLUSTER_NODES=' '.join(cluster()['authorized_nodes']))
     result = subprocess.run(['bash', str(PROJECT_DIR / 'scripts/cluster/check.sh')], capture_output=True, text=True,
-                            timeout=120)
+                            timeout=120, env=env)
     return result.stdout + result.stderr
 
 

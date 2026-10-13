@@ -42,7 +42,10 @@ def disk_free(path):
 
 
 def load_policy(path=POLICY):
-    policy = load_json(path)
+    """Committed policy plus local cluster nodes; the digest covers the committed file only."""
+    from experiments.site_config import with_cluster
+    committed = load_json(path)
+    policy = dict(committed, allocation=with_cluster(committed['allocation']))
     if policy.get('schema_version') != 1:
         raise ValueError('Unsupported Stage 2B smoke policy')
     allocation, budgets, smoke = policy['allocation'], policy['budgets'], policy['smoke']
@@ -56,7 +59,7 @@ def load_policy(path=POLICY):
             raise ValueError(f'Budget {key} must be positive')
     if smoke['interrupt_generation'] < 1:
         raise ValueError('Interruption must hit a generation that resumes from a smoke checkpoint')
-    return policy, digest_json(policy)
+    return policy, digest_json(committed)
 
 
 def own_processes_with(token, *, proc=Path('/proc')):

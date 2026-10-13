@@ -28,7 +28,8 @@ from training.pbt.config import load_config, validate_inputs
 from training.pbt.execution.weaver_command import make_command
 from training.runtime import WORKING_POINT_DEFINITION, mistag_percent_key, sha256
 
-SOURCE_DIR = Path('/data/suehara/mldata/flavortag/20250711_ilc_nnqq_sgv_10m')
+# The frozen train8m specification records where its ROOT sources were read from.
+SOURCE_DIR = Path(data.load_spec()[0]['source_dir'])
 LABELS = dict(bb=5, cc=4, dd=2)
 ENTRIES = dict(bb=2500, cc=2300, dd=2100)
 
@@ -696,17 +697,17 @@ class LauncherTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def nodes(self, busy=()):
-        gpus = [dict(host='iutgpu05', index=i, name='NVIDIA A100 80GB PCIe', total_mib=81920,
+        gpus = [dict(host='gpu-node-02', index=i, name='NVIDIA A100 80GB PCIe', total_mib=81920,
                      used_mib=9000 if i in busy else 0, utilization=0, uuid=f'GPU-{i}', pids=[1] if i in busy else [])
                 for i in range(3)]
-        other = [dict(host='iutgpu04', index=0, name='Tesla V100', total_mib=32768, used_mib=0, utilization=0,
+        other = [dict(host='gpu-node-01', index=0, name='Tesla V100', total_mib=32768, used_mib=0, utilization=0,
                       uuid='V', pids=[])]
-        return [dict(host='iutgpu05', gpus=gpus, error=None), dict(host='iutgpu04', gpus=other, error=None),
+        return [dict(host='gpu-node-02', gpus=gpus, error=None), dict(host='gpu-node-01', gpus=other, error=None),
                 dict(host='elsewhere', gpus=gpus, error=None)]
 
     def test_choose_host_requires_idle_homogeneous_pair(self):
         cohort = campaign.choose_host(self.nodes(busy=(0,)), self.policy['allocation'])
-        self.assertEqual((cohort['host'], [g['index'] for g in cohort['gpus']]), ('iutgpu05', [1, 2]))
+        self.assertEqual((cohort['host'], [g['index'] for g in cohort['gpus']]), ('gpu-node-02', [1, 2]))
         with self.assertRaisesRegex(RuntimeError, 'idle GPUs'):
             campaign.choose_host(self.nodes(busy=(0, 1)), self.policy['allocation'])
 
@@ -760,7 +761,7 @@ class LauncherTest(unittest.TestCase):
     def test_status_and_completion_detection(self):
         code, text = self.invoke('--status')
         self.assertEqual((code, json.loads(text)['status']), (0, 'not_started'))
-        smoke.Status(self.output, dict(host='iutgpu05')).phase('dataset_conversion', 'DATASET')
+        smoke.Status(self.output, dict(host='gpu-node-02')).phase('dataset_conversion', 'DATASET')
         self.assertEqual(json.loads(self.invoke('--status')[1])['phase'], 'dataset_conversion')
         self.assertFalse(campaign.completed(self.output))
 

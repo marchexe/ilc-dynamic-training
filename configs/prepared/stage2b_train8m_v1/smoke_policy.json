@@ -1,16 +1,14 @@
 {
   "schema_version": 1,
   "allocation": {
-    "authorized_nodes": ["iutgpu01", "iutgpu02", "iutgpu03", "iutgpu04", "iutgpu05", "iutgpu06", "iutgpu07"],
-    "authorization": "User confirmed direct SSH, tmux and idle GPUs on iutgpu01-07 (recorded 2026-10-12 for Stage 2A; restated for Stage 2B). No Slurm/PBS.",
-    "preferred_node": "iutgpu05",
     "gpus_required": 2,
     "max_parallelism": 2,
     "min_gpu_memory_mib": 40000,
     "max_used_memory_mib": 500,
     "max_util_percent": 5,
     "max_resource_wait_seconds": 1800,
-    "foreign_process_grace_samples": 2
+    "foreign_process_grace_samples": 2,
+    "nodes": "Authorized nodes and the preferred node come from the local site configuration (configs/site.example.json); never GPUs in use by others."
   },
   "budgets": {
     "max_wall_seconds": 14400,
@@ -34,6 +32,9 @@
     "interrupt_delay_seconds": 5,
     "validation_suffix": "val50k_tail",
     "validation_rows": 150000,
-    "draft_dry_runs": ["fixed_lr", "windowed_pbt_v2"]
+    "draft_dry_runs": [
+      "fixed_lr",
+      "windowed_pbt_v2"
+    ]
   }
 }

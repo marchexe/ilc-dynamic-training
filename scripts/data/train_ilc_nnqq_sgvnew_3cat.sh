@@ -10,8 +10,8 @@ echo "args: $@"
 #DATADIR=${DATADIR_JetClass}
 #[[ -z $DATADIR ]] && DATADIR='./datasets/JetClass'
 
-DATADIR='/data/suehara/mldata/flavortag/20250711_ilc_nnqq_sgv_10m'
-# DATADIR='/data/suehara/mldata/flavortag/20250614_ilc_nnqq_sgv_10m'
+# Private source location: export ILC_SGV10M_SOURCE_DIR (see configs/site.example.json).
+DATADIR="${ILC_SGV10M_SOURCE_DIR:?set ILC_SGV10M_SOURCE_DIR to the 20250711 SGV source directory}"
 
 # set a comment via `COMMENT`
 suffix=${COMMENT}
@@ -82,7 +82,7 @@ $CMD \
     --model-prefix training/unprocessed/${yaml_name}/net \
     $dataopts $batchopts \
     --samples-per-epoch ${samples_per_epoch} --samples-per-epoch-val ${samples_per_epoch_val} --num-epochs $epochs --gpus $gpu_index \
-    --optimizer ranger --log logs/unprocessed/${yaml_name}/${yaml_name}.log --predict-output /data/suehara/part/takahiro/training/unprocessed/ilc_nnqq_sgv_3category_test/predict_output_1m1/pred.root \
+    --optimizer ranger --log logs/unprocessed/${yaml_name}/${yaml_name}.log --predict-output training/unprocessed/${yaml_name}/predict_output/pred.root \
     --tensorboard ILC_${yaml_name}_${suffix} \
     --gpus "1,2,3" \
     "${@:3}"

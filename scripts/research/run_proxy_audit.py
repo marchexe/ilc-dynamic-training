@@ -423,7 +423,7 @@ def main():
     # results, and having them on disk from the start means a run killed
     # before a single checkpoint finishes still records what was launched.
     (experiment_dir / "resolved_config.yaml").write_text(yaml.safe_dump(audit_config, sort_keys=False), encoding="utf-8")
-    (experiment_dir / "environment.json").write_text(json.dumps(environment_info(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    (experiment_dir / "environment.json").write_text(json.dumps(environment_info(unique_hosts(audit_config)), indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     weaver_config = build_weaver_config(audit_config)
     distinct_checkpoints, duplicates = dedupe_checkpoints(audit_config["checkpoints"])
@@ -512,7 +512,7 @@ def main():
         sys.exit(130 if shutdown.signal_name == "SIGINT" else 143)
 
 
-def environment_info():
+def environment_info(hosts=()):
     import platform
     import subprocess
 
@@ -528,7 +528,8 @@ def environment_info():
         info["torch_version"] = f"unavailable: {error}"
     try:
         info["gpu_info"] = subprocess.run(
-            ["ssh", "iutgpu01", "nvidia-smi", "--query-gpu=index,name,memory.used,memory.total,utilization.gpu", "--format=csv"],
+            ([*(["ssh", hosts[0]] if hosts else []), "nvidia-smi",
+              "--query-gpu=index,name,memory.used,memory.total,utilization.gpu", "--format=csv"]),
             capture_output=True, text=True, timeout=30, check=False,
         ).stdout
     except Exception as error:

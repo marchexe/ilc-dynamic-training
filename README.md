@@ -15,7 +15,7 @@ and Population Based Training experiments.
 ```text
 model:      networks/pretrained_sgv_particle_transformer.py
 checkpoint: checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/net_best_epoch_state.pt
-data cfg:   /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml
+data cfg:   checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml
 dataset:    datasets/20250218_ilc_nnqq_sgvnew_parquet
 format:     parquet
 ```
@@ -74,28 +74,38 @@ configs/controllers/linucb_lr_pp_active.yaml
 configs/controllers/linucb_lr_pp_observe.yaml
 ```
 
+## Local configuration
+
+Cluster node names and private data roots are deployment details and are not
+committed. Copy `configs/site.example.json` to `configs/local/site.json`
+(gitignored, or point `ILC_SITE_CONFIG` at another file) and fill in the GPU
+nodes, the preferred node and `ILC_SGV10M_SOURCE_DIR` (the 20250711 SGV ROOT
+source). Launchers fail with an explicit message when it is missing; tests use
+the template. In the commands below, `<gpu-node>` is one of your configured
+nodes and `<project-dir>` is this checkout.
+
 ## Commands
 
 Install/update the Python 3.10 GPU-node environment:
 
 ```bash
-ssh iutgpu02 'cd /data/suehara/part/march && python3 -m venv .venv'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python -m pip install --upgrade pip'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python -m pip install -r requirements.txt -c requirements-lock.txt'
+ssh <gpu-node> 'cd <project-dir> && python3 -m venv .venv'
+ssh <gpu-node> 'cd <project-dir> && .venv/bin/python -m pip install --upgrade pip'
+ssh <gpu-node> 'cd <project-dir> && .venv/bin/python -m pip install -r requirements.txt -c requirements-lock.txt'
 ```
 
 Inspect commands without launching training:
 
 ```bash
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_comparison.py --dry-run'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml --gpus 0,1,2,3 --experiment-name ray_anchored_lr_sweep_epochwise --dry-run'
+ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/training/run_comparison.py --dry-run'
+ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/training/run_pbt.py --config configs/experiments/pbt_anchored_lr_sweep_ray_trial.yaml --gpus 0,1,2,3 --experiment-name ray_anchored_lr_sweep_epochwise --dry-run'
 ```
 
 Run the current Ray PBT trial:
 
 ```bash
-ssh iutgpu02
-cd /data/suehara/part/march
+ssh <gpu-node>
+cd <project-dir>
 tmux new -s ray_pbt
 source .venv/bin/activate
 .venv/bin/python scripts/training/run_pbt.py \
@@ -107,8 +117,8 @@ source .venv/bin/activate
 Run smoke checks on a GPU node:
 
 ```bash
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_comparison.py --smoke --gpus 0,2'
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python scripts/training/run_pbt.py --smoke --gpus 0,2'
+ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/training/run_comparison.py --smoke --gpus 0,2'
+ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/training/run_pbt.py --smoke --gpus 0,2'
 ```
 
 Validate the pretrained checkpoint:
@@ -123,8 +133,8 @@ Fine-tuning architecture for the pretrained best checkpoint:
 # Full 8GPU guarded continuation from pretrained epoch17 + optimizer state.
 .venv/bin/python scripts/training/run_pbt.py \
   --config configs/experiments/pretrained_guarded_8gpu_smooth_lr.yaml \
-  --slots iutgpu01:0,iutgpu01:1,iutgpu01:2,iutgpu01:3,iutgpu01:4,iutgpu01:5,iutgpu01:6,iutgpu01:7 \
-  --experiment-name pretrained_guarded_8gpu_iutgpu01_$(date +%Y%m%d)
+  --slots <gpu-node>:0,<gpu-node>:1,<gpu-node>:2,<gpu-node>:3,<gpu-node>:4,<gpu-node>:5,<gpu-node>:6,<gpu-node>:7 \
+  --experiment-name pretrained_guarded_8gpu_$(date +%Y%m%d)
 
 # Shorter 4GPU guarded test run using the same pretrained/safety presets.
 .venv/bin/python scripts/training/run_pbt.py \
@@ -137,7 +147,7 @@ The guarded fine-tuning runs rank workers by `validation_working_point_mistag_pe
 
 Datasets are not committed; the expected local parquet layout is recorded in `datasets/manifests/`.
 
-The main proxy-validation dataset is a local 3-category subset of `/data/suehara/mldata/flavortag/20250711_ilc_nnqq_sgv_10m`, restricted to `bb/cc/dd` to match the current pretrained 3cat head and working-point metrics. Rebuild its parquet form with:
+The main proxy-validation dataset is a local 3-category subset of the 20250711 SGV source (`ILC_SGV10M_SOURCE_DIR`), restricted to `bb/cc/dd` to match the current pretrained 3cat head and working-point metrics. Rebuild its parquet form with:
 
 ```bash
 bash scripts/data/convert_20250711_sgv10m_3cat_to_parquet.sh
@@ -164,7 +174,7 @@ The final PBT artifact set is intentionally small:
 Run tests:
 
 ```bash
-ssh iutgpu02 'cd /data/suehara/part/march && .venv/bin/python -m unittest discover -v'
+ssh <gpu-node> 'cd <project-dir> && .venv/bin/python -m unittest discover -v'
 ```
 
 ### Windowed PBT continuation and presentation
@@ -225,6 +235,7 @@ Details, verified facts, budgets and limitations:
 `configs/prepared/stage2b_train8m_v1/README.md`. Inactive Stage 3 drafts:
 `configs/drafts/stage3_train8m_v1/`. Legacy `val5k`/`val50k` lie inside
 train8m and are rejected for train8m selection.
+
 
 ## Project Layout
 

@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -5,6 +6,8 @@ from types import SimpleNamespace
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = PROJECT_DIR / "scripts"
+# Tests are hermetic: never read a developer's private site configuration.
+os.environ["ILC_SITE_CONFIG"] = str(PROJECT_DIR / "configs/site.example.json")
 
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))

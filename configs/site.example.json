@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "cluster": {
+    "nodes": ["gpu-node-01", "gpu-node-02", "gpu-node-03"],
+    "preferred_node": "gpu-node-02"
+  },
+  "paths": {
+    "ILC_SGV10M_SOURCE_DIR": "/path/to/20250711_ilc_nnqq_sgv_10m"
+  }
+}

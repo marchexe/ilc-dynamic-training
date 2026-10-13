@@ -43,7 +43,7 @@ inputs or configuration, 69 no GPU/disk/remote submission, 75 locked.
 | dd | 2 | 7,956,165 | exact, 795,686 rows | 0 | 49,729/49,729, 4,970/4,970 |
 
 * Total **23,921,449** rows = ROOT entries (jets) of
-  `/data/suehara/mldata/flavortag/20250711_ilc_nnqq_sgv_10m/ml_flavtag_6cat_{bb,cc,dd}_train8m.root`,
+  `${ILC_SGV10M_SOURCE_DIR}/ml_flavtag_6cat_{bb,cc,dd}_train8m.root`,
   produced by `divide_energy_10m.C` with `Entry$<8000000` and the common cut
   `pfcand_px[0]>-250&&pfcand_pz[0]>-250&&pfcand_e[0]<250&&neu_pfcand_pz[0]<60&&neu_pfcand_e[0]<120`
   (raw window 24,000,000; 99.67% pass). The cut is already applied in the ROOT

@@ -5,7 +5,7 @@
 # Usage:
 #   scripts/cluster/watch.sh
 #   scripts/cluster/watch.sh 2
-#   ML_PFA_CLUSTER_NODES=iutgpu02 scripts/cluster/watch.sh 1
+#   ML_PFA_CLUSTER_NODES="node-a node-b" scripts/cluster/watch.sh 1
 
 set -euo pipefail
 
@@ -20,7 +20,8 @@ if ! command -v watch >/dev/null 2>&1; then
     exit 1
 fi
 
-export ML_PFA_CLUSTER_NODES="${ML_PFA_CLUSTER_NODES:-iutgpu01 iutgpu02 iutgpu03 iutgpu04 iutgpu05 iutgpu06 iutgpu07}"
+# Nodes: ML_PFA_CLUSTER_NODES, else the local site configuration when present.
+export ML_PFA_CLUSTER_NODES="${ML_PFA_CLUSTER_NODES:-$(python3 "$SCRIPT_DIR/../experiments/site_config.py" nodes 2>/dev/null || true)}"
 export ML_PFA_ALLOW_PASSWORD="${ML_PFA_ALLOW_PASSWORD:-0}"
 export ML_PFA_DEBUG="${ML_PFA_DEBUG:-0}"
 export ML_PFA_SSH_CONFIG="${ML_PFA_SSH_CONFIG:-}"

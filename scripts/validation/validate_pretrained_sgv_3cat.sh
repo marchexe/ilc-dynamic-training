@@ -26,7 +26,7 @@ weaver \
     "${data_dir}/ml_flavtag_6cat_bb_val50k.root" \
     "${data_dir}/ml_flavtag_6cat_cc_val50k.root" \
     "${data_dir}/ml_flavtag_6cat_dd_val50k.root" \
-  --data-config /data/suehara/part/data/ilc_nnqq_sgvnew_3cat_cut.217feb3dc9ed1ee6978db1c04604f81b.auto.yaml \
+  --data-config checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml \
   --network-config networks/pretrained_sgv_particle_transformer.py \
   --model-prefix "${checkpoint}" \
   --log-file "${log_file}" \
