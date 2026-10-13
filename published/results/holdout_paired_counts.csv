@@ -1,0 +1,41 @@
+comparison,working_point,background_jets,mistagged_by_both,mistagged_by_comparator_only,mistagged_by_treatment_only,mistagged_by_neither,delta_pp
+"Windowed PBT vs fixed-LR population, 50 ep.",bc_mistag_eff_0.80_percent,941995,1241,55,31,940668,-0.002547783703576084
+"Windowed PBT vs fixed-LR population, 50 ep.",bd_mistag_eff_0.80_percent,939485,432,15,15,939023,0.0
+"Windowed PBT vs fixed-LR population, 50 ep.",bc_mistag_eff_0.90_percent,941995,23209,1315,757,916714,-0.05923592535196054
+"Windowed PBT vs fixed-LR population, 50 ep.",bd_mistag_eff_0.90_percent,939485,1590,48,32,937815,-0.001703063339911548
+"Windowed PBT vs fixed-LR population, 50 ep.",cb_mistag_eff_0.50_percent,943645,3596,182,95,939772,-0.009219563995820412
+"Windowed PBT vs fixed-LR population, 50 ep.",cd_mistag_eff_0.50_percent,939485,438,10,6,939031,-0.0004257674958192126
+"Windowed PBT vs fixed-LR population, 50 ep.",cb_mistag_eff_0.80_percent,943645,21134,715,442,921354,-0.028930240659626794
+"Windowed PBT vs fixed-LR population, 50 ep.",cd_mistag_eff_0.80_percent,939485,9039,297,174,929975,-0.013092252995639653
+"Windowed PBT vs fixed LR 1.4e-5, 100 ep.",bc_mistag_eff_0.80_percent,941995,1159,81,45,940710,-0.0038216747096048997
+"Windowed PBT vs fixed LR 1.4e-5, 100 ep.",bd_mistag_eff_0.80_percent,939485,422,11,13,939039,0.00021288569556977138
+"Windowed PBT vs fixed LR 1.4e-5, 100 ep.",bc_mistag_eff_0.90_percent,941995,22012,1356,873,917754,-0.051273938546505526
+"Windowed PBT vs fixed LR 1.4e-5, 100 ep.",bd_mistag_eff_0.90_percent,939485,1552,53,39,937841,-0.001490172468380846
+"Windowed PBT vs fixed LR 1.4e-5, 100 ep.",cb_mistag_eff_0.50_percent,943645,3434,158,143,939910,-0.001589583118621618
+"Windowed PBT vs fixed LR 1.4e-5, 100 ep.",cd_mistag_eff_0.50_percent,939485,417,18,8,939042,-0.0010644144958710522
+"Windowed PBT vs fixed LR 1.4e-5, 100 ep.",cb_mistag_eff_0.80_percent,943645,20386,843,525,921891,-0.03369909106331859
+"Windowed PBT vs fixed LR 1.4e-5, 100 ep.",cd_mistag_eff_0.80_percent,939485,8673,393,225,930194,-0.017882140268692392
+"Every-epoch vs every-5-epochs PBT, seed 12345",bc_mistag_eff_0.80_percent,941995,1223,31,35,940706,0.0004246345029675358
+"Every-epoch vs every-5-epochs PBT, seed 12345",bd_mistag_eff_0.80_percent,939485,422,5,12,939046,0.0007450886746018931
+"Every-epoch vs every-5-epochs PBT, seed 12345",bc_mistag_eff_0.90_percent,941995,22993,539,581,917882,0.004458653352635178
+"Every-epoch vs every-5-epochs PBT, seed 12345",bd_mistag_eff_0.90_percent,939485,1586,22,29,937848,0.0007450790421441034
+"Every-epoch vs every-5-epochs PBT, seed 12345",cb_mistag_eff_0.50_percent,943645,3577,60,87,939921,0.0028612288870856206
+"Every-epoch vs every-5-epochs PBT, seed 12345",cd_mistag_eff_0.50_percent,939485,423,7,7,939048,0.0
+"Every-epoch vs every-5-epochs PBT, seed 12345",cb_mistag_eff_0.80_percent,943645,21060,309,353,921923,0.00466277190876907
+"Every-epoch vs every-5-epochs PBT, seed 12345",cd_mistag_eff_0.80_percent,939485,8961,134,158,930232,0.0025546115338352937
+"Every-epoch vs every-5-epochs PBT, seed 22345",bc_mistag_eff_0.80_percent,941995,1209,29,46,940711,0.0018046780847537913
+"Every-epoch vs every-5-epochs PBT, seed 22345",bd_mistag_eff_0.80_percent,939485,425,8,6,939046,-0.00021287939610766665
+"Every-epoch vs every-5-epochs PBT, seed 22345",bc_mistag_eff_0.90_percent,941995,22682,724,813,917776,0.009447882303184052
+"Every-epoch vs every-5-epochs PBT, seed 22345",bd_mistag_eff_0.90_percent,939485,1580,27,24,937854,-0.0003193282819971832
+"Every-epoch vs every-5-epochs PBT, seed 22345",cb_mistag_eff_0.50_percent,943645,3541,83,92,939929,0.0009537393372683334
+"Every-epoch vs every-5-epochs PBT, seed 22345",cd_mistag_eff_0.50_percent,939485,429,8,5,939043,-0.0003193211509561686
+"Every-epoch vs every-5-epochs PBT, seed 22345",cb_mistag_eff_0.80_percent,943645,20936,348,434,921927,0.009113722051732331
+"Every-epoch vs every-5-epochs PBT, seed 22345",cd_mistag_eff_0.80_percent,939485,8930,147,147,930261,0.0
+"Every-epoch vs windowed PBT, 50 ep.",bc_mistag_eff_0.80_percent,941995,1215,57,43,940680,-0.0014862013702707233
+"Every-epoch vs windowed PBT, 50 ep.",bd_mistag_eff_0.80_percent,939485,430,17,4,939034,-0.0013837364944008848
+"Every-epoch vs windowed PBT, 50 ep.",bc_mistag_eff_0.90_percent,941995,22819,1147,755,917274,-0.0416138430048143
+"Every-epoch vs windowed PBT, 50 ep.",bd_mistag_eff_0.90_percent,939485,1583,39,32,937831,-0.000745099211918343
+"Every-epoch vs windowed PBT, 50 ep.",cb_mistag_eff_0.50_percent,943645,3570,121,94,939860,-0.002861255763171422
+"Every-epoch vs windowed PBT, 50 ep.",cd_mistag_eff_0.50_percent,939485,423,21,7,939034,-0.0014901774392112044
+"Every-epoch vs windowed PBT, 50 ep.",cb_mistag_eff_0.80_percent,943645,20979,597,434,921635,-0.017273530342430732
+"Every-epoch vs windowed PBT, 50 ep.",cd_mistag_eff_0.80_percent,939485,8953,260,166,930106,-0.01000549436358844
