@@ -50,8 +50,20 @@ The supervisor runs the phases in order (`--status` shows the current one):
        (21,512,821 ± 8,831).
      - Optimizer steps = batches − AMP skips; AMP skips ≤1%.
      - No sample caps.
-     - Finite loss, gradient norm, primary metric and all eight working
-       points.
+     - Finite training and validation loss, primary metric and all eight
+       working points. A failure lists each failing key with its observed
+       value.
+     - Maximum gradient norm, read from the worker log. Weaver's epoch
+       maximum includes AMP-skipped steps, whose gradients overflowed, so it
+       may be `inf`. A finite value passes. `inf` passes only when all of the
+       following hold:
+       - the log, the manifest and the data-audit accounting
+         (batches − optimizer steps) agree on at least one skipped step;
+       - the manifest records no gradient norm;
+       - the step-accounting and AMP-fraction checks pass.
+
+       `nan`, `-inf`, missing, malformed or duplicated values, missing AMP
+       counters and inconsistent counters fail.
      - Complete 150,000-row validation.
      - A consistent model/Ranger/scaler bundle.
      - CUDA allocation within ±10% of the Stage 2B 21,540 MB; nvidia-smi
@@ -66,6 +78,18 @@ The supervisor runs the phases in order (`--status` shows the current one):
      failure, reruns stay blocked until `--retry-gate`.
    - Gate outputs are never reused by either arm. Its epoch-18 state is only
      a determinism reference.
+   - **Gate history.**
+     - Attempt 1 failed only the earlier combined finiteness criterion. The
+       log reported `Max Grad Norm: inf` with 7 AMP-skipped steps out of
+       21,012, and the shared parser does not record `inf`.
+     - The criterion was then split into the two checks above.
+       `gate_revision_1.json` (+ `.sha256`) records the failed verdict's hash,
+       the defect, the exact rule, and that the correction was made after
+       inspecting attempt 1. The protocol, thresholds and pinned files are
+       unchanged.
+     - Attempt 2 passed all 19 checks and reproduced attempt 1's epoch-18
+       state bit for bit.
+     - Both attempt records are kept in `gate/`.
 3. **ARMS**: the production runner per arm, each on five leased GPUs of the
    campaign model.
    - Each arm starts as soon as a full five-GPU set is idle. Both run
