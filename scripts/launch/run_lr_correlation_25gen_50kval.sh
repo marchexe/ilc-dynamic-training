@@ -3,8 +3,8 @@
 # matrix, revised after stage1 (see
 # configs/experiments/anchor_copy_lr_recenter_50gen_50kval.yaml's own
 # comment for why this now uses the cheap 150k-row control tier instead of
-# the originally-planned 1M-row tier) on iutgpu02:0-3 (iutgpu01 is fully
-# occupied by another user's job as of 2026-08-16; iutgpu02 only has 4
+# the originally-planned 1M-row tier) on 4 GPUs of one node (the larger node was
+# unavailable at the time; the other node only had 4
 # free GPUs, so this and the 50gen sibling run sequentially, not in
 # parallel -- see run_lr_correlation_matrix_stage2_50kval.sh). Not executed
 # automatically -- run it yourself, typically via nohup, e.g.:
@@ -15,9 +15,9 @@
 # own name). The stage2 wrapper passes a timestamped name here.
 set -euo pipefail
 
-PROJECT_DIR="/data/suehara/part/march"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONFIG="configs/experiments/anchor_copy_lr_recenter_25gen_50kval.yaml"
-SLOTS="iutgpu02:0,iutgpu02:1,iutgpu02:2,iutgpu02:3"
+SLOTS="${ILC_SLOTS:?set ILC_SLOTS to 4 comma-separated host:gpu slots of idle GPUs}"
 EXPERIMENT_NAME="${1:-anchor_copy_lr_recenter_25gen_50kval}"
 
 cd "$PROJECT_DIR"

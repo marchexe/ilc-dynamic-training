@@ -22,12 +22,12 @@ from weaver.utils.nn.metrics import bkg_rejection_at_eff
 
 
 def policy():
-    return dict(authorized_nodes=[f'iutgpu0{i}' for i in range(1,8)],preferred_node='iutgpu05',
+    return dict(authorized_nodes=[f'gpu-node-0{i}' for i in range(1,8)],preferred_node='gpu-node-05',
                 max_parallelism=3,min_gpu_memory_mib=40000,max_used_memory_mib=500,max_util_percent=5,
                 max_resource_wait_seconds=0,evaluation_timeout_seconds=5)
 
 
-def gpu(index=0, *, host='iutgpu05', name='NVIDIA A100 80GB PCIe', memory=81920, used=0, util=0, pids=None):
+def gpu(index=0, *, host='gpu-node-05', name='NVIDIA A100 80GB PCIe', memory=81920, used=0, util=0, pids=None):
     return dict(host=host,index=index,name=name,total_mib=memory,used_mib=used,utilization=util,
                 uuid=f'GPU-{host}-{index}',pids=pids or [])
 
@@ -75,50 +75,50 @@ def synthetic_result(root, checkpoint, frozen, *, seed=7):
 
 class GPUAllocationTest(unittest.TestCase):
     def test_prefers_authorized_homogeneous_a100_80_on_gpu05(self):
-        nodes=[dict(host='iutgpu02',gpus=[gpu(i,host='iutgpu02',memory=40960) for i in range(4)]),
-               dict(host='iutgpu05',gpus=[gpu(i) for i in range(10)])]
+        nodes=[dict(host='gpu-node-02',gpus=[gpu(i,host='gpu-node-02',memory=40960) for i in range(4)]),
+               dict(host='gpu-node-05',gpus=[gpu(i) for i in range(10)])]
         choice=scheduling.choose_cohort(nodes,policy())
-        self.assertEqual(choice['host'],'iutgpu05');self.assertEqual(choice['max_parallelism'],3)
+        self.assertEqual(choice['host'],'gpu-node-05');self.assertEqual(choice['max_parallelism'],3)
         self.assertEqual(len(choice['gpus']),3)
 
     def test_rejects_empty_busy_foreign_or_insufficient_memory(self):
         for gpus in [[],[gpu(pids=[123])],[gpu(used=500)],[gpu(util=5)],[gpu(memory=24576)]]:
             with self.subTest(gpus=gpus):
                 with self.assertRaisesRegex(RuntimeError,'CPU fallback'):
-                    scheduling.choose_cohort([dict(host='iutgpu05',gpus=gpus)],policy())
+                    scheduling.choose_cohort([dict(host='gpu-node-05',gpus=gpus)],policy())
         with self.assertRaises(RuntimeError):
             scheduling.choose_cohort([dict(host='unauthorized',gpus=[gpu()])],policy())
 
     def test_uses_free_fallback_and_does_not_mix_models(self):
-        nodes=[dict(host='iutgpu05',gpus=[gpu(pids=[99])]),dict(host='iutgpu02',gpus=[
-               gpu(0,host='iutgpu02',memory=40960),gpu(1,host='iutgpu02',name='A6000',memory=49152)])]
+        nodes=[dict(host='gpu-node-05',gpus=[gpu(pids=[99])]),dict(host='gpu-node-02',gpus=[
+               gpu(0,host='gpu-node-02',memory=40960),gpu(1,host='gpu-node-02',name='A6000',memory=49152)])]
         choice=scheduling.choose_cohort(nodes,policy())
-        self.assertEqual(choice['host'],'iutgpu02');self.assertEqual(choice['max_parallelism'],1)
+        self.assertEqual(choice['host'],'gpu-node-02');self.assertEqual(choice['max_parallelism'],1)
 
     def test_unknown_process_or_gpu_data_fails_closed(self):
-        with self.assertRaises(ValueError):scheduling.parse_probe('bad','', 'iutgpu05')
-        with self.assertRaises(ValueError):scheduling.parse_probe('0,A100,81920,0,0,GPU-1','unknown,GPU-1','iutgpu05')
-        parsed=scheduling.parse_probe('0,A100,81920,0,0,GPU-1','123,GPU-1','iutgpu05')
+        with self.assertRaises(ValueError):scheduling.parse_probe('bad','', 'gpu-node-05')
+        with self.assertRaises(ValueError):scheduling.parse_probe('0,A100,81920,0,0,GPU-1','unknown,GPU-1','gpu-node-05')
+        parsed=scheduling.parse_probe('0,A100,81920,0,0,GPU-1','123,GPU-1','gpu-node-05')
         self.assertEqual(parsed[0]['pids'],[123]);self.assertFalse(scheduling.free_gpu(parsed[0],policy()))
 
     def test_bounded_parallelism(self):
-        nodes=[dict(host='iutgpu05',gpus=[gpu(i) for i in range(10)])]
+        nodes=[dict(host='gpu-node-05',gpus=[gpu(i) for i in range(10)])]
         for limit in [0,-1,10]:
             with self.assertRaises(ValueError):scheduling.choose_cohort(nodes,policy(),limit)
         self.assertEqual(scheduling.choose_cohort(nodes,policy(),2)['max_parallelism'],2)
 
     def test_gpu_is_rechecked_after_lease_acquisition(self):
         with tempfile.TemporaryDirectory() as temporary:
-            output=Path(temporary);cohort=dict(host='iutgpu05',gpus=[gpu()])
+            output=Path(temporary);cohort=dict(host='gpu-node-05',gpus=[gpu()])
             with patch.object(execution,'probe_local'):
                 with self.assertRaisesRegex(RuntimeError,'became busy'):
                     execution.acquire_gpu(output,cohort,policy(),threading.Event(),
                         probe=unittest.mock.Mock(side_effect=[[gpu()],[gpu(pids=[999])]]))
-            lease=common.lock_file(output/'.gpu-locks/iutgpu05_GPU-iutgpu05-0.lock');lease.close()
+            lease=common.lock_file(output/'.gpu-locks/gpu-node-05_GPU-gpu-node-05-0.lock');lease.close()
 
     def test_gpu_cooperative_lease_prevents_duplicate_allocation(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root=Path(temporary);cohort=dict(host='iutgpu05',gpus=[gpu()])
+            root=Path(temporary);cohort=dict(host='gpu-node-05',gpus=[gpu()])
             _,lease=execution.acquire_gpu(root,cohort,policy(),threading.Event(),probe=lambda:[gpu()])
             with self.assertRaises(RuntimeError):
                 execution.acquire_gpu(root,cohort,policy(),threading.Event(),probe=lambda:[gpu()])
@@ -126,7 +126,7 @@ class GPUAllocationTest(unittest.TestCase):
 
     def test_newly_available_homogeneous_gpu_replaces_busy_preflight_gpu(self):
         with tempfile.TemporaryDirectory() as temporary:
-            cohort=dict(host='iutgpu05',name=gpu()['name'],total_mib=81920,gpus=[gpu()])
+            cohort=dict(host='gpu-node-05',name=gpu()['name'],total_mib=81920,gpus=[gpu()])
             allocated,lease=execution.acquire_gpu(Path(temporary),cohort,policy(),threading.Event(),
                 probe=lambda:[gpu(pids=[999]),gpu(3)])
             self.assertEqual(allocated['index'],3);lease.close()
@@ -248,7 +248,7 @@ class EvaluationRecoveryTest(unittest.TestCase):
             self.assertEqual(len(kwargs['pass_fds']),2)
             self.assertEqual(kwargs['env']['CUDA_VISIBLE_DEVICES'],gpu()['uuid'])
             return process
-        cohort=dict(host='iutgpu05',gpus=[gpu()],max_parallelism=1)
+        cohort=dict(host='gpu-node-05',gpus=[gpu()],max_parallelism=1)
         with patch.object(execution.subprocess,'Popen',side_effect=start), \
              patch.object(execution,'git_metadata',return_value=dict(commit='synthetic')):
             record=execution.evaluate(checkpoint,self.frozen,'protocol',self.root/'run',cohort,threading.Event(),probe=lambda:[gpu()])
@@ -265,7 +265,7 @@ class EvaluationRecoveryTest(unittest.TestCase):
         with patch.object(execution.subprocess,'Popen',return_value=process), \
              patch.object(execution,'git_metadata',return_value=dict(commit='synthetic')):
             record=execution.evaluate(checkpoint,self.frozen,'protocol',self.root/'no_artifact',
-                dict(host='iutgpu05',gpus=[gpu()]),threading.Event(),probe=lambda:[gpu()])
+                dict(host='gpu-node-05',gpus=[gpu()]),threading.Event(),probe=lambda:[gpu()])
         self.assertEqual(record['status'],'failed');self.assertIn('Required final evaluation',record['error'])
 
     def test_foreign_gpu_collision_stops_only_own_worker(self):
@@ -276,7 +276,7 @@ class EvaluationRecoveryTest(unittest.TestCase):
         with patch.object(execution.subprocess,'Popen',return_value=process), \
              patch.object(execution,'git_metadata',return_value=dict(commit='synthetic')), \
              patch.object(execution,'terminate_own') as terminate:
-            record=execution.evaluate(checkpoint,self.frozen,'protocol',self.root/'foreign',dict(host='iutgpu05',gpus=[gpu()]),stop,probe=probe)
+            record=execution.evaluate(checkpoint,self.frozen,'protocol',self.root/'foreign',dict(host='gpu-node-05',gpus=[gpu()]),stop,probe=probe)
         self.assertEqual(record['status'],'failed');self.assertIn('Foreign GPU',record['error'])
         terminate.assert_called_once_with(process)
 
@@ -290,7 +290,7 @@ class EvaluationRecoveryTest(unittest.TestCase):
             record,_=synthetic_result(Path(output)/'evaluations',checkpoint,frozen,seed=7)
             common.write_json(path,record);records[checkpoint['id']]=record
             return record
-        cohort=dict(host='iutgpu05',gpus=[gpu()],max_parallelism=2)
+        cohort=dict(host='gpu-node-05',gpus=[gpu()],max_parallelism=2)
         output=self.root/'campaign'
         first=execution.run_campaign(self.frozen,'protocol',output,cohort,evaluator=mock)
         self.assertEqual(first['status'],'evaluated')
@@ -370,7 +370,7 @@ class LaunchSafetyTest(unittest.TestCase):
     def test_complete_dry_run_never_starts_tmux_or_subprocess_inference(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);frozen=synthetic_protocol(root);prepared=root/'prepared';prepared.mkdir()
-            nodes=[dict(host='iutgpu05',gpus=[gpu(i) for i in range(5)])]
+            nodes=[dict(host='gpu-node-05',gpus=[gpu(i) for i in range(5)])]
             with patch('experiments.stage2a.protocol.load_protocol',return_value=(frozen,'protocol')), \
                  patch.object(launcher,'discover',return_value=nodes),patch.object(launcher,'launch_tmux') as tmux:
                 with redirect_stdout(io.StringIO()):
@@ -383,7 +383,7 @@ class LaunchSafetyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);frozen=synthetic_protocol(root)
             with patch('experiments.stage2a.protocol.load_protocol',return_value=(frozen,'protocol')), \
-                 patch.object(launcher,'discover',return_value=[dict(host='iutgpu05',gpus=[gpu(pids=[999])])]), \
+                 patch.object(launcher,'discover',return_value=[dict(host='gpu-node-05',gpus=[gpu(pids=[999])])]), \
                  patch.object(launcher,'launch_tmux') as tmux:
                 code=launcher.main(['--dry-run','--prepared',str(root),'--output',str(root/'output')])
             self.assertEqual(code,69);tmux.assert_not_called()
@@ -391,7 +391,7 @@ class LaunchSafetyTest(unittest.TestCase):
 
     def test_remote_command_quotes_paths_and_uses_persistent_tmux(self):
         with patch.object(launcher.subprocess,'run') as run:
-            launcher.launch_tmux('iutgpu05','stage2a-test',Path('/tmp/space path'),Path('/tmp/prepared'),{})
+            launcher.launch_tmux('gpu-node-05','stage2a-test',Path('/tmp/space path'),Path('/tmp/prepared'),{})
         command=run.call_args_list[-1].args[0][-1]
         self.assertIn('tmux new-session -d',command);self.assertIn('--on-node',command)
         self.assertIn('supervisor.log',command);self.assertNotIn('nohup',command)

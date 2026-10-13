@@ -5,13 +5,13 @@
 # configs/experiments/anchor_copy_lr_recenter_v2_validation.yaml's own
 # comment for what this run is and is not for.
 #
-# On iutgpu02:0-3 (4 GPUs, A100-PCIe-40GB) plus one GPU borrowed from
-# iutgpu05 (iutgpu05:1, A100-80GB-PCIe, the only free one there as of
+# On 4 GPUs of one node (4 GPUs, A100-PCIe-40GB) plus one GPU borrowed from
+# a second node (one GPU, A100-80GB-PCIe, the only free one there as of
 # 2026-08-20) -- true 1-GPU-per-member parallelism for all 5 members,
 # multi-host --slots (host:gpu pairs, same project .venv path on both
 # hosts, per run_pbt.py's own --slots help text). Avoids both the
 # round-robin slowdown of packing 5 members onto 4 slots and switching to
-# the weaker/heterogeneous iutgpu06 (RTX A6000/4000 Ada) node.
+# the weaker/heterogeneous RTX A6000/4000 Ada node.
 #
 # Run it yourself, typically via nohup, e.g.:
 #   nohup bash scripts/launch/run_anchor_copy_lr_recenter_v2_validation.sh > /tmp/anchor_v2_validation.log 2>&1 &
@@ -20,9 +20,9 @@
 # own name).
 set -euo pipefail
 
-PROJECT_DIR="/data/suehara/part/march"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONFIG="configs/experiments/anchor_copy_lr_recenter_v2_validation.yaml"
-SLOTS="iutgpu05:1,iutgpu02:0,iutgpu02:1,iutgpu02:2,iutgpu02:3"
+SLOTS="${ILC_SLOTS:?set ILC_SLOTS to 5 comma-separated host:gpu slots of idle GPUs}"
 EXPERIMENT_NAME="${1:-anchor_copy_lr_recenter_v2_validation}"
 
 cd "$PROJECT_DIR"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Launch both legs of the overnight controller-off/controller-active A/B
-# experiment simultaneously via nohup, on the same node (iutgpu01:0-3 for
-# controller-off, iutgpu01:4-7 for controller-active). Not executed
+# experiment simultaneously via nohup, on the same node (4 GPUs of one node for
+# controller-off, 4 GPUs of one node for controller-active). Not executed
 # automatically -- run it yourself, e.g.:
 #   nohup bash scripts/launch/run_night_controller_ab.sh > /tmp/ab_wrapper_night.log 2>&1 &
 # (the wrapper itself backgrounds both children immediately and returns, so
@@ -14,7 +14,7 @@
 # completed run.
 set -euo pipefail
 
-PROJECT_DIR="/data/suehara/part/march"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 LAUNCH_DIR="$PROJECT_DIR/scripts/launch"
 LOG_DIR="$PROJECT_DIR/logs/experiments"
 

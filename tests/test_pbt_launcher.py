@@ -169,14 +169,14 @@ class PBTLauncherTest(unittest.TestCase):
                 config=PROJECT_DIR / "configs/experiments/pbt_smoke.yaml",
                 experiment_name="unit_test_remote",
                 gpus=None,
-                slots="iutgpu01:6,iutgpu05:4",
+                slots="gpu-node-01:6,gpu-node-05:4",
                 smoke=True,
             )
         )
 
         self.assertEqual(
             [slot["label"] for slot in config["slots"]],
-            ["iutgpu01:6", "iutgpu05:4"],
+            ["gpu-node-01:6", "gpu-node-05:4"],
         )
 
         member = {"name": "member_00", "lr": 9.0e-5}
@@ -188,7 +188,7 @@ class PBTLauncherTest(unittest.TestCase):
             generation=0,
         )
 
-        self.assertEqual(command[:2], ["ssh", "iutgpu01"])
+        self.assertEqual(command[:2], ["ssh", "gpu-node-01"])
         self.assertIn(".venv/bin/python", command[2])
         self.assertIn("sys.version_info[:2] != (", command[2])
         self.assertIn("command -v python", command[2])
@@ -239,7 +239,7 @@ class PBTLauncherTest(unittest.TestCase):
                 config=PROJECT_DIR / "configs/experiments/pretrained_guarded_8gpu_smooth_lr.yaml",
                 experiment_name="unit_pretrained_guarded",
                 gpus=None,
-                slots="iutgpu01:0,iutgpu01:1,iutgpu01:2,iutgpu01:3,iutgpu01:4,iutgpu01:5,iutgpu01:6,iutgpu01:7",
+                slots="gpu-node-01:0,gpu-node-01:1,gpu-node-01:2,gpu-node-01:3,gpu-node-01:4,gpu-node-01:5,gpu-node-01:6,gpu-node-01:7",
                 smoke=False,
             )
         )
@@ -251,7 +251,7 @@ class PBTLauncherTest(unittest.TestCase):
         self.assertEqual(config["pbt"]["baseline_metric_value"], 1.0426476744821431)
         self.assertTrue(config["pbt"]["baseline_guard_seed_initial_best"])
         self.assertEqual(len(config["population"]), 8)
-        self.assertEqual(config["slots"][0]["label"], "iutgpu01:0")
+        self.assertEqual(config["slots"][0]["label"], "gpu-node-01:0")
 
     def test_proxy_validation_config_sets_active_validation_dataset(self):
         source = PROJECT_DIR / "configs/experiments/pbt_smoke.yaml"

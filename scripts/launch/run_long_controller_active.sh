@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Launch the controller-active (dynamic_controller.mode: active) leg of the
-# long A/B experiment on iutgpu01:4-7. Not executed automatically -- run it
+# long A/B experiment on 4 GPUs of one node. Not executed automatically -- run it
 # yourself, typically via nohup, e.g.:
 #   nohup bash scripts/launch/run_long_controller_active.sh > /tmp/controller_active.log 2>&1 &
 # or invoke it through scripts/launch/run_long_controller_ab.sh, which
@@ -11,9 +11,9 @@
 # own name). The AB wrapper passes a timestamped name here.
 set -euo pipefail
 
-PROJECT_DIR="/data/suehara/part/march"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONFIG="configs/experiments/pretrained_pbt_4gpu_long_controller_active.yaml"
-SLOTS="iutgpu01:4,iutgpu01:5,iutgpu01:6,iutgpu01:7"
+SLOTS="${ILC_SLOTS:?set ILC_SLOTS to 4 comma-separated host:gpu slots of idle GPUs}"
 EXPERIMENT_NAME="${1:-pretrained_pbt_4gpu_long_controller_active}"
 
 cd "$PROJECT_DIR"

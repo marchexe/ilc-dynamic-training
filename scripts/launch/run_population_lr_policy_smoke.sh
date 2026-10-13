@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Launch a small, real end-to-end verification run of the population_lr_policy
 # PBT strategy (scripts/training/pbt/planning/population_lr_policy.py) on
-# iutgpu01:0-3. Not a unit test: this trains for real, evaluates the real
+# 4 GPUs of one node. Not a unit test: this trains for real, evaluates the real
 # control (5k rows/class) and monitor (50k rows/class) proxy-validation
 # tiers, and exercises real forward-decision / accept / rollback checkpoint
 # copies against configs/experiments/population_lr_policy_smoke.yaml (7
@@ -14,9 +14,9 @@
 # own name).
 set -euo pipefail
 
-PROJECT_DIR="/data/suehara/part/march"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONFIG="configs/experiments/population_lr_policy_smoke.yaml"
-SLOTS="iutgpu01:0,iutgpu01:1,iutgpu01:2,iutgpu01:3"
+SLOTS="${ILC_SLOTS:?set ILC_SLOTS to 4 comma-separated host:gpu slots of idle GPUs}"
 EXPERIMENT_NAME="${1:-population_lr_policy_smoke}"
 
 cd "$PROJECT_DIR"

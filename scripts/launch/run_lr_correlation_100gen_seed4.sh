@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Launch seed replicate 3 of 3 -- see run_lr_correlation_100gen_seed2.sh
-# and the config's own comment for the full rationale. On iutgpu02:0-3.
+# and the config's own comment for the full rationale. On 4 GPUs of one node.
 # Not executed automatically -- run it yourself, typically via nohup, or
 # through scripts/launch/run_lr_correlation_seed_replicates.sh.
 set -euo pipefail
 
-PROJECT_DIR="/data/suehara/part/march"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONFIG="configs/experiments/anchor_copy_lr_recenter_100gen_seed4.yaml"
-SLOTS="iutgpu02:0,iutgpu02:1,iutgpu02:2,iutgpu02:3"
+SLOTS="${ILC_SLOTS:?set ILC_SLOTS to 4 comma-separated host:gpu slots of idle GPUs}"
 EXPERIMENT_NAME="${1:-anchor_copy_lr_recenter_100gen_seed4}"
 
 cd "$PROJECT_DIR"

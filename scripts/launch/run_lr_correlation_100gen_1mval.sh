@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Launch run (2) of the supervisor's 4-run LR-vs-mistag-score comparison
 # matrix (see configs/experiments/anchor_copy_lr_recenter_100gen.yaml's own
-# comment for the full matrix layout and rationale) on iutgpu01:4-7. Not
+# comment for the full matrix layout and rationale) on 4 GPUs of one node. Not
 # executed automatically -- run it yourself, typically via nohup, e.g.:
 #   nohup bash scripts/launch/run_lr_correlation_100gen_1mval.sh > /tmp/lr_100gen_1mval.log 2>&1 &
 # or invoke it through scripts/launch/run_lr_correlation_matrix_stage1.sh,
@@ -16,9 +16,9 @@
 # own name). The stage1 wrapper passes a timestamped name here.
 set -euo pipefail
 
-PROJECT_DIR="/data/suehara/part/march"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONFIG="configs/experiments/anchor_copy_lr_recenter_100gen_1mval.yaml"
-SLOTS="iutgpu01:4,iutgpu01:5,iutgpu01:6,iutgpu01:7"
+SLOTS="${ILC_SLOTS:?set ILC_SLOTS to 4 comma-separated host:gpu slots of idle GPUs}"
 EXPERIMENT_NAME="${1:-anchor_copy_lr_recenter_100gen_1mval}"
 
 cd "$PROJECT_DIR"

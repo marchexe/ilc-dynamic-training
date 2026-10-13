@@ -5,9 +5,9 @@
 # configs/experiments/anchor_copy_lr_recenter_100gen_seed2.yaml's own
 # comment for the full rationale: measure run-to-run variance in the
 # LR-vs-mistag-score correlation before trusting any single run's number,
-# including (1)/(2) themselves. Runs on iutgpu02:0-3, one after another
-# (only 4 GPUs free there -- iutgpu01 is occupied by another user's job as
-# of 2026-08-16). Prioritized ahead of the originally-planned (3)/(4)
+# including (1)/(2) themselves. Runs on 4 GPUs of one node, one after another
+# (only 4 GPUs free there -- the 8-GPU node was unavailable at the time).
+# Prioritized ahead of the originally-planned (3)/(4)
 # ("longer generation" axis) -- see this project's conversation history:
 # replicating an unreplicated single-run finding is more valuable right
 # now than testing a new axis on top of unreplicated ones.
@@ -37,7 +37,7 @@
 #     --plot runs/pbt/lr_matrix_seed_replicates.png
 set -euo pipefail
 
-PROJECT_DIR="/data/suehara/part/march"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 LAUNCH_DIR="$PROJECT_DIR/scripts/launch"
 LOG_DIR="$PROJECT_DIR/logs/experiments"
 
@@ -60,15 +60,15 @@ done
 mkdir -p "$LOG_DIR"
 cd "$PROJECT_DIR"
 
-echo "$(date -Iseconds) launching seed replicate 1/3 on iutgpu02:0-3: $EXP_SEED2"
+echo "$(date -Iseconds) launching seed replicate 1/3 on 4 GPUs of one node: $EXP_SEED2"
 bash "$LAUNCH_DIR/run_lr_correlation_100gen_seed2.sh" "$EXP_SEED2" >"$LOG_DIR/${EXP_SEED2}.log" 2>&1
 echo "$(date -Iseconds) replicate 1/3 finished: $(.venv/bin/python -c "import json; print(json.load(open('$RUN_DIR_SEED2/manifest.json'))['status'])")"
 
-echo "$(date -Iseconds) launching seed replicate 2/3 on iutgpu02:0-3: $EXP_SEED3"
+echo "$(date -Iseconds) launching seed replicate 2/3 on 4 GPUs of one node: $EXP_SEED3"
 bash "$LAUNCH_DIR/run_lr_correlation_100gen_seed3.sh" "$EXP_SEED3" >"$LOG_DIR/${EXP_SEED3}.log" 2>&1
 echo "$(date -Iseconds) replicate 2/3 finished: $(.venv/bin/python -c "import json; print(json.load(open('$RUN_DIR_SEED3/manifest.json'))['status'])")"
 
-echo "$(date -Iseconds) launching seed replicate 3/3 on iutgpu02:0-3: $EXP_SEED4"
+echo "$(date -Iseconds) launching seed replicate 3/3 on 4 GPUs of one node: $EXP_SEED4"
 bash "$LAUNCH_DIR/run_lr_correlation_100gen_seed4.sh" "$EXP_SEED4" >"$LOG_DIR/${EXP_SEED4}.log" 2>&1
 echo "$(date -Iseconds) replicate 3/3 finished: $(.venv/bin/python -c "import json; print(json.load(open('$RUN_DIR_SEED4/manifest.json'))['status'])")"
 

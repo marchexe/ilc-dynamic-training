@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Stage 2 of the supervisor's 4-run LR-vs-mistag-score comparison matrix:
 # launches run (3) (50 generations, 0.1 epoch/generation, 1M-event
-# control, iutgpu01:0-3) and run (4) (25 generations, 0.2
-# epoch/generation, 1M-event control, iutgpu01:4-7) simultaneously via
+# control, 4 GPUs of one node) and run (4) (25 generations, 0.2
+# epoch/generation, 1M-event control, 4 GPUs of one node) simultaneously via
 # nohup. See configs/experiments/anchor_copy_lr_recenter_100gen.yaml for
 # the full matrix rationale.
 #
@@ -31,7 +31,7 @@
 #     --plot runs/pbt/lr_matrix_full_comparison.png
 set -euo pipefail
 
-PROJECT_DIR="/data/suehara/part/march"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 LAUNCH_DIR="$PROJECT_DIR/scripts/launch"
 LOG_DIR="$PROJECT_DIR/logs/experiments"
 

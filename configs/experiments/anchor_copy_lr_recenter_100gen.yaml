@@ -45,7 +45,7 @@ experiment:
 # the 50/25-generation siblings, which also target ~5 periodic rounds.
 #
 # Timing basis: anchor_copy_lr_recenter_8h_20260807_015714 (identical
-# config on the same iutgpu01 4x A100-SXM4-40GB slots) measured a
+# config on the same 4x A100-SXM4-40GB slots) measured a
 # ~106s-median generation, 1h25m wall-clock total for 48 generations (its
 # "8h" name was the requested budget, not the actual duration) -- so ~100
 # generations here should land around ~3h, not the 8h its own sizing

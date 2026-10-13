@@ -29,11 +29,11 @@ Runtime observations are recorded separately and checked again before each job.
 ## Allocation policy and resources
 
 The user explicitly confirmed on 2026-10-12 that direct SSH, tmux, and use of
-idle GPUs on `iutgpu01`–`iutgpu07` are permitted; Slurm/PBS is not required.
+idle GPUs on the authorized cluster nodes are permitted; Slurm/PBS is not required.
 Permission is recorded separately from `scripts/cluster/check.sh` availability.
 
 Default concurrency is **three**, with one process per GPU. Prefer a homogeneous
-cohort on `iutgpu05` (A100 80GB), otherwise select a homogeneous authorized
+cohort on the preferred node (A100 80GB), otherwise select a homogeneous authorized
 cohort dynamically. A GPU must have no compute processes, less than 500 MiB
 used memory, utilization below 5%, and at least 40,000 MiB total memory.
 Recorded production training peak is 21,539.7 MiB at the same model/batch size;
@@ -145,7 +145,7 @@ Preparation verification is recorded in `preparation_checks.json`. The final
 suite ran 526 tests: 525 passed and one expected Ray skip; all 33 Stage 2A tests
 passed. Static compilation, shell syntax and whitespace checks passed. The real
 read-only cluster dry run resolved all nine jobs onto an observed three-GPU
-A100 80GB cohort on iutgpu05 without reserving GPUs or starting inference.
+A100 80GB cohort on the preferred node without reserving GPUs or starting inference.
 A harmless CPU-only tmux smoke job survived the submitting SSH connection.
 Synthetic nine-checkpoint execution, automatic reporting and verified restart
 also passed; these fixtures are not holdout results.

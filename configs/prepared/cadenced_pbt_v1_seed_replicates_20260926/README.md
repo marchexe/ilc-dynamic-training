@@ -13,7 +13,7 @@ The four resolved configurations and their pairwise unified diffs are in
 `resolved/` and `diffs/`. Regenerate and verify them without launching work:
 
 ```bash
-cd /data/suehara/part/march
+cd <project-dir>
 .venv/bin/python configs/prepared/cadenced_pbt_v1_seed_replicates_20260926/preflight_check.py
 ```
 
@@ -21,8 +21,8 @@ Run the production commands below sequentially, after checking that all five
 GPUs are free. Do not overlap runs on the same GPU set.
 
 ```bash
-ssh iutgpu01 'cd /data/suehara/part/march && .venv/bin/python scripts/launch/experiment.py start --config configs/experiments/cadenced_pbt_v1_seed22345.yaml --gpus 0,1,2,3,4'
-ssh iutgpu01 'cd /data/suehara/part/march && .venv/bin/python scripts/launch/experiment.py start --config configs/experiments/cadenced_pbt_v1_cadence5_seed22345.yaml --gpus 0,1,2,3,4'
-ssh iutgpu01 'cd /data/suehara/part/march && .venv/bin/python scripts/launch/experiment.py start --config configs/experiments/cadenced_pbt_v1_seed32345.yaml --gpus 0,1,2,3,4'
-ssh iutgpu01 'cd /data/suehara/part/march && .venv/bin/python scripts/launch/experiment.py start --config configs/experiments/cadenced_pbt_v1_cadence5_seed32345.yaml --gpus 0,1,2,3,4'
+ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/launch/experiment.py start --config configs/experiments/cadenced_pbt_v1_seed22345.yaml --gpus 0,1,2,3,4'
+ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/launch/experiment.py start --config configs/experiments/cadenced_pbt_v1_cadence5_seed22345.yaml --gpus 0,1,2,3,4'
+ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/launch/experiment.py start --config configs/experiments/cadenced_pbt_v1_seed32345.yaml --gpus 0,1,2,3,4'
+ssh <gpu-node> 'cd <project-dir> && .venv/bin/python scripts/launch/experiment.py start --config configs/experiments/cadenced_pbt_v1_cadence5_seed32345.yaml --gpus 0,1,2,3,4'
 ```

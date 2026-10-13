@@ -19,7 +19,7 @@ experiment:
 # full_holdout evaluations total, with no partial trailing cycle.
 #
 # Sizing basis: pretrained_pbt_4gpu_night_controller_off_20260805_015318
-# (same iutgpu01 4x A100-SXM4-40GB hardware) measured a ~65s median
+# (same 4x A100-SXM4-40GB hardware) measured a ~65s median
 # non-tiered generation at samples_per_epoch=20000/samples_per_epoch_val=
 # 15000. Scaling linearly by total per-generation event count to this
 # config's samples_per_epoch=120000/samples_per_epoch_val=150000

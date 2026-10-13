@@ -27,7 +27,7 @@ The foundation implementation is unchanged. Production now uses raw epoch-17 opt
 
 ## Proposed resources
 
-Host: iutgpu01. Allocation in population order: GPU 0 → 3e-6; GPU 1 → 5.75e-6; GPU 2 → 8.5e-6; GPU 3 → 11.25e-6; GPU 4 → 1.4e-5. Availability is checked by the user-run smoke launcher; no GPU is reserved.
+Host: one 8-GPU A100 node. Allocation in population order: GPU 0 → 3e-6; GPU 1 → 5.75e-6; GPU 2 → 8.5e-6; GPU 3 → 11.25e-6; GPU 4 → 1.4e-5. Availability is checked by the user-run smoke launcher; no GPU is reserved.
 
 Existing full-epoch pilot measurements (two concurrent arms, not the old short generations):
 
@@ -45,7 +45,7 @@ Measured checkpoint bundle: 10.236 MiB per epoch (model + optimizer + scaler). R
 ## Launch commands (not executed)
 
 ```sh
-ssh iutgpu01 nvidia-smi
+ssh <gpu-node> nvidia-smi
 bash configs/prepared/foundation_fixed_lr_20epochs_20260916/launch.sh
 ```
 
@@ -57,7 +57,7 @@ Remaining concerns: GPU availability can change before launch; runtime estimate 
 
 Config: `configs/experiments/foundation_fixed_lr_smoke.yaml`, inheriting production with only one generation and separate output paths. It does not use the runner's reduced-data `--smoke` flag. Initial/final standalone evaluations remain enabled.
 
-Run directly on iutgpu01 from the repository:
+Run directly on the GPU node from the repository:
 
 ```sh
 .venv/bin/python scripts/launch/experiment.py start --config configs/experiments/foundation_fixed_lr_smoke.yaml

@@ -371,8 +371,8 @@ class HandleShutdownTest(unittest.TestCase):
 
 class UniqueHostsTest(unittest.TestCase):
     def test_deduplicates_hosts_across_slots(self):
-        audit_config = {"slots": [{"host": "iutgpu01", "gpu": "0"}, {"host": "iutgpu01", "gpu": "1"}, {"host": "iutgpu02", "gpu": "0"}]}
-        self.assertEqual(unique_hosts(audit_config), ["iutgpu01", "iutgpu02"])
+        audit_config = {"slots": [{"host": "gpu-node-01", "gpu": "0"}, {"host": "gpu-node-01", "gpu": "1"}, {"host": "gpu-node-02", "gpu": "0"}]}
+        self.assertEqual(unique_hosts(audit_config), ["gpu-node-01", "gpu-node-02"])
 
     def test_empty_slots_gives_empty_hosts(self):
         self.assertEqual(unique_hosts({"slots": []}), [])

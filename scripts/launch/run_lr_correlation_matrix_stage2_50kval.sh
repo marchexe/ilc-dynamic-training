@@ -2,11 +2,11 @@
 # Sequential (not parallel) launch of the revised runs (3) and (4) -- see
 # configs/experiments/anchor_copy_lr_recenter_50gen_50kval.yaml's own
 # comment for why these use the cheap 150k-row control tier instead of
-# the originally-planned 1M-row tier. iutgpu01 is fully occupied by
-# another user's job as of 2026-08-16 (was free for the stage1 runs, is
-# not now); iutgpu02 has 4 free GPUs, enough for one 4-member population
-# at a time, not both simultaneously like stage1 used iutgpu01's 8 -- so
-# this runs (3) then (4) back to back on iutgpu02:0-3, not in parallel on
+# the originally-planned 1M-row tier. The 8-GPU node was unavailable at
+# the time (it was free for the stage1 runs); the other node had 4 free
+# GPUs, enough for one 4-member population
+# at a time, not both simultaneously like stage1 used an 8-GPU node -- so
+# this runs (3) then (4) back to back on 4 GPUs of one node, not in parallel on
 # separate GPU groups.
 #
 # Run it yourself, e.g.:
@@ -31,7 +31,7 @@
 #     --plot runs/pbt/lr_matrix_full_comparison.png
 set -euo pipefail
 
-PROJECT_DIR="/data/suehara/part/march"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 LAUNCH_DIR="$PROJECT_DIR/scripts/launch"
 LOG_DIR="$PROJECT_DIR/logs/experiments"
 
@@ -52,11 +52,11 @@ done
 mkdir -p "$LOG_DIR"
 cd "$PROJECT_DIR"
 
-echo "$(date -Iseconds) launching (3) 50gen/0.1ep/50k-val on iutgpu02:0-3: $EXP_50GEN"
+echo "$(date -Iseconds) launching (3) 50gen/0.1ep/50k-val on 4 GPUs of one node: $EXP_50GEN"
 bash "$LAUNCH_DIR/run_lr_correlation_50gen_50kval.sh" "$EXP_50GEN" >"$LOG_DIR/${EXP_50GEN}.log" 2>&1
 echo "$(date -Iseconds) (3) finished: $(.venv/bin/python -c "import json; print(json.load(open('$RUN_DIR_50GEN/manifest.json'))['status'])")"
 
-echo "$(date -Iseconds) launching (4) 25gen/0.2ep/50k-val on iutgpu02:0-3: $EXP_25GEN"
+echo "$(date -Iseconds) launching (4) 25gen/0.2ep/50k-val on 4 GPUs of one node: $EXP_25GEN"
 bash "$LAUNCH_DIR/run_lr_correlation_25gen_50kval.sh" "$EXP_25GEN" >"$LOG_DIR/${EXP_25GEN}.log" 2>&1
 echo "$(date -Iseconds) (4) finished: $(.venv/bin/python -c "import json; print(json.load(open('$RUN_DIR_25GEN/manifest.json'))['status'])")"
 

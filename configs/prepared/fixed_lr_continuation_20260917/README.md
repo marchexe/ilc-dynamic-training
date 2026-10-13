@@ -30,7 +30,7 @@ they never become continuation sources.
 
 ## Allocation and estimates
 
-Use iutgpu01 physical GPU 1 for 14e-6, GPU 3 for 8.5e-6. GPUs 0 and 2 reevaluate
+Use physical GPU 1 of the run node for 14e-6, GPU 3 for 8.5e-6. GPUs 0 and 2 reevaluate
 original checkpoints concurrently. GPU 4 was occupied by an unrelated process;
 do not use it. GPU availability is checked again by the launcher/evaluator.
 Unused GPUs remain idle. Training devices are UUID-pinned and mapped to local GPU 0
@@ -84,7 +84,7 @@ Estimated separate calibration for all 250 saved checkpoints:
   and compare against identical full-event scores without subset-batching ambiguity.
 These are estimates, not timings measured on the proposed subsets.
 
-## Commands (run on iutgpu01, in /data/suehara/part/march)
+## Commands (run on the GPU node, in the project directory)
 
 ```bash
 P=configs/prepared/fixed_lr_continuation_20260917
@@ -107,7 +107,7 @@ done
 # Logs / GPU watch.
 tail -F logs/experiments/fixed_lr_continuation_20260917_lr_{14e-6,8_5e-6}/main.log \
   "$P/original-evaluations.console.log"
-ML_PFA_CLUSTER_NODES=iutgpu01 bash scripts/cluster/watch.sh 10
+ML_PFA_CLUSTER_NODES=<gpu-node> bash scripts/cluster/watch.sh 10
 
 # Resume stopped/interrupted arms; refuses live tokens or occupied GPUs.
 # Choose one arm instead of both if the other is still running.
