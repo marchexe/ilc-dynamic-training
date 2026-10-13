@@ -20,6 +20,9 @@
 #   V100            →  1
 #   other/unknown   →  0
 #
+# SSH verifies host keys strictly: unknown or changed keys make a node show as
+# UNREACHABLE (ML_PFA_DEBUG=1 prints the reason); add keys to known_hosts yourself.
+#
 # Training heuristic: max Σ score(free GPU) across all nodes.
 # Test heuristic:     max score among all individual free GPUs.
 
@@ -38,12 +41,18 @@ case "$MODE" in
         ;;
 esac
 
-read -r -a NODES <<< "${ML_PFA_CLUSTER_NODES:-iutgpu01 iutgpu02 iutgpu03 iutgpu04 iutgpu05 iutgpu06 iutgpu07}"
+# Nodes: ML_PFA_CLUSTER_NODES, else the local site configuration (configs/site.example.json).
+NODE_LIST="${ML_PFA_CLUSTER_NODES:-$(python3 "$(dirname "${BASH_SOURCE[0]}")/../experiments/site_config.py" nodes)}"
+read -r -a NODES <<< "$NODE_LIST"
+if [[ ${#NODES[@]} -eq 0 ]]; then
+    echo "Error: no cluster nodes configured (set ML_PFA_CLUSTER_NODES or configs/local/site.json)" >&2
+    exit 2
+fi
 SSH_BATCH_MODE=yes
 if [[ "${ML_PFA_ALLOW_PASSWORD:-0}" == "1" ]]; then
     SSH_BATCH_MODE=no
 fi
-SSH_OPTS=(-o ConnectTimeout=5 -o ConnectionAttempts=1 -o BatchMode="$SSH_BATCH_MODE" -o StrictHostKeyChecking=no)
+SSH_OPTS=(-o ConnectTimeout=5 -o ConnectionAttempts=1 -o BatchMode="$SSH_BATCH_MODE" -o StrictHostKeyChecking=yes)
 if [[ -n "${ML_PFA_SSH_CONFIG:-}" && -f "${ML_PFA_SSH_CONFIG}" ]]; then
     SSH_OPTS=(-F "${ML_PFA_SSH_CONFIG}" "${SSH_OPTS[@]}")
 fi

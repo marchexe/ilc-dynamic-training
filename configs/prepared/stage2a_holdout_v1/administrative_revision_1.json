@@ -1,0 +1,15 @@
+{
+  "changed_execution_files": [
+    {
+      "current_sha256": "a76000e82e767aa439666e00285d3df5e00fa10bc139c00754719ebd454f372f",
+      "frozen_sha256": "d0ed1fa122dc2780a30a77a25cbdb093b604df6eed6cfb4d78cc448fc2fac5c3",
+      "original_commit": "953a170e2281faca37ee976b02ec2d0a1a208804",
+      "path": "scripts/cluster/check.sh"
+    }
+  ],
+  "effect": "The Stage 2A launcher re-verifies every pinned execution file and therefore refuses to run with this file changed (fail-closed by design). scripts/validation/verify_stage2a_provenance.py performs the same checks and accepts only this recorded, Git-recoverable change.",
+  "protocol_sha256": "cabf6703bf3d70fc2a91c92bd65513c9de791490b267ce4309ae1a26498f2d90",
+  "reason": "Security: the cluster status script verifies SSH host keys strictly and reads node names from the local site configuration. It only prints an informational GPU snapshot; the Stage 2A protocol, inputs, checkpoints, inference and results are unchanged.",
+  "revised_at": "2026-10-13T15:04:49.918213+00:00",
+  "schema_version": 1
+}

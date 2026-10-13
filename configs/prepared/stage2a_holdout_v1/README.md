@@ -202,3 +202,23 @@ is **not needed for correctness**, but is needed if a future comparison is
 intended to preserve sample/step/compute decision budgets. Such normalization
 changes the experimental protocol/policy interpretation and must be reviewed
 and versioned separately. Stage 2A makes no cadence change.
+
+## Administrative revision after completion
+
+The campaign is complete. Its protocol, inputs, inference and results are
+unchanged. Afterwards one pinned execution file, `scripts/cluster/check.sh`
+(an informational GPU snapshot), was changed for security: it now verifies
+SSH host keys strictly and reads node names from the local site
+configuration. `administrative_revision_1.json` (SHA256 in
+`administrative_revision_1.sha256`) records the change. The frozen version
+remains byte-identical in commit `953a170`.
+
+The launcher's own input check therefore stops at this file, which is the
+intended fail-closed behaviour. To verify the completed campaign, run:
+
+```bash
+.venv/bin/python scripts/validation/verify_stage2a_provenance.py
+```
+
+It performs the same checks and accepts only the recorded change, and only
+if the frozen bytes are recoverable from Git with the pinned SHA256.
