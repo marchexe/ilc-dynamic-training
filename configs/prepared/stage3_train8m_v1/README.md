@@ -33,6 +33,19 @@ GPUs of one model (idle means no process, <500 MiB and <5% utilization,
 ≥40 GB). It submits one detached tmux supervisor; SSH disconnection does not
 stop it.
 
+The supervisor runs on its own tmux socket (`tmux -L ilc-campaign`), started
+without the user-manager bus.
+- **Why.** tmux 3.5+ otherwise moves every session under `user@<uid>.service`,
+  where systemd-oomd kills on memory pressure (50% for 20 s). This killed the
+  first run on 2026-10-14 after 18 fixed-LR epochs; completed epochs were
+  intact and resumable.
+- **Result.** The supervisor stays in the SSH session scope, which oomd does
+  not monitor.
+- **Check.** The launcher records the supervisor's cgroup in `launch.json`. If
+  the supervisor lands in an oomd-managed scope, the launcher stops the session
+  before any work starts.
+- **Attach:** `ssh -t <node> tmux -L ilc-campaign attach -t <session>`.
+
 The supervisor runs the phases in order (`--status` shows the current one):
 
 1. **PREP**:

@@ -741,6 +741,41 @@ class LauncherTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def remote(self, cgroup):
+        """Fake ssh: record remote commands; the pane cgroup query returns ``cgroup``."""
+        calls = []
+
+        def run(args, **kwargs):
+            calls.append(args[-1])
+            stdout = cgroup + '\n' if '/cgroup' in args[-1] else ''
+            return subprocess.CompletedProcess(args, 0, stdout=stdout, stderr='')
+        return calls, run
+
+    def test_supervisor_starts_outside_the_oomd_managed_user_service(self):
+        calls, run = self.remote('0::/user.slice/user-1082.slice/session-7.scope')
+        with patch.object(cli.subprocess, 'run', run):
+            cgroup = cli.launch_tmux('gpu-node-02', 'stage3-x', self.output, self.output / 'cohort.json')
+        self.assertEqual(cgroup, '0::/user.slice/user-1082.slice/session-7.scope')
+        new_session = next(c for c in calls if 'new-session' in c)
+        self.assertTrue(new_session.startswith('env -u DBUS_SESSION_BUS_ADDRESS -u XDG_RUNTIME_DIR tmux -L ilc-campaign '))
+        self.assertFalse(any('kill-session' in c for c in calls))
+
+    def test_supervisor_in_an_oomd_managed_scope_is_stopped(self):
+        calls, run = self.remote('0::/user.slice/user-1082.slice/user@1082.service/tmux-spawn-1.scope')
+        with patch.object(cli.subprocess, 'run', run), self.assertRaisesRegex(RuntimeError, 'oomd-managed'):
+            cli.launch_tmux('gpu-node-02', 'stage3-x', self.output, self.output / 'cohort.json')
+        self.assertIn('tmux -L ilc-campaign kill-session -t =stage3-x', calls)
+
+    def test_liveness_checks_the_campaign_socket_then_the_default_socket(self):
+        for code, legacy, alive in ((0, False, True), (1, True, True), (1, False, False)):
+            result = subprocess.CompletedProcess([], code, stdout='', stderr='')
+            with patch.object(cli.subprocess, 'run', return_value=result), \
+                    patch.object(cli, 'default_socket_alive', return_value=legacy):
+                self.assertEqual(cli.tmux_alive('gpu-node-02', 'stage3-x'), alive)
+        with patch.object(cli.subprocess, 'run', return_value=subprocess.CompletedProcess([], 255, stdout='', stderr='x')), \
+                self.assertRaisesRegex(RuntimeError, 'persistent-session'):
+            cli.tmux_alive('gpu-node-02', 'stage3-x')
+
     def nodes(self, busy=()):
         gpus = [dict(host='gpu-node-02', index=i, name='NVIDIA A100 80GB PCIe', total_mib=81920, used_mib=9000 if i in busy else 0,
                      utilization=0, uuid=f'GPU-{i}', pids=[1] if i in busy else []) for i in range(10)]

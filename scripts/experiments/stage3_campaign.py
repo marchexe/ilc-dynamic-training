@@ -21,7 +21,7 @@ import threading
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from experiments.stage2a.scheduling import discover, ssh_args  # noqa: E402
-from experiments.stage2a_campaign import tmux_alive  # noqa: E402
+from experiments.stage2a_campaign import tmux_alive as default_socket_alive  # noqa: E402
 from experiments.stage2b import dataset as data  # noqa: E402
 from experiments.stage2b_campaign import choose_host, cluster_snapshot, git  # noqa: E402
 from experiments.stage3.common import (ARMS, ARM_CONFIGS, EXIT_FAILED, EXIT_INTERRUPTED, EXIT_INVALID,  # noqa: E402
@@ -33,6 +33,14 @@ TRACKED = ('scripts/experiments/stage3_campaign.py', 'scripts/experiments/run_st
            'configs/experiments/stage3_train8m_windowed_pbt_v2.yaml', 'configs/experiments/stage3_train8m_gate.yaml',
            'datasets/manifests/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet_v1.json',
            'scripts/experiments/site_config.py', 'configs/site.example.json')
+
+# tmux >= 3.5 moves every new session into a tmux-spawn scope under user@<uid>.service, where systemd-oomd
+# kills on memory pressure; that killed the campaign on 2026-10-14. A server started without the user-manager
+# bus keeps the campaign in the SSH session scope, which oomd does not monitor. A dedicated socket ensures the
+# server is started this way rather than reusing an existing one.
+TMUX_SOCKET = 'ilc-campaign'
+TMUX = ['tmux', '-L', TMUX_SOCKET]
+OOMD_MANAGED_SCOPE = '/user@'
 
 
 def repository_revision():
@@ -94,14 +102,33 @@ def completed(output):
         return False
 
 
+def tmux_alive(host, session):
+    """Alive on the campaign socket, or on the default socket used by launches before the oomd fix."""
+    result = subprocess.run(ssh_args(host, shlex.join([*TMUX, 'has-session', '-t', '=' + session])),
+                            capture_output=True, text=True, timeout=15)
+    if result.returncode not in (0, 1):
+        raise RuntimeError(f'Cannot establish persistent-session status on {host}: {result.stderr.strip()}')
+    return result.returncode == 0 or default_socket_alive(host, session)
+
+
 def launch_tmux(host, session, output, cohort_path, *, retry_gate=False):
+    """Start the supervisor in a detached tmux session outside oomd management; return its cgroup."""
     probe = 'command -v tmux >/dev/null && test -x ' + shlex.quote(str(PROJECT_DIR / '.venv/bin/python'))
     subprocess.run(ssh_args(host, probe), check=True, capture_output=True, text=True, timeout=20)
     script = shlex.join([str(PROJECT_DIR / '.venv/bin/python'), str(Path(__file__).resolve()), '--on-node', '--output',
                          str(output), '--cohort', str(cohort_path), *(['--retry-gate'] if retry_gate else [])])
     inner = 'cd ' + shlex.quote(str(PROJECT_DIR)) + ' && exec ' + script + ' >> ' + shlex.quote(str(output / 'supervisor.log')) + ' 2>&1'
-    subprocess.run(ssh_args(host, shlex.join(['tmux', 'new-session', '-d', '-s', session, 'bash', '-lc', inner])),
+    detached = ['env', '-u', 'DBUS_SESSION_BUS_ADDRESS', '-u', 'XDG_RUNTIME_DIR', *TMUX]
+    subprocess.run(ssh_args(host, shlex.join([*detached, 'new-session', '-d', '-s', session, 'bash', '-lc', inner])),
                    check=True, capture_output=True, text=True, timeout=20)
+    pane = shlex.join([*TMUX, 'list-panes', '-t', '=' + session, '-F', '#{pane_pid}'])
+    cgroup = subprocess.run(ssh_args(host, f'cat /proc/$({pane} | head -n 1)/cgroup'), check=True, capture_output=True,
+                            text=True, timeout=20).stdout.strip()
+    if OOMD_MANAGED_SCOPE in cgroup:
+        subprocess.run(ssh_args(host, shlex.join([*TMUX, 'kill-session', '-t', '=' + session])), capture_output=True,
+                       text=True, timeout=20)
+        raise RuntimeError(f'Supervisor landed in an oomd-managed scope ({cgroup}); session stopped, nothing trained')
+    return cgroup
 
 
 def start(args):
@@ -148,17 +175,17 @@ def start(args):
         write_json(cohort_path, dict(cohort, git=checks['git'], protocol_sha256=protocol_sha))
         session = 'stage3-train8m-' + protocol_sha[:8]
         try:
-            launch_tmux(cohort['host'], session, output, cohort_path, retry_gate=args.retry_gate)
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as error:
+            cgroup = launch_tmux(cohort['host'], session, output, cohort_path, retry_gate=args.retry_gate)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError, RuntimeError) as error:
             detail = getattr(error, 'stderr', '') or str(error)
             write_json(output / 'last_failure.json', dict(time=utc_now(), error=f'Remote submission failed: {detail}'))
             raise RuntimeError(f'Remote tmux submission to {cohort["host"]} failed: {detail}') from error
         record = dict(host=cohort['host'], session=session, started_at=utc_now(), git=checks['git'],
-                      protocol_sha256=protocol_sha, output=str(output))
+                      protocol_sha256=protocol_sha, output=str(output), tmux_socket=TMUX_SOCKET, cgroup=cgroup)
         write_json(launch, record)
         print(json.dumps(dict(status='submitted_to_persistent_tmux', **record,
                               watch='bash scripts/experiments/run_stage3_train8m.sh --status',
-                              attach=f'ssh -t {cohort["host"]} tmux attach -t {session}'), indent=2))
+                              attach=f'ssh -t {cohort["host"]} tmux -L {TMUX_SOCKET} attach -t {session}'), indent=2))
         return EXIT_OK
 
 
