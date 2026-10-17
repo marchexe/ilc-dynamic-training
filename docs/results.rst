@@ -108,9 +108,12 @@ configured bound, and no decreases. This run used the earlier contract (120,000 
 jets per generation, damped optimizer start). Audit:
 :repo:`published/studies/controller-shadow-audit/report.md`.
 
-**Sub-epoch adaptation: blocked.** Restarting five times within an epoch changed the
-result (maximum parameter difference 7.6 × 10⁻⁴ against an uninterrupted epoch) because
-Lookahead state is not checkpointed. A valid test needs a new checkpoint format.
+**Sub-epoch adaptation: not yet testable.** Restarting five times within an epoch changed
+the result (maximum parameter difference 7.6 × 10⁻⁴ against an uninterrupted epoch) because
+the Lookahead state was not checkpointed. A versioned checkpoint format that keeps it is now
+implemented (:repo:`scripts/training/optimizer_contract.py`): restarted training equals
+uninterrupted training bit for bit, and real Weaver carries the state across restarts.
+Continuing an epoch's data stream across restarts is still missing.
 
 **Random initialization.** Implemented and smoke-tested only.
 
