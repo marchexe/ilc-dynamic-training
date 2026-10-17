@@ -201,6 +201,36 @@ class FixedLRVerifierTest(unittest.TestCase):
                     generations=generations, final_evaluations=dict(control=final),
                     best=dict(state_path=str(run / "a" / f"net_epoch-{epoch}_state.pt"), metrics=copy.deepcopy(final["a"]["metrics"])))
 
+    def test_epoch_trained_in_two_generations_verifies_as_one_traversal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp)
+            good = self.fixture(run)
+            good["config"]["shared"].update(generations_per_epoch=2, batches_per_generation=4)
+            for name in ("a", "b"):
+                first = good["generations"][0]["workers"][name]["metrics"]["train_data_audit"]
+                first.update(exhausted=False, traversal=[], batches=4,
+                             consumed=dict(first["consumed"], count=4, unique_ids=4))
+                last = good["generations"][1]["workers"][name]["metrics"]["train_data_audit"]
+                last.update(batches=3, consumed=dict(last["consumed"], count=3, unique_ids=3))
+
+            def verify(payload):
+                (run / "manifest.json").write_text(json.dumps(payload))
+                return verifier.verify(run)
+
+            self.assertTrue(verify(good)["passed"], verify(good)["failures"])
+            mutations = [
+                lambda first, last: first.update(batches=5),
+                lambda first, last: first.update(exhausted=True),
+                lambda first, last: first["consumed"].update(repeated_ids=1),
+                lambda first, last: last["consumed"].update(count=4, unique_ids=4),
+                lambda first, last: last.update(exhausted=False),
+            ]
+            for mutation in mutations:
+                payload = copy.deepcopy(good)
+                mutation(payload["generations"][0]["workers"]["a"]["metrics"]["train_data_audit"],
+                         payload["generations"][1]["workers"]["a"]["metrics"]["train_data_audit"])
+                self.assertFalse(verify(payload)["passed"])
+
     def test_complete_evidence_and_failure_detection(self):
         with tempfile.TemporaryDirectory() as tmp:
             run = Path(tmp)

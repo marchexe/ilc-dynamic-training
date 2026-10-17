@@ -335,6 +335,25 @@ class SharedSection(WeaverSharedSection):
     initial_controller: str | None = None
     initial_optimizer_mode: Literal["raw", "copy", "damped", "reset"] | None = None
     initial_optimizer_damping: float | None = Field(default=None, ge=0.0, le=1.0)
+    # Exact restart continuation (scripts/training/weaver_full_state.py). None keeps the historical
+    # epoch-restarted contract and the resolved shape/fingerprint of every existing configuration.
+    optimizer_state_contract: Literal["full_lookahead_v1"] | None = None
+    generations_per_epoch: int | None = Field(default=None, ge=2)
+    batches_per_generation: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def validate_sub_epoch_generations(self):
+        if self.optimizer_state_contract and self.optimizer.lower() != "ranger":
+            raise ValueError("optimizer_state_contract full_lookahead_v1 applies to the ranger optimizer only")
+        if (self.generations_per_epoch is None) != (self.batches_per_generation is None):
+            raise ValueError("generations_per_epoch and batches_per_generation are configured together")
+        if self.generations_per_epoch is not None:
+            if self.optimizer_state_contract != "full_lookahead_v1":
+                raise ValueError("generations shorter than an epoch require optimizer_state_contract: full_lookahead_v1")
+            if self.weaver_epochs_per_generation != 1 or self.samples_per_epoch is not None:
+                raise ValueError("generations shorter than an epoch require weaver_epochs_per_generation: 1 "
+                                 "and full natural epochs (samples_per_epoch: null)")
+        return self
 
     @field_validator("initial_optimizer_mode", mode="before")
     @classmethod

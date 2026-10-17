@@ -113,9 +113,11 @@ the result (maximum parameter difference 7.6 × 10⁻⁴ against an uninterrupte
 the Lookahead state was not checkpointed. A versioned checkpoint format that keeps it is now
 implemented (:repo:`scripts/training/optimizer_contract.py`), together with a cursor that
 continues an epoch's data stream and the process-local random and model state across restarts
-(:repo:`scripts/training/data_cursor.py`). With real Weaver on CPU, one epoch trained as three
-restarted processes equals the uninterrupted epoch bit for bit. Connecting this to the PBT
-engine and running the comparison remain.
+(:repo:`scripts/training/data_cursor.py`). The PBT engine uses them through the configuration
+keys ``optimizer_state_contract`` and ``generations_per_epoch``: with real Weaver on CPU, two
+epochs trained as four half-epoch generations equal two one-epoch generations bit for bit. A
+policy that copies every generation and changes the learning rate every five, and the
+comparison itself, remain.
 
 **Random initialization.** Implemented and smoke-tested only.
 
