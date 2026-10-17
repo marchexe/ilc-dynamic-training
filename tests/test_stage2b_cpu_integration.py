@@ -63,12 +63,14 @@ def build_fixture(tmp):
     return manifest, config, member, member_dir
 
 
-def run_generation(config, member, member_dir, generation, executable=None):
+def run_generation(config, member, member_dir, generation, executable=None, seed=None):
     """One production Weaver command on CPU (AMP and GPU flags removed); returns (log_path, epoch)."""
     command, log_path, epoch = make_command(config, member, dict(host=None, gpu='0', label='0'), member_dir, generation)
     amp = command.index('--use-amp')
     command = command[:amp] + command[amp + 3:]
     command[command.index('--gpus') + 1] = ''
+    if seed is not None:
+        command[command.index('--seed') + 1] = str(seed)
     if executable:
         command = [*executable, *command[1:]]
     log_path.parent.mkdir(parents=True, exist_ok=True)

@@ -111,9 +111,11 @@ jets per generation, damped optimizer start). Audit:
 **Sub-epoch adaptation: not yet testable.** Restarting five times within an epoch changed
 the result (maximum parameter difference 7.6 × 10⁻⁴ against an uninterrupted epoch) because
 the Lookahead state was not checkpointed. A versioned checkpoint format that keeps it is now
-implemented (:repo:`scripts/training/optimizer_contract.py`): restarted training equals
-uninterrupted training bit for bit, and real Weaver carries the state across restarts.
-Continuing an epoch's data stream across restarts is still missing.
+implemented (:repo:`scripts/training/optimizer_contract.py`), together with a cursor that
+continues an epoch's data stream and the process-local random and model state across restarts
+(:repo:`scripts/training/data_cursor.py`). With real Weaver on CPU, one epoch trained as three
+restarted processes equals the uninterrupted epoch bit for bit. Connecting this to the PBT
+engine and running the comparison remain.
 
 **Random initialization.** Implemented and smoke-tested only.
 
