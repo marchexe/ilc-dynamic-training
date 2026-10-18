@@ -4,6 +4,12 @@ Selection has no window or persistence rule.  A qualifying metric gap always
 copies one complete checkpoint bundle; LR collision can suppress only explore.
 The generic exploit interval is a global completed-epoch cadence: interval N
 is due after epochs N, 2N, 3N, ...; warm-up is an independent eligibility gate.
+
+With shared.generations_per_epoch = n (generations shorter than an epoch), the
+cadence counts generations, warm-up still counts epochs (n generations each), and
+an optional lr_mutation_interval_generations M lets copies happen at every
+eligible generation while the learning rate mutates only after generations M,
+2M, 3M, ...  Without both settings every decision is unchanged.
 """
 
 import math
@@ -66,11 +72,16 @@ def cadenced_pbt_v1_plan(config, generation, members, manifest=None):
     options = pbt[STRATEGY]
     metric = pbt["metric"]
     index = int(generation["index"])
-    completed_epochs = index + 1
-    terminal = completed_epochs == int(config["shared"]["generations"])
+    slices = int(config["shared"].get("generations_per_epoch") or 1)
+    completed = index + 1  # generations; equal to completed epochs when a generation is one epoch
+    completed_epochs = completed if slices == 1 else completed / slices
+    terminal = completed == int(config["shared"]["generations"])
     warmup_epochs = int(options["warmup_epochs"])
+    warmup_generations = warmup_epochs * slices
     cadence_interval_epochs = int(pbt["exploit_interval_generations"])
-    cadence_boundary = completed_epochs % cadence_interval_epochs == 0
+    cadence_boundary = completed % cadence_interval_epochs == 0
+    lr_interval = options.get("lr_mutation_interval_generations")
+    lr_boundary = lr_interval is None or completed % int(lr_interval) == 0
     values = {}
     for name in members:
         worker = generation["workers"][name]
@@ -87,10 +98,10 @@ def cadenced_pbt_v1_plan(config, generation, members, manifest=None):
     decimal_gap = Decimal(str(values[recipient])) - Decimal(str(values[donor]))
     gap = float(decimal_gap)
     margin = float(options["decision_margin"])
-    opportunity = completed_epochs >= warmup_epochs and cadence_boundary and not terminal
+    opportunity = completed >= warmup_generations and cadence_boundary and not terminal
     if terminal:
         reason = "terminal_generation"
-    elif completed_epochs < warmup_epochs:
+    elif completed < warmup_generations:
         reason = "warmup"
     elif not cadence_boundary:
         reason = "off_cadence"
@@ -118,19 +129,26 @@ def cadenced_pbt_v1_plan(config, generation, members, manifest=None):
         "decision_margin": margin,
         "cadence_interval_epochs": cadence_interval_epochs,
         "cadence_boundary": cadence_boundary,
-        "warmup_active_during_training": completed_epochs <= warmup_epochs,
-        "warmup_complete_at_boundary": completed_epochs >= warmup_epochs,
+        "warmup_active_during_training": completed <= warmup_generations,
+        "warmup_complete_at_boundary": completed >= warmup_generations,
         "copy_opportunity": opportunity,
-        "lr_mutation_opportunity": opportunity,
+        "lr_mutation_opportunity": opportunity and lr_boundary,
         "terminal": terminal,
         "reason": reason,
         "copy_planned": reason == "metric_gap_exceeds_margin",
         "copy_applied": False,
     }
+    if slices > 1 or lr_interval is not None:
+        decision.update(completed_generation=completed, generations_per_epoch=slices,
+                        lr_mutation_interval_generations=lr_interval)
     generation[STRATEGY] = decision
     if not decision["copy_planned"]:
         return ranking, []
-    mutation = select_mutation(config, members, donor, recipient)
+    if lr_boundary:
+        mutation = select_mutation(config, members, donor, recipient)
+    else:  # copy only: the recipient keeps its own learning rate until the next LR boundary
+        mutation = {"new_lr": float(members[recipient]["lr"]), "mutation_factor": None, "mutation_applied": False,
+                    "mutation_reason": "off_lr_cadence", "rejected_mutations": []}
     event = {
         "event_id": f"{STRATEGY}:g{index:03d}:{donor}:{recipient}",
         "source": STRATEGY,

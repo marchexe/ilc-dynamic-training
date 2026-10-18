@@ -39,9 +39,12 @@ class SubEpochGenerationTest(unittest.TestCase):
         self.assertTrue(command[0].endswith('/weaver'))
         self.assertEqual(option(command, '--seed'), str(int(config['shared']['seed']) + 3))
         for path in ('configs/experiments/foundation_fixed_lr_50epochs.yaml', 'configs/experiments/windowed_pbt_v2.yaml',
+                     'configs/experiments/cadenced_pbt_v1.yaml', 'configs/experiments/cadenced_pbt_v1_cadence5.yaml',
                      'configs/experiments/stage3_train8m_fixed_lr.yaml', 'configs/experiments/stage3_train8m_windowed_pbt_v2.yaml'):
-            shared = config_module.load_config(namespace(config=PROJECT_DIR / path, experiment_name='unit', gpus='0,1,2,3,4',
-                                                         slots=None, smoke=False))['shared']
+            resolved = config_module.load_config(namespace(config=PROJECT_DIR / path, experiment_name='unit', gpus='0,1,2,3,4',
+                                                           slots=None, smoke=False))
+            shared = resolved['shared']
+            self.assertNotIn('lr_mutation_interval_generations', resolved['pbt'].get('cadenced_pbt_v1') or {}, path)
             self.assertFalse({'optimizer_state_contract', 'generations_per_epoch', 'batches_per_generation'} & set(shared), path)
 
     def test_full_contract_runs_the_same_weaver_arguments_through_the_entry_point(self):

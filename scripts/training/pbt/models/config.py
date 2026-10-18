@@ -410,6 +410,9 @@ class CadencedPBTConfig(StrictSectionModel):
     warmup_epochs: Literal[2] = 2
     decision_margin: float = Field(default=0.002, ge=0.0, allow_inf_nan=False)
     max_recipients: Literal[1] = 1
+    # None: the LR may mutate at every copy (the historical policy). N: copies may happen at every eligible
+    # generation, but the learning rate mutates only when the completed generation count is a multiple of N.
+    lr_mutation_interval_generations: int | None = Field(default=None, ge=1)
 
 
 class PBTSection(StrictSectionModel):
