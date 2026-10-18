@@ -1,0 +1,36 @@
+{
+  "applies": "only after the campaign completed (status completed with report_integrity.json); until then every launch and resume still refuses changed execution files",
+  "changed_execution_files": [
+    {
+      "current_sha256": "0e8cf1d41a7308de72d69d297354d47695138ce3d1c0ce88517ef129fe3e3625",
+      "frozen_sha256": "a7b5351fc3e574ca8061c8fd967530814478825d21b452e981eb4f323f5ef118",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/execution/weaver_command.py"
+    },
+    {
+      "current_sha256": "dc5a129a496b7c9da034a0cd1cd62c3bf1e54c3dbf25ad9da191e41a5648ca9b",
+      "frozen_sha256": "c8026d59391c380ef25523e90dfc156fe32a71a54198279ecdcc15535b6424fe",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/models/config.py"
+    },
+    {
+      "current_sha256": "10c3d19f48f35020b308bf273cb0075522a965bc708d06f852ae3528a330bd69",
+      "frozen_sha256": "d23c39d138be098360c29775c4a366a5dccf2718d55e7316b1f868c953b21a92",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/runner.py"
+    },
+    {
+      "current_sha256": "07e67949f2aeb4ed0bdf082b87d1462da56c23b51b1fc7b03cd3ac972c63d91c",
+      "frozen_sha256": "285b09269f287149084a880dca3651e242ffedfecf64d47a2b368f7616aebdd4",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/validation/verify_fixed_lr.py"
+    }
+  ],
+  "protocol": {
+    "file": "configs/prepared/stage3_train8m_v1/protocol_v2.json",
+    "sha256": "b696ff639a4f24bc700984076411944bd0647760db60bdcc338b3f102b309339"
+  },
+  "reason": "Opt-in exact-restart contract for generations shorter than an epoch (scripts/training/optimizer_contract.py, data_cursor.py, weaver_full_state.py). The new shared keys optimizer_state_contract, generations_per_epoch and batches_per_generation, and the cadenced option lr_mutation_interval_generations, default to None; without them commands, seeds, resolved configurations, fingerprints and policy decisions are unchanged (tests/test_sub_epoch_generations.py; replay of the completed cadenced runs). verify_fixed_lr also verifies an epoch trained in several generations; the runner records the seed actually used. The campaign ran on the frozen files; this record lets later work use the changed files without reporting drift for the completed study.",
+  "recorded_at": "2026-10-18T22:54:59.251654+00:00",
+  "schema_version": 1
+}

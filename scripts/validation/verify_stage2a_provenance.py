@@ -7,7 +7,9 @@ dataset, isolation and checkpoint hashes) and every pinned execution file.
 A pinned file listed in a committed administrative revision must still be
 recoverable byte for byte from the recorded Git commit with exactly the pinned
 SHA256 and size, and its current content must match the revision's recorded
-hash; any other difference fails. The Stage 2A protocol itself is never edited.
+hash; any other difference fails. Revisions (administrative_revision_N.json)
+apply in order; a later record for a file supersedes an earlier one. The Stage
+2A protocol itself is never edited.
 """
 import argparse
 import hashlib
@@ -24,6 +26,10 @@ from experiments.stage2a.protocol import load_protocol  # noqa: E402
 from training.runtime import PROJECT_DIR  # noqa: E402
 
 REVISION = PREPARED / 'administrative_revision_1.json'
+
+
+def revision_paths(prepared=PREPARED):
+    return sorted(Path(prepared).glob('administrative_revision_*.json'), key=lambda p: int(p.stem.rsplit('_', 1)[1]))
 OUTPUT = PROJECT_DIR / 'runs/eval/stage2a_holdout_v1'
 
 
@@ -45,6 +51,19 @@ def load_revision(path=REVISION):
     if sha256(Path(path)) != recorded:
         raise ValueError('Stage 2A administrative revision record was edited')
     return revision
+
+
+def load_revisions(paths=None):
+    """All committed revisions merged in order: the latest record for each file applies."""
+    paths = revision_paths() if paths is None else paths
+    revisions = [load_revision(path) for path in paths]
+    if len({r['protocol_sha256'] for r in revisions}) > 1:
+        raise ValueError('Stage 2A administrative revisions cite different protocols')
+    changed = {}
+    for revision in revisions:
+        changed.update({item['path']: item for item in revision.get('changed_execution_files', [])})
+    return dict(protocol_sha256=revisions[0]['protocol_sha256'] if revisions else None,
+                changed_execution_files=list(changed.values()), revisions=[Path(p).name for p in paths])
 
 
 def verify_execution_files(records, revision, *, blob=git_blob):
@@ -71,9 +90,9 @@ def verify_execution_files(records, revision, *, blob=git_blob):
     return checked
 
 
-def verify(prepared=PREPARED, revision_path=REVISION, output=OUTPUT):
+def verify(prepared=PREPARED, output=OUTPUT):
     protocol, digest = load_protocol(prepared, verify_inputs=False)
-    revision = load_revision(revision_path)
+    revision = load_revisions(revision_paths(prepared))
     if revision['protocol_sha256'] != digest:
         raise ValueError('Administrative revision belongs to a different Stage 2A protocol')
     if protocol['environment'] != environment():
@@ -93,7 +112,7 @@ def verify(prepared=PREPARED, revision_path=REVISION, output=OUTPUT):
         for artifact in artifacts:
             verify_file(artifact)
         results = len(artifacts)
-    return dict(passed=True, protocol_sha256=digest, execution_files=len(files),
+    return dict(passed=True, protocol_sha256=digest, revisions=revision['revisions'], execution_files=len(files),
                 administratively_revised=[f['path'] for f in files if f['state'] != 'unchanged'],
                 verified_result_artifacts=results)
 
