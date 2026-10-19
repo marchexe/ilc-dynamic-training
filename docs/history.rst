@@ -18,6 +18,12 @@ Timeline
 * **2026-10-12:** independent holdout evaluation.
 * **2026-10-13:** large-dataset study preregistered and launched (:doc:`ongoing`).
 * **2026-10-14:** documentation reorganised; 100-epoch endpoint corrected.
+* **2026-10-14 to 10-19:** large-dataset study, fixed-learning-rate arm completed after
+  two interruptions; the PBT arm was interrupted before its first epoch and resumed on
+  2026-10-19 (:ref:`execution-record`). Determinism checks corrected to compare
+  checkpoint contents (:ref:`determinism-verification`).
+* **2026-10-17 to 10-19:** full-state restart format for sub-epoch adaptation developed on
+  a separate branch, not merged (:ref:`sub-epoch-adaptation`).
 
 Internal names
 --------------
@@ -40,7 +46,7 @@ records hash them.
    * - Variant A / cadence5 control
      - every-epoch / every-five-epochs PBT
    * - Variant B
-     - sub-epoch adaptation (not implemented)
+     - sub-epoch adaptation (development branch, not merged)
    * - "control proxy", "full reference" for ``val50k_tail``
      - selection validation set
    * - generation

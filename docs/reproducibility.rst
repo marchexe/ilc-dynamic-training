@@ -84,4 +84,5 @@ Commands
 
 Completed runs are never modified. A continuation is a new run that pins the source
 manifest hash. Frozen protocols are never edited; changes are recorded as revisions citing
-the original hash (for example :repo:`configs/prepared/stage3_train8m_v1/gate_revision_1.json`).
+the original hash (for example :repo:`configs/prepared/stage3_train8m_v1/gate_revision_1.json`
+and :repo:`configs/prepared/stage3_train8m_v1/analysis_revision_1.json`).
