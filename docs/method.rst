@@ -1,6 +1,8 @@
 Methodology
 ===========
 
+.. _data-and-model:
+
 Data and model
 --------------
 
@@ -16,22 +18,40 @@ experiment starts from the same pretrained checkpoint (epoch 17 of an earlier tr
 on a 2025-02 sample) and its optimizer state. Training epoch *t* is checkpoint epoch
 17 + *t*.
 
+.. _training-contract:
+
 Training contract
 -----------------
 
 Shared by every population member and policy:
 
-* Ranger (RAdam with Lookahead), batch 1024, constant learning rate within an epoch;
+* Ranger: RAdam (β = 0.95, 0.999; ε = 10⁻⁵; no weight decay) with Lookahead (k = 6,
+  α = 0.5); batch 1024; constant learning rate within an epoch;
 * FP16 mixed precision with dynamic loss scaling (overflowing steps are skipped);
 * frozen BatchNorm; class-balancing reweighting during training, none at evaluation;
 * full, deterministic, audited passes over the training set;
 * one process per epoch; model, optimizer and loss-scaler state are saved after each
   epoch, then the policy acts.
 
-Weaver checkpoints store the RAdam state but not Lookahead's slow weights or step
-counter, so Lookahead restarts at every epoch boundary. This is identical for all
-policies and does not bias comparisons, but results describe this *epoch-restarted*
-contract, and it prevents adaptation more often than once per epoch.
+.. _restart-semantics:
+
+Restart semantics
+~~~~~~~~~~~~~~~~~
+
+After every epoch Weaver writes a restart bundle: model weights, the RAdam state (moment
+estimates, step counts, buffer and parameter groups, including the learning rate) and
+the loss-scaler state. The next epoch is a new process that loads this bundle and uses
+the epoch's seed and data order. Lookahead's slow weights and step counter are not part
+of the bundle, so Lookahead is re-initialised from the loaded weights at every epoch
+boundary. All results describe this *epoch-restarted* contract. It is identical for
+every policy and does not bias comparisons between them, but it has two consequences:
+
+* an epoch that is interrupted is recomputed from its starting bundle with the same seed
+  and data order; committed epochs are never retrained;
+* a policy cannot act within an epoch without changing the optimizer trajectory, because
+  each additional restart re-initialises Lookahead (:ref:`sub-epoch-adaptation`).
+
+.. _learning-rate-policies:
 
 Learning-rate policies
 ----------------------

@@ -6,10 +6,14 @@ Composite mistag in percent; lower is better. Endpoints and splits are defined i
 evaluation by :repo:`scripts/publish/export_results_summary.py`; tables, trajectories
 and source hashes are in :repo:`published/results`.
 
+.. _main-comparisons:
+
 Main comparisons
 ----------------
 
-Treatment − comparator; negative favours the treatment.
+Treatment − comparator; negative favours the treatment. The validation column is the
+population endpoint (final-10 current-best); the holdout column is one selected
+checkpoint per run (:ref:`endpoints`). The two describe different quantities.
 
 .. list-table::
    :header-rows: 1
@@ -54,7 +58,12 @@ Treatment − comparator; negative favours the treatment.
    :alt: Treatment minus comparator on validation and on the independent holdout
    :width: 100%
 
-**Windowed PBT vs fixed learning rates.** Both evaluations favour windowed PBT by 1.3–1.7%.
+.. _windowed-vs-fixed:
+
+Windowed PBT versus fixed learning rates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Both evaluations favour windowed PBT by 1.3–1.7%.
 At 50 epochs the current-best trajectories are identical through epoch 15; afterwards PBT
 is lower in 28 of 35 epochs. Its selected checkpoint mistags fewer holdout background jets
 at seven of eight working points and the same number at the eighth. Learning rates moved
@@ -72,10 +81,97 @@ above the initial grid, reaching the upper bound in the 100-epoch run.
    final-10 mean of the ``lr_3e-6`` member alone. The population endpoint is 0.326944%
    (−1.69%).
 
-**Adaptation frequency: inconclusive.** Every-epoch PBT has the lower validation endpoint
-for both seeds and the higher holdout value for both seeds. It also has five times as many
-validation-driven decisions (32 and 25 copies against 9 and 8), which inflates its
-validation advantage.
+.. _adaptation-frequency:
+
+Adaptation frequency: ranking reversed on the holdout
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Every-epoch and every-five-epochs PBT are otherwise identical (:ref:`learning-rate-policies`)
+and were run with two training seeds each. On validation, every-epoch PBT is better for
+both seeds, by 0.0014 and 0.0016 pp in the population endpoint and by 0.0004 and
+0.0008 pp in its selected checkpoint. On the holdout, the same selected checkpoints rank
+the other way for both seeds: every-epoch PBT is worse by 0.0015 pp (seed 12345) and
+0.0004 pp (seed 22345). In the paired counts, every-epoch PBT mistags more background jets
+at seven of eight working points for seed 12345; for seed 22345 the working points are
+split (four worse, three better, one equal).
+
+The data do not identify a cause. Three properties of the design are compatible with the
+reversal and are not separated by these runs:
+
+* every-epoch PBT has five times as many decision opportunities and applied more copies
+  (32 and 25 against 9 and 8), each chosen on the same validation set used for the
+  endpoint and for checkpoint selection, so its validation values can be more optimistic;
+* the differences are of the size by which checkpoints of similar quality reorder between
+  validation and holdout (below);
+* one seed pair per setting gives no estimate of seed-to-seed variation.
+
+Adaptation frequency is therefore reported as inconclusive.
+
+.. _independent-holdout:
+
+Independent holdout results
+---------------------------
+
+Selected checkpoints evaluated once on the 2,825,125-jet holdout (:ref:`holdout-protocol`).
+The final-10 column is the population endpoint of the same run, given for context; it is
+not a property of the selected checkpoint.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 36 12 17 17 18
+
+   * - Selected checkpoint
+     - Training epoch
+     - Validation, selected
+     - Validation, final-10
+     - Holdout
+   * - Pretrained start
+     - 0
+     - 0.456705
+     - —
+     - 0.438151
+   * - Fixed-LR population, 50 epochs
+     - 44
+     - 0.344561
+     - 0.345568
+     - 0.326934
+   * - Windowed PBT, 50 epochs
+     - 50
+     - 0.337727
+     - 0.341219
+     - 0.322484
+   * - Windowed PBT, 100 epochs
+     - 89
+     - 0.321381
+     - 0.326944
+     - 0.311050
+   * - Fixed LR 1.4 × 10⁻⁵, 100 epochs (single member)
+     - 99
+     - 0.331445
+     - 0.332571
+     - 0.315582
+   * - Every-epoch PBT, seed 12345
+     - 42
+     - 0.330931
+     - 0.332391
+     - 0.317738
+   * - Every-five-epochs PBT, seed 12345
+     - 47
+     - 0.331369
+     - 0.333758
+     - 0.316246
+   * - Every-epoch PBT, seed 22345
+     - 44
+     - 0.330665
+     - 0.332398
+     - 0.316731
+   * - Every-five-epochs PBT, seed 22345
+     - 49
+     - 0.331417
+     - 0.334040
+     - 0.316314
+
+.. _validation-vs-holdout:
 
 **Validation versus holdout.** Every selected checkpoint scores 0.010–0.019 pp lower on
 the holdout, a different sample. Rank correlation across the nine evaluated checkpoints
@@ -91,6 +187,8 @@ Per-checkpoint values, eight working points and paired counts:
 :repo:`published/results/holdout_checkpoints.csv`,
 :repo:`published/results/holdout_paired_counts.csv`. The evaluation protocol is frozen in
 :repo:`configs/prepared/stage2a_holdout_v1/protocol.json`.
+
+.. _supporting-studies:
 
 Supporting studies
 ------------------
@@ -108,11 +206,17 @@ configured bound, and no decreases. This run used the earlier contract (120,000 
 jets per generation, damped optimizer start). Audit:
 :repo:`published/studies/controller-shadow-audit/report.md`.
 
-**Sub-epoch adaptation: blocked.** Restarting five times within an epoch changed the
-result (maximum parameter difference 7.6 × 10⁻⁴ against an uninterrupted epoch) because
-Lookahead state is not checkpointed. A valid test needs a new checkpoint format.
+.. _sub-epoch-restart-test:
 
-**Random initialization.** Implemented and smoke-tested only.
+**Sub-epoch adaptation: not testable under the current contract.** Restarting five times
+within an epoch changed the result (maximum parameter difference 7.6 × 10⁻⁴ against an
+uninterrupted epoch) because Lookahead state is not checkpointed
+(:ref:`restart-semantics`). Development status: :ref:`sub-epoch-adaptation`.
+
+**Training from random initialization.** Implemented and smoke-tested only; no
+evaluated run.
+
+.. _cost:
 
 Cost
 ----
@@ -121,6 +225,8 @@ A 50-epoch, five-member run takes about 16 GPU-hours (median 225–233 s per mem
 including about 44 s validation). PBT adds no training or validation work. Two runs had
 slower medians (321 and 351 s); this is not a policy cost, since the matched every-epoch
 run with the other seed took 226 s.
+
+.. _limitations:
 
 Limitations
 -----------
@@ -136,10 +242,12 @@ Limitations
   selection metric (:doc:`experiments/pretrained-0-19`).
 * Effects of 1–2% have not been propagated to a physics analysis.
 
+.. _open-questions:
+
 Open questions
 --------------
 
 Does the advantage hold with ten times more data and on a sealed test
-(:doc:`ongoing`)? How large is seed-to-seed variation? Does adaptation frequency matter
+(:ref:`large-dataset-status`)? How large is seed-to-seed variation? Does adaptation frequency matter
 once selection optimism is controlled? Does sub-epoch adaptation help with full
 optimizer state?
