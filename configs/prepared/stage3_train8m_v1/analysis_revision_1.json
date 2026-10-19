@@ -1,0 +1,112 @@
+{
+  "anchors": {
+    "fixed_lr_ledger_sha256": "0c83232de49785e13e1879857a9ce8e43b4a94eef92454f9000215267b9ca266",
+    "fixed_lr_manifest_sha256": "58627d6d133248dd16817eb72a7ea9c072b74e51c0c9b94d1d0b20eaf5feeba8",
+    "gate_verdict_sha256": "0ccd425c77c6e642f007d7f3c85a19b4226c43fbaf3e2163af5387439ea8599e",
+    "windowed_pbt_v2_manifest_sha256": "e2a633cee71c923e1fb822b006fa5e29313fb8eb4c8f3ba440aa91252914e22c"
+  },
+  "correction": {
+    "files": [
+      {
+        "corrected_sha256": "f3f8f8b979faa7d001ff85c17364c273b735cd22165a364f21abd668cbbd747c",
+        "file": "scripts/experiments/stage3/analysis.py",
+        "original_sha256": "398512453c4c3874cc5ffd905f0474d870727ae086dd2afa27716e3594cc5b35"
+      },
+      {
+        "corrected_sha256": "dd5a43b8ac9bc90523f04dee84b87aa91cd0826348f49037537d5c913be6a53f",
+        "file": "scripts/experiments/stage3/checkpoint_contents.py",
+        "original_sha256": null
+      }
+    ],
+    "not_compared_by_contract": "Lookahead slow weights and the LR scheduler are not serialized by Weaver under the epoch-restarted contract (they are rebuilt at each epoch start), so they are not part of any checkpoint and cannot be compared.",
+    "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+    "rule": [
+      "Both checks compare the restart bundle Weaver writes after each epoch and loads on resume: model state_dict (state), optimizer state_dict (optimizer: RAdam exp_avg/exp_avg_sq, step counts, Ranger buffer, param groups including lr, betas, eps, weight_decay, initial_lr), AMP GradScaler state (scaler) and, if present, the training controller (controller).",
+      "Files are loaded with map_location='cpu'; the recorded device tag and the archive bytes are the only things not compared.",
+      "Every field is compared recursively, none is excluded: tensors must have the same dtype, shape and bytes; Python values the same type and value (floats bitwise); mappings the same keys; sequences the same length and type.",
+      "state, optimizer and scaler are required on both sides; controller must be present on both sides or on neither.",
+      "Lineage: for every completed generation before a windowed member's first copy, its bundle equals its fixed-LR namesake's. At the copy generation, the archived pre-copy bundle (pre_copy_archive) must first match the recorded pre-copy file hashes (pre_copy) byte for byte, then equal the fixed-LR bundle in content.",
+      "Gate: the gate's epoch-18 lr_14e-6 model file must still have the SHA256 recorded in the gate verdict (reference_state_sha256); the gate's bundle in that run directory must then equal each arm's epoch-18 lr_14e-6 bundle.",
+      "Check names, the 'determinism' kind and the report wording are unchanged; failure details now list the differing fields."
+    ]
+  },
+  "evidence": {
+    "control": "fixed lr_14e-6 epoch 18 vs epoch 19: model tensors reported as different (the comparison detects real changes)",
+    "fixed_device_tags_by_member": {
+      "lr_11_25e-6": {
+        "cuda:0": 32,
+        "cuda:3": 18
+      },
+      "lr_14e-6": {
+        "cuda:1": 32,
+        "cuda:4": 18
+      },
+      "lr_3e-6": {
+        "cuda:0": 18,
+        "cuda:2": 32
+      },
+      "lr_5_75e-6": {
+        "cuda:1": 18,
+        "cuda:3": 32
+      },
+      "lr_8_5e-6": {
+        "cuda:2": 18,
+        "cuda:4": 32
+      }
+    },
+    "fixed_vs_gate_archive_entries_differing": [
+      "data.pkl (storage location cuda:4 vs cuda:0)",
+      ".data/serialization_id"
+    ],
+    "fixed_vs_gate_contents": "identical: no difference in state, optimizer or scaler (corrected rule)",
+    "fixed_vs_gate_files": {
+      "optimizer": [
+        "1f3a5f3113028534...",
+        "33f77ced772f75e2..."
+      ],
+      "scaler": "6ead24aea15580ba... in both (no tensors, no device tag)",
+      "state": [
+        "7a88db0a6fcba9ff...",
+        "ffba767225efefea..."
+      ]
+    },
+    "gate_attempts": "Gate attempts 1 and 2 (both cuda:0) wrote byte-identical epoch-18 state, optimizer and scaler files (state ffba767225efefea..., optimizer 33f77ced772f75e2..., scaler 6ead24aea15580ba...)."
+  },
+  "observed_defect": [
+    "lineage_identity() and the gate check compared SHA256 of the model files (net_epoch-N_state.pt) only.",
+    "torch.save records in data.pkl the CUDA device each tensor lived on ('cuda:0'...'cuda:4' = the worker's slot), and .data/serialization_id is a checksum over the archive records, so it changes with it. Bit-identical tensors saved by workers on different slots are different files.",
+    "The gate trained on one GPU (cuda:0); the arms' lr_14e-6 worker ran on cuda:4 (generations 0-17) and cuda:1 (generations 18-49), so the gate check could never pass. Slot assignment changed between launches (see evidence), so the lineage check would fail for members placed on different slots in the two arms.",
+    "Both checks would have reported 'determinism not confirmed' for identical training states; the optimizer state and the AMP scaler were not compared at all."
+  ],
+  "protocol": {
+    "changed": false,
+    "determinism_criteria": [
+      "same-named members bit-identical across arms until that member's first windowed copy (and its recorded pre-copy state)",
+      "gate epoch-18 state equals both arms lr_14e-6 epoch-18 state"
+    ],
+    "determinism_failure": "reported prominently as \"determinism not confirmed\"; it does not invalidate the comparison but qualifies attributing differences to the policy",
+    "file": "configs/prepared/stage3_train8m_v1/protocol_v2.json",
+    "sha256": "b696ff639a4f24bc700984076411944bd0647760db60bdcc338b3f102b309339"
+  },
+  "revised_at": "2026-10-19T20:20:43.298198+00:00",
+  "revision": 1,
+  "schema_version": 1,
+  "scope": "Implementation of the two preregistered determinism checks in the Stage 3 analysis only (scripts/experiments/stage3/analysis.py and the new scripts/experiments/stage3/checkpoint_contents.py; neither is a protocol execution file). protocol_v2.json, its SHA256, the determinism criteria and their 'determinism' kind, the 29 pinned execution files, policy.json, configs, seeds, data splits, optimizer settings, evaluation definitions, GPU allocation and ownership checks, the checkpoint ledger and all run artifacts are unchanged.",
+  "timing": "Corrected on 2026-10-20, after the fixed-LR arm completed and before any windowed PBT generation. The windowed run has 0 completed generations (manifest status 'running' after the 2026-10-19 interruption, next_generation 0, initial evaluation interrupted); its member directories hold only the epoch-17 starting checkpoints. No PBT metric, checkpoint or exploit decision existed, and no validation analysis or report had been built. The correction makes the checks stricter (optimizer and scaler added) and does not depend on any PBT outcome.",
+  "verification": {
+    "note": "Read-only; no run artifact was modified.",
+    "real_artifacts_read_only": {
+      "fixed_lr_completed_generations": 50,
+      "fixed_lr_ledger_full": {
+        "verified": 50
+      },
+      "fixed_vs_gate_bundle_differences": [],
+      "gate_reference_intact": true,
+      "protocol_drift": [],
+      "verify_fixed_lr_passed": true,
+      "windowed_state": "resumable, 0 generations"
+    },
+    "regression": "Against the original analysis.py the same fixture gives both determinism checks failed ([False, False]); the corrected code gives [True, True].",
+    "tests": "tests/test_checkpoint_contents.py: every bundle part and field kind is compared (model tensor 1-ulp change, integer buffer, dtype, extra key, optimizer moment, step, lr, Ranger buffer, scaler scale and growth tracker, missing scaler, one-sided controller, NaN/-0.0/int-vs-float); bundles rewritten as by another slot (other device tag and serialization_id) are identical; analysis.validity passes both determinism checks on them, reports optimizer and scaler divergence, and rejects a changed gate reference or pre-copy archive."
+  }
+}

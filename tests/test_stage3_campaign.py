@@ -23,7 +23,7 @@ from experiments.stage2a.common import lock_file
 from experiments.stage2b.smoke import Status
 from experiments.stage3 import analysis, campaign, common, gate as gate_module, protocol as frozen, testset
 from scripts.experiments import stage3_campaign as cli
-from training.checkpoints import archive_selected_best
+from training.checkpoints import archive_selected_best, bundle_identity, bundle_paths, copy_bundle
 from training.pbt.config import contract_fingerprint
 from training.runtime import WORKING_POINT_DEFINITION, mistag_percent_key
 
@@ -570,8 +570,10 @@ def arm_fixture(root, arm, *, divergence=False, generations=12, steps=21_000, co
                                  started_at='2026-10-20T00:00:00+00:00', finished_at='2026-10-20T00:40:00+00:00')
         exploit = []
         if copy_at is not None and g == copy_at and arm == 'windowed_pbt_v2':
-            pre = dict(state=dict(sha256=common.sha256(run / 'lr_3e-6' / f'net_epoch-{epoch}_state.pt')))
-            exploit = [dict(donor='lr_14e-6', recipient='lr_3e-6', new_lr=1.12e-5, mutation_factor=0.8, pre_copy=pre)]
+            source = bundle_paths(run / 'lr_3e-6', epoch)
+            archive = copy_bundle(source, bundle_paths(run / 'checkpoints' / 'window-001' / 'lr_3e-6', epoch))
+            exploit = [dict(donor='lr_14e-6', recipient='lr_3e-6', new_lr=1.12e-5, mutation_factor=0.8,
+                            pre_copy=bundle_identity(source), pre_copy_archive=archive)]
         rows.append(dict(index=g, epoch=epoch, status='completed', workers=workers, exploit=exploit))
     best_member = NAMES[0]
     best = archive_selected_best(run / 'checkpoints', {p: run / best_member / f'net_epoch-{18 + generations - 1}_{p}.pt'

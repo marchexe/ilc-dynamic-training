@@ -12,7 +12,7 @@ from statistics import mean, pstdev
 
 from experiments.stage3.common import ARMS, PRIMARY, file_record, load_json, sha256, utc_now, write_json
 from training.pbt.reporting.endpoints import current_best_trajectory, final_window_mean
-from training.pbt.state.checkpointing import checkpoint_paths
+from experiments.stage3.checkpoint_contents import bundle_differences, restart_bundle
 from training.runtime import WORKING_POINT_DEFINITION, mistag_percent_key
 
 WORKING_POINTS = [mistag_percent_key(pair, eff) for pair, eff in WORKING_POINT_DEFINITION]
@@ -73,13 +73,31 @@ def arm_summary(manifest, end, mode='min'):
         wall_hours=seconds(min(w['started_at'] for w in workers), max(w['finished_at'] for w in workers)) / 3600)
 
 
+def pre_copy_bundle(event):
+    """The archived pre-copy bundle, or the reason it cannot stand for the recorded pre-copy state.
+
+    The archive is a byte copy of the recipient's files taken just before the
+    copy, so its file hashes must equal the recorded pre-copy hashes.
+    """
+    archive, recorded = event.get('pre_copy_archive'), event.get('pre_copy') or {}
+    if not archive or set(archive) != set(recorded):
+        return None, 'pre-copy archive missing or incomplete'
+    for part, item in archive.items():
+        path = Path(item['path'])
+        if not path.is_file() or sha256(path) != recorded[part]['sha256']:
+            return None, f'pre-copy archive {part} differs from the recorded pre-copy state'
+    return {part: Path(item['path']) for part, item in archive.items()}, None
+
+
 def lineage_identity(runs, manifests, end):
     """Bit-identity of same-named members until each windowed member's first copy.
 
     A windowed member that has not yet been copied into has the same weights,
     LR, seed and data as its fixed-LR namesake, so deterministic training must
-    reproduce it exactly. At the copy generation the recorded pre-copy archive
-    must still match. Any mismatch means nondeterminism confounds the comparison.
+    reproduce its restart bundle exactly (checkpoint_contents: weights,
+    optimizer, AMP scaler, controller). At the copy generation the archived
+    pre-copy bundle must match. Any mismatch means nondeterminism confounds the
+    comparison.
     """
     fixed, windowed = manifests['fixed_lr'], manifests['windowed_pbt_v2']
     first_copy = {}
@@ -90,18 +108,34 @@ def lineage_identity(runs, manifests, end):
     for name in members(fixed):
         stop, event = first_copy.get(name, (end, None))
         for generation in completed(fixed)[:stop]:
-            paths = [checkpoint_paths(Path(runs[a]) / name, generation['epoch'])[0] for a in ARMS]
+            found = bundle_differences(*(restart_bundle(Path(runs[a]) / name, generation['epoch']) for a in ARMS))
             checked += 1
-            if not all(p.is_file() for p in paths) or sha256(paths[0]) != sha256(paths[1]):
-                mismatches.append(dict(member=name, epoch=generation['epoch']))
+            if found:
+                mismatches.append(dict(member=name, epoch=generation['epoch'], differences=found[:5]))
         if event:
             epoch = completed(windowed)[stop]['epoch']
-            reference = checkpoint_paths(Path(runs['fixed_lr']) / name, epoch)[0]
+            archive, problem = pre_copy_bundle(event)
+            found = [problem] if problem else bundle_differences(restart_bundle(Path(runs['fixed_lr']) / name, epoch), archive)
             checked += 1
-            if sha256(reference) != event['pre_copy']['state']['sha256']:
-                mismatches.append(dict(member=name, epoch=epoch, pre_copy=True))
+            if found:
+                mismatches.append(dict(member=name, epoch=epoch, pre_copy=True, differences=found[:5]))
     return dict(checked_states=checked, mismatches=mismatches, identical=not mismatches,
                 first_copy={n: v[0] + 1 for n, v in first_copy.items()})
+
+
+def gate_reproduction(protocol, runs, gate):
+    """Both arms' epoch-18 gate-member bundles against the gate's own bundle.
+
+    The gate verdict recorded the SHA-256 of its epoch-18 model file; that hash
+    anchors the reference files, whose contents are then compared.
+    """
+    epoch, member = protocol['design']['initial_epoch'] + 1, protocol['gate']['member']
+    reference = restart_bundle(Path(gate['run']) / member, epoch) if gate.get('run') else None
+    intact = bool(reference) and reference['state'].is_file() and \
+        sha256(reference['state']) == gate['measurements']['reference_state_sha256']
+    found = {a: bundle_differences(restart_bundle(Path(runs[a]) / member, epoch), reference) if intact else []
+             for a in ARMS}
+    return intact and not any(found.values()), dict(reference_intact=intact, differences={a: d[:5] for a, d in found.items()})
 
 
 def validity(protocol, runs, manifests, *, interim=False, gate=None, verifier=None, identity=None):
@@ -136,10 +170,7 @@ def validity(protocol, runs, manifests, *, interim=False, gate=None, verifier=No
     initial = [((m.get('initial_evaluation') or {}).get('metrics') or {}).get(PRIMARY) for m in manifests.values()]
     check('identical initial evaluation', initial[0] is not None and initial[0] == initial[1], initial)
     if gate and gate.get('measurements', {}).get('reference_state_sha256'):
-        epoch = protocol['design']['initial_epoch'] + 1
-        hashes = [sha256(checkpoint_paths(Path(runs[a]) / protocol['gate']['member'], epoch)[0]) for a in ARMS]
-        check('gate epoch-18 state reproduced by both arms', hashes == [gate['measurements']['reference_state_sha256']] * 2,
-              kind='determinism')
+        check('gate epoch-18 state reproduced by both arms', *gate_reproduction(protocol, runs, gate), kind='determinism')
     identity = identity or lineage_identity(runs, manifests, end)
     check('same-lineage members bit-identical until their first copy', identity['identical'], identity['mismatches'][:10],
           kind='determinism')

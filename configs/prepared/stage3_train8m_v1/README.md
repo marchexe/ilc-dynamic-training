@@ -112,6 +112,11 @@ The supervisor runs the phases in order (`--status` shows the current one):
 4. **REPORT**:
    - Full ledger re-verification.
    - Validation analysis; it must be COMPLETE before the sealed test opens.
+     The two determinism checks compare the deserialized restart bundles
+     (model, optimizer, AMP scaler, controller) bit for bit, not file hashes:
+     `data.pkl` records each tensor's CUDA device, so identical states saved
+     on different slots differ as files. `analysis_revision_1.json`
+     (+ `.sha256`) records this correction, made before any PBT generation.
    - Selection freeze.
    - Sealed test and descriptive holdout inference, through the Stage 2A
      inference campaign (leases, full-pass audit, row-ID coverage, finite
