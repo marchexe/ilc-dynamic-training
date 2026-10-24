@@ -1,0 +1,96 @@
+{
+  "correction": {
+    "files": [
+      {
+        "corrected_sha256": "3595d1e047134b3d6867cdd54fb33af0cae21d9ca7dc8d1d422b32088c1bb43e",
+        "file": "scripts/experiments/stage3/analysis.py",
+        "original_sha256": "f3f8f8b979faa7d001ff85c17364c273b735cd22165a364f21abd668cbbd747c"
+      }
+    ],
+    "original_commit": "8500dfd60095da68603583a895102d135d43a296",
+    "rule": [
+      "The check passes only if the fingerprint recorded in the manifest and the fingerprint recomputed from the manifest's configuration both equal the frozen fingerprint.",
+      "Before recomputing, exactly the runner's baseline record is undone, as in continuation.training_contract: runtime_baseline_metric_value is removed, configured_baseline_metric_value is removed and baseline_metric_value is restored to it (removed when it was null).",
+      "The record is undone only if runtime_baseline_metric_value and baseline_metric_value both equal the manifest's initial-evaluation value of the primary metric; otherwise, or if configured_baseline_metric_value appears without runtime_baseline_metric_value, the check fails.",
+      "Every other field of the configuration is hashed as recorded; any other difference fails the check, and the detail now reports the recorded, recomputed and frozen fingerprints."
+    ]
+  },
+  "evidence": {
+    "fixed_lr": {
+      "frozen_fingerprint": "485bc95f86cd6b22ebec3b0f09954dccd8adab80ab28bad81c1c842eeaad294e",
+      "initial_evaluation_primary": 0.456704817784357,
+      "manifest_fingerprint": "485bc95f86cd6b22ebec3b0f09954dccd8adab80ab28bad81c1c842eeaad294e",
+      "old_check_hash_of_recorded_config": "17d6aa1a7dd1589b9ac9a310f76615ca33ff19137dc87572951e07d5617f97cd",
+      "other_configuration_differences": "none",
+      "recorded_baseline": {
+        "baseline_metric_value": 0.456704817784357,
+        "configured_baseline_metric_value": null,
+        "runtime_baseline_metric_value": 0.456704817784357
+      }
+    },
+    "windowed_pbt_v2": {
+      "frozen_fingerprint": "103feac701e85aa0f3bfd3f10bd365e64459a045a3f369131546690f38bee0b3",
+      "initial_evaluation_primary": 0.456704817784357,
+      "manifest_fingerprint": "103feac701e85aa0f3bfd3f10bd365e64459a045a3f369131546690f38bee0b3",
+      "old_check_hash_of_recorded_config": "2fa77afa86a6a03e0293a5aea7d8dca7e78622803d18262b0f4c9073bbed4119",
+      "other_configuration_differences": "none",
+      "recorded_baseline": {
+        "baseline_metric_value": 0.456704817784357,
+        "configured_baseline_metric_value": null,
+        "runtime_baseline_metric_value": 0.456704817784357
+      }
+    }
+  },
+  "observed_defect": [
+    "validity() hashed manifest['config'] with contract_fingerprint() and compared it with the frozen fingerprint.",
+    "After the initial evaluation the runner records the measured baseline in the manifest's configuration (runner.promote_initial_evaluation_baseline): it sets pbt.runtime_baseline_metric_value and pbt.baseline_metric_value to the measured value and keeps the configured value in pbt.configured_baseline_metric_value. The fingerprint stored in the manifest at creation, and checked at every resume, is computed before this record; continuation.training_contract already undoes it. The analysis did not, so both arms failed the check although their configurations equal the frozen protocol.",
+    "The test fixtures built manifests without the runner's baseline record, so the defect was not exercised."
+  ],
+  "protocol": {
+    "changed": false,
+    "configs": {
+      "fixed_lr": "485bc95f86cd6b22ebec3b0f09954dccd8adab80ab28bad81c1c842eeaad294e",
+      "windowed_pbt_v2": "103feac701e85aa0f3bfd3f10bd365e64459a045a3f369131546690f38bee0b3"
+    },
+    "file": "configs/prepared/stage3_train8m_v1/protocol_v2.json",
+    "required_criterion": "protocol identity unchanged at every launch",
+    "sha256": "b696ff639a4f24bc700984076411944bd0647760db60bdcc338b3f102b309339"
+  },
+  "revised_at": "2026-10-24T22:43:40.229301+00:00",
+  "revision": 2,
+  "schema_version": 1,
+  "scope": "Implementation of the preregistered check 'configuration equals the frozen protocol' in the Stage 3 analysis only (scripts/experiments/stage3/analysis.py, not a protocol execution file). protocol_v2.json, its SHA256, the frozen configuration fingerprints, the 29 pinned execution files, policy.json, configs, seeds, data, checkpoints, run manifests, endpoints and all other validity and determinism checks are unchanged.",
+  "supersedes": {
+    "file": "configs/prepared/stage3_train8m_v1/analysis_revision_1.json",
+    "revision": 1,
+    "sha256": "ffb6c5af4ac722b074a033f94e0868469d4e23ce0aeb2c08e74111d21ca5683a"
+  },
+  "timing": {
+    "arms_completed": {
+      "fixed_lr": "2026-10-19T00:56:30Z",
+      "windowed_pbt_v2": "2026-10-21T09:35:01Z"
+    },
+    "failed_validation_analysis": {
+      "analysis_sha256": "2ca0d7856bdd0b677ddbfe5630ef4f6d003dceca501113f6cdf3e1ac079e2824",
+      "built": "2026-10-21T09:36:31Z to 09:37:06Z",
+      "report_integrity_sha256": "d4d03df0e7d1b6fa1f2f15d0511ce74f3f92b1e57799731826ddc599214c0251",
+      "report_sha256": "5944bbca1a6d9fec0eedfae71ec0d0a461747bd69a4be4265ab3af9575292966",
+      "status": "INVALID"
+    },
+    "preserved": "The INVALID validation_analysis directory is kept as recorded until the launcher rebuilds it; its hashes are above.",
+    "statement": "Unlike revision 1, this correction was made after both arms had completed and after the validation analysis had been computed once. Because the analysis was INVALID, no comparison was declared, no checkpoint selection was frozen and the sealed test was not opened. The arm summaries stored in that analysis.json were not read during the diagnosis or the correction; only the validity checks, the lineage identity and the configuration difference were inspected. The correction is a mechanical identity check that cannot depend on any endpoint value."
+  },
+  "verification": {
+    "note": "Read-only; no run artifact was modified.",
+    "real_artifacts_read_only": {
+      "checks": {
+        "all ten validity checks": "passed",
+        "fixed_lr: configuration equals the frozen protocol": true,
+        "same-lineage states checked": 70,
+        "windowed_pbt_v2: configuration equals the frozen protocol": true
+      },
+      "sealed_test_opened": false
+    },
+    "tests": "tests/test_stage3_campaign.py: the analysis fixture now records the baseline through runner.promote_initial_evaluation_baseline; the check passes for it and fails for a changed seed, a recorded baseline that differs from the initial evaluation, an inconsistent baseline record, a missing runtime value and a wrong recorded fingerprint."
+  }
+}

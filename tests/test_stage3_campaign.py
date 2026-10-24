@@ -25,6 +25,7 @@ from experiments.stage3 import analysis, campaign, common, gate as gate_module, 
 from scripts.experiments import stage3_campaign as cli
 from training.checkpoints import archive_selected_best, bundle_identity, bundle_paths, copy_bundle
 from training.pbt.config import contract_fingerprint
+from training.pbt.runner import promote_initial_evaluation_baseline
 from training.runtime import WORKING_POINT_DEFINITION, mistag_percent_key
 
 PRIMARY = common.PRIMARY
@@ -580,8 +581,11 @@ def arm_fixture(root, arm, *, divergence=False, generations=12, steps=21_000, co
                                                        for p in ('state', 'optimizer', 'scaler')},
                                  dict(generation=generations - 1, epoch=18 + generations - 1, member=best_member,
                                       metric_value=0.39), require_scaler=True)
-    manifest = dict(status='completed', config=config, members={n: dict(name=n, lr=LRS[n]) for n in NAMES},
-                    generations=rows, best=best, initial_evaluation=dict(metrics={PRIMARY: 0.45}))
+    manifest = dict(status='completed', fingerprint=contract_fingerprint(config), config=copy.deepcopy(config),
+                    members={n: dict(name=n, lr=LRS[n]) for n in NAMES}, generations=rows, best=best,
+                    initial_evaluation=dict(metrics={PRIMARY: 0.45}))
+    # As the runner does after the initial evaluation: the measured baseline is recorded in the config.
+    promote_initial_evaluation_baseline(config, manifest, PRIMARY, manifest['initial_evaluation']['metrics'])
     (run / 'manifest.json').write_text(json.dumps(manifest))
     return str(run)
 
@@ -599,6 +603,27 @@ class AnalysisTest(unittest.TestCase):
     def build(self, runs, **kwargs):
         self.protocol['design']['horizon_epochs'] = 12
         return analysis.build(self.root / 'report', self.protocol, runs, verifier=self.verifier, **kwargs)
+
+    def test_configuration_check_undoes_only_the_recorded_baseline(self):
+        runs = {arm: arm_fixture(self.root, arm, copy_at=9) for arm in common.ARMS}
+        path = Path(runs['windowed_pbt_v2']) / 'manifest.json'
+        original = common.load_json(path)
+        self.assertEqual(original['config']['pbt']['runtime_baseline_metric_value'], 0.45)
+        self.assertNotEqual(contract_fingerprint(original['config']), original['fingerprint'])  # what the old check hashed
+
+        def failed(change):
+            manifest = copy.deepcopy(original)
+            change(manifest)
+            path.write_text(json.dumps(manifest))
+            return [c['check'] for c in self.build(runs)['validity'] if not c['passed']]
+
+        self.assertEqual(failed(lambda m: None), [])
+        for change in (lambda m: m['config']['shared'].update(seed=m['config']['shared']['seed'] + 1),
+                       lambda m: m['config']['pbt'].update(runtime_baseline_metric_value=0.44, baseline_metric_value=0.44),
+                       lambda m: m['config']['pbt'].update(baseline_metric_value=0.44),
+                       lambda m: m['config']['pbt'].pop('runtime_baseline_metric_value'),
+                       lambda m: m.update(fingerprint='0' * 64)):
+            self.assertEqual(failed(change), ['windowed_pbt_v2: configuration equals the frozen protocol'])
 
     def test_complete_matched_campaign_reports_preregistered_endpoints(self):
         runs = {arm: arm_fixture(self.root, arm, copy_at=9) for arm in common.ARMS}

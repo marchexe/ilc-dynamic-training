@@ -117,6 +117,11 @@ The supervisor runs the phases in order (`--status` shows the current one):
      `data.pkl` records each tensor's CUDA device, so identical states saved
      on different slots differ as files. `analysis_revision_1.json`
      (+ `.sha256`) records this correction, made before any PBT generation.
+     The configuration check compares the manifest's recorded fingerprint and
+     the fingerprint of its configuration, with the runner's recorded
+     initial-evaluation baseline undone, against the frozen fingerprint.
+     `analysis_revision_2.json` records this correction, made after both arms
+     completed and before the sealed test was opened.
    - Selection freeze.
    - Sealed test and descriptive holdout inference, through the Stage 2A
      inference campaign (leases, full-pass audit, row-ID coverage, finite

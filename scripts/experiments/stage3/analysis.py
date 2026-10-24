@@ -5,6 +5,7 @@ before any comparison is stated: an invalid or incomplete campaign is labelled
 so and never presented as a successful comparison. Validation-selected values
 are separated from the sealed independent test.
 """
+import copy
 import csv
 import math
 from pathlib import Path
@@ -138,9 +139,40 @@ def gate_reproduction(protocol, runs, gate):
     return intact and not any(found.values()), dict(reference_intact=intact, differences={a: d[:5] for a, d in found.items()})
 
 
+BASELINE_RECORD = ('baseline_metric_value', 'configured_baseline_metric_value', 'runtime_baseline_metric_value')
+
+
+def configuration_identity(manifest):
+    """Recorded and recomputed contract fingerprints of a run, or the reason they cannot be computed.
+
+    After the initial evaluation the runner records the measured value in the manifest's
+    configuration (runner.promote_initial_evaluation_baseline): runtime_baseline_metric_value
+    and baseline_metric_value are set to it, configured_baseline_metric_value keeps the
+    configured value. Exactly that record is undone, as continuation.training_contract
+    does, and only if both recorded values equal the manifest's initial-evaluation metric;
+    every other field is hashed as recorded.
+    """
+    from training.pbt.config import contract_fingerprint
+    config = copy.deepcopy(manifest['config'])
+    pbt = config['pbt']
+    if 'runtime_baseline_metric_value' in pbt:
+        measured = ((manifest.get('initial_evaluation') or {}).get('metrics') or {}).get(manifest['config']['pbt']['metric'])
+        if measured is None or not pbt['runtime_baseline_metric_value'] == pbt.get('baseline_metric_value') == measured:
+            return dict(recorded=manifest.get('fingerprint'), recomputed=None,
+                        problem='recorded baseline differs from the initial evaluation')
+        original = pbt.pop('configured_baseline_metric_value', None)
+        if original is None:
+            pbt.pop('baseline_metric_value', None)
+        else:
+            pbt['baseline_metric_value'] = original
+        pbt.pop('runtime_baseline_metric_value')
+    elif 'configured_baseline_metric_value' in pbt:
+        return dict(recorded=manifest.get('fingerprint'), recomputed=None, problem='incomplete baseline record')
+    return dict(recorded=manifest.get('fingerprint'), recomputed=contract_fingerprint(config))
+
+
 def validity(protocol, runs, manifests, *, interim=False, gate=None, verifier=None, identity=None):
     """Preregistered validity checks; an empty failure list is required to compare."""
-    from training.pbt.config import contract_fingerprint
     from validation import verify_fixed_lr
     verifier = verifier or verify_fixed_lr
     checks = []
@@ -155,7 +187,10 @@ def validity(protocol, runs, manifests, *, interim=False, gate=None, verifier=No
         return checks, 0, dict(checked_states=0, mismatches=[], identical=True, first_copy={})
     for arm, manifest in manifests.items():
         frozen = protocol['identity']['configs'][arm]
-        check(f'{arm}: configuration equals the frozen protocol', contract_fingerprint(manifest['config']) == frozen['fingerprint'])
+        configuration = configuration_identity(manifest)
+        check(f'{arm}: configuration equals the frozen protocol',
+              configuration['recorded'] == configuration['recomputed'] == frozen['fingerprint'],
+              dict(configuration, frozen=frozen['fingerprint']))
         if not interim:
             check(f'{arm}: completed {horizon} generations', manifest.get('status') == 'completed' and end == horizon)
         evidence = verifier.verify(Path(runs[arm]), None if not interim else max(end, 1))

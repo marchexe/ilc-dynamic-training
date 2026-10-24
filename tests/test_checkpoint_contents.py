@@ -183,23 +183,28 @@ class AnalysisDeterminismTest(unittest.TestCase):
 
 
 class AnalysisRevisionRecordTest(unittest.TestCase):
-    def test_record_is_pinned_and_matches_the_files(self):
-        path = common.PREPARED / 'analysis_revision_1.json'
-        record = common.load_json(path)
-        self.assertEqual(common.sha256(path), (common.PREPARED / 'analysis_revision_1.sha256').read_text().strip())
-        self.assertEqual(record['protocol']['sha256'], (common.PREPARED / 'protocol_v2.sha256').read_text().strip())
-        self.assertFalse(record['protocol']['changed'])
-        self.assertEqual(record['protocol']['determinism_criteria'],
+    def test_records_are_pinned_and_chain_to_the_current_files(self):
+        protocol_sha = (common.PREPARED / 'protocol_v2.sha256').read_text().strip()
+        latest = {}
+        for number in (1, 2):
+            path = common.PREPARED / f'analysis_revision_{number}.json'
+            record = common.load_json(path)
+            self.assertEqual(common.sha256(path), path.with_suffix('.sha256').read_text().strip())
+            self.assertEqual(record['revision'], number)
+            self.assertEqual((record['protocol']['sha256'], record['protocol']['changed']), (protocol_sha, False))
+            for item in record['correction']['files']:
+                self.assertNotIn(item['file'], frozen.EXECUTION_FILES)
+                original = subprocess.run(['git', 'show', f'{record["correction"]["original_commit"]}:{item["file"]}'],
+                                          cwd=PROJECT_DIR, capture_output=True)
+                self.assertEqual(hashlib.sha256(original.stdout).hexdigest() if original.returncode == 0 else None,
+                                 item['original_sha256'])
+                if item['file'] in latest:  # each revision starts from the previous revision's file
+                    self.assertEqual(item['original_sha256'], latest[item['file']])
+                latest[item['file']] = item['corrected_sha256']
+        self.assertEqual(common.load_json(common.PREPARED / 'analysis_revision_1.json')['protocol']['determinism_criteria'],
                          common.load_json(common.PREPARED / 'protocol_v2.json')['validity']['determinism'])
-        for item in record['correction']['files']:
-            self.assertNotIn(item['file'], frozen.EXECUTION_FILES)
-            self.assertEqual(item['corrected_sha256'], common.sha256(PROJECT_DIR / item['file']))
-            if item['original_sha256'] is None:
-                continue
-            original = subprocess.run(['git', 'show', f'{record["correction"]["original_commit"]}:{item["file"]}'],
-                                      cwd=PROJECT_DIR, capture_output=True, check=True).stdout
-            self.assertEqual(hashlib.sha256(original).hexdigest(), item['original_sha256'])
-
+        for file, digest in latest.items():
+            self.assertEqual(common.sha256(PROJECT_DIR / file), digest, file)
 
 if __name__ == '__main__':
     unittest.main()
