@@ -12,6 +12,7 @@ Stage 3 failure); if it does, it is stopped before its first epoch completes. ``
 """
 import argparse
 import json
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -101,10 +102,12 @@ def launch(action, config, config_path, *, dry_run=False, discover_nodes=discove
     if started.returncode != 0:
         raise RuntimeError(f'experiment.py {action} on {cohort["host"]} failed: '
                            f'{(started.stderr or started.stdout).strip()}')
-    launcher = json.loads((logs / 'launcher.json').read_text())
+    # Read on the node: the login node's NFS client may not see the new directory for a while.
+    launcher = json.loads(run(cohort['host'], 'cat ' + shlex.quote(str(logs / 'launcher.json'))).stdout)
     cgroup = run(cohort['host'], f'cat /proc/{int(launcher["pid"])}/cgroup').stdout.strip()
     record = dict(plan, host=cohort['host'], gpus=cohort['gpus'], gpu_model=cohort['name'], runner_pid=launcher['pid'],
                   runner_cgroup=cgroup, output=started.stdout.strip())
+    os.listdir(logs.parent)  # revalidates the cached lookup of the directory the node just created
     write_json(logs / PLACEMENTS, [*placements(config), record])
     if OOMD_MANAGED_SCOPE in cgroup:
         run(cohort['host'], experiment_command('stop', config_path), check=False)

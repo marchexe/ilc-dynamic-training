@@ -99,7 +99,11 @@ class PlacementTest(unittest.TestCase):
                 if ' start ' in command:
                     logs.mkdir()
                     (logs / 'launcher.json').write_text(json.dumps(dict(pid=4242)))
-                return mock.Mock(returncode=0, stdout=cgroup if command.startswith('cat ') else 'ok', stderr='')
+                if command.startswith('cat /proc/'):
+                    return mock.Mock(returncode=0, stdout=cgroup, stderr='')
+                if command.startswith('cat '):
+                    return mock.Mock(returncode=0, stdout=(logs / 'launcher.json').read_text(), stderr='')
+                return mock.Mock(returncode=0, stdout='ok', stderr='')
             with mock.patch.object(train800k, 'locations', return_value=(Path(tmp) / 'run', logs)):
                 nodes = [node('n2', [gpu('n2', i) for i in range(5)])]
                 try:
