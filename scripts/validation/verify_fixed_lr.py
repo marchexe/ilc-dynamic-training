@@ -168,17 +168,25 @@ def verify(run, through=None):
 
     dataset("validation", reference.get("dataset", {}), "val")
 
-    def traversal(label, audit):
-        items, consumed = audit.get("traversal", []), audit.get("consumed", {})
+    def traversal(label, audit, slices=None):
+        """Full traversal; `slices` are the consumption records of an epoch trained in several generations."""
+        items = audit.get("traversal", [])
+        consumed = slices or [audit.get("consumed", {})]
         check(label + ": full finite traversal", audit.get("exhausted") and bool(items)
               and sum(t.get("scanned", {}).get("count", 0) for t in items) == audit.get("dataset", {}).get("total_rows")
               and all(t.get("exhausted") and t.get("wraps") == 0
                       and t.get("scanned", {}).get("repeated_ids") == 0 for t in items))
         accepted = sum(t.get("accepted", {}).get("count", 0) for t in items)
         check(label + ": all accepted consumed once", accepted > 0
-              and accepted == consumed.get("count") == consumed.get("unique_ids")
-              and consumed.get("repeated_ids") == 0
-              and bool(consumed.get("sequence_sha256")) and bool(consumed.get("id_set_sha256")))
+              and accepted == sum(c.get("count", 0) for c in consumed) == sum(c.get("unique_ids", 0) for c in consumed)
+              and all(c.get("repeated_ids") == 0 and c.get("sequence_sha256") and c.get("id_set_sha256") for c in consumed))
+
+    def epoch_slice(label, audit):
+        """A generation shorter than an epoch: exactly its batches, each row once, the epoch not yet exhausted."""
+        consumed = audit.get("consumed", {})
+        check(label + ": epoch slice", audit.get("exhausted") is False
+              and audit.get("batches") == shared.get("batches_per_generation")
+              and 0 < consumed.get("count", 0) == consumed.get("unique_ids") and consumed.get("repeated_ids") == 0)
 
     def validation(label, audit):
         traversal(label, audit)
@@ -199,6 +207,7 @@ def verify(run, through=None):
         if source_scaler.is_file():
             saved(name + ": initial scaler", initial_run / name / f"net_epoch-{initial_epoch}_scaler.pt", sha256(source_scaler))
     train_reference = None
+    slices_per_epoch, epoch_slices = int(shared.get("generations_per_epoch") or 1), {}
     replay_members = {name: dict(lr=lr) for name, lr in arms.items()}
     replay_history = []
     for index in range(limit):
@@ -236,7 +245,11 @@ def verify(run, through=None):
                 train_reference = train.get("dataset", {})
                 dataset("training", train_reference, "train")
             check(label + ": matched training dataset", train.get("dataset") == train_reference)
-            traversal(label, train)
+            if index % slices_per_epoch < slices_per_epoch - 1:
+                epoch_slice(label, train)
+                epoch_slices.setdefault(name, []).append(train.get("consumed", {}))
+            else:
+                traversal(label, train, [*epoch_slices.pop(name, []), train.get("consumed", {})])
             check(label + ": optimizer steps", 0 < train.get("optimizer_steps", 0) <= train.get("batches", 0))
             sequences.append(json.dumps([train.get("consumed"), train.get("traversal")], sort_keys=True))
             validation(label + "/validation", val)

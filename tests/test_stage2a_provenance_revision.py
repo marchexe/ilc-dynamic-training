@@ -1,4 +1,4 @@
-"""Stage 2A administrative revision: only a recorded, Git-recoverable change is accepted."""
+"""Stage 2A administrative revisions: only recorded, Git-recoverable changes are accepted."""
 import copy
 import json
 import os
@@ -15,15 +15,18 @@ PREPARED = PROJECT_DIR / 'configs/prepared/stage2a_holdout_v1'
 class Stage2AProvenanceRevisionTest(unittest.TestCase):
     def setUp(self):
         records = json.loads((PREPARED / 'protocol.json').read_text())['execution_files']
-        self.records = [r for r in records if r['path'].endswith(('scripts/cluster/check.sh', 'stage2a/common.py'))]
-        self.revision = provenance.load_revision()
+        self.records = [r for r in records if r['path'].endswith(
+            ('scripts/cluster/check.sh', 'stage2a/common.py', 'pbt/execution/weaver_command.py'))]
+        self.revision = provenance.load_revisions()
 
     def test_committed_revision_is_pinned_and_recoverable(self):
         self.assertEqual(self.revision['protocol_sha256'], (PREPARED / 'protocol.sha256').read_text().strip())
         checked = provenance.verify_execution_files(self.records, self.revision)
         self.assertEqual({c['path']: c['state'] for c in checked},
                          {'scripts/cluster/check.sh': 'administratively_revised',
+                          'scripts/training/pbt/execution/weaver_command.py': 'administratively_revised',
                           'scripts/experiments/stage2a/common.py': 'unchanged'})
+        self.assertEqual(self.revision['revisions'], ['administrative_revision_1.json', 'administrative_revision_2.json'])
 
     def test_any_other_difference_fails(self):
         original = provenance.git_blob

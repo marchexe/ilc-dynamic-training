@@ -24,6 +24,7 @@ from training.pbt.reporting import (
     write_resolved_config,
 )
 from training.pbt.execution.backend import backend_from_config, format_duration, log_event, run_tiered_evaluation
+from training.pbt.execution.weaver_command import generation_seed
 from validation.results import finite_metric_ok, require_checkpoint_result
 from training.checkpoints import selected_best_bundle
 from training.pbt.config import contract_fingerprint, load_config, validate_inputs
@@ -475,7 +476,7 @@ def _generation_record_for(config, manifest, manifest_path, generation):
     existing = {
         "index": generation,
         "epoch": epoch_for_generation(config, generation),
-        "seed": int(config["shared"]["seed"]) + generation,
+        "seed": generation_seed(config, generation),
         "status": "training",
         "workers": {name: {"status": "pending"} for name in manifest["members"]},
         "ranking": None,

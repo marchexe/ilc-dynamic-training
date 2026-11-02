@@ -101,6 +101,26 @@ class CadencedPBTTest(unittest.TestCase):
                 self.assertEqual(record["exploit"][0]["mutation_factor"] in (0.8, 1.2), True)
         self.assertEqual(self.plan(1)[strategy.STRATEGY]["completed_epoch"], 2)
 
+    def test_sub_epoch_generations_copy_every_generation_and_mutate_lr_every_fifth(self):
+        self.config["shared"].update(generations_per_epoch=5, generations=250)
+        self.config["pbt"]["exploit_interval_generations"] = 1
+        self.config["pbt"][strategy.STRATEGY]["lr_mutation_interval_generations"] = 5
+        for index in range(14):
+            record = self.plan(index)
+            decision, completed = record[strategy.STRATEGY], index + 1
+            self.assertEqual((decision["completed_generation"], decision["completed_epoch"]), (completed, completed / 5))
+            self.assertEqual(decision["copy_opportunity"], completed >= 10)  # two-epoch warm-up = ten generations
+            self.assertEqual(decision["lr_mutation_opportunity"], completed >= 10 and completed % 5 == 0)
+            self.assertEqual(len(record["exploit"]), int(completed >= 10))
+            for event in record["exploit"]:
+                if completed % 5 == 0:
+                    self.assertIn(event["mutation_factor"], (0.8, 1.2))
+                else:
+                    self.assertEqual((event["mutation_applied"], event["mutation_reason"], event["new_lr"]),
+                                     (False, "off_lr_cadence", event["recipient_lr"]))
+        terminal = self.plan(249)[strategy.STRATEGY]
+        self.assertEqual((terminal["reason"], terminal["copy_planned"]), ("terminal_generation", False))
+
     def test_cadence5_changes_only_the_generic_adaptation_interval(self):
         cadence5 = configuration(CADENCE5_PATH)
         self.assertEqual(cadence5["experiment_name"], "cadenced_pbt_v1_cadence5_50epochs")

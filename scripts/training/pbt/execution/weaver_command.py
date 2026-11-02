@@ -189,16 +189,51 @@ def make_tiered_evaluation_command(config, slot, checkpoint, dataset, suffix, lo
     return command, log_path
 
 
+def generation_seed(config, generation):
+    """Weaver --seed of a generation: every slice of one data epoch shares that epoch's seed."""
+    return int(config["shared"]["seed"]) + generation // int(config["shared"].get("generations_per_epoch") or 1)
+
+
+def continuation_arguments(config, member_dir, generation, target_epoch):
+    """Entry-point command prefix of the exact-restart contract, or None for the historical contract.
+
+    With generations_per_epoch = n, generation g trains slice g % n of data epoch d = g // n. All slices of
+    one data epoch share the seed and data stream of the one-epoch generation d would have, and each slice
+    after the first restores the random and model process state its predecessor saved. The first slice of
+    an epoch starts as a fresh process, like a one-epoch generation, so with no PBT actions the run equals
+    the corresponding one-epoch run.
+    """
+    shared = config["shared"]
+    if not shared.get("optimizer_state_contract"):
+        return None
+    entry = [str(weaver_executable().parent / "python"), str(PROJECT_DIR / "scripts/training/weaver_full_state.py")]
+    slices = shared.get("generations_per_epoch")
+    if not slices:
+        return entry
+    data_epoch, part = divmod(generation, slices)
+    initial = shared.get("initial_epoch")
+    batches = int(shared["batches_per_generation"])
+    entry += ["--cursor-data-epoch", str((-1 if initial is None else int(initial)) + 1 + data_epoch),
+              "--cursor-skip", str(part * batches)]
+    if part < slices - 1:
+        entry += ["--cursor-take", str(batches),
+                  "--cursor-state-out", str(member_dir / f"net_epoch-{target_epoch}_continuation.pt")]
+    if part:
+        entry += ["--cursor-state-in", str(member_dir / f"net_epoch-{target_epoch - 1}_continuation.pt")]
+    return entry
+
+
 def make_command(config, member, slot, member_dir, generation):
     member = member if isinstance(member, MemberState) else MemberState.from_legacy(member)
     target_epoch = epoch_for_generation(config, generation)
     resume_epoch = target_epoch - int(config["shared"]["weaver_epochs_per_generation"])
     if generation == 0 and not config["shared"].get("initial_state"):
         resume_epoch = None
+    entry = continuation_arguments(config, Path(member_dir), generation, target_epoch)
     shared = dict(config["shared"])
     shared.update(
         epochs=target_epoch + 1,
-        seed=int(config["shared"]["seed"]) + generation,
+        seed=generation_seed(config, generation),
         start_lr=member.current_lr,
     )
     freeze_generations = int(shared.get("freeze_model_weights_generations", 0) or 0)
@@ -221,4 +256,6 @@ def make_command(config, member, slot, member_dir, generation):
         log_path=log_path,
         override_load_lr=resume_epoch is not None,
     )
+    if entry:
+        command = [*entry, *command[1:]]  # the entry point takes Weaver's own arguments
     return wrap_remote_command(command, slot), log_path, target_epoch

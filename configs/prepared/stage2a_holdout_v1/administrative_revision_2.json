@@ -1,0 +1,15 @@
+{
+  "changed_execution_files": [
+    {
+      "current_sha256": "0e8cf1d41a7308de72d69d297354d47695138ce3d1c0ce88517ef129fe3e3625",
+      "frozen_sha256": "a7b5351fc3e574ca8061c8fd967530814478825d21b452e981eb4f323f5ef118",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/execution/weaver_command.py"
+    }
+  ],
+  "effect": "The Stage 2A launcher re-verifies every pinned execution file and therefore refuses to run with this file changed (fail-closed by design). scripts/validation/verify_stage2a_provenance.py applies the administrative revisions in order and accepts only these recorded, Git-recoverable changes.",
+  "protocol_sha256": "cabf6703bf3d70fc2a91c92bd65513c9de791490b267ce4309ae1a26498f2d90",
+  "reason": "Opt-in exact-restart contract for generations shorter than an epoch (scripts/training/optimizer_contract.py, data_cursor.py, weaver_full_state.py). The new shared keys optimizer_state_contract, generations_per_epoch and batches_per_generation, and the cadenced option lr_mutation_interval_generations, default to None; without them commands, seeds, resolved configurations, fingerprints and policy decisions are unchanged (tests/test_sub_epoch_generations.py; replay of the completed cadenced runs). make_command gains the entry point and cursor arguments and generation_seed. The Stage 2A protocol, inputs, checkpoints, inference and results are unchanged.",
+  "revised_at": "2026-10-18T22:54:59.251654+00:00",
+  "schema_version": 1
+}

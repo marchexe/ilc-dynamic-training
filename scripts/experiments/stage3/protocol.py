@@ -12,9 +12,9 @@ from pathlib import Path
 import yaml
 
 from experiments.stage2b import dataset as data
-from experiments.stage3.common import (ARM_CONFIGS, GATE_CONFIG, POLICY, PRIMARY, PROJECT_DIR, PROTOCOL, PROTOCOL_V1,
-                                       TEST_SPEC, digest_json, load_json, load_policy, relative, resolve, sha256,
-                                       utc_now, write_json)
+from experiments.stage3.common import (ARM_CONFIGS, GATE_CONFIG, OUTPUT, POLICY, PREPARED, PRIMARY, PROJECT_DIR, PROTOCOL,
+                                       PROTOCOL_V1, TEST_SPEC, digest_json, load_json, load_policy, relative, resolve,
+                                       sha256, utc_now, write_json)
 from training.pbt.config import contract_fingerprint
 
 HORIZON = 50
@@ -264,15 +264,42 @@ def load(path=PROTOCOL, original=PROTOCOL_V1):
     return protocol, recorded
 
 
-def drift(protocol, current=None):
-    """List of identity keys that differ from the frozen protocol (empty = unchanged)."""
+def campaign_completed(output=OUTPUT):
+    status = Path(output) / 'status.json'
+    return (status.is_file() and load_json(status).get('status') == 'completed'
+            and (Path(output) / 'report' / 'report_integrity.json').is_file())
+
+
+def execution_revisions(prepared=PREPARED, output=OUTPUT):
+    """Execution-file changes recorded in execution_revision_N.json, by path (later records supersede).
+
+    They apply only once the campaign has completed: before that every launch and resume still refuses changed code.
+    """
+    if not campaign_completed(output):
+        return {}
+    accepted = {}
+    for path in sorted(Path(prepared).glob('execution_revision_*.json'), key=lambda p: int(p.stem.rsplit('_', 1)[1])):
+        if sha256(path) != path.with_suffix('.sha256').read_text().strip():
+            raise ValueError(f'{path.name} was edited after it was recorded')
+        accepted.update({item['path']: item for item in load_json(path)['changed_execution_files']})
+    return accepted
+
+
+def drift(protocol, current=None, revisions=None):
+    """List of identity keys that differ from the frozen protocol (empty = unchanged).
+
+    An execution file differs unless it matches a recorded execution revision exactly (frozen and current hash).
+    """
     current = current or identity()
+    revisions = execution_revisions() if revisions is None else revisions
     frozen = protocol['identity']
     differences = []
     for key in sorted(set(frozen) | set(current)):
         if key == 'execution_files':
             changed = sorted(p for p in set(frozen[key]) | set(current.get(key, {}))
-                             if frozen[key].get(p) != current.get(key, {}).get(p))
+                             if frozen[key].get(p) != current.get(key, {}).get(p)
+                             and not (p in revisions and revisions[p]['frozen_sha256'] == frozen[key].get(p)
+                                      and revisions[p]['current_sha256'] == current.get(key, {}).get(p)))
             differences += [f'execution_files:{p}' for p in changed]
         elif frozen.get(key) != current.get(key):
             differences.append(key)
