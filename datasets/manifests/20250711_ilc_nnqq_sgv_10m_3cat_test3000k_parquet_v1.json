@@ -1,0 +1,69 @@
+{
+  "created_at": "2026-11-02T18:36:24.779173+00:00",
+  "data_extension": "parquet",
+  "files": [
+    {
+      "flavor": "bb",
+      "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_test3000k_parquet/ml_flavtag_6cat_bb_test3000k.parquet",
+      "row_groups": 300,
+      "rows": 2995907,
+      "sha256": "20c0fee33566a5182a440c24b3be4fb24ce9486f29f808e7d2eab4284e0a6c47",
+      "size_bytes": 7834493370,
+      "source_entries": 2995907,
+      "source_root_file": "ml_flavtag_6cat_bb_test3000k.root",
+      "source_root_sha256": "f1b80b4807311517947e10dabdfe727cc8c69fd68f87174f90b39dce7399707c",
+      "source_root_size_bytes": 8878494046
+    },
+    {
+      "flavor": "cc",
+      "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_test3000k_parquet/ml_flavtag_6cat_cc_test3000k.parquet",
+      "row_groups": 300,
+      "rows": 2991086,
+      "sha256": "bd1cc6503fd1f59998ed98c3b5383c7b96f725b13f9c190accd35c7e9091d651",
+      "size_bytes": 7139143004,
+      "source_entries": 2991086,
+      "source_root_file": "ml_flavtag_6cat_cc_test3000k.root",
+      "source_root_sha256": "7e5d6cb307c49fce01cfe3c0d90e7e3289de22b1e34f209266f9596732311e4c",
+      "source_root_size_bytes": 8190127771
+    },
+    {
+      "flavor": "dd",
+      "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_test3000k_parquet/ml_flavtag_6cat_dd_test3000k.parquet",
+      "row_groups": 299,
+      "rows": 2983484,
+      "sha256": "a6bc6dbf39a35c86831e7014fd68b2df34e136ef7ff60e8fd39a0bd4c0d02bee",
+      "size_bytes": 6686880739,
+      "source_entries": 2983484,
+      "source_root_file": "ml_flavtag_6cat_dd_test3000k.root",
+      "source_root_sha256": "50b2267d30d5b4ffbecb73bc2e4b8aa42aa37a85656bc98c767f5e056073ef1d",
+      "source_root_size_bytes": 7742425734
+    }
+  ],
+  "flavors": [
+    "bb",
+    "cc",
+    "dd"
+  ],
+  "local_full_manifest": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_test3000k_parquet/MANIFEST.json",
+  "local_path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_test3000k_parquet",
+  "name": "20250711_ilc_nnqq_sgv_10m_3cat_test3000k_parquet_v1",
+  "portable": true,
+  "reason_not_tracked": "Large Parquet data; keep only this manifest in Git.",
+  "role": "sealed_test",
+  "rows_by_flavor": {
+    "bb": 2995907,
+    "cc": 2991086,
+    "dd": 2983484
+  },
+  "rows_total": 8970477,
+  "schema_version": 1,
+  "size_bytes_total": 21660517113,
+  "spec_sha256": "70107eaad5fdb03c8b88e6c203eeccb7f79e0407bcd40578b3e9bd9dce1f3de8",
+  "suffix": "test3000k",
+  "tracked_in_git": false,
+  "validation": null,
+  "weaver_audit": {
+    "fingerprint": "9c7e707080eb44e15567b3940cdc858808778a89cccadff39a11b98ae3794d51",
+    "total_rows": 8970477
+  }
+}
