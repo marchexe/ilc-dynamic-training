@@ -1,0 +1,8 @@
+comparison,label,delta_pp,reduction_percent
+final_current_best_member,Best final member,-0.019713762680040853,7.66557959780578
+final_member_lr_11_25e-6,Final member lr_11_25e-6,-0.027142838371562727,10.231916407662645
+final_member_lr_14e-6,Final member lr_14e-6,-0.01547207566596659,6.016224780915085
+final_member_lr_3e-6,Final member lr_3e-6,-0.06744338313639395,22.119683217537396
+final_member_lr_5_75e-6,Final member lr_5_75e-6,-0.04442156349847662,15.51485284681939
+final_member_lr_8_5e-6,Final member lr_8_5e-6,-0.0296123512292103,10.816160905307536
+selected_best,Selected checkpoint (validation global best),-0.019713762680040853,7.66557959780578
