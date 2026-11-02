@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_high_lr_grid_v1",
+  "purpose": "Does windowed PBT still beat a fixed-LR grid that reaches the learning rates PBT ended at? Validation-selected checkpoint of the extended fixed-LR grid (1.4-3.0e-5) on the frozen Stage 2A holdout, paired with the Stage 2A fixed-LR and windowed-PBT checkpoints, which are re-evaluated as references.",
+  "runs": [
+    {"id": "fixed_high50_s12345", "run": "fixed_lr_high_grid_50epochs"}
+  ],
+  "references": ["fixed50_s12345", "windowed50_s12345"],
+  "pairs": [
+    ["fixed50_s12345", "fixed_high50_s12345"],
+    ["fixed_high50_s12345", "windowed50_s12345"],
+    ["fixed50_s12345", "windowed50_s12345"]
+  ]
+}

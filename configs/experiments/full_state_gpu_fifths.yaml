@@ -1,0 +1,11 @@
+# GPU equivalence test, restarted side: the same epoch as full_state_gpu_one_epoch.yaml trained as five
+# generations, each a separate Weaver process. The first epoch after epoch 17 has 2,102 batches
+# (foundation_fixed_lr_50epochs_20260916), so the slices are 420 x 4 + 422.
+presets:
+  - full_state_gpu_one_epoch.yaml
+experiment:
+  name: full_state_gpu_fifths
+shared:
+  generations: 5
+  generations_per_epoch: 5
+  batches_per_generation: 420
