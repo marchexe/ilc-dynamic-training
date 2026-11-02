@@ -13,11 +13,13 @@ for model selection.
   mistag, both on validation and on an independent holdout
   (:ref:`main-comparisons`). The evidence is one training seed and has no event-level
   uncertainty.
+* Completed: on ten times more training data, in a preregistered comparison with a
+  sealed test set, windowed PBT's selected checkpoint has a 7.7% lower composite mistag
+  than the fixed-learning-rate one, with fewer mistagged background jets at all eight
+  working points (:ref:`large-dataset-results`). One training seed; PBT ended at learning
+  rates above the fixed grid.
 * Inconclusive: whether adapting more often helps; the ranking reversed on the
   holdout (:ref:`adaptation-frequency`).
-* In progress: a preregistered comparison on ten times more training data with a
-  sealed test set; the fixed-learning-rate arm is complete and the PBT arm is training
-  (:ref:`large-dataset-status`).
 
 .. toctree::
    :maxdepth: 1
@@ -30,6 +32,7 @@ for model selection.
 
 * :doc:`method`: data, model, training and the learning-rate policies.
 * :doc:`evaluation`: splits, metrics, endpoints and statistical rules used everywhere.
-* :doc:`results`: completed comparisons, supporting studies and limitations.
-* :doc:`ongoing`: the large-dataset comparison and sub-epoch adaptation.
+* :doc:`results`: completed comparisons, including the large-dataset study, supporting
+  studies and limitations.
+* :doc:`ongoing`: sub-epoch adaptation.
 * :doc:`reproducibility`: repository map, commands, experiment records and history.

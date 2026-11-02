@@ -34,7 +34,7 @@ Repository map
    * - :repo:`scripts/research`, :repo:`scripts/data`, :repo:`scripts/cluster`
      - audit tools; dataset conversion; GPU status
    * - :repo:`configs/experiments`
-     - configurations of the reported experiments, smoke tests and the ongoing study
+     - configurations of the reported experiments and smoke tests
    * - :repo:`configs/prepared`
      - frozen protocols and preparation records, one directory per study
    * - :repo:`configs/site.example.json`
@@ -76,6 +76,7 @@ Commands
 
    # Publish
    .venv/bin/python scripts/publish/export_results_summary.py
+   .venv/bin/python scripts/publish/export_large_dataset_results.py
    .venv/bin/python scripts/publish/export_run.py runs/pbt/<run> --slug <slug> --title "<title>"
    .venv/bin/python scripts/publish/public_copies.py
 
@@ -84,5 +85,6 @@ Commands
 
 Completed runs are never modified. A continuation is a new run that pins the source
 manifest hash. Frozen protocols are never edited; changes are recorded as revisions citing
-the original hash (for example :repo:`configs/prepared/stage3_train8m_v1/gate_revision_1.json`
-and :repo:`configs/prepared/stage3_train8m_v1/analysis_revision_1.json`).
+the original hash (for example :repo:`configs/prepared/stage3_train8m_v1/gate_revision_1.json`,
+:repo:`configs/prepared/stage3_train8m_v1/analysis_revision_2.json` and
+:repo:`configs/prepared/stage3_train8m_v1/execution_revision_1.json`).

@@ -23,7 +23,7 @@ after preselection.
      - completed experiments; prefix of ``train8m``
    * - Training ``train8m``
      - 23,921,449
-     - :doc:`ongoing study <ongoing>`; source entries below 8 M
+     - :ref:`large-dataset comparison <large-dataset-comparison>`; source entries below 8 M
    * - Selection validation ``val50k_tail``
      - 150,000
      - evaluated after every epoch; drives PBT and checkpoint selection
@@ -32,7 +32,7 @@ after preselection.
      - one-time evaluation of selected checkpoints; never used for selection
    * - Sealed test ``test3000k``
      - 8,970,477
-     - ongoing study only; opened after training is complete
+     - large-dataset comparison only; opened once, after both arms had completed
 
 Validation and holdout are disjoint windows of source entries 16–17 M; the sealed test
 covers 17–20 M. Training shares no identical jet record with validation, holdout or
@@ -84,8 +84,8 @@ Statistical rules
   holdout comparisons report point differences and per-working-point counts of
   background jets mistagged by only one model.
 * Holdout checkpoints are fixed by the validation rule before evaluation. The holdout
-  was inspected in earlier diagnostics, so it is not pristine; the ongoing study uses a
-  sealed test set instead.
+  was inspected in earlier diagnostics, so it is not pristine; the large-dataset
+  comparison uses a sealed test set instead.
 
 .. _holdout-protocol:
 
