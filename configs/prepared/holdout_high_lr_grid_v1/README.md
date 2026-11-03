@@ -1,6 +1,6 @@
 # Extended fixed-LR grid and full-state GPU test: operations
 
-Two train800k follow-ups to the large-dataset comparison. Nothing here has been run.
+Two train800k follow-ups to the large-dataset comparison.
 
 * **Extended fixed-LR grid** (`configs/experiments/fixed_lr_high_grid_50epochs.yaml`). In the large-dataset
   comparison the best fixed-LR member was the top of the grid (1.4e-5), while windowed PBT ended at
@@ -37,7 +37,20 @@ $py scripts/experiments/reproduction_checks.py anchor          # lr_14e-6 agains
 $py scripts/experiments/holdout_addendum.py --prepared configs/prepared/holdout_high_lr_grid_v1 --freeze
 $py scripts/experiments/holdout_addendum.py --prepared configs/prepared/holdout_high_lr_grid_v1 --dry-run
 $py scripts/experiments/holdout_addendum.py --prepared configs/prepared/holdout_high_lr_grid_v1
+$py scripts/experiments/holdout_addendum.py --prepared configs/prepared/holdout_high_lr_grid_v1 --status
+# After a failed or interrupted launch (the plain launch refuses then):
+$py scripts/experiments/holdout_addendum.py --prepared configs/prepared/holdout_high_lr_grid_v1 --retry
+# To stop a running launch deliberately:
+$py scripts/experiments/holdout_addendum.py --prepared configs/prepared/holdout_high_lr_grid_v1 --stop
 ```
+
+Follow the holdout evaluation with `--status` (batches done per checkpoint out of `expected_batches`). The
+`attach` command in `launch.json` opens the tmux session read-only; detach with Ctrl-b d. The first launch
+(2026-11-03) was stopped after 26 minutes by Ctrl-C typed into the attached pane, which reached the supervisor as
+SIGINT. The supervisor now ignores SIGINT and logs it; SIGTERM and SIGHUP (`--stop`) still stop it, and the
+signals it received are recorded in `status.json`. `--retry` copies the earlier launch records to
+`failed_launches/NNN`; each evaluation attempt keeps its own `evaluations/<id>/attempt-NNN` logs, and completed
+evaluations are not repeated. The 14,400 s evaluation timeout is part of the frozen protocol and unchanged.
 
 `resume` and `stop` work like `status`. Results: `runs/eval/reproduction_checks/*.json` and
 `runs/eval/holdout_high_lr_grid_v1/report.md`.

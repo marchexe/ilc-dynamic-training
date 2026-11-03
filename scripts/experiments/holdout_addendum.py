@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Evaluate further validation-selected checkpoints on the frozen Stage 2A holdout, paired with its results.
 
-    .venv/bin/python scripts/experiments/holdout_addendum.py --prepared DIR {--freeze | --dry-run | (launch)}
+    .venv/bin/python scripts/experiments/holdout_addendum.py --prepared DIR \
+        {--freeze | --dry-run | (launch) | --retry | --status | --stop}
 
 ``DIR/spec.json`` names, before any of these runs is evaluated, the training runs, the Stage 2A checkpoints
 re-evaluated as references, and the B-minus-A pairs. ``--freeze`` (after the runs complete) records each run's
@@ -15,11 +16,20 @@ Differences from the frozen Stage 2A launcher, which stays unchanged:
   five gave up after the 120 s resource wait).
 * The tmux server starts without the user-manager bus, outside systemd-oomd management (as in Stage 3).
 * Each reference must reproduce its Stage 2A holdout metric; the report states whether it did, bit for bit.
+* The supervisor ignores SIGINT: Ctrl-C typed into an attached tmux pane reaches it, and must not stop the
+  campaign. SIGTERM and SIGHUP (``--stop``, which kills the tmux session) still stop it, and every signal it
+  receives is logged and recorded in ``status.json``. The attach hint is read-only (``attach -r``).
+* A launch after a failed or interrupted one needs ``--retry``. It first copies the earlier launch records
+  (``status.json``, ``launch*.json``, each ``result.json``) to ``failed_launches/NNN``; the evaluation logs of
+  every attempt stay in ``evaluations/<id>/attempt-NNN``. Completed evaluations are not repeated.
 """
 import argparse
 import json
+import math
 from pathlib import Path
+import re
 import shlex
+import shutil
 import signal
 import socket
 import subprocess
@@ -183,6 +193,29 @@ def tmux_alive(host, session):
     return result.returncode == 0
 
 
+def previous_launch(output, protocol_sha):
+    """'completed', 'running', 'failed' (a launch whose supervisor is gone without a report) or None."""
+    if completed(output, protocol_sha):
+        return 'completed'
+    if not (output / 'launch.json').is_file():
+        return None
+    previous = load_json(output / 'launch.json')
+    return 'running' if tmux_alive(previous['host'], previous['session']) else 'failed'
+
+
+def archive_launch(output):
+    """Copy the records a relaunch overwrites; attempt directories are never overwritten."""
+    root = output / 'failed_launches'
+    target = root / f'{1 + len(list(root.glob("[0-9][0-9][0-9]"))):03d}'
+    target.mkdir(parents=True)
+    for name in ('status.json', 'launch.json', 'launch_cohort.json'):
+        if (output / name).is_file():
+            shutil.copy2(output / name, target / name)
+    for result in sorted((output / 'evaluations').glob('*/result.json')):
+        shutil.copy2(result, target / f'{result.parent.name}.result.json')
+    return target
+
+
 def launch_tmux(host, session, prepared, output, cohort_path):
     script = shlex.join([str(PROJECT_DIR / '.venv/bin/python'), str(Path(__file__).resolve()), '--on-node',
                          '--prepared', str(prepared), '--cohort', str(cohort_path)])
@@ -212,31 +245,92 @@ def completed(output, protocol_sha):
         return False
 
 
-def start(prepared, *, dry_run=False, discover_nodes=discover):
+def start(prepared, *, dry_run=False, retry=False, discover_nodes=discover):
     protocol, digest = load_protocol(prepared)
     output = output_dir(protocol)
     output.mkdir(parents=True, exist_ok=True)
     with lock_file(output / '.launch.lock'):
+        archived = None
         if not dry_run:
-            if completed(output, digest):
+            state = previous_launch(output, digest)
+            if state == 'completed':
                 return dict(status='already_completed', output=str(output))
-            if (output / 'launch.json').is_file():
-                previous = load_json(output / 'launch.json')
-                if tmux_alive(previous['host'], previous['session']):
-                    return dict(status='already_running', **previous)
+            if state == 'running':
+                return dict(status='already_running', **load_json(output / 'launch.json'))
+            if state == 'failed' and not retry:
+                raise RuntimeError(f'The previous launch ended without a report (see {output / "status.json"}); '
+                                   'relaunch with --retry')
+            if state is None and retry:
+                raise RuntimeError('Nothing to retry: this campaign has not been launched')
         cohort = plan(protocol, discover_nodes(protocol['allocation']))
         prepared_plan = dict(status='ready', checked_at=utc_now(), protocol_sha256=digest, cohort=cohort,
                              checkpoints=[c['id'] for c in protocol['checkpoints']], inference_launched=False)
         if dry_run:
             return prepared_plan
+        if retry:
+            archived = archive_launch(output)
         session = f'holdout-{digest[:12]}'
         write_json(output / 'launch_cohort.json', cohort)
         cgroup = launch_tmux(cohort['host'], session, Path(prepared).resolve(), output, output / 'launch_cohort.json')
         launch = dict(host=cohort['host'], session=session, protocol_sha256=digest, started_at=utc_now(),
                       max_parallelism=cohort['max_parallelism'], cgroup=cgroup,
-                      attach=f'ssh -t {cohort["host"]} {shlex.join(TMUX)} attach -t {session}')
+                      attach=f'ssh -t {cohort["host"]} {shlex.join(TMUX)} attach -r -t {session}')
+        if archived:
+            launch['previous_launch_records'] = str(archived)
         write_json(output / 'launch.json', launch)
         return dict(status='submitted_to_persistent_tmux', **launch)
+
+
+def last_batch(console):
+    try:
+        counts = re.findall(rb'(\d+)it \[', console.read_bytes()[-20000:])
+    except OSError:
+        return None
+    return int(counts[-1]) if counts else None
+
+
+def progress(prepared):
+    """Where each evaluation stands, without attaching to the tmux session."""
+    protocol, digest = load_protocol(prepared)
+    output = output_dir(protocol)
+    checkpoints = {}
+    for checkpoint in protocol['checkpoints']:
+        directory = output / 'evaluations' / checkpoint['id']
+        record = load_json(directory / 'result.json') if (directory / 'result.json').is_file() else {}
+        attempts = sorted(directory.glob('attempt-*'))
+        checkpoints[checkpoint['id']] = dict(
+            status=record.get('status'), attempt=record.get('attempt'), started_at=record.get('started_at'),
+            batches=last_batch(attempts[-1] / 'console.log') if attempts else None, error=record.get('error'))
+    status = load_json(output / 'status.json') if (output / 'status.json').is_file() else {}
+    return dict(launch=previous_launch(output, digest), campaign=status.get('status'), signals=status.get('signals'),
+                expected_batches=math.ceil(protocol['dataset']['rows'] / protocol['evaluation']['batch_size']),
+                timeout_seconds=protocol['allocation']['evaluation_timeout_seconds'], checkpoints=checkpoints)
+
+
+def stop_launch(prepared):
+    """Kill the tmux session: the supervisor gets SIGHUP, stops its inference processes and records why."""
+    protocol, digest = load_protocol(prepared)
+    output = output_dir(protocol)
+    if previous_launch(output, digest) != 'running':
+        raise RuntimeError('No running launch of this campaign')
+    launch = load_json(output / 'launch.json')
+    subprocess.run(ssh_args(launch['host'], shlex.join([*TMUX, 'kill-session', '-t', '=' + launch['session']])),
+                   check=True, capture_output=True, text=True, timeout=20)
+    return dict(status='stop_requested', host=launch['host'], session=launch['session'])
+
+
+def supervise_signals(stop, received):
+    """SIGTERM/SIGHUP stop the campaign; SIGINT (Ctrl-C in an attached pane) is logged and ignored."""
+    def handle(number, _frame):
+        name = signal.Signals(number).name
+        received.append(dict(signal=name, at=utc_now(), stopped=number != signal.SIGINT))
+        if number == signal.SIGINT:
+            print(f'{utc_now()} {name} ignored; stop with holdout_addendum.py --stop', file=sys.stderr, flush=True)
+            return
+        print(f'{utc_now()} {name} received; stopping the campaign', file=sys.stderr, flush=True)
+        stop.set()
+    for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(number, handle)
 
 
 def on_node(prepared, cohort_path):
@@ -245,9 +339,8 @@ def on_node(prepared, cohort_path):
     cohort = load_json(cohort_path)
     if socket.gethostname().split('.')[0] != cohort['host']:
         raise ValueError('Supervisor started on a different node than planned')
-    stop = threading.Event()
-    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
-        signal.signal(sig, lambda *_: stop.set())
+    stop, received = threading.Event(), []
+    supervise_signals(stop, received)
     output = output_dir(protocol)
 
     def finalize(results):
@@ -255,6 +348,9 @@ def on_node(prepared, cohort_path):
             raise ValueError('Frozen protocol changed during inference; report blocked')
         return report(protocol, digest, results, output)
     campaign = run_campaign(protocol, digest, output, cohort, stop=stop, finalize=finalize)
+    if received:
+        status = load_json(output / 'status.json')
+        write_json(output / 'status.json', dict(status, signals=received))
     return 0 if campaign['status'] == 'completed' else 130 if campaign['status'] == 'interrupted' else 1
 
 
@@ -264,6 +360,9 @@ def main(argv=None):
     modes.add_argument('--freeze', action='store_true')
     modes.add_argument('--dry-run', action='store_true')
     modes.add_argument('--on-node', action='store_true')
+    modes.add_argument('--retry', action='store_true', help='relaunch after a failed or interrupted launch')
+    modes.add_argument('--status', action='store_true', help='progress of each evaluation')
+    modes.add_argument('--stop', action='store_true', help='stop a running launch')
     parser.add_argument('--prepared', type=Path, required=True)
     parser.add_argument('--cohort', type=Path)
     args = parser.parse_args(argv)
@@ -275,7 +374,10 @@ def main(argv=None):
             return 0
         if args.on_node:
             return on_node(args.prepared, args.cohort)
-        print(json.dumps(start(args.prepared, dry_run=args.dry_run), indent=2))
+        if args.status or args.stop:
+            print(json.dumps(progress(args.prepared) if args.status else stop_launch(args.prepared), indent=2))
+            return 0
+        print(json.dumps(start(args.prepared, dry_run=args.dry_run, retry=args.retry), indent=2))
         return 0
     except BlockingIOError:
         print('error: another launch of this campaign holds the lock', file=sys.stderr)

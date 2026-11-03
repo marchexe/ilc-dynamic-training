@@ -176,6 +176,92 @@ class HoldoutAddendumTest(unittest.TestCase):
                 self.assertEqual((integrity['protocol_sha256'], len(integrity['artifacts'])), ('sha', 2))
 
 
+class HoldoutRelaunchTest(unittest.TestCase):
+    """The first holdout_high_lr_grid_v1 launch stopped after 26 minutes: Ctrl-C in an attached tmux pane."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.output = Path(tmp.name)
+        self.protocol = dict(allocation=dict(authorized_nodes=['n1'], preferred_node='n1', max_used_memory_mib=500,
+                                             max_util_percent=5, min_gpu_memory_mib=40000),
+                             checkpoints=[dict(id='a'), dict(id='b')])
+        for target, value in (('load_protocol', (self.protocol, 'f' * 64)), ('output_dir', self.output),
+                              ('launch_tmux', '0::/user.slice/user-1.slice/session-2.scope')):
+            patcher = mock.patch.object(holdout_addendum, target, return_value=value)
+            self.addCleanup(patcher.stop)
+            setattr(self, target, patcher.start())
+
+    def start(self, retry=False, alive=False):
+        with mock.patch.object(holdout_addendum, 'tmux_alive', return_value=alive):
+            return holdout_addendum.start('prepared', retry=retry,
+                                          discover_nodes=lambda _: [node('n1', [gpu('n1', 0), gpu('n1', 1)])])
+
+    def fail_first_launch(self):
+        first = self.start()
+        attempt = self.output / 'evaluations/a/attempt-001'
+        attempt.mkdir(parents=True)
+        (attempt / 'evaluation.log').write_text('412it [24:40]')
+        (attempt.parent / 'result.json').write_text(json.dumps(dict(status='failed', attempt=1)))
+        (self.output / 'status.json').write_text(json.dumps(dict(status='interrupted')))
+        return first
+
+    def test_sigint_is_ignored_and_sigterm_or_sighup_stop(self):
+        import os
+        import signal
+        import threading
+        saved = {n: signal.getsignal(n) for n in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)}
+        self.addCleanup(lambda: [signal.signal(n, h) for n, h in saved.items()])
+        for stopping in (signal.SIGTERM, signal.SIGHUP):
+            stop, received = threading.Event(), []
+            with mock.patch('sys.stderr'):
+                holdout_addendum.supervise_signals(stop, received)
+                os.kill(os.getpid(), signal.SIGINT)
+                self.assertFalse(stop.is_set())
+                os.kill(os.getpid(), stopping)
+            self.assertTrue(stop.is_set())
+            self.assertEqual([(r['signal'], r['stopped']) for r in received],
+                             [('SIGINT', False), (stopping.name, True)])
+
+    def test_attach_hint_is_read_only(self):
+        self.assertIn(' attach -r -t holdout-', self.start()['attach'])
+
+    def test_failed_launch_needs_retry_and_keeps_its_records(self):
+        first = self.fail_first_launch()
+        with self.assertRaisesRegex(RuntimeError, '--retry'):
+            self.start()
+        second = self.start(retry=True)
+        self.assertEqual(second['status'], 'submitted_to_persistent_tmux')
+        archive = self.output / 'failed_launches/001'
+        self.assertEqual(second['previous_launch_records'], str(archive))
+        self.assertEqual(json.loads((archive / 'launch.json').read_text())['started_at'], first['started_at'])
+        self.assertEqual(json.loads((archive / 'status.json').read_text())['status'], 'interrupted')
+        self.assertEqual(json.loads((archive / 'a.result.json').read_text())['status'], 'failed')
+        self.assertEqual((self.output / 'evaluations/a/attempt-001/evaluation.log').read_text(), '412it [24:40]')
+        self.assertEqual(self.launch_tmux.call_count, 2)
+        self.start(retry=True)  # the second launch also ended without a report
+        self.assertEqual(json.loads((self.output / 'failed_launches/002/launch.json').read_text())['started_at'],
+                         second['started_at'])
+
+    def test_running_and_completed_launches_are_not_relaunched(self):
+        self.start()
+        self.assertEqual(self.start(retry=True, alive=True)['status'], 'already_running')
+        with mock.patch.object(holdout_addendum, 'completed', return_value=True):
+            self.assertEqual(self.start(retry=True)['status'], 'already_completed')
+        self.assertEqual(self.launch_tmux.call_count, 1)
+
+    def test_retry_needs_an_earlier_launch(self):
+        with self.assertRaisesRegex(RuntimeError, 'Nothing to retry'):
+            self.start(retry=True)
+        self.launch_tmux.assert_not_called()
+
+    def test_progress_reads_the_last_batch_count(self):
+        console = self.output / 'console.log'
+        console.write_bytes(b'0it [00:00, ?it/s]\r438it [24:20,  5.14it/s]\r440it [24:30,  6.54it/s]')
+        self.assertEqual(holdout_addendum.last_batch(console), 440)
+        self.assertIsNone(holdout_addendum.last_batch(self.output / 'missing.log'))
+
+
 def save_bundle(directory, epoch, value, counter=0):
     directory.mkdir(parents=True, exist_ok=True)
     torch.save(dict(w=torch.tensor([float(value)])), directory / f'net_epoch-{epoch}_state.pt')
