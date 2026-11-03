@@ -1,0 +1,167 @@
+{
+  "allocation": {
+    "authorized_nodes": [
+      "iutgpu01",
+      "iutgpu02",
+      "iutgpu03",
+      "iutgpu04",
+      "iutgpu05",
+      "iutgpu06",
+      "iutgpu07"
+    ],
+    "evaluation_timeout_seconds": 14400,
+    "max_parallelism": 9,
+    "max_resource_wait_seconds": 120,
+    "max_used_memory_mib": 500,
+    "max_util_percent": 5,
+    "mechanism": "direct_ssh_tmux",
+    "min_gpu_memory_mib": 40000,
+    "policy_source": "explicit user confirmation 2026-10-12",
+    "preferred_node": "iutgpu05"
+  },
+  "analysis": {
+    "bootstrap_replicates": 200,
+    "bootstrap_seed": 20261012,
+    "physical_event_ci": "unavailable_without_physical_event_ids",
+    "training_seed_inference": "descriptive_only"
+  },
+  "campaign": "holdout_fixed_lr_ceiling_v1",
+  "checkpoints": [
+    {
+      "checkpoint": {
+        "path": "/data/suehara/part/march/runs/pbt/fixed_lr_ceiling_grid_50epochs/checkpoints/global-best-tbn04vrh/global_best_state.pt",
+        "sha256": "617772944ed49769d8c05e3fc7e7bfc59f8c6de1a058a2500257a827526ed374",
+        "size_bytes": 3587665
+      },
+      "generation": 49,
+      "id": "fixed_ceiling50_s12345",
+      "member": "lr_80e-6",
+      "provenance": [
+        {
+          "path": "/data/suehara/part/march/runs/pbt/fixed_lr_ceiling_grid_50epochs/manifest.json",
+          "sha256": "166442afeb4a8ad72b0546239fdd1169c65ddae2232933e6d65354211933a426",
+          "size_bytes": 6113703
+        }
+      ],
+      "run": "fixed_lr_ceiling_grid_50epochs",
+      "run_fingerprint": "eeb3eb5518004bd735743b431616e42e2f5bae26e48531d5fd68f2f59283ee42",
+      "selection": "validation_primary_global_best",
+      "training_seed": 12345,
+      "validation_metric": 0.31664616475434093,
+      "weaver_epoch": 67
+    },
+    {
+      "checkpoint": {
+        "path": "/data/suehara/part/march/runs/pbt/fixed_lr_high_grid_50epochs/checkpoints/global-best-9j35lgpo/global_best_state.pt",
+        "sha256": "ce5eeba01a25979a40c64362426258d9cf7b5e60bb0703170a76679460eaa06c",
+        "size_bytes": 3587665
+      },
+      "id": "fixed_high50_s12345",
+      "selection": "stage2a_reference",
+      "source": "fixed_high50_s12345",
+      "source_protocol": {
+        "path": "/data/suehara/part/march/configs/prepared/holdout_high_lr_grid_v1/protocol.json",
+        "sha256": "ce3f42c04fbda24949e8eafa31e1072d3ee6b72f88abc770f4f270faf47bac0f",
+        "size_bytes": 6197
+      },
+      "stage2a_holdout_metric": 0.314628032224614,
+      "stage2a_result": {
+        "path": "/data/suehara/part/march/runs/eval/holdout_high_lr_grid_v1/evaluations/fixed_high50_s12345/result.json",
+        "sha256": "73d729d89d6d1c9e1dc22239976f92dea0c4e894c76ffdc09c72310fff64be6e",
+        "size_bytes": 18615
+      }
+    },
+    {
+      "checkpoint": {
+        "path": "/data/suehara/part/march/runs/pbt/windowed_pbt_v2/checkpoints/global_best_state.pt",
+        "sha256": "e29d7a766993d37172f6901992d4dbd35321946f491cb4f3adb33f0556246837",
+        "size_bytes": 3587665
+      },
+      "id": "windowed50_s12345",
+      "selection": "stage2a_reference",
+      "stage2a_holdout_metric": 0.32248407528006684,
+      "stage2a_result": {
+        "path": "/data/suehara/part/march/runs/eval/stage2a_holdout_v1/evaluations/windowed50_s12345/result.json",
+        "sha256": "091dc98cef4ce3dfd73fead932725510331fbf231b5b546db4374b934425c6ad",
+        "size_bytes": 18513
+      }
+    }
+  ],
+  "commit": "e4d121f97334d50176165878353cfd54b723414e",
+  "dataset": {
+    "audit_fingerprint": "31ac0c24ca7843733df85f20bb7aa608d010161c302aab335e8548b6f6190ccd",
+    "holdout_files": [
+      {
+        "flavor": "bb",
+        "offset": 0,
+        "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val_holdout.parquet",
+        "rows": 943645,
+        "sha256": "94fd5aca6ba59c8f990bc92ede5c6b0c6f0692138d2ebcb0a2c3a2dca9cb86a9",
+        "size_bytes": 2463882042,
+        "tier": "full_holdout"
+      },
+      {
+        "flavor": "cc",
+        "offset": 943645,
+        "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val_holdout.parquet",
+        "rows": 941995,
+        "sha256": "1276387fc13b2525c8d2eab942565d637431a35de01472278ddb29fb6b9fd932",
+        "size_bytes": 2243049376,
+        "tier": "full_holdout"
+      },
+      {
+        "flavor": "dd",
+        "offset": 1885640,
+        "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val_holdout.parquet",
+        "rows": 939485,
+        "sha256": "3a1a8cbe9e2d26b8f6b9aa9f06f87d6db55a57842122788a65e27cd535052bff",
+        "size_bytes": 2102232525,
+        "tier": "full_holdout"
+      }
+    ],
+    "rows": 2825125
+  },
+  "evaluation": {
+    "amp_dtype": "fp16",
+    "batch_size": 1024,
+    "data_audit": true,
+    "data_config": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml",
+    "data_extension": "parquet",
+    "dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "deterministic": true,
+    "fetch_step": 0.01,
+    "network_config": "/data/suehara/part/march/networks/pretrained_sgv_particle_transformer.py",
+    "num_workers": 1,
+    "prefetch_factor": 2,
+    "save_prediction_row_ids": true,
+    "save_predictions": true,
+    "seed": 12345,
+    "use_amp": true,
+    "validation_suffix": "val_holdout"
+  },
+  "frozen_at": "2026-11-03T20:06:13.164684+00:00",
+  "no_holdout_reselection": true,
+  "pairs": [
+    [
+      "fixed_high50_s12345",
+      "fixed_ceiling50_s12345"
+    ],
+    [
+      "fixed_ceiling50_s12345",
+      "windowed50_s12345"
+    ]
+  ],
+  "primary_metric": "validation_total_reference_mistag_geomean_percent",
+  "purpose": "Where is the fixed-LR optimum on train800k? The extended grid's best member was its top LR (3.0e-5). Validation-selected checkpoint of the ceiling grid (3.0-8.0e-5) on the frozen Stage 2A holdout, paired with the extended-grid and windowed-PBT checkpoints, which are re-evaluated as references.",
+  "schema_version": 1,
+  "spec": {
+    "path": "/data/suehara/part/march/configs/prepared/holdout_fixed_lr_ceiling_v1/spec.json",
+    "sha256": "cd8a802e62630d1e3d04c537c2fcdeb0dbf27d8becd70710d7fc31d6b82c1c91",
+    "size_bytes": 847
+  },
+  "stage2a_protocol": {
+    "path": "/data/suehara/part/march/configs/prepared/stage2a_holdout_v1/protocol.json",
+    "sha256": "cabf6703bf3d70fc2a91c92bd65513c9de791490b267ce4309ae1a26498f2d90",
+    "size_bytes": 198324
+  }
+}
