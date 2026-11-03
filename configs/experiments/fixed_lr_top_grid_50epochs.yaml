@@ -1,0 +1,22 @@
+# Fixed-LR control extended above the ceiling grid, whose best member was again its top LR (8.0e-5).
+# Same start (epoch 17, raw optimizer), seed, data and contract as the 50-epoch control; only the
+# learning rates differ. lr_80e-6 repeats the ceiling grid's top member and anchors this run to it. The
+# pretrained schedule started at 1e-3, so these rates stay within what the model has trained at.
+presets:
+  - foundation_fixed_lr_50epochs.yaml
+experiment:
+  name: fixed_lr_top_grid_50epochs
+pbt:
+  min_lr: 8.0e-5
+  max_lr: 3.2e-4
+population:
+  - name: lr_80e-6
+    start_lr: 8.0e-5
+  - name: lr_120e-6
+    start_lr: 1.2e-4
+  - name: lr_160e-6
+    start_lr: 1.6e-4
+  - name: lr_240e-6
+    start_lr: 2.4e-4
+  - name: lr_320e-6
+    start_lr: 3.2e-4

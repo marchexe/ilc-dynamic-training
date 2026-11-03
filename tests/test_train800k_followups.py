@@ -41,6 +41,8 @@ class ConfigurationTest(unittest.TestCase):
                  [3.0e-5, 4.0e-5, 5.0e-5, 6.0e-5, 8.0e-5]),
                 ('train8m_fixed_lr_high_grid', 'stage3_train8m_fixed_lr', dict(shared=set(), pbt={'min_lr', 'max_lr'}),
                  [1.4e-5, 2.2e-5, 3.0e-5, 4.0e-5, 5.0e-5]),
+                ('fixed_lr_top_grid_50epochs', 'fixed_lr_ceiling_grid_50epochs', dict(shared=set(), pbt={'min_lr', 'max_lr'}),
+                 [8.0e-5, 1.2e-4, 1.6e-4, 2.4e-4, 3.2e-4]),
                 ('fixed_lr_high_grid_50epochs_seed22345', 'fixed_lr_high_grid_50epochs', dict(shared={'seed'}, pbt=set()), None),
                 ('windowed_pbt_v2_seed22345', 'windowed_pbt_v2', dict(shared={'seed'}, pbt=set()), None)):
             config, reference = load(new), load(base)
@@ -52,6 +54,20 @@ class ConfigurationTest(unittest.TestCase):
                 self.assertIn(config['population'][0], reference['population'])
             else:
                 self.assertEqual(config['shared']['seed'], 22345)
+
+    def test_fast_pbt_changes_only_its_search_space_and_cadence(self):
+        fast, base = load('windowed_pbt_v2_fast'), load('windowed_pbt_v2')
+        self.assertEqual(fast['shared'], base['shared'])
+        changed = {k for k in set(fast['pbt']) | set(base['pbt']) if fast['pbt'].get(k) != base['pbt'].get(k)}
+        self.assertEqual(changed, {'min_lr', 'max_lr', 'mutation_factors', 'exploit_interval_generations', 'windowed_pbt_v2'})
+        rates = [m['start_lr'] for m in fast['population']]
+        self.assertEqual(rates, [1.0e-5, 2.5e-5, 6.0e-5, 1.5e-4, 3.5e-4])
+        self.assertTrue(fast['pbt']['min_lr'] < rates[0] and rates[-1] < fast['pbt']['max_lr'])
+        window = fast['pbt']['windowed_pbt_v2']
+        self.assertEqual((window['window_epochs'], window['score_epochs'], fast['pbt']['exploit_interval_generations']), (2, 2, 2))
+        self.assertEqual({k: v for k, v in window.items() if k not in ('window_epochs', 'score_epochs')},
+                         {k: v for k, v in base['pbt']['windowed_pbt_v2'].items() if k not in ('window_epochs', 'score_epochs')})
+        self.assertEqual(fast['pbt']['mutation_factors'], [0.5, 2.0])
 
     @unittest.skipUnless((CONTROL / 'manifest.json').is_file(), 'original control run not present')
     def test_anchor_member_repeats_the_recorded_weaver_commands(self):
@@ -164,7 +180,7 @@ class HoldoutAddendumTest(unittest.TestCase):
 
     def test_every_prepared_spec_is_valid(self):
         specs = sorted((PROJECT_DIR / 'configs/prepared').glob('holdout_*/spec.json'))
-        self.assertGreaterEqual(len(specs), 4)
+        self.assertGreaterEqual(len(specs), 5)
         for path in specs:
             spec = holdout_addendum.validate_spec(json.loads(path.read_text()))
             self.assertEqual(spec['campaign'], path.parent.name)

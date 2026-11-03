@@ -1,0 +1,31 @@
+# Windowed PBT set up to adapt quickly. windowed_pbt_v2 (the 2026-11 holdout comparison) started at
+# 3e-6-1.4e-5, was capped at 3e-5 and made four decisions in 50 epochs, the first at epoch 27; fixed LRs up
+# to at least 8e-5 did better. Here the population starts log-spaced over 1e-5-3.5e-4, the bounds leave room
+# above the fixed-LR optimum, mutations halve or double the LR, and a decision is possible every two epochs
+# from epoch 21. Same start (epoch 17, raw optimizer), seed, data and windowed_pbt_v2 rules otherwise.
+presets:
+  - windowed_pbt_v2.yaml
+experiment:
+  name: windowed_pbt_v2_fast
+pbt:
+  min_lr: 5.0e-6
+  max_lr: 5.0e-4
+  mutation_factors: [0.5, 2.0]
+  exploit_interval_generations: 2
+  windowed_pbt_v2:
+    window_epochs: 2
+    score_epochs: 2
+    decision_margin: 0.002
+    losing_windows: 2
+    max_recipients: 2
+population:
+  - name: lr_10e-6
+    start_lr: 1.0e-5
+  - name: lr_25e-6
+    start_lr: 2.5e-5
+  - name: lr_60e-6
+    start_lr: 6.0e-5
+  - name: lr_150e-6
+    start_lr: 1.5e-4
+  - name: lr_350e-6
+    start_lr: 3.5e-4

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_fast_pbt_v1",
+  "purpose": "Does windowed PBT set up to adapt quickly (start over 1e-5-3.5e-4, bounds to 5e-4, x0.5/x2 mutations, two-epoch windows) match the best fixed learning rate? Validation-selected checkpoints of the fast PBT run and of the top fixed-LR grid (8e-5-3.2e-4) on the frozen Stage 2A holdout, paired with the ceiling-grid (3-8e-5) and original windowed-PBT checkpoints, which are re-evaluated as references. Primary comparison, fixed before training: fast PBT against whichever of the two fixed-LR checkpoints (ceiling grid, top grid) has the better validation metric.",
+  "runs": [
+    {"id": "fixed_top50_s12345", "run": "fixed_lr_top_grid_50epochs"},
+    {"id": "windowed_fast50_s12345", "run": "windowed_pbt_v2_fast"}
+  ],
+  "references": [
+    {"id": "fixed_ceiling50_s12345", "checkpoint_id": "fixed_ceiling50_s12345",
+     "protocol": "configs/prepared/holdout_fixed_lr_ceiling_v1/protocol.json", "results": "runs/eval/holdout_fixed_lr_ceiling_v1"},
+    "windowed50_s12345"
+  ],
+  "pairs": [
+    ["fixed_top50_s12345", "windowed_fast50_s12345"],
+    ["fixed_ceiling50_s12345", "windowed_fast50_s12345"],
+    ["fixed_ceiling50_s12345", "fixed_top50_s12345"],
+    ["windowed50_s12345", "windowed_fast50_s12345"]
+  ]
+}

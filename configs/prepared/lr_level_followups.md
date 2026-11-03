@@ -92,3 +92,33 @@ train8m dataset of Stage 3 and about 2 GiB of disk per member. Do not type Ctrl-
   sub-epoch pilot (item 5) becomes worth its cost.
 * There are no confidence intervals (jets of one physical event cannot be linked). Use the delta, the sign across
   the eight working points and, for item 3, the agreement between seeds.
+
+## Update: the fixed-LR optimum is above 8e-5, and a fast PBT
+
+The ceiling grid (3.0–8.0e-5) improved monotonically on validation (best: 8e-5 at its last epoch, 0.3167
+against 0.3377 for windowed PBT); its lr_30e-6 member reproduced the extended grid bit for bit. Windowed PBT made
+four decisions in 50 epochs (epochs 27, 32, 37, 47) with ×0.8/×1.2 steps under a 3e-5 cap, so it could not reach
+these rates. Before the train8m run and the second seed, one job at a time (at most five GPUs):
+
+| # | Run | GPUs × time | Question |
+|---|---|---|---|
+| 1 | holdout of the ceiling grid (`holdout_fixed_lr_ceiling_v1`) | 3 × ~1.5 h | does 8e-5 hold on the holdout? |
+| 2 | `fixed_lr_top_grid_50epochs` (8.0e-5–3.2e-4, anchored to lr_80e-6) | 5 × ~5 h | where does a higher fixed LR stop helping? |
+| 3 | `windowed_pbt_v2_fast` | 5 × ~5 h | does PBT that adapts quickly match the best fixed LR? |
+
+The fast PBT keeps every windowed_pbt_v2 rule and changes only its search space and cadence: the population
+starts log-spaced over 1e-5–3.5e-4, the bounds are 5e-6–5e-4, mutations are ×0.5/×2, and windows are two
+epochs (first possible decision at epoch 21, then every two epochs). Its range does not depend on item 2: not
+knowing the range in advance is what PBT should handle. Both are compared on the holdout in
+`holdout_fast_pbt_v1`; the primary comparison is fast PBT against whichever fixed-LR checkpoint (ceiling or top
+grid) has the better validation metric. A member with a non-finite metric stops either run; the pretrained
+schedule started at 1e-3, so the rates tried here are within what the model has trained at.
+
+```bash
+$py scripts/experiments/holdout_addendum.py --prepared configs/prepared/holdout_fixed_lr_ceiling_v1
+$py scripts/experiments/train800k.py start --config configs/experiments/fixed_lr_top_grid_50epochs.yaml
+$py scripts/experiments/reproduction_checks.py anchor --run fixed_lr_top_grid_50epochs \
+    --control fixed_lr_ceiling_grid_50epochs --member lr_80e-6
+$py scripts/experiments/train800k.py start --config configs/experiments/windowed_pbt_v2_fast.yaml
+# then freeze, commit and evaluate configs/prepared/holdout_fast_pbt_v1 as above
+```
