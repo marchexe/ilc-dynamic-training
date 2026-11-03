@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_seed22345_v1",
+  "purpose": "Does the extended fixed-LR grid beat windowed PBT with a second training seed? Validation-selected checkpoints of both, trained with seed 22345, on the frozen Stage 2A holdout; the seed-12345 checkpoints of the same comparison are re-evaluated as references.",
+  "runs": [
+    {"id": "fixed_high50_s22345", "run": "fixed_lr_high_grid_50epochs_seed22345"},
+    {"id": "windowed50_s22345", "run": "windowed_pbt_v2_seed22345"}
+  ],
+  "references": [
+    {"id": "fixed_high50_s12345", "checkpoint_id": "fixed_high50_s12345",
+     "protocol": "configs/prepared/holdout_high_lr_grid_v1/protocol.json", "results": "runs/eval/holdout_high_lr_grid_v1"},
+    "windowed50_s12345"
+  ],
+  "pairs": [
+    ["fixed_high50_s22345", "windowed50_s22345"],
+    ["fixed_high50_s12345", "windowed50_s12345"]
+  ]
+}

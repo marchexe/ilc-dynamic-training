@@ -4,8 +4,10 @@
     .venv/bin/python scripts/experiments/holdout_addendum.py --prepared DIR \
         {--freeze | --dry-run | (launch) | --retry | --status | --stop}
 
-``DIR/spec.json`` names, before any of these runs is evaluated, the training runs, the Stage 2A checkpoints
-re-evaluated as references, and the B-minus-A pairs. ``--freeze`` (after the runs complete) records each run's
+``DIR/spec.json`` names, before any of these runs is evaluated, the training runs, the checkpoints re-evaluated
+as references, and the B-minus-A pairs. A reference is a Stage 2A checkpoint id, or
+``{"id", "checkpoint_id", "protocol", "results"}`` for a checkpoint another campaign evaluated on the same
+holdout under the same evaluation contract (a Stage 3 descriptive holdout or an earlier addendum). ``--freeze`` (after the runs complete) records each run's
 validation-selected checkpoint (``manifest['best']``, the Stage 2A selection rule) in ``DIR/protocol.json``;
 the holdout never selects anything. A launch runs inference through the Stage 2A campaign (same evaluation
 contract, leases, full-pass audit, row-ID coverage) in a detached tmux session on one node.
@@ -59,8 +61,12 @@ def output_dir(spec):
     return PROJECT_DIR / 'runs/eval' / spec['campaign']
 
 
+def reference_id(reference):
+    return reference if isinstance(reference, str) else reference['id']
+
+
 def validate_spec(spec):
-    ids = [r['id'] for r in spec['runs']] + list(spec['references'])
+    ids = [r['id'] for r in spec['runs']] + [reference_id(r) for r in spec['references']]
     if spec.get('schema_version') != 1 or not spec['runs'] or len(set(ids)) != len(ids):
         raise ValueError('spec needs schema_version 1, at least one run and unique checkpoint ids')
     if any(len(pair) != 2 or pair[0] == pair[1] or not set(pair) <= set(ids) for pair in spec['pairs']):
@@ -96,6 +102,24 @@ def reference_checkpoint(ident, stage2a):
                 stage2a_result=file_record(STAGE2A_RESULTS / ident / 'result.json'))
 
 
+def external_reference(reference, stage2a):
+    """A checkpoint another campaign evaluated on the Stage 2A holdout, with the metric it measured there."""
+    if isinstance(reference, str):
+        return reference_checkpoint(reference, stage2a)
+    source = load_json(PROJECT_DIR / reference['protocol'])
+    if source['evaluation'] != stage2a['evaluation'] or any(
+            source['dataset'][k] != stage2a['dataset'][k] for k in ('rows', 'audit_fingerprint', 'holdout_files')):
+        raise ValueError(f'{reference["id"]}: {reference["protocol"]} is not the Stage 2A holdout evaluation')
+    record = next(c for c in source['checkpoints'] if c['id'] == reference['checkpoint_id'])
+    path = PROJECT_DIR / reference['results'] / 'evaluations' / reference['checkpoint_id'] / 'result.json'
+    result = load_json(path)
+    if result.get('status') != 'completed' or result['checkpoint'] != record['checkpoint']['path']:
+        raise ValueError(f'{reference["id"]}: no completed evaluation of this checkpoint in {reference["results"]}')
+    return dict(id=reference['id'], selection='stage2a_reference', source=reference['checkpoint_id'],
+                checkpoint=record['checkpoint'], stage2a_holdout_metric=result['metrics'][PRIMARY],
+                source_protocol=file_record(PROJECT_DIR / reference['protocol']), stage2a_result=file_record(path))
+
+
 def strict_load(checkpoints, evaluation):
     from experiments.stage2a.protocol import cpu_model
     model = cpu_model(evaluation['data_config'], evaluation['network_config'])
@@ -116,7 +140,7 @@ def freeze(prepared, *, check_models=True):
         raise ValueError('Stage 2A protocol hash changed')
     evaluation = stage2a['evaluation']
     checkpoints = ([selected_checkpoint(r['id'], r['run'], evaluation) for r in spec['runs']]
-                   + [reference_checkpoint(ident, stage2a) for ident in spec['references']])
+                   + [external_reference(reference, stage2a) for reference in spec['references']])
     if check_models:
         strict_load(checkpoints, evaluation)
     protocol = dict(schema_version=1, campaign=spec['campaign'], purpose=spec['purpose'], frozen_at=utc_now(),
@@ -170,8 +194,8 @@ def report(protocol, protocol_sha, results, output):
                            ((pe, value['working_points'][mistag_percent_key(*pe)]) for pe in WORKING_POINT_DEFINITION))
         lines.append(f'* {name}: {points}')
     lines += ['', 'No confidence interval: jets of one physical event cannot be linked (as in Stage 2A).']
-    lines += ['', 'Stage 2A references re-evaluated:', '']
-    lines += [f'* {k}: Stage 2A {v["stage2a"]:.12f}, now {v["now"]:.12f}, '
+    lines += ['', 'References re-evaluated (their earlier metric on this holdout, and now):', '']
+    lines += [f'* {k}: earlier {v["stage2a"]:.12f}, now {v["now"]:.12f}, '
               f'{"identical" if v["identical"] else "DIFFERENT"}' for k, v in references.items()]
     (output / 'report.md').write_text('\n'.join(lines) + '\n')
     artifacts = [file_record(output / name) for name in ('analysis.json', 'report.md')]

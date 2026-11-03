@@ -31,6 +31,28 @@ class ConfigurationTest(unittest.TestCase):
         drop = lambda pbt: {k: v for k, v in pbt.items() if k not in ('min_lr', 'max_lr')}  # noqa: E731
         self.assertEqual(drop(high['pbt']), drop(control['pbt']))
 
+    def test_followup_runs_change_only_what_they_test(self):
+        def differences(new, base):
+            return {section: {k for k in set(new[section]) | set(base[section]) if new[section].get(k) != base[section].get(k)}
+                    for section in ('shared', 'pbt')}
+        lrs = lambda c: [m['start_lr'] for m in c['population']]  # noqa: E731
+        for new, base, changed, rates in (
+                ('fixed_lr_ceiling_grid_50epochs', 'fixed_lr_high_grid_50epochs', dict(shared=set(), pbt={'min_lr', 'max_lr'}),
+                 [3.0e-5, 4.0e-5, 5.0e-5, 6.0e-5, 8.0e-5]),
+                ('train8m_fixed_lr_high_grid', 'stage3_train8m_fixed_lr', dict(shared=set(), pbt={'min_lr', 'max_lr'}),
+                 [1.4e-5, 2.2e-5, 3.0e-5, 4.0e-5, 5.0e-5]),
+                ('fixed_lr_high_grid_50epochs_seed22345', 'fixed_lr_high_grid_50epochs', dict(shared={'seed'}, pbt=set()), None),
+                ('windowed_pbt_v2_seed22345', 'windowed_pbt_v2', dict(shared={'seed'}, pbt=set()), None)):
+            config, reference = load(new), load(base)
+            self.assertEqual(differences(config, reference), changed, new)
+            self.assertEqual(lrs(config), rates or lrs(reference), new)
+            if rates:
+                self.assertEqual((config['pbt']['min_lr'], config['pbt']['max_lr']), (rates[0], rates[-1]))
+                # The first member repeats a member of the base run and anchors the new run to it.
+                self.assertIn(config['population'][0], reference['population'])
+            else:
+                self.assertEqual(config['shared']['seed'], 22345)
+
     @unittest.skipUnless((CONTROL / 'manifest.json').is_file(), 'original control run not present')
     def test_anchor_member_repeats_the_recorded_weaver_commands(self):
         high = load('fixed_lr_high_grid_50epochs')
@@ -139,6 +161,44 @@ class HoldoutAddendumTest(unittest.TestCase):
                     dict(spec, references=['fixed_high50_s12345']), dict(spec, runs=[])):
             with self.assertRaises(ValueError):
                 holdout_addendum.validate_spec(bad)
+
+    def test_every_prepared_spec_is_valid(self):
+        specs = sorted((PROJECT_DIR / 'configs/prepared').glob('holdout_*/spec.json'))
+        self.assertGreaterEqual(len(specs), 4)
+        for path in specs:
+            spec = holdout_addendum.validate_spec(json.loads(path.read_text()))
+            self.assertEqual(spec['campaign'], path.parent.name)
+            runs = {r['run'] for r in spec['runs']}
+            self.assertTrue(runs <= {load(p.stem)['experiment_name'] for p in EXPERIMENTS.glob('*.yaml')
+                                     if not p.stem.endswith('smoke')}, path)
+
+    @unittest.skipUnless((PROJECT_DIR / 'runs/eval/stage3_train8m_v1/holdout_descriptive').is_dir()
+                         and (PROJECT_DIR / 'runs/eval/holdout_high_lr_grid_v1/report.md').is_file(),
+                         'earlier holdout evaluations not present')
+    def test_references_from_other_campaigns_carry_their_measured_metric(self):
+        stage2a = json.loads((holdout_addendum.STAGE2A / 'protocol.json').read_text())
+        found = {}
+        for name in ('holdout_fixed_lr_ceiling_v1', 'holdout_train8m_fixed_lr_high_v1'):
+            spec = json.loads((PROJECT_DIR / 'configs/prepared' / name / 'spec.json').read_text())
+            found.update({c['id']: c for c in (holdout_addendum.external_reference(r, stage2a) for r in spec['references'])})
+        analysis = json.loads((PROJECT_DIR / 'runs/eval/holdout_high_lr_grid_v1/analysis.json').read_text())
+        self.assertEqual(found['fixed_high50_s12345']['stage2a_holdout_metric'],
+                         analysis['metrics']['fixed_high50_s12345'][PRIMARY])
+        self.assertEqual(found['windowed50_s12345']['stage2a_holdout_metric'], 0.32248407528006684)
+        self.assertEqual((found['fixed8m_s12345']['stage2a_holdout_metric'], found['windowed8m_s12345']['stage2a_holdout_metric']),
+                         (0.25300953866998127, 0.23594907795268083))
+        # The selection rule picks the same train8m checkpoint that Stage 3 selected.
+        mine = holdout_addendum.selected_checkpoint('x', 'stage3_train8m_fixed_lr_v1', stage2a['evaluation'])
+        self.assertEqual(mine['checkpoint'], found['fixed8m_s12345']['checkpoint'])
+
+    def test_reference_from_another_evaluation_contract_is_refused(self):
+        stage2a = json.loads((holdout_addendum.STAGE2A / 'protocol.json').read_text())
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / 'protocol.json'
+            source.write_text(json.dumps(dict(evaluation=dict(stage2a['evaluation'], batch_size=512),
+                                              dataset=stage2a['dataset'], checkpoints=[])))
+            with self.assertRaisesRegex(ValueError, 'not the Stage 2A holdout evaluation'):
+                holdout_addendum.external_reference(dict(id='r', checkpoint_id='c', protocol=str(source), results=tmp), stage2a)
 
     def test_parallelism_is_bounded_by_idle_gpus_and_checkpoints(self):
         protocol = dict(allocation=dict(authorized_nodes=['n1'], preferred_node='n1', max_used_memory_mib=500,
@@ -326,6 +386,16 @@ class ReproductionChecksTest(unittest.TestCase):
         result = reproduction_checks.anchor('high')
         self.assertEqual((result['identical_epochs'], result['first_differing_epoch']), (1, 19))
         self.assertAlmostEqual(result['max_abs_metric_delta'], 0.01)
+        self.assertEqual(result['check'], 'anchor_member_reproduction_high')
+
+    def test_anchor_of_another_run_control_and_member(self):
+        for run in ('grid', 'ceiling'):
+            save_bundle(self.root / run / 'lr_30e-6', 18, 2.0)
+            write_run(self.root, run, [dict(epoch=18, workers={'lr_30e-6': dict(metrics={PRIMARY: 0.33})})])
+        result = reproduction_checks.anchor('ceiling', 'grid', 'lr_30e-6')
+        self.assertEqual((result['runs'], result['member'], result['identical_epochs']), (['grid', 'ceiling'], 'lr_30e-6', 1))
+        self.assertEqual(reproduction_checks.anchor.__defaults__,
+                         ('fixed_lr_high_grid_50epochs', reproduction_checks.CONTROL, 'lr_14e-6'))
 
 
 if __name__ == '__main__':

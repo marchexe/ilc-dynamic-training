@@ -1,0 +1,21 @@
+# Fixed-LR control extended above the extended grid, whose best member was again its top LR (3.0e-5).
+# Same start (epoch 17, raw optimizer), seed, data and contract as the 50-epoch control; only the
+# learning rates differ. lr_30e-6 repeats the extended grid's top member and anchors this run to it.
+presets:
+  - foundation_fixed_lr_50epochs.yaml
+experiment:
+  name: fixed_lr_ceiling_grid_50epochs
+pbt:
+  min_lr: 3.0e-5
+  max_lr: 8.0e-5
+population:
+  - name: lr_30e-6
+    start_lr: 3.0e-5
+  - name: lr_40e-6
+    start_lr: 4.0e-5
+  - name: lr_50e-6
+    start_lr: 5.0e-5
+  - name: lr_60e-6
+    start_lr: 6.0e-5
+  - name: lr_80e-6
+    start_lr: 8.0e-5

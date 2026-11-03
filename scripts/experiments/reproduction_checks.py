@@ -2,7 +2,7 @@
 """Bit-level reproduction checks on completed runs (CPU only; reads checkpoints, writes one JSON record).
 
     .venv/bin/python scripts/experiments/reproduction_checks.py full-state
-    .venv/bin/python scripts/experiments/reproduction_checks.py anchor
+    .venv/bin/python scripts/experiments/reproduction_checks.py anchor [--run R --control C --member M]
 
 full-state: the full Lookahead contract on GPU at production scale. One train800k epoch trained as five
 restarted generations (full_state_gpu_fifths) must equal the same epoch trained uninterrupted
@@ -10,8 +10,9 @@ restarted generations (full_state_gpu_fifths) must equal the same epoch trained 
 that partition the epoch, and the same validation metric. Also measures the cost of the restarts, which the
 0.2-epoch scenario pays every generation. Exit 1 if the contract does not hold.
 
-anchor: lr_14e-6 of the extended fixed-LR grid repeats lr_14e-6 of the original 50-epoch control (same start,
-seed, data and Weaver command) on whatever hardware it ran. Reports, per epoch, whether the model weights are
+anchor: one member of a new run repeats the same member of an earlier run (same start, seed, data and Weaver
+command) on whatever hardware it ran. By default lr_14e-6 of the extended fixed-LR grid against the original
+50-epoch control; other runs name their own run, control and member. Reports, per epoch, whether the model weights are
 identical and how far the validation metric moved. Descriptive: a difference measures the run-to-run variation
 between the two hardware/software environments that the high-grid comparison inherits.
 """
@@ -76,19 +77,24 @@ def full_state(one_run='full_state_gpu_one_epoch', sliced_run='full_state_gpu_fi
     return result
 
 
-def anchor(run='fixed_lr_high_grid_50epochs'):
-    new, old = completed(run), completed(CONTROL)
+ANCHOR_RUN = 'fixed_lr_high_grid_50epochs'
+
+
+def anchor(run=ANCHOR_RUN, control=CONTROL, member=MEMBER):
+    new, old = completed(run), completed(control)
     epochs = []
     for left, right in zip(old['generations'], new['generations']):
         if left['epoch'] != right['epoch']:
             raise ValueError('Generations of the two runs do not align by epoch')
-        same = not differences(load(restart_bundle(RUNS / CONTROL / MEMBER, left['epoch'])['state']),
-                               load(restart_bundle(RUNS / run / MEMBER, right['epoch'])['state']))
-        a, b = left['workers'][MEMBER]['metrics'][PRIMARY], right['workers'][MEMBER]['metrics'][PRIMARY]
+        same = not differences(load(restart_bundle(RUNS / control / member, left['epoch'])['state']),
+                               load(restart_bundle(RUNS / run / member, right['epoch'])['state']))
+        a, b = left['workers'][member]['metrics'][PRIMARY], right['workers'][member]['metrics'][PRIMARY]
         epochs.append(dict(epoch=left['epoch'], model_identical=same, control_metric=a, repeat_metric=b, delta=b - a))
     differing = [e['epoch'] for e in epochs if not e['model_identical']]
     deltas = [abs(e['delta']) for e in epochs]
-    return dict(check='anchor_member_reproduction', checked_at=utc_now(), runs=[CONTROL, run], member=MEMBER,
+    # The first anchor record kept the plain name; later anchors are named after their run.
+    name = 'anchor_member_reproduction' + ('' if run == ANCHOR_RUN else f'_{run}')
+    return dict(check=name, checked_at=utc_now(), runs=[control, run], member=member,
                 identical_epochs=len(epochs) - len(differing), epochs_compared=len(epochs),
                 first_differing_epoch=differing[0] if differing else None,
                 max_abs_metric_delta=max(deltas), mean_abs_metric_delta=sum(deltas) / len(deltas), epochs=epochs)
@@ -97,9 +103,12 @@ def anchor(run='fixed_lr_high_grid_50epochs'):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('check', choices=['full-state', 'anchor'])
+    parser.add_argument('--run', default=ANCHOR_RUN, help='anchor: the new run')
+    parser.add_argument('--control', default=CONTROL, help='anchor: the earlier run it repeats')
+    parser.add_argument('--member', default=MEMBER, help='anchor: the member both runs share')
     args = parser.parse_args(argv)
     try:
-        result = full_state() if args.check == 'full-state' else anchor()
+        result = full_state() if args.check == 'full-state' else anchor(args.run, args.control, args.member)
     except (OSError, ValueError, KeyError) as error:
         print(f'error: {error}', file=sys.stderr)
         return 2

@@ -1,0 +1,7 @@
+# Second training seed for the extended fixed-LR grid; everything else as fixed_lr_high_grid_50epochs.
+presets:
+  - fixed_lr_high_grid_50epochs.yaml
+experiment:
+  name: fixed_lr_high_grid_50epochs_seed22345
+shared:
+  seed: 22345

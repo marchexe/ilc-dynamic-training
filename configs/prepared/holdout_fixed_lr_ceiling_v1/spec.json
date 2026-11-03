@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_fixed_lr_ceiling_v1",
+  "purpose": "Where is the fixed-LR optimum on train800k? The extended grid's best member was its top LR (3.0e-5). Validation-selected checkpoint of the ceiling grid (3.0-8.0e-5) on the frozen Stage 2A holdout, paired with the extended-grid and windowed-PBT checkpoints, which are re-evaluated as references.",
+  "runs": [
+    {"id": "fixed_ceiling50_s12345", "run": "fixed_lr_ceiling_grid_50epochs"}
+  ],
+  "references": [
+    {"id": "fixed_high50_s12345", "checkpoint_id": "fixed_high50_s12345",
+     "protocol": "configs/prepared/holdout_high_lr_grid_v1/protocol.json", "results": "runs/eval/holdout_high_lr_grid_v1"},
+    "windowed50_s12345"
+  ],
+  "pairs": [
+    ["fixed_high50_s12345", "fixed_ceiling50_s12345"],
+    ["fixed_ceiling50_s12345", "windowed50_s12345"]
+  ]
+}
