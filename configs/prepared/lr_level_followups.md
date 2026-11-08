@@ -48,6 +48,14 @@ Run one five-GPU job at a time.
 | 1 | `windowed_pbt_v2_fast_seed22345`, then `fixed_lr_best_grid_50epochs_seed22345` (6e-5 to 1.6e-4) | 2 × 5 × ~5 h | `holdout_fast_pbt_seed22345_v1` | Does the fast PBT result hold with seed 22345? |
 | 2 | `train8m_windowed_pbt_v2_fast`, then `train8m_fixed_lr_high_grid` (1.4e-5 to 2.4e-4) | 2 × 5 × ~40–50 h | `holdout_train8m_fast_pbt_v1` | Does it hold on train8m? |
 
+Step 1b, after step 1: `windowed_pbt_v2_fast_fallback` (seed 12345, 5 × ~5 h). In the fast PBT a selected loser
+was skipped whenever both mutation factors gave an LR that another member already had (reason
+`no_distinct_mutation`; about 24 times in seed 12345, 20 in seed 22345; one member stayed at 5e-4 with the worst
+metric from full epoch 5 to 36). The run is `windowed_pbt_v2_fast` plus `fallback_factors: [0.7, 1.4]`: such a
+loser still copies the donor and gets the fallback factor that keeps its LR farthest from the others. Without the
+key the decisions are the frozen reference decisions (Stage 3 `execution_revision_2.json`). Its holdout spec is
+prepared after step 1; if it is not worse, step 2 uses it.
+
 * Step 1 changes only the seed. The fixed grid covers the LRs that the seed-12345 grids selected.
 * Step 2 uses the Stage 3 training input and contract. The train8m fast PBT is `windowed_pbt_v2_fast` without
   changes. The train8m fixed grid has `lr_14e-6` as its anchor to Stage 3 arm A. The Stage 3 sealed test is

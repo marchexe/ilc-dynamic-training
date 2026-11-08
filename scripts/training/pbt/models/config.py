@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Typed PBT YAML and resolved runtime configuration schemas."""
 
+import math
 import re
 from typing import Any, Literal
 
@@ -396,11 +397,18 @@ class WindowedPBTConfig(StrictSectionModel):
     decision_margin: float = Field(default=0.002, gt=0)
     losing_windows: int = Field(default=2, ge=2)
     max_recipients: int = Field(default=2, ge=1, le=2)
+    # None keeps the frozen reference decisions. A list: a selected loser that the reference skips because
+    # both mutation factors give an LR already in use still copies the donor, with the fallback factor that
+    # keeps its LR farthest from the others (planning/windowed_pbt_v2.py).
+    fallback_factors: list[float] | None = None
 
     @model_validator(mode="after")
     def validate_window(self):
         if self.score_epochs > self.window_epochs:
             raise ValueError("score_epochs must fit inside the decision window")
+        f = self.fallback_factors
+        if f is not None and (not f or len(set(f)) != len(f) or any(not math.isfinite(x) or x <= 0 or x == 1 for x in f)):
+            raise ValueError("fallback_factors must be distinct finite positive factors other than 1")
         return self
 
 

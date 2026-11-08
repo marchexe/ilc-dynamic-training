@@ -1,12 +1,56 @@
 """Compatibility entry point and unchanged transitions for windowed PBT v2."""
+import math
 from pathlib import Path
 
 from training.pbt.reference.windowed_v2 import (
-    STRATEGY, WORKING_POINTS, exceeds_margin, _mutations, windowed_pbt_v2_plan,
+    STRATEGY, WORKING_POINTS, exceeds_margin, _mutations, windowed_pbt_v2_plan as reference_plan,
 )
 from training.checkpoints import bundle_paths, bundle_identity, check_bundle, copy_bundle as _copy_bundle
 from training.pbt.state.optimizer_state import atomic_set_optimizer_lr
 from training.runtime import atomic_json, utc_now
+
+
+def windowed_pbt_v2_plan(config, generation, members, manifest=None):
+    """The frozen reference decisions, plus fallback copies when `fallback_factors` is set.
+
+    The reference skips a selected loser when both mutation factors give an LR that another member already
+    has. With factors 0.5 and 2 the LRs fall on one power-of-two ladder and this repeats window after window,
+    so the loser neither copies nor mutates. A fallback copy gives it the donor's weights and the fallback
+    factor that keeps its LR farthest from the other LRs. It stays skipped only if every fallback LR is in use.
+    """
+    ranking, plan = reference_plan(config, generation, members, manifest)
+    factors = (config['pbt'].get(STRATEGY) or {}).get('fallback_factors')
+    decision = generation.get(STRATEGY)
+    if not factors or not decision or decision['terminal']:
+        return ranking, plan
+    return ranking, plan + _fallback_mutations(config, members, decision, ranking, plan, factors)
+
+
+def _fallback_mutations(config, members, decision, ranking, plan, factors):
+    p = config['pbt']; donor = decision['donor']; donor_lr = members[donor]['lr']
+    lrs = {n: m['lr'] for n, m in members.items()}
+    lrs.update({e['recipient']: e['new_lr'] for e in plan})
+    events = []
+    for name in reversed(ranking):
+        item = decision['members'][name]
+        if item['reason'] != 'no_distinct_mutation':
+            continue
+        best = None
+        for factor in factors:
+            lr = min(p['max_lr'], max(p['min_lr'], donor_lr * factor))
+            gap = min(abs(math.log(lr / other)) for n, other in lrs.items() if n != name)
+            if gap >= 1e-12 and (best is None or gap > best[0]):
+                best = (gap, factor, lr)
+        if best is None:
+            continue
+        _, factor, lr = best
+        lrs[name] = lr
+        events.append(dict(source='population', strategy=STRATEGY, donor=donor, recipient=name,
+                           donor_lr=donor_lr, recipient_lr=members[name]['lr'], new_lr=lr,
+                           mutation_factor=factor, effective_factor=lr / donor_lr,
+                           reason='persistent_window_loss', fallback=True, applied=False))
+        item.update(reason='selected_fallback', next_loss_count=0)
+    return events
 
 
 def prepare_boundary(run, manifest, generation):

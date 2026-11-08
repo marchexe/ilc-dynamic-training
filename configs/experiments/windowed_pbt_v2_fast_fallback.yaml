@@ -1,0 +1,11 @@
+# windowed_pbt_v2_fast with fallback copies. In windowed_pbt_v2_fast (seed 12345) a loser was skipped about
+# 24 times, because both mutation factors (0.5, 2) gave an LR that another member already had; one member
+# stayed at 5e-4 with the worst metric from full epoch 5 to 36. With fallback_factors such a loser still copies
+# the donor and gets LR x0.7 or x1.4, whichever is farther from the other LRs. Everything else is unchanged.
+presets:
+  - windowed_pbt_v2_fast.yaml
+experiment:
+  name: windowed_pbt_v2_fast_fallback
+pbt:
+  windowed_pbt_v2:
+    fallback_factors: [0.7, 1.4]

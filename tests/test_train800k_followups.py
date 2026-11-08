@@ -85,6 +85,14 @@ class ConfigurationTest(unittest.TestCase):
                          {k: v for k, v in base['pbt']['windowed_pbt_v2'].items() if k not in ('window_epochs', 'score_epochs')})
         self.assertEqual(fast['pbt']['mutation_factors'], [0.5, 2.0])
 
+    def test_fallback_pbt_adds_only_the_fallback_factors(self):
+        fallback, fast = load('windowed_pbt_v2_fast_fallback'), load('windowed_pbt_v2_fast')
+        self.assertEqual((fallback['shared'], fallback['population']), (fast['shared'], fast['population']))
+        window = dict(fallback['pbt']['windowed_pbt_v2'])
+        self.assertEqual(window.pop('fallback_factors'), [0.7, 1.4])
+        self.assertEqual({**fallback['pbt'], 'windowed_pbt_v2': window}, fast['pbt'])
+        self.assertNotIn('fallback_factors', fast['pbt']['windowed_pbt_v2'])
+
     @unittest.skipUnless((CONTROL / 'manifest.json').is_file(), 'original control run not present')
     def test_anchor_member_repeats_the_recorded_weaver_commands(self):
         high = load('fixed_lr_high_grid_50epochs')

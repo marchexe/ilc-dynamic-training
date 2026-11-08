@@ -40,18 +40,24 @@ class Stage2ARevisionChainTest(unittest.TestCase):
 
 
 class Stage3ExecutionRevisionTest(unittest.TestCase):
-    def test_committed_record_matches_the_protocol_git_and_current_files(self):
-        path = STAGE3 / 'execution_revision_1.json'
-        self.assertEqual(sha256(path), path.with_suffix('.sha256').read_text().strip())
-        revision = json.loads(path.read_text())
+    def test_committed_records_match_the_protocol_git_and_current_files(self):
         frozen = json.loads((STAGE3 / 'protocol_v2.json').read_text())['identity']['execution_files']
-        self.assertEqual(revision['protocol']['sha256'], (STAGE3 / 'protocol_v2.sha256').read_text().strip())
-        for item in revision['changed_execution_files']:
-            self.assertEqual(item['frozen_sha256'], frozen[item['path']])
-            original = subprocess.run(['git', 'show', f'{item["original_commit"]}:{item["path"]}'], cwd=PROJECT_DIR,
-                                      capture_output=True, check=True).stdout
-            self.assertEqual(hashlib.sha256(original).hexdigest(), item['frozen_sha256'])
-            self.assertEqual(sha256(PROJECT_DIR / item['path']), item['current_sha256'])
+        paths = sorted(STAGE3.glob('execution_revision_*.json'), key=lambda p: int(p.stem.rsplit('_', 1)[1]))
+        self.assertGreaterEqual(len(paths), 2)
+        latest = {}
+        for path in paths:
+            self.assertEqual(sha256(path), path.with_suffix('.sha256').read_text().strip())
+            revision = json.loads(path.read_text())
+            self.assertEqual(revision['protocol']['sha256'], (STAGE3 / 'protocol_v2.sha256').read_text().strip())
+            for item in revision['changed_execution_files']:
+                self.assertEqual(item['frozen_sha256'], frozen[item['path']])
+                original = subprocess.run(['git', 'show', f'{item["original_commit"]}:{item["path"]}'], cwd=PROJECT_DIR,
+                                          capture_output=True, check=True).stdout
+                self.assertEqual(hashlib.sha256(original).hexdigest(), item['frozen_sha256'])
+                latest[item['path']] = item
+        # A later record supersedes an earlier record of the same file; the latest one matches the file on disk.
+        for item in latest.values():
+            self.assertEqual(sha256(PROJECT_DIR / item['path']), item['current_sha256'], item['path'])
 
     def test_drift_accepts_only_exactly_recorded_changes(self):
         protocol = dict(identity=dict(execution_files={'a.py': 'old', 'b.py': 'same'}))

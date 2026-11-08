@@ -1,0 +1,24 @@
+{
+  "applies": "only after the campaign completed (status completed with report_integrity.json); until then every launch and resume still refuses changed execution files",
+  "changed_execution_files": [
+    {
+      "current_sha256": "d67d057107c551b93aa8e9253b778636086705c837d3f1234d031e49e4c52cfc",
+      "frozen_sha256": "c8026d59391c380ef25523e90dfc156fe32a71a54198279ecdcc15535b6424fe",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/models/config.py"
+    },
+    {
+      "current_sha256": "06d0ab7e95625cf0a24b4f25c1b87d7e32b980ea26134e2ad8d4e40cd5cfc7a8",
+      "frozen_sha256": "19783bf6ef3325454cb82d9b4c7d7718c8da797d4c7bae3775821173a04b3091",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/planning/windowed_pbt_v2.py"
+    }
+  ],
+  "protocol": {
+    "file": "configs/prepared/stage3_train8m_v1/protocol_v2.json",
+    "sha256": "b696ff639a4f24bc700984076411944bd0647760db60bdcc338b3f102b309339"
+  },
+  "reason": "Opt-in fallback copies for windowed_pbt_v2: the new key pbt.windowed_pbt_v2.fallback_factors defaults to None. Without it, the planner returns the frozen reference decisions (scripts/training/pbt/reference/windowed_v2.py is unchanged), and commands, seeds, resolved configurations, fingerprints and policy decisions are unchanged (tests/test_windowed_pbt_v2.py; replay of the recorded windowed_pbt_v2_fast decisions). This record supersedes the models/config.py entry of execution_revision_1. The campaign ran on the frozen files; this record lets later work use the changed files without reporting drift for the completed study.",
+  "recorded_at": "2026-11-08T23:14:42.132564+00:00",
+  "schema_version": 1
+}

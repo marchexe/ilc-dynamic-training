@@ -109,6 +109,33 @@ class WindowedPBTTest(unittest.TestCase):
                 resulting.update({e['recipient']: e['new_lr'] for e in events})
                 self.assertEqual(len(resulting), len(set(resulting.values())))
 
+    def test_fallback_copies_a_loser_that_the_reference_skips(self):
+        # Donor 'e' at 1e-5; with factors 0.5 and 2 both candidate LRs are taken by 'c' and 'd'.
+        lrs = dict(a=3e-6, b=4e-6, c=5e-6, d=2e-5, e=1e-5)
+        values = [0.45, 0.44, 0.405, 0.4, 0.399]  # only 'a' and 'b' lose by more than the margin
+        for fallback in (None, [0.7, 1.4]):
+            config = copy.deepcopy(self.config)
+            config['pbt'].update(min_lr=1e-6, max_lr=1e-4, mutation_factors=[0.5, 2.0])
+            if fallback:
+                config['pbt']['windowed_pbt_v2']['fallback_factors'] = fallback
+            manifest = manifest_fixture(config)
+            for name, lr in lrs.items():
+                manifest['members'][name]['lr'] = lr
+            width = config['pbt']['windowed_pbt_v2']['window_epochs']
+            g = plan_until(manifest, 2 * width, values)
+            reasons = {n: v['reason'] for n, v in g['windowed_pbt_v2']['members'].items()}
+            if not fallback:
+                self.assertEqual(g['exploit'], [])
+                self.assertEqual((reasons['a'], reasons['b']), ('no_distinct_mutation', 'no_distinct_mutation'))
+                continue
+            self.assertEqual({e['recipient'] for e in g['exploit']}, {'a', 'b'})
+            self.assertTrue(all(e['fallback'] and e['donor'] == 'e' for e in g['exploit']))
+            self.assertEqual((reasons['a'], reasons['b']), ('selected_fallback', 'selected_fallback'))
+            self.assertEqual({e['mutation_factor'] for e in g['exploit']}, {0.7, 1.4})
+            resulting = dict(lrs, **{e['recipient']: e['new_lr'] for e in g['exploit']})
+            self.assertEqual(len(set(resulting.values())), len(resulting))
+            self.assertTrue(all(g['windowed_pbt_v2']['members'][n]['next_loss_count'] == 0 for n in 'ab'))
+
     def test_replay_after_manifest_roundtrip_and_terminal_no_copy(self):
         plan_until(self.manifest, 9)
         reloaded = PBTManifest.parse_payload(json.loads(json.dumps(self.manifest))).to_runtime_dict()
