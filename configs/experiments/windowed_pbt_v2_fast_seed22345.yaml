@@ -1,0 +1,7 @@
+# Second training seed for the fast windowed PBT; everything else as windowed_pbt_v2_fast.
+presets:
+  - windowed_pbt_v2_fast.yaml
+experiment:
+  name: windowed_pbt_v2_fast_seed22345
+shared:
+  seed: 22345

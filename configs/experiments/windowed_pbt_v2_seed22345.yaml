@@ -1,7 +1,0 @@
-# Second training seed for windowed PBT; everything else as windowed_pbt_v2.
-presets:
-  - windowed_pbt_v2.yaml
-experiment:
-  name: windowed_pbt_v2_seed22345
-shared:
-  seed: 22345

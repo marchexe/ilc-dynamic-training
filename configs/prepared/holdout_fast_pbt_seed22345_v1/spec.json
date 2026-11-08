@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_fast_pbt_seed22345_v1",
+  "purpose": "Does the fast windowed PBT still match or beat the best fixed learning rate with a second training seed? Validation-selected checkpoints of the fast PBT and of a fixed-LR grid around the train800k optimum (6e-5-1.6e-4), both trained with seed 22345, on the frozen Stage 2A holdout. The seed-12345 checkpoints of the same comparison are re-evaluated as references. Primary comparison: fast PBT against the fixed-LR grid, seed 22345.",
+  "runs": [
+    {"id": "fixed_best50_s22345", "run": "fixed_lr_best_grid_50epochs_seed22345"},
+    {"id": "windowed_fast50_s22345", "run": "windowed_pbt_v2_fast_seed22345"}
+  ],
+  "references": [
+    {"id": "fixed_top50_s12345", "checkpoint_id": "fixed_top50_s12345",
+     "protocol": "configs/prepared/holdout_fast_pbt_v1/protocol.json", "results": "runs/eval/holdout_fast_pbt_v1"},
+    {"id": "windowed_fast50_s12345", "checkpoint_id": "windowed_fast50_s12345",
+     "protocol": "configs/prepared/holdout_fast_pbt_v1/protocol.json", "results": "runs/eval/holdout_fast_pbt_v1"}
+  ],
+  "pairs": [
+    ["fixed_best50_s22345", "windowed_fast50_s22345"],
+    ["fixed_top50_s12345", "windowed_fast50_s12345"]
+  ]
+}

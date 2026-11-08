@@ -1,22 +1,21 @@
-# Fixed-LR control on train8m at the learning rates windowed PBT reached there (its selected member ended at
-# its 3.0e-5 ceiling) and above. Same contract as Stage 3 arm A (stage3_train8m_fixed_lr.yaml), only the
-# learning rates differ; lr_14e-6 repeats that arm's top member and anchors this run to it. Not part of the
-# frozen Stage 3 protocol.
+# Fixed-LR control on train8m over the learning rates that worked on train800k (best: 8e-5-1.2e-4). Same contract
+# as Stage 3 arm A (stage3_train8m_fixed_lr.yaml); only the learning rates differ. lr_14e-6 repeats that arm's top
+# member and anchors this run to it. Not part of the frozen Stage 3 protocol.
 presets:
   - stage3_train8m_fixed_lr.yaml
 experiment:
   name: train8m_fixed_lr_high_grid_v1
 pbt:
   min_lr: 1.4e-5
-  max_lr: 5.0e-5
+  max_lr: 2.4e-4
 population:
   - name: lr_14e-6
     start_lr: 1.4e-5
-  - name: lr_22e-6
-    start_lr: 2.2e-5
   - name: lr_30e-6
     start_lr: 3.0e-5
-  - name: lr_40e-6
-    start_lr: 4.0e-5
-  - name: lr_50e-6
-    start_lr: 5.0e-5
+  - name: lr_60e-6
+    start_lr: 6.0e-5
+  - name: lr_120e-6
+    start_lr: 1.2e-4
+  - name: lr_240e-6
+    start_lr: 2.4e-4

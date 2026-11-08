@@ -1,0 +1,13 @@
+# The fast windowed PBT (windowed_pbt_v2_fast) on train8m, with the training input of Stage 3 arm B
+# (stage3_train8m_windowed_pbt_v2.yaml). Not part of the frozen Stage 3 protocol.
+presets:
+  - windowed_pbt_v2_fast.yaml
+experiment:
+  name: train8m_windowed_pbt_v2_fast_v1
+  output_root: runs/pbt
+shared:
+  dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet
+  train_suffix: train8m
+  validation_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet
+  validation_suffix: val50k_tail
+  generations: 50

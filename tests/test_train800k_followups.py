@@ -40,11 +40,10 @@ class ConfigurationTest(unittest.TestCase):
                 ('fixed_lr_ceiling_grid_50epochs', 'fixed_lr_high_grid_50epochs', dict(shared=set(), pbt={'min_lr', 'max_lr'}),
                  [3.0e-5, 4.0e-5, 5.0e-5, 6.0e-5, 8.0e-5]),
                 ('train8m_fixed_lr_high_grid', 'stage3_train8m_fixed_lr', dict(shared=set(), pbt={'min_lr', 'max_lr'}),
-                 [1.4e-5, 2.2e-5, 3.0e-5, 4.0e-5, 5.0e-5]),
+                 [1.4e-5, 3.0e-5, 6.0e-5, 1.2e-4, 2.4e-4]),
                 ('fixed_lr_top_grid_50epochs', 'fixed_lr_ceiling_grid_50epochs', dict(shared=set(), pbt={'min_lr', 'max_lr'}),
                  [8.0e-5, 1.2e-4, 1.6e-4, 2.4e-4, 3.2e-4]),
-                ('fixed_lr_high_grid_50epochs_seed22345', 'fixed_lr_high_grid_50epochs', dict(shared={'seed'}, pbt=set()), None),
-                ('windowed_pbt_v2_seed22345', 'windowed_pbt_v2', dict(shared={'seed'}, pbt=set()), None)):
+                ('windowed_pbt_v2_fast_seed22345', 'windowed_pbt_v2_fast', dict(shared={'seed'}, pbt=set()), None)):
             config, reference = load(new), load(base)
             self.assertEqual(differences(config, reference), changed, new)
             self.assertEqual(lrs(config), rates or lrs(reference), new)
@@ -54,6 +53,23 @@ class ConfigurationTest(unittest.TestCase):
                 self.assertIn(config['population'][0], reference['population'])
             else:
                 self.assertEqual(config['shared']['seed'], 22345)
+
+    def test_second_seed_fixed_grid_brackets_the_selected_rates(self):
+        grid, control = load('fixed_lr_best_grid_50epochs_seed22345'), load('foundation_fixed_lr_50epochs')
+        self.assertEqual({k: v for k, v in grid['shared'].items() if k != 'seed'},
+                         {k: v for k, v in control['shared'].items() if k != 'seed'})
+        self.assertEqual(grid['shared']['seed'], 22345)
+        rates = [m['start_lr'] for m in grid['population']]
+        self.assertEqual(rates, [6.0e-5, 8.0e-5, 1.0e-4, 1.2e-4, 1.6e-4])
+        self.assertEqual((grid['pbt']['min_lr'], grid['pbt']['max_lr']), (rates[0], rates[-1]))
+        self.assertEqual({k: v for k, v in grid['pbt'].items() if k not in ('min_lr', 'max_lr')},
+                         {k: v for k, v in control['pbt'].items() if k not in ('min_lr', 'max_lr')})
+
+    def test_train8m_fast_pbt_is_the_fast_pbt_on_the_stage3_input(self):
+        fast8m, fast = load('train8m_windowed_pbt_v2_fast'), load('windowed_pbt_v2_fast')
+        arm_b = load('stage3_train8m_windowed_pbt_v2')
+        self.assertEqual(fast8m['shared'], arm_b['shared'])
+        self.assertEqual((fast8m['pbt'], fast8m['population']), (fast['pbt'], fast['population']))
 
     def test_fast_pbt_changes_only_its_search_space_and_cadence(self):
         fast, base = load('windowed_pbt_v2_fast'), load('windowed_pbt_v2')
@@ -194,7 +210,7 @@ class HoldoutAddendumTest(unittest.TestCase):
     def test_references_from_other_campaigns_carry_their_measured_metric(self):
         stage2a = json.loads((holdout_addendum.STAGE2A / 'protocol.json').read_text())
         found = {}
-        for name in ('holdout_fixed_lr_ceiling_v1', 'holdout_train8m_fixed_lr_high_v1'):
+        for name in ('holdout_fixed_lr_ceiling_v1', 'holdout_train8m_fast_pbt_v1'):
             spec = json.loads((PROJECT_DIR / 'configs/prepared' / name / 'spec.json').read_text())
             found.update({c['id']: c for c in (holdout_addendum.external_reference(r, stage2a) for r in spec['references'])})
         analysis = json.loads((PROJECT_DIR / 'runs/eval/holdout_high_lr_grid_v1/analysis.json').read_text())

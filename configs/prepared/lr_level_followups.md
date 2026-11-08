@@ -1,124 +1,82 @@
-# Learning-rate level follow-ups: plan and operations
+# Learning-rate level follow-ups: results, plan and operations
 
-## Why
+## Terms
 
-On the frozen Stage 2A holdout (`runs/eval/holdout_high_lr_grid_v1/report.md`, selection frozen in
-`holdout_high_lr_grid_v1/protocol.json` before evaluation):
+* **Member**: one model in a population run. It trains on one GPU with its own learning rate (LR).
+* **Fixed-LR grid**: five members. Each member keeps one constant LR for all 50 epochs.
+* **Windowed PBT**: five members. At the end of a window (a set of epochs), a member that loses for two windows
+  copies the weights of the best member and multiplies its LR by a mutation factor.
+* **Validation set**: 150,000 jets. The runs use it after each epoch. It selects the best epoch and member.
+* **Holdout set**: 2,825,125 jets (the frozen Stage 2A holdout). Nothing is selected on it. Each selected
+  checkpoint is evaluated on it once, for the final comparison.
+* **Metric**: the primary metric. It is the geometric mean of the mistag rates (%) at the eight reference
+  working points. Lower is better.
+* **Anchor**: a member that repeats a member of an earlier run. If the two are bit-identical, the comparison
+  between the runs is exact.
 
-| train800k checkpoint (seed 12345) | holdout primary (%) | vs original fixed-LR |
-|---|---|---|
-| fixed-LR grid 3.0e-6 to 1.4e-5 | 0.326934 | — |
-| windowed PBT (LR bounds 2e-6 to 3e-5) | 0.322484 | −1.36% |
-| fixed-LR grid 1.4e-5 to 3.0e-5, best 3.0e-5 | 0.314628 | −3.76% |
+## Results on train800k (seed 12345, start at pretrained epoch 17, 50 epochs)
 
-The higher fixed learning rate beats windowed PBT by 2.5%, with the same sign at all eight working points. On
-train800k the gain of windowed PBT over the original control is explained by the learning-rate level, not by
-adaptation. Both fixed grids selected their top learning rate, so the fixed-LR optimum may lie higher still.
+All selections were frozen and committed before the holdout evaluation. Every anchor was bit-identical over all
+50 epochs. Every reference reproduced its earlier holdout metric bit for bit.
 
-The same confound applies to Stage 3 on train8m: its fixed-LR arm stopped at 1.4e-5 (selected member: the top
-one), while windowed PBT could reach 3.0e-5 and its selected member ended there. The −7.7% on the sealed test
-therefore does not show that adaptation helps on train8m.
+| Run | Configuration | LRs | Selected | Validation | Holdout |
+|---|---|---|---|---|---|
+| original fixed-LR grid | `foundation_fixed_lr_50epochs` | 3e-6 to 1.4e-5 | 1.4e-5 | 0.3446 | 0.3269 |
+| original windowed PBT | `windowed_pbt_v2` | start 3e-6 to 1.4e-5, ×0.8/×1.2, 5-epoch windows, cap 3e-5 | ~2e-5 | 0.3377 | 0.3225 |
+| extended grid | `fixed_lr_high_grid_50epochs` | 1.4e-5 to 3e-5 | 3e-5 | 0.3303 | 0.3146 |
+| ceiling grid | `fixed_lr_ceiling_grid_50epochs` | 3e-5 to 8e-5 | 8e-5 | 0.3167 | 0.3018 |
+| top grid | `fixed_lr_top_grid_50epochs` | 8e-5 to 3.2e-4 | 1.2e-4 | 0.3142 | 0.3033 |
+| fast windowed PBT | `windowed_pbt_v2_fast` | start 1e-5 to 3.5e-4, ×0.5/×2, 2-epoch windows, cap 5e-4 | 8.75e-5 | 0.3156 | **0.3003** |
+
+Reports: `runs/eval/holdout_high_lr_grid_v1`, `holdout_fixed_lr_ceiling_v1`, `holdout_fast_pbt_v1`.
+
+* The original PBT lost because it could not reach the useful LRs. It made four decisions in 50 epochs, each
+  changed the LR by 20% or less, and the cap was 3e-5.
+* The fixed-LR optimum is near 8e-5 to 1.2e-4. Above it, members reach their best epoch early and then degrade.
+* The fast PBT is 1.0% better than the top grid (the primary comparison), with fewer background jets at six of
+  eight working points. It is 0.5% better than the ceiling grid. It increased the low LRs early and decreased
+  all LRs to 0.5e-5–2e-5 near the end.
+* Selection noise is about 0.5%: the top grid was better than the ceiling grid on validation but worse on the
+  holdout. With one seed, read the fast PBT result as "equal to the best fixed LR, possibly better".
 
 ## Plan
 
-| # | Question | Run(s) | GPUs × time | Holdout spec |
+Run one five-GPU job at a time.
+
+| Step | Runs | GPUs × time | Holdout spec | Question |
 |---|---|---|---|---|
-| 2 | Where is the fixed-LR optimum on train800k? | `fixed_lr_ceiling_grid_50epochs` (3.0–8.0e-5) | 5 × ~4.7 h | `holdout_fixed_lr_ceiling_v1` |
-| 3 | Does the result hold for a second seed? | `fixed_lr_high_grid_50epochs_seed22345`, `windowed_pbt_v2_seed22345` | 2 × 5 × ~4.7 h | `holdout_seed22345_v1` |
-| 4 | Does adaptation help on train8m once fixed LR is high enough? | `train8m_fixed_lr_high_grid` (1.4–5.0e-5) | 5 × ~40–50 h | `holdout_train8m_fixed_lr_high_v1` |
-| 5 | Sub-epoch (0.2-epoch) adaptation pilot | deferred, see below | — | — |
+| 1 | `windowed_pbt_v2_fast_seed22345`, then `fixed_lr_best_grid_50epochs_seed22345` (6e-5 to 1.6e-4) | 2 × 5 × ~5 h | `holdout_fast_pbt_seed22345_v1` | Does the fast PBT result hold with seed 22345? |
+| 2 | `train8m_windowed_pbt_v2_fast`, then `train8m_fixed_lr_high_grid` (1.4e-5 to 2.4e-4) | 2 × 5 × ~40–50 h | `holdout_train8m_fast_pbt_v1` | Does it hold on train8m? |
 
-Every run starts from the epoch-17 checkpoint with a raw optimizer and changes only what its question needs
-(learning rates or seed; checked by `tests/test_train800k_followups.py`). Item 2 and item 4 each repeat one
-member of an earlier run (`lr_30e-6` of the extended grid; `lr_14e-6` of Stage 3 arm A), so
-`reproduction_checks.py anchor` shows whether the comparison with that run is exact.
-
-Each holdout spec is committed before its runs train. After a run completes, `--freeze` records its
-validation-selected checkpoint (the Stage 2A rule); the holdout never selects. References are re-evaluated and
-must reproduce their earlier holdout metric bit for bit. The Stage 3 sealed test is not used: it was opened once
-for the Stage 3 comparison, and any further use would need its own decision.
-
-Order: items 2 and 3 are cheap and independent; start them first (sequentially, one launch at a time, at least a
-minute apart, so two launches cannot pick the same idle GPU). Item 4 is the decisive and expensive one. Its grid
-(1.4–5.0e-5) can still be changed before it starts, if item 2 puts the train800k optimum well above 5e-5; change
-the configuration and its spec in one commit before launching.
-
-### Item 5: why the 0.2-epoch pilot is deferred
-
-The pilot asks whether adapting more often than once per epoch helps. It costs about three times an ordinary run
-(the GPU equivalence test measured 3.06× per epoch: each restart re-reads the skipped batches, starts Weaver and
-validates). Until items 2–4 show that adaptation helps at all once the fixed learning rate is tuned, its result
-could not be interpreted. Reconsider it if windowed PBT beats the tuned fixed-LR grid on train8m (item 4), and
-first make the data cursor skip batches without preprocessing them.
+* Step 1 changes only the seed. The fixed grid covers the LRs that the seed-12345 grids selected.
+* Step 2 uses the Stage 3 training input and contract. The train8m fast PBT is `windowed_pbt_v2_fast` without
+  changes. The train8m fixed grid has `lr_14e-6` as its anchor to Stage 3 arm A. The Stage 3 sealed test is
+  not used.
+* The sub-epoch (0.2-epoch) pilot stays deferred. The 2-epoch windows already make PBT fast enough to match the
+  best fixed LR.
+* A member with a non-finite metric stops its run. The pretrained schedule started at 1e-3, so all LRs here are
+  below the LRs that the model already trained at.
 
 ## Commands (from the repository root on the login node)
 
 ```bash
 py=.venv/bin/python
-# Training: one node with one idle GPU per member. Status, resume and stop work the same way.
-$py scripts/experiments/train800k.py start  --config configs/experiments/fixed_lr_ceiling_grid_50epochs.yaml
-$py scripts/experiments/train800k.py start  --config configs/experiments/fixed_lr_high_grid_50epochs_seed22345.yaml
-$py scripts/experiments/train800k.py start  --config configs/experiments/windowed_pbt_v2_seed22345.yaml
-$py scripts/experiments/train800k.py start  --config configs/experiments/train8m_fixed_lr_high_grid.yaml
+# Training: one node with one idle GPU per member. status, resume and stop work the same way.
+$py scripts/experiments/train800k.py start  --config configs/experiments/<config>.yaml
 $py scripts/experiments/train800k.py status --config configs/experiments/<config>.yaml
 
-# Anchors, after the run completes:
-$py scripts/experiments/reproduction_checks.py anchor --run fixed_lr_ceiling_grid_50epochs \
-    --control fixed_lr_high_grid_50epochs --member lr_30e-6
+# Step 2 anchor, after the train8m fixed grid completes:
 $py scripts/experiments/reproduction_checks.py anchor --run train8m_fixed_lr_high_grid_v1 \
     --control stage3_train8m_fixed_lr_v1 --member lr_14e-6
 
-# Holdout, after all runs of a spec complete (3-4 GPUs, 1-2 hours each):
-p=configs/prepared/holdout_fixed_lr_ceiling_v1   # or holdout_seed22345_v1, holdout_train8m_fixed_lr_high_v1
+# Holdout, after all runs of a spec complete:
+p=configs/prepared/<spec directory>
 $py scripts/experiments/holdout_addendum.py --prepared $p --freeze
 git add $p/protocol.json $p/protocol.sha256 && git commit -m "Freeze the $(basename $p) selection" && git push
 $py scripts/experiments/holdout_addendum.py --prepared $p --dry-run
 $py scripts/experiments/holdout_addendum.py --prepared $p
-$py scripts/experiments/holdout_addendum.py --prepared $p --status
+$py scripts/experiments/holdout_addendum.py --prepared $p --status   # --retry after a failure, --stop to stop
 ```
 
-`train800k.py` is not specific to train800k: it places any population run. The train8m run needs the converted
-train8m dataset of Stage 3 and about 2 GiB of disk per member. Do not type Ctrl-C into an attached session; use
-`--stop` (holdout) or `train800k.py stop` (training).
-
-## Reading the results
-
-* Item 2: if a learning rate above 3.0e-5 is selected and is better on the holdout, the fixed-LR optimum is higher
-  and the gap to windowed PBT on train800k is larger than 2.5%.
-* Item 3: the seed-22345 pair should show the same sign as the seed-12345 pair. If it flips, the train800k
-  comparison is within seed-to-seed variation and needs more seeds before any conclusion.
-* Item 4: if the high fixed-LR grid matches or beats windowed PBT (holdout 0.235949), the Stage 3 gain is also a
-  learning-rate-level effect. If windowed PBT stays clearly better, adaptation helps on train8m, and the
-  sub-epoch pilot (item 5) becomes worth its cost.
-* There are no confidence intervals (jets of one physical event cannot be linked). Use the delta, the sign across
-  the eight working points and, for item 3, the agreement between seeds.
-
-## Update: the fixed-LR optimum is above 8e-5, and a fast PBT
-
-The ceiling grid (3.0–8.0e-5) improved monotonically on validation (best: 8e-5 at its last epoch, 0.3167
-against 0.3377 for windowed PBT); its lr_30e-6 member reproduced the extended grid bit for bit. Windowed PBT made
-four decisions in 50 epochs (epochs 27, 32, 37, 47) with ×0.8/×1.2 steps under a 3e-5 cap, so it could not reach
-these rates. Before the train8m run and the second seed, one job at a time (at most five GPUs):
-
-| # | Run | GPUs × time | Question |
-|---|---|---|---|
-| 1 | holdout of the ceiling grid (`holdout_fixed_lr_ceiling_v1`) | 3 × ~1.5 h | does 8e-5 hold on the holdout? |
-| 2 | `fixed_lr_top_grid_50epochs` (8.0e-5–3.2e-4, anchored to lr_80e-6) | 5 × ~5 h | where does a higher fixed LR stop helping? |
-| 3 | `windowed_pbt_v2_fast` | 5 × ~5 h | does PBT that adapts quickly match the best fixed LR? |
-
-The fast PBT keeps every windowed_pbt_v2 rule and changes only its search space and cadence: the population
-starts log-spaced over 1e-5–3.5e-4, the bounds are 5e-6–5e-4, mutations are ×0.5/×2, and windows are two
-epochs (first possible decision at epoch 21, then every two epochs). Its range does not depend on item 2: not
-knowing the range in advance is what PBT should handle. Both are compared on the holdout in
-`holdout_fast_pbt_v1`; the primary comparison is fast PBT against whichever fixed-LR checkpoint (ceiling or top
-grid) has the better validation metric. A member with a non-finite metric stops either run; the pretrained
-schedule started at 1e-3, so the rates tried here are within what the model has trained at.
-
-```bash
-$py scripts/experiments/holdout_addendum.py --prepared configs/prepared/holdout_fixed_lr_ceiling_v1
-$py scripts/experiments/train800k.py start --config configs/experiments/fixed_lr_top_grid_50epochs.yaml
-$py scripts/experiments/reproduction_checks.py anchor --run fixed_lr_top_grid_50epochs \
-    --control fixed_lr_ceiling_grid_50epochs --member lr_80e-6
-$py scripts/experiments/train800k.py start --config configs/experiments/windowed_pbt_v2_fast.yaml
-# then freeze, commit and evaluate configs/prepared/holdout_fast_pbt_v1 as above
-```
+`train800k.py` places any population run, not only train800k runs. Do not type Ctrl-C into an attached
+session. Use `--stop` for a holdout evaluation and `train800k.py stop` for a training run.

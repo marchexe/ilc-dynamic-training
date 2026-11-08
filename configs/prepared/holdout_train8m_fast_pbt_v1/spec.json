@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_train8m_fast_pbt_v1",
+  "purpose": "On train8m, does the fast windowed PBT match or beat a fixed-LR grid that covers the learning rates that worked on train800k? Validation-selected checkpoints of the train8m fast PBT and of the train8m fixed-LR grid (1.4e-5-2.4e-4) on the frozen Stage 2A holdout, paired with the Stage 3 fixed-LR and windowed-PBT checkpoints, which are re-evaluated as references. Primary comparison: fast PBT against the new fixed-LR grid. The Stage 3 sealed test is not used.",
+  "runs": [
+    {"id": "fixed8m_high_s12345", "run": "train8m_fixed_lr_high_grid_v1"},
+    {"id": "fast8m_s12345", "run": "train8m_windowed_pbt_v2_fast_v1"}
+  ],
+  "references": [
+    {"id": "fixed8m_s12345", "checkpoint_id": "fixed_lr__selected_best",
+     "protocol": "runs/eval/stage3_train8m_v1/holdout_descriptive/evaluation_protocol.json",
+     "results": "runs/eval/stage3_train8m_v1/holdout_descriptive"},
+    {"id": "windowed8m_s12345", "checkpoint_id": "windowed_pbt_v2__selected_best",
+     "protocol": "runs/eval/stage3_train8m_v1/holdout_descriptive/evaluation_protocol.json",
+     "results": "runs/eval/stage3_train8m_v1/holdout_descriptive"}
+  ],
+  "pairs": [
+    ["fixed8m_high_s12345", "fast8m_s12345"],
+    ["windowed8m_s12345", "fast8m_s12345"],
+    ["fixed8m_s12345", "fixed8m_high_s12345"]
+  ]
+}

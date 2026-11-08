@@ -1,0 +1,23 @@
+# Second-seed fixed-LR control around the train800k optimum. With seed 12345 the fixed-LR grids selected 8e-5
+# (3-8e-5 grid) and 1.2e-4 (8e-5-3.2e-4 grid) on validation. Same start (epoch 17, raw optimizer), data and
+# contract as the 50-epoch control; seed 22345.
+presets:
+  - foundation_fixed_lr_50epochs.yaml
+experiment:
+  name: fixed_lr_best_grid_50epochs_seed22345
+shared:
+  seed: 22345
+pbt:
+  min_lr: 6.0e-5
+  max_lr: 1.6e-4
+population:
+  - name: lr_60e-6
+    start_lr: 6.0e-5
+  - name: lr_80e-6
+    start_lr: 8.0e-5
+  - name: lr_100e-6
+    start_lr: 1.0e-4
+  - name: lr_120e-6
+    start_lr: 1.2e-4
+  - name: lr_160e-6
+    start_lr: 1.6e-4
