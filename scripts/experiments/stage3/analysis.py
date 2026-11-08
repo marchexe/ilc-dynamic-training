@@ -235,8 +235,16 @@ def comparison(summaries, margin):
                 margin_pp=margin)
 
 
-def figures(directory, summaries, *, test=None):
+STAGE3_TEXT = dict(epoch='full train8m epoch', selection_title='Population current-best on val50k_tail (selection split)',
+                   test_title='Sealed test3000k: selected-best checkpoints (negative = B better)')
+
+
+def figures(directory, summaries, *, test=None, labels=None, text=None):
+    """The standard report figures. labels and text default to the Stage 3 report; other comparisons of a
+    fixed-LR and a windowed-PBT run pass their own arm labels and axis/title text."""
     from training.pbt.reporting.style import plot_setup
+    labels = dict(ARM_LABEL, **(labels or {}))
+    text = dict(STAGE3_TEXT, **(text or {}))
     plt = plot_setup()
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
@@ -255,11 +263,10 @@ def figures(directory, summaries, *, test=None):
         ax.axvspan(end - 9.5, end + 0.5, color='#d9d8d4', alpha=0.5, lw=0, label='final-10 window')
     for arm, summary in summaries.items():
         values = summary['current_best']
-        ax.plot(range(1, len(values) + 1), values, color=ARM_COLOR[arm], lw=2, label=ARM_LABEL[arm])
-        ax.annotate(ARM_LABEL[arm].split(' ', 1)[0], (len(values), values[-1]), xytext=(4, 0),
+        ax.plot(range(1, len(values) + 1), values, color=ARM_COLOR[arm], lw=2, label=labels[arm])
+        ax.annotate(labels[arm].split(' ', 1)[0], (len(values), values[-1]), xytext=(4, 0),
                     textcoords='offset points', va='center', fontsize=8, color='#52514e')
-    ax.set(xlabel='full train8m epoch', ylabel='current-best primary mistag (%)',
-           title='Population current-best on val50k_tail (selection split)')
+    ax.set(xlabel=text['epoch'], ylabel='current-best primary mistag (%)', title=text['selection_title'])
     ax.grid(axis='y', color='#ebeae6', lw=0.8)
     ax.legend(frameon=False)
     save(fig, '01_current_best_primary.png')
@@ -270,7 +277,7 @@ def figures(directory, summaries, *, test=None):
             ax.plot(range(1, len(values) + 1), values, color=color, lw=1.4, label=name)
         for event in summary['exploit_events']:
             ax.axvline(event['full_epoch'], color='#a3a29d', lw=0.8, ls=':')
-        ax.set(title=ARM_LABEL[arm], xlabel='full epoch')
+        ax.set(title=labels[arm], xlabel='full epoch')
         ax.grid(axis='y', color='#ebeae6', lw=0.8)
     axes[0].set_ylabel('member primary mistag (%)')
     axes[1].legend(frameon=False, fontsize=7, title='member (start LR)', title_fontsize=7)
@@ -290,7 +297,7 @@ def figures(directory, summaries, *, test=None):
     fig, ax = plt.subplots(figsize=(7.2, 3.6))
     for arm, summary in summaries.items():
         losses = [mean(v) for v in zip(*summary['train_loss'].values())]
-        ax.plot(range(1, len(losses) + 1), losses, color=ARM_COLOR[arm], lw=2, label=ARM_LABEL[arm])
+        ax.plot(range(1, len(losses) + 1), losses, color=ARM_COLOR[arm], lw=2, label=labels[arm])
     ax.set(xlabel='full epoch', ylabel='population mean training loss', title='Training stability')
     ax.grid(axis='y', color='#ebeae6', lw=0.8)
     ax.legend(frameon=False)
@@ -309,7 +316,7 @@ def figures(directory, summaries, *, test=None):
         for i, value in enumerate(relative):
             ax.annotate(f'{value:+.1f}%', (i, value), xytext=(0, 3 if value >= 0 else -10), textcoords='offset points',
                         ha='center', fontsize=7, color='#52514e')
-        ax.set(ylabel='B vs A relative mistag change (%)', title='Sealed test3000k: selected-best checkpoints (negative = B better)')
+        ax.set(ylabel='B vs A relative mistag change (%)', title=text['test_title'])
         save(fig, '05_test_working_points.png')
     return written
 
