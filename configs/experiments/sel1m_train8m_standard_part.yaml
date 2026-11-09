@@ -1,0 +1,11 @@
+# Step 3: sel1m_standard_part on the 8M training set. Trains on train8m_head (train8m without the sel1m_tail
+# rows) and selects on sel1m_tail, so training and selection never share a jet. Only after step 2.
+presets:
+  - sel1m_standard_part.yaml
+experiment:
+  name: sel1m_train8m_standard_part
+  output_root: runs/pbt
+shared:
+  dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet
+  train_suffix: train8m_head
+  generations: 50

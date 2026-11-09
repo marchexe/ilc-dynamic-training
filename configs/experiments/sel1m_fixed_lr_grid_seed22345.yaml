@@ -1,0 +1,7 @@
+# sel1m_fixed_lr_grid with the second training seed.
+presets:
+  - sel1m_fixed_lr_grid.yaml
+experiment:
+  name: sel1m_fixed_lr_grid_seed22345
+shared:
+  seed: 22345

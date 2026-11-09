@@ -1,0 +1,24 @@
+# Constant-LR grid around the train800k optimum (6e-5 to 1.6e-4, as fixed_lr_best_grid_50epochs_seed22345)
+# with selection on sel1m_tail. Training does not depend on the validation set, so with seed 22345 each member
+# repeats the matching member of fixed_lr_best_grid_50epochs_seed22345 (anchor check).
+presets:
+  - foundation_fixed_lr_50epochs.yaml
+experiment:
+  name: sel1m_fixed_lr_grid
+shared:
+  validation_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet
+  validation_suffix: sel1m_tail
+pbt:
+  min_lr: 6.0e-5
+  max_lr: 1.6e-4
+population:
+  - name: lr_60e-6
+    start_lr: 6.0e-5
+  - name: lr_80e-6
+    start_lr: 8.0e-5
+  - name: lr_100e-6
+    start_lr: 1.0e-4
+  - name: lr_120e-6
+    start_lr: 1.2e-4
+  - name: lr_160e-6
+    start_lr: 1.6e-4

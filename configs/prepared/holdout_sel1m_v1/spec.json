@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_sel1m_v1",
+  "purpose": "Dynamic training against standard ParT training on train800k, with members and checkpoints selected on sel1m_tail (1M jets from the train8m rows that train800k does not use) instead of val50k_tail (150k jets). Three arms per seed, seeds 12345 and 22345: standard ParT (Weaver flat+decay restarted from the epoch-17 checkpoint, start LRs 1e-5 to 1e-3), a constant-LR grid around the optimum (6e-5 to 1.6e-4), and the fast windowed PBT with fallback copies. Each arm contributes its validation-selected checkpoint (global best on sel1m_tail). Primary comparison: fast PBT against standard ParT, per seed. Secondary: fast PBT against the constant-LR grid, and the constant-LR grid against standard ParT.",
+  "runs": [
+    {"id": "standard_sel1m_s12345", "run": "sel1m_standard_part"},
+    {"id": "fixed_sel1m_s12345", "run": "sel1m_fixed_lr_grid"},
+    {"id": "pbt_sel1m_s12345", "run": "sel1m_fast_pbt"},
+    {"id": "standard_sel1m_s22345", "run": "sel1m_standard_part_seed22345"},
+    {"id": "fixed_sel1m_s22345", "run": "sel1m_fixed_lr_grid_seed22345"},
+    {"id": "pbt_sel1m_s22345", "run": "sel1m_fast_pbt_seed22345"}
+  ],
+  "references": [],
+  "pairs": [
+    ["standard_sel1m_s12345", "pbt_sel1m_s12345"],
+    ["standard_sel1m_s22345", "pbt_sel1m_s22345"],
+    ["fixed_sel1m_s12345", "pbt_sel1m_s12345"],
+    ["fixed_sel1m_s22345", "pbt_sel1m_s22345"],
+    ["standard_sel1m_s12345", "fixed_sel1m_s12345"],
+    ["standard_sel1m_s22345", "fixed_sel1m_s22345"]
+  ]
+}

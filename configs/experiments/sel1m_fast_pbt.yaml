@@ -1,0 +1,9 @@
+# The fast windowed PBT with fallback copies (windowed_pbt_v2_fast_fallback), deciding and selecting on
+# sel1m_tail (1M jets) instead of val50k_tail (150k jets). Everything else unchanged.
+presets:
+  - windowed_pbt_v2_fast_fallback.yaml
+experiment:
+  name: sel1m_fast_pbt
+shared:
+  validation_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet
+  validation_suffix: sel1m_tail

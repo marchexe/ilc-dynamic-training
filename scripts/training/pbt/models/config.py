@@ -57,9 +57,18 @@ class ResourcesSection(StrictSectionModel):
     gpus: list[int | str] | None = None
 
 
+class LrScheduleConfig(StrictSectionModel):
+    """Per-member LR schedule of a fixed_lr_grid run (planning/lr_schedule.py)."""
+
+    kind: Literal["flat_decay", "cosine"]
+    decay_fraction: float = Field(default=0.3, gt=0.0, le=1.0)
+    final_factor: float = Field(default=0.01, gt=0.0, le=1.0)
+
+
 class PopulationMember(StrictSectionModel):
     name: str
     start_lr: float | None = None
+    lr_schedule: LrScheduleConfig | None = None
 
 
 class LrRadiusConfig(StrictSectionModel):
@@ -605,6 +614,7 @@ class ResolvedPBTSection(PBTSection):
 class ResolvedPopulationMember(StrictSectionModel):
     name: str
     start_lr: float = Field(gt=0.0)
+    lr_schedule: LrScheduleConfig | None = None
 
     @field_validator("name")
     @classmethod
@@ -777,6 +787,10 @@ class ResolvedPBTConfig(StrictSectionModel):
             raise ValueError("GPU slots must be unique")
         if any(not self.pbt.min_lr <= member.start_lr <= self.pbt.max_lr for member in self.population):
             raise ValueError("Population start_lr values must lie within PBT LR bounds")
+        if any(member.lr_schedule for member in self.population) and (
+                self.pbt.strategy != "fixed_lr_grid" or self.shared.weaver_epochs_per_generation != 1
+                or self.shared.generations_per_epoch or self.shared.lr_scheduler != "none"):
+            raise ValueError("lr_schedule requires fixed_lr_grid with one full epoch per generation and lr_scheduler: none")
         if (
             self.pbt.baseline_guard_action == "rollback_to_initial"
             and not self.shared.initial_state

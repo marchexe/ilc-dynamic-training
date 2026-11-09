@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_sel1m_train8m_v1",
+  "purpose": "Step 3: dynamic training against standard ParT training on the 8M training set (train8m_head: train8m without the sel1m_tail rows), both selected on sel1m_tail, seed 12345. Standard ParT is Weaver flat+decay restarted from the epoch-17 checkpoint (start LRs 1e-5 to 1e-3); dynamic training is the fast windowed PBT with fallback copies. Primary comparison: fast PBT against standard ParT.",
+  "runs": [
+    {"id": "standard_sel1m_8m_s12345", "run": "sel1m_train8m_standard_part"},
+    {"id": "pbt_sel1m_8m_s12345", "run": "sel1m_train8m_fast_pbt"}
+  ],
+  "references": [],
+  "pairs": [
+    ["standard_sel1m_8m_s12345", "pbt_sel1m_8m_s12345"]
+  ]
+}

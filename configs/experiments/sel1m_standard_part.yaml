@@ -1,0 +1,31 @@
+# Standard ParT baseline with selection on sel1m_tail. The pretrained model was trained with the standard
+# ParT/Weaver recipe: Ranger, start LR 1e-3, flat+decay over 20 epochs (its epoch-17 LR, 2.15e-5, is
+# 1e-3 * 0.01**(5/6)). Here the same flat+decay restarts from the epoch-17 checkpoint for our 50 epochs
+# (flat for 35, then x0.01**(1/15) per epoch), at five start LRs from the standard 1e-3 down. Same start,
+# seed, data and contract as the other fixed-LR runs; only the LR schedule and the selection set differ.
+presets:
+  - foundation_fixed_lr_50epochs.yaml
+experiment:
+  name: sel1m_standard_part
+shared:
+  validation_dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet
+  validation_suffix: sel1m_tail
+pbt:
+  min_lr: 1.0e-5
+  max_lr: 1.0e-3
+population:
+  - name: flat_decay_10e-6
+    start_lr: 1.0e-5
+    lr_schedule: {kind: flat_decay}
+  - name: flat_decay_30e-6
+    start_lr: 3.0e-5
+    lr_schedule: {kind: flat_decay}
+  - name: flat_decay_100e-6
+    start_lr: 1.0e-4
+    lr_schedule: {kind: flat_decay}
+  - name: flat_decay_300e-6
+    start_lr: 3.0e-4
+    lr_schedule: {kind: flat_decay}
+  - name: flat_decay_1000e-6
+    start_lr: 1.0e-3
+    lr_schedule: {kind: flat_decay}

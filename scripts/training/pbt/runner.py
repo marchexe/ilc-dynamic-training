@@ -55,6 +55,7 @@ from training.pbt.planning import (
     strategy_uses_population_rollbacks,
 )
 from training.pbt.state.transitions import apply_exploit
+from training.pbt.planning.lr_schedule import apply_lr_schedule
 from training.pbt.planning.windowed_pbt_v2 import STRATEGY as WINDOWED_PBT, prepare_boundary, apply_window_exploits
 from training.pbt.planning.cadenced_pbt_v1 import (
     STRATEGY as CADENCED_PBT,
@@ -473,6 +474,8 @@ def _generation_record_for(config, manifest, manifest_path, generation):
     )
     if existing is not None:
         return existing
+    # A scheduled member gets this generation's LR before the record (and its worker command) exists.
+    apply_lr_schedule(config, manifest, generation)
     existing = {
         "index": generation,
         "epoch": epoch_for_generation(config, generation),

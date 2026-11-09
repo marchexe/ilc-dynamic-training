@@ -1,0 +1,7 @@
+# sel1m_standard_part with the second training seed.
+presets:
+  - sel1m_standard_part.yaml
+experiment:
+  name: sel1m_standard_part_seed22345
+shared:
+  seed: 22345

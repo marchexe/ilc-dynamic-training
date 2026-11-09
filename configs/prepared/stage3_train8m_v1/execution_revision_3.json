@@ -1,0 +1,24 @@
+{
+  "applies": "only after the campaign completed (status completed with report_integrity.json); until then every launch and resume still refuses changed execution files",
+  "changed_execution_files": [
+    {
+      "current_sha256": "fddbb096e753bf97f1eba2dff192f2f03458fd775b38a8e1d4d4933b9d629022",
+      "frozen_sha256": "c8026d59391c380ef25523e90dfc156fe32a71a54198279ecdcc15535b6424fe",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/models/config.py"
+    },
+    {
+      "current_sha256": "93e6b526fa938bc33e09300300ffcb52366c6a24ca6a188f4e2a449681f97b57",
+      "frozen_sha256": "d23c39d138be098360c29775c4a366a5dccf2718d55e7316b1f868c953b21a92",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/runner.py"
+    }
+  ],
+  "protocol": {
+    "file": "configs/prepared/stage3_train8m_v1/protocol_v2.json",
+    "sha256": "b696ff639a4f24bc700984076411944bd0647760db60bdcc338b3f102b309339"
+  },
+  "reason": "Opt-in per-member LR schedules for fixed_lr_grid runs (scripts/training/pbt/planning/lr_schedule.py): the new population key lr_schedule defaults to None. A scheduled member gets its LR in the manifest when a generation is first started; without the key, commands, seeds, resolved configurations, fingerprints and decisions are unchanged (tests/test_lr_schedule.py). This record supersedes the models/config.py entry of execution_revision_2 and the runner.py entry of execution_revision_1. The campaign ran on the frozen files; this record lets later work use the changed files without reporting drift for the completed study.",
+  "recorded_at": "2026-11-09T20:34:42.614045+00:00",
+  "schema_version": 1
+}
