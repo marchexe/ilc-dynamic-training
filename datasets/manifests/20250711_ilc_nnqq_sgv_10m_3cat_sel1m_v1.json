@@ -1,0 +1,156 @@
+{
+  "checks": {
+    "bb": {
+      "compared_columns": [
+        "label",
+        "event_nbh",
+        "jet_e",
+        "jet_mass",
+        "jet_nneutrals",
+        "jet_ntracks",
+        "jet_phi",
+        "jet_px",
+        "jet_py",
+        "jet_pz",
+        "jet_theta"
+      ],
+      "selection_start_row": 7655727,
+      "train800k_prefix_of_train8m": true,
+      "train800k_rows": 798977,
+      "train8m_rows": 7989060
+    },
+    "cc": {
+      "compared_columns": [
+        "label",
+        "event_nbh",
+        "jet_e",
+        "jet_mass",
+        "jet_nneutrals",
+        "jet_ntracks",
+        "jet_phi",
+        "jet_px",
+        "jet_py",
+        "jet_pz",
+        "jet_theta"
+      ],
+      "selection_start_row": 7642891,
+      "train800k_prefix_of_train8m": true,
+      "train800k_rows": 797569,
+      "train8m_rows": 7976224
+    },
+    "dd": {
+      "compared_columns": [
+        "label",
+        "event_nbh",
+        "jet_e",
+        "jet_mass",
+        "jet_nneutrals",
+        "jet_ntracks",
+        "jet_phi",
+        "jet_px",
+        "jet_py",
+        "jet_pz",
+        "jet_theta"
+      ],
+      "selection_start_row": 7622832,
+      "train800k_prefix_of_train8m": true,
+      "train800k_rows": 795686,
+      "train8m_rows": 7956165
+    }
+  },
+  "created_at": "2026-11-09T21:04:30.176554+00:00",
+  "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet",
+  "disjoint_from": {
+    "test3000k": "different source files (sealed Stage 3 test)",
+    "train800k": "prefix of train8m, checked row by row on scalar columns",
+    "val1000k": "different source files (holdout, val50k_tail, val5k_tail)"
+  },
+  "levels": {
+    "selection": {
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet/ml_flavtag_6cat_bb_sel1m_tail.parquet",
+          "row_groups": 34,
+          "rows": 333333,
+          "sha256": "61c437a978fefb08ee6dcf6242aceff3fbfb2d081098cc2abe02b38474fe57b2",
+          "size_bytes": 1282259687,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet/ml_flavtag_6cat_bb_train8m.parquet",
+          "source_start_row": 7655727,
+          "source_stop_row": 7989060
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet/ml_flavtag_6cat_cc_sel1m_tail.parquet",
+          "row_groups": 34,
+          "rows": 333333,
+          "sha256": "f322b39ad4114f82eb5ce610408d45f40ffa387ae689e8f7025de88519ede333",
+          "size_bytes": 1168633837,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet/ml_flavtag_6cat_cc_train8m.parquet",
+          "source_start_row": 7642891,
+          "source_stop_row": 7976224
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet/ml_flavtag_6cat_dd_sel1m_tail.parquet",
+          "row_groups": 34,
+          "rows": 333333,
+          "sha256": "c4e3fb30f7a22de5091cff3be50e0b8b8e6611b66537b02218081bc7c6a65d73",
+          "size_bytes": 1093112274,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet/ml_flavtag_6cat_dd_train8m.parquet",
+          "source_start_row": 7622832,
+          "source_stop_row": 7956165
+        }
+      ],
+      "role": "checkpoint and member selection",
+      "rows_total": 999999,
+      "suffix": "sel1m_tail"
+    },
+    "training": {
+      "files": [
+        {
+          "flavor": "bb",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet/ml_flavtag_6cat_bb_train8m_head.parquet",
+          "row_groups": 766,
+          "rows": 7655727,
+          "sha256": "fbca67b78547fb32860ff8d0db3f98f465bc967df8c9c7da4a8808457eb1f420",
+          "size_bytes": 29472591377,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet/ml_flavtag_6cat_bb_train8m.parquet",
+          "source_start_row": 0,
+          "source_stop_row": 7655727
+        },
+        {
+          "flavor": "cc",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet/ml_flavtag_6cat_cc_train8m_head.parquet",
+          "row_groups": 765,
+          "rows": 7642891,
+          "sha256": "5a39a43447730923e3c87411c91841fdf854484cd8ac1079f7cf37b4db572709",
+          "size_bytes": 26767945904,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet/ml_flavtag_6cat_cc_train8m.parquet",
+          "source_start_row": 0,
+          "source_stop_row": 7642891
+        },
+        {
+          "flavor": "dd",
+          "path": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet/ml_flavtag_6cat_dd_train8m_head.parquet",
+          "row_groups": 763,
+          "rows": 7622832,
+          "sha256": "f7ea713ae0595514d6b5c4e7f4f910096cdb3855074848197e3469d9e6ef3614",
+          "size_bytes": 25025707782,
+          "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet/ml_flavtag_6cat_dd_train8m.parquet",
+          "source_start_row": 0,
+          "source_stop_row": 7622832
+        }
+      ],
+      "role": "train8m without the selection rows",
+      "rows_total": 22921450,
+      "suffix": "train8m_head"
+    }
+  },
+  "name": "20250711_ilc_nnqq_sgv_10m_3cat_sel1m_v1",
+  "reason_not_tracked": "Parquet files; keep only this manifest in Git.",
+  "rows_per_flavor": 333333,
+  "schema_version": 1,
+  "source": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_train8m_parquet",
+  "tracked_in_git": false
+}
