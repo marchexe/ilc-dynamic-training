@@ -51,6 +51,7 @@ STAGE2A_RESULTS = PROJECT_DIR / 'runs/eval/stage2a_holdout_v1/evaluations'
 TMUX = ['tmux', '-L', 'ilc-campaign']
 OOMD_MANAGED_SCOPE = '/user@'
 MAX_PARALLELISM = 9  # Stage 2A cohort limit
+GPU_BUDGET = 5  # the supervisor's limit on GPUs in use at one time
 
 
 def load_json(path):
@@ -205,7 +206,7 @@ def report(protocol, protocol_sha, results, output):
 
 def plan(protocol, nodes):
     """One node; one evaluation per idle GPU there, at most one per checkpoint."""
-    cohort = choose_cohort(nodes, protocol['allocation'], min(len(protocol['checkpoints']), MAX_PARALLELISM))
+    cohort = choose_cohort(nodes, protocol['allocation'], min(len(protocol['checkpoints']), MAX_PARALLELISM, GPU_BUDGET))
     return dict(cohort, max_parallelism=len(cohort['gpus']))
 
 
