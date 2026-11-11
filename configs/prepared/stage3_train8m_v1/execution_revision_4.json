@@ -1,0 +1,24 @@
+{
+  "applies": "only after the campaign completed (status completed with report_integrity.json); until then every launch and resume still refuses changed execution files",
+  "changed_execution_files": [
+    {
+      "current_sha256": "7ca25d18251dfb6d65f88c2921636f6c54cfdfe375185c0b8ff46ceffc05aaaf",
+      "frozen_sha256": "c8026d59391c380ef25523e90dfc156fe32a71a54198279ecdcc15535b6424fe",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/models/config.py"
+    },
+    {
+      "current_sha256": "0b5dca24d6695957a696354e8115087611dae410b52c54aaff4e2df65335c404",
+      "frozen_sha256": "19783bf6ef3325454cb82d9b4c7d7718c8da797d4c7bae3775821173a04b3091",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/planning/windowed_pbt_v2.py"
+    }
+  ],
+  "protocol": {
+    "file": "configs/prepared/stage3_train8m_v1/protocol_v2.json",
+    "sha256": "b696ff639a4f24bc700984076411944bd0647760db60bdcc338b3f102b309339"
+  },
+  "reason": "Opt-in final_decay for windowed_pbt_v2 (pbt.windowed_pbt_v2.final_decay, default None): the last n generations make no decisions and every member's LR decays as in Weaver flat+decay from its LR at the start of the decay (scripts/training/pbt/planning/lr_schedule.py). Without the key, decisions, commands, seeds, resolved configurations and fingerprints are unchanged (tests/test_final_decay.py). This record supersedes the earlier entries of the same files. The campaign ran on the frozen files; this record lets later work use the changed files without reporting drift for the completed study.",
+  "recorded_at": "2026-11-11T20:38:51.985330+00:00",
+  "schema_version": 1
+}

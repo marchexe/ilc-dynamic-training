@@ -1,0 +1,11 @@
+# sel1m_fast_pbt with the flat+decay ending of standard ParT. In sel1m_fast_pbt the members got worse after
+# about full epoch 30 (best 0.2982 at weaver epoch 48, 0.3015-0.3038 at the end), as constant LRs do, while
+# standard ParT kept improving in its decay phase. Here the last 15 of 50 generations make no decisions and
+# every member's LR decays from its value at generation 35 by 0.01**(1/15) per epoch, as in sel1m_standard_part.
+presets:
+  - sel1m_fast_pbt.yaml
+experiment:
+  name: sel1m_fast_pbt_decay
+pbt:
+  windowed_pbt_v2:
+    final_decay: {decay_fraction: 0.3, final_factor: 0.01}

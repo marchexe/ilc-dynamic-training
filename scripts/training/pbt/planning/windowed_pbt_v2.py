@@ -7,6 +7,7 @@ from training.pbt.reference.windowed_v2 import (
 )
 from training.checkpoints import bundle_paths, bundle_identity, check_bundle, copy_bundle as _copy_bundle
 from training.pbt.state.optimizer_state import atomic_set_optimizer_lr
+from training.pbt.planning.lr_schedule import final_decay_start
 from training.runtime import atomic_json, utc_now
 
 
@@ -17,7 +18,14 @@ def windowed_pbt_v2_plan(config, generation, members, manifest=None):
     has. With factors 0.5 and 2 the LRs fall on one power-of-two ladder and this repeats window after window,
     so the loser neither copies nor mutates. A fallback copy gives it the donor's weights and the fallback
     factor that keeps its LR farthest from the other LRs. It stays skipped only if every fallback LR is in use.
+
+    With `final_decay`, no decision is made from generation G - n - 1 on: the LRs then decay every epoch, which
+    the reference windows do not allow, and the last copy lands before the decay starts.
     """
+    start = final_decay_start(config)
+    if start is not None and generation['index'] >= start - 1:
+        metric = config['pbt']['metric']
+        return sorted(members, key=lambda n: (generation['workers'][n]['metrics'][metric], n)), []
     ranking, plan = reference_plan(config, generation, members, manifest)
     factors = (config['pbt'].get(STRATEGY) or {}).get('fallback_factors')
     decision = generation.get(STRATEGY)

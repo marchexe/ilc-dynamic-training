@@ -1,0 +1,38 @@
+# Standard ParT trained from scratch on train800k, selected on sel1m_tail: is the pretrained epoch-17 model a
+# useful start at all? Before any training it scores 0.438 on sel1m_tail and about 0.30 after fine-tuning.
+# Same network, data, seed and 50-epoch budget as sel1m_standard_part, but no model or optimizer is loaded,
+# BatchNorm trains, and the flat+decay start LRs lie around the standard 1e-3.
+presets:
+  - sel1m_standard_part.yaml
+experiment:
+  name: sel1m_scratch_standard_part
+shared:
+  initialization_mode: scratch
+  checkpoint: null
+  initial_epoch: null
+  initial_state: null
+  initial_optimizer: null
+  initial_optimizer_mode: null
+  initial_optimizer_damping: null
+  initial_controller: null
+  freeze_batch_norm: false
+pbt:
+  evaluate_initial_checkpoint: false
+  min_lr: 2.5e-4
+  max_lr: 4.0e-3
+population:
+  - name: flat_decay_250e-6
+    start_lr: 2.5e-4
+    lr_schedule: {kind: flat_decay}
+  - name: flat_decay_500e-6
+    start_lr: 5.0e-4
+    lr_schedule: {kind: flat_decay}
+  - name: flat_decay_1000e-6
+    start_lr: 1.0e-3
+    lr_schedule: {kind: flat_decay}
+  - name: flat_decay_2000e-6
+    start_lr: 2.0e-3
+    lr_schedule: {kind: flat_decay}
+  - name: flat_decay_4000e-6
+    start_lr: 4.0e-3
+    lr_schedule: {kind: flat_decay}

@@ -1,0 +1,7 @@
+# sel1m_fast_pbt_decay with the second training seed.
+presets:
+  - sel1m_fast_pbt_decay.yaml
+experiment:
+  name: sel1m_fast_pbt_decay_seed22345
+shared:
+  seed: 22345

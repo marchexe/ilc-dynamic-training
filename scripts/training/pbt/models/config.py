@@ -65,6 +65,13 @@ class LrScheduleConfig(StrictSectionModel):
     final_factor: float = Field(default=0.01, gt=0.0, le=1.0)
 
 
+class FinalDecayConfig(StrictSectionModel):
+    """The flat+decay ending of a windowed_pbt_v2 run."""
+
+    decay_fraction: float = Field(default=0.3, gt=0.0, lt=1.0)
+    final_factor: float = Field(default=0.01, gt=0.0, lt=1.0)
+
+
 class PopulationMember(StrictSectionModel):
     name: str
     start_lr: float | None = None
@@ -410,6 +417,10 @@ class WindowedPBTConfig(StrictSectionModel):
     # both mutation factors give an LR already in use still copies the donor, with the fallback factor that
     # keeps its LR farthest from the others (planning/windowed_pbt_v2.py).
     fallback_factors: list[float] | None = None
+    # None: decisions until the last window. Set: the last n = max(1, int(G * decay_fraction)) generations make no
+    # decisions and every member's LR decays as in Weaver flat+decay from its LR at the start of the decay
+    # (planning/lr_schedule.py), so the run ends like standard ParT training.
+    final_decay: FinalDecayConfig | None = None
 
     @model_validator(mode="after")
     def validate_window(self):
@@ -741,6 +752,9 @@ class ResolvedPBTConfig(StrictSectionModel):
                 raise ValueError("windowed_pbt_v2 requires the audited finite-epoch raw Ranger/FP16 continuation contract")
             if len(p.mutation_factors) != 2 or not 0 < p.mutation_factors[0] < 1 < p.mutation_factors[1]:
                 raise ValueError("windowed_pbt_v2 requires one downward and one upward mutation factor")
+            decay = p.windowed_pbt_v2.final_decay
+            if decay is not None and s.generations - max(1, int(s.generations * decay.decay_fraction)) - 1 < p.windowed_pbt_v2.window_epochs:
+                raise ValueError("windowed_pbt_v2 final_decay leaves no complete decision window")
         elif self.pbt.windowed_pbt_v2 is not None:
             raise ValueError("windowed_pbt_v2 settings require the matching strategy")
         if self.pbt.strategy == "cadenced_pbt_v1":
