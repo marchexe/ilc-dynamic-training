@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "name": "weight_averaging_sel1m_v1",
+  "purpose": "Does averaging model weights reduce the epoch-to-epoch noise of the selected checkpoint and improve it? For each step 2 run, a fixed list of weight averages is scored on sel1m_tail with the same evaluation as the plain selected checkpoint; the best of them (or the plain checkpoint) is the run's averaged selection. The holdout set is used only afterwards, once per run, in holdout_sel1m_avg_v1. Every arm gets the same recipes.",
+  "selection_set": {
+    "dataset": "datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet",
+    "suffix": "sel1m_tail"
+  },
+  "runs": [
+    {"id": "standard_sel1m_s12345", "run": "sel1m_standard_part"},
+    {"id": "fixed_sel1m_s12345", "run": "sel1m_fixed_lr_grid"},
+    {"id": "pbt_sel1m_s12345", "run": "sel1m_fast_pbt"},
+    {"id": "standard_sel1m_s22345", "run": "sel1m_standard_part_seed22345"},
+    {"id": "fixed_sel1m_s22345", "run": "sel1m_fixed_lr_grid_seed22345"},
+    {"id": "pbt_sel1m_s22345", "run": "sel1m_fast_pbt_seed22345"}
+  ],
+  "recipes": [
+    {"name": "plain", "kind": "plain"},
+    {"name": "trail3", "kind": "lineage_window", "before": 2, "after": 0},
+    {"name": "trail5", "kind": "lineage_window", "before": 4, "after": 0},
+    {"name": "trail10", "kind": "lineage_window", "before": 9, "after": 0},
+    {"name": "center5", "kind": "lineage_window", "before": 2, "after": 2},
+    {"name": "center9", "kind": "lineage_window", "before": 4, "after": 4},
+    {"name": "greedy_soup", "kind": "greedy_population_soup"}
+  ],
+  "rules": [
+    "e is the selected epoch and M the selected member (manifest best, the rule of holdout_sel1m_v1).",
+    "lineage_window: uniform average of the checkpoints of M's ancestry at epochs e-before .. e+after. Before a copy into M, the ancestry continues in the donor; after e it is M's own later checkpoints. The window is cut at the first trained epoch and the last epoch.",
+    "greedy_population_soup: the members' epoch-e checkpoints, without members that received a copy at epoch e, ordered by their training-time sel1m metric; start from the best one, add each next one if the uniform average scores better on sel1m_tail.",
+    "All candidates, the plain checkpoint included, are scored by the same Weaver test-mode evaluation on sel1m_tail. The candidate with the lowest primary metric is the run's averaged selection; ties go to the earlier recipe in the list.",
+    "Runs whose selection is plain are not evaluated again on the holdout set; their holdout_sel1m_v1 result stands."
+  ]
+}

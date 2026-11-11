@@ -92,6 +92,19 @@ def selected_checkpoint(ident, run, evaluation):
                 provenance=[file_record(path)], run_fingerprint=manifest.get('fingerprint'))
 
 
+def averaged_checkpoint(ident, averaged, evaluation):
+    """A weight average chosen on the selection set by scripts/experiments/weight_averaging.py."""
+    path = PROJECT_DIR / averaged['selection']
+    record = next(r for r in load_json(path)['runs'] if r['id'] == averaged['id'])
+    if record['selection'] == 'plain':
+        raise ValueError(f'{ident}: the selection set chose the plain checkpoint; its holdout result already stands')
+    plain = selected_checkpoint(ident, record['run'], evaluation)
+    verify_file(record['selection_checkpoint'])
+    return dict(plain, selection=f'selection_set_weight_average:{record["selection"]}',
+                validation_metric=record['selection_metric'], checkpoint=record['selection_checkpoint'],
+                plain_checkpoint=plain['checkpoint'], provenance=plain['provenance'] + [file_record(path)])
+
+
 def reference_checkpoint(ident, stage2a):
     """A Stage 2A checkpoint and the holdout metric Stage 2A measured for it."""
     record = next(c for c in stage2a['checkpoints'] if c['id'] == ident)
@@ -140,7 +153,8 @@ def freeze(prepared, *, check_models=True):
     if sha256(STAGE2A / 'protocol.json') != (STAGE2A / 'protocol.sha256').read_text().strip():
         raise ValueError('Stage 2A protocol hash changed')
     evaluation = stage2a['evaluation']
-    checkpoints = ([selected_checkpoint(r['id'], r['run'], evaluation) for r in spec['runs']]
+    checkpoints = ([averaged_checkpoint(r['id'], r['averaged'], evaluation) if 'averaged' in r
+                    else selected_checkpoint(r['id'], r['run'], evaluation) for r in spec['runs']]
                    + [external_reference(reference, stage2a) for reference in spec['references']])
     if check_models:
         strict_load(checkpoints, evaluation)
