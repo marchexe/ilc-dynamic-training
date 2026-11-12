@@ -125,6 +125,47 @@ def seeds_overview(directory):
     return path
 
 
+# (seed label, holdout campaign, checkpoint suffix); a seed appears once its campaign has an analysis.
+SEL1M_SEEDS = [('seed 12345', 'holdout_sel1m_v1', 's12345'), ('seed 22345', 'holdout_sel1m_v1', 's22345'),
+               ('seed 32345', 'holdout_sel1m_seed32345_v1', 's32345')]
+SEL1M_ARMS = [('standard', 'standard ParT', '#1baf7a', 'D'), ('fixed', 'constant-LR grid', ARM_COLOR['fixed_lr'], 's'),
+              ('pbt', 'fast PBT', ARM_COLOR['windowed_pbt_v2'], 'o')]
+
+
+def sel1m_overview(directory):
+    """Holdout score of the three arms of the sel1m comparison, one row per seed."""
+    from training.pbt.reporting.style import plot_setup
+    plt = plot_setup()
+    rows = []
+    for seed, campaign, suffix in SEL1M_SEEDS:
+        path = EVAL / campaign / 'analysis.json'
+        if path.exists():
+            metrics = load(path)['metrics']
+            rows.append((seed, {arm: metrics[f'{arm}_sel1m_{suffix}'][PRIMARY] for arm, *_ in SEL1M_ARMS}))
+    fig, ax = plt.subplots(figsize=(7.2, 0.9 + 0.75 * len(rows)))
+    for y, (_, values) in enumerate(rows):
+        ax.hlines(y, min(values.values()), max(values.values()), color='#c3c2bd', lw=2, zorder=1)
+        for arm, label, color, marker in SEL1M_ARMS:
+            ax.plot(values[arm], y, marker, ms=9, color=color, mec='white', mew=1.5, zorder=2,
+                    label=label if y == 0 else None)
+            below = arm == 'fixed'
+            ax.annotate(f'{values[arm]:.4f}', (values[arm], y), xytext=(0, -10 if below else 9),
+                        textcoords='offset points', ha='center', va='top' if below else 'bottom', fontsize=8,
+                        color='#52514e')
+    ax.set_yticks(range(len(rows)), [seed for seed, _ in rows])
+    ax.set_ylim(len(rows) - 0.45, -0.6)
+    lo = min(min(v.values()) for _, v in rows); hi = max(max(v.values()) for _, v in rows)
+    ax.set_xlim(lo - 0.0008, hi + 0.0008)
+    ax.set(xlabel='holdout primary mistag (%), lower is better', title='Holdout score, selection on 1M jets')
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.22 - 0.06 * (3 - len(rows))), ncol=3, frameon=False, fontsize=8)
+    ax.grid(axis='x', color='#ebeae6', lw=0.8)
+    ax.tick_params(axis='y', length=0)
+    path = Path(directory) / '08_sel1m_holdout.png'
+    fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.close(fig)
+    return path
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--output', type=Path, default=EVAL / 'lr_level_followups/figures')
@@ -138,7 +179,7 @@ def main(argv=None):
                       labels=dict(fixed_lr='A fixed LR 8e-5 to 3.2e-4', windowed_pbt_v2='B fast PBT'),
                       text=dict(epoch='train800k epoch', selection_title='Best member so far, validation set',
                                 test_title='Holdout: B vs A per working point (negative = B better)'))
-    written += [overview(args.output), seeds_overview(args.output)]
+    written += [overview(args.output), seeds_overview(args.output), sel1m_overview(args.output)]
     for path in written:
         print(path)
     return 0
