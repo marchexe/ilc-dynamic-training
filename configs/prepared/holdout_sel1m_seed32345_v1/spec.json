@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_sel1m_seed32345_v1",
+  "purpose": "Third training seed (32345) of holdout_sel1m_v1: standard ParT (Weaver flat+decay restarted from the epoch-17 checkpoint, start LRs 1e-5 to 1e-3), the constant-LR grid (6e-5 to 1.6e-4) and the fast windowed PBT with fallback copies, each selected on sel1m_tail (global best). Fixed before training. Primary comparison: fast PBT against standard ParT. Secondary: fast PBT against the constant-LR grid, and the constant-LR grid against standard ParT.",
+  "runs": [
+    {"id": "standard_sel1m_s32345", "run": "sel1m_standard_part_seed32345"},
+    {"id": "fixed_sel1m_s32345", "run": "sel1m_fixed_lr_grid_seed32345"},
+    {"id": "pbt_sel1m_s32345", "run": "sel1m_fast_pbt_seed32345"}
+  ],
+  "references": [],
+  "pairs": [
+    ["standard_sel1m_s32345", "pbt_sel1m_s32345"],
+    ["fixed_sel1m_s32345", "pbt_sel1m_s32345"],
+    ["standard_sel1m_s32345", "fixed_sel1m_s32345"]
+  ]
+}
