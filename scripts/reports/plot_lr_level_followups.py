@@ -149,6 +149,42 @@ def sel1m_overview(directory):
     return lollipop(rows, 'train800k runs, selection on 1M jets: holdout', Path(directory) / '08_sel1m_holdout.png')
 
 
+def sel1m_relative(directory):
+    """Change of the fixed-LR grid and of the PBT against standard ParT of the same seed, on the holdout set."""
+    from training.pbt.reporting.style import plot_setup
+    plt = plot_setup()
+    rows = []
+    for seed, campaign, suffix in SEL1M_SEEDS:
+        path = EVAL / campaign / 'analysis.json'
+        if not path.exists():
+            continue
+        metrics = load(path)['metrics']
+        base = metrics[f'standard_sel1m_{suffix}'][PRIMARY]
+        rows += [(f'{label}, {seed}', 100 * (metrics[f'{arm}_sel1m_{suffix}'][PRIMARY] / base - 1), color)
+                 for arm, label, color in SEL1M_ARMS if arm != 'standard']
+    fig, ax = plt.subplots(figsize=(7.2, 0.6 * len(rows) + 0.6))
+    ax.set_axisbelow(True)
+    ax.axvline(0, color='#1baf7a', lw=2, zorder=1)
+    ax.annotate('standard ParT', (0, -0.55), xytext=(4, 0), textcoords='offset points', fontsize=8,
+                color='#52514e', va='center')
+    for y, (label, value, color) in enumerate(rows):
+        ax.hlines(y, 0, value, color='#ebeae6', lw=2, zorder=0)
+        ax.plot(value, y, 'o', ms=9, color=color, mec='white', mew=1.5, zorder=2)
+        ax.annotate(f'{value:+.2f}%', (value, y), xytext=(-7 if value < 0 else 7, 0), textcoords='offset points',
+                    va='center', ha='right' if value < 0 else 'left', fontsize=8, color='#52514e')
+    ax.set_yticks(range(len(rows)), [r[0] for r in rows])
+    ax.set_ylim(len(rows) - 0.5, -0.8)
+    ax.set_xlim(-1.2, 0.4)
+    ax.set(xlabel='holdout change against standard ParT of the same seed (%), negative is better',
+           title='train800k runs, selection on 1M jets: holdout')
+    ax.grid(axis='x', color='#ebeae6', lw=0.8)
+    ax.tick_params(axis='y', length=0)
+    path = Path(directory) / '09_sel1m_vs_standard.png'
+    fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.close(fig)
+    return path
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--output', type=Path, default=EVAL / 'lr_level_followups/figures')
@@ -162,7 +198,8 @@ def main(argv=None):
                       labels=dict(fixed_lr='A fixed LR 8e-5 to 3.2e-4', windowed_pbt_v2='B fast PBT'),
                       text=dict(epoch='train800k epoch', selection_title='Best member so far, validation set',
                                 test_title='Holdout: B vs A per working point (negative = B better)'))
-    written += [overview(args.output), seeds_overview(args.output), sel1m_overview(args.output)]
+    written += [overview(args.output), seeds_overview(args.output), sel1m_overview(args.output),
+                sel1m_relative(args.output)]
     for path in written:
         print(path)
     return 0
