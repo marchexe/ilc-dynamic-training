@@ -42,26 +42,31 @@ def holdout_metric(campaign, checkpoint):
     return load(EVAL / campaign / 'analysis.json')['metrics'][checkpoint][PRIMARY]
 
 
-def overview(directory):
+def lollipop(rows, title, path):
+    """One row per run (label, value, color), the style of the earlier holdout figures."""
     from training.pbt.reporting.style import plot_setup
     plt = plot_setup()
-    values = [holdout_metric(campaign, checkpoint) for _, campaign, checkpoint, _ in RUNS]
-    fig, ax = plt.subplots(figsize=(7.2, 3.6))
-    for y, ((label, _, _, kind), value) in enumerate(zip(RUNS, values)):
+    values = [value for _, value, _ in rows]
+    fig, ax = plt.subplots(figsize=(7.2, 0.6 * len(rows) + 0.6))
+    for y, (label, value, color) in enumerate(rows):
         ax.hlines(y, min(values) - 0.004, value, color='#ebeae6', lw=2)
-        ax.plot(value, y, 'o', ms=9, color=ARM_COLOR[kind], mec='white', mew=1.5)
+        ax.plot(value, y, 'o', ms=9, color=color, mec='white', mew=1.5)
         ax.annotate(f'{value:.4f}', (value, y), xytext=(7, 0), textcoords='offset points', va='center',
                     fontsize=8, color='#52514e')
-    ax.set_yticks(range(len(RUNS)), [r[0] for r in RUNS])
+    ax.set_yticks(range(len(rows)), [r[0] for r in rows])
     ax.invert_yaxis()
     ax.set_xlim(min(values) - 0.004, max(values) + 0.006)
-    ax.set(xlabel='holdout primary mistag (%), lower is better', title='train800k runs, seed 12345: holdout')
+    ax.set(xlabel='holdout primary mistag (%), lower is better', title=title)
     ax.grid(axis='x', color='#ebeae6', lw=0.8)
     ax.tick_params(axis='y', length=0)
-    path = Path(directory) / '06_holdout_all_runs.png'
     fig.savefig(path, dpi=200, bbox_inches='tight')
     plt.close(fig)
     return path
+
+
+def overview(directory):
+    rows = [(label, holdout_metric(campaign, checkpoint), ARM_COLOR[kind]) for label, campaign, checkpoint, kind in RUNS]
+    return lollipop(rows, 'train800k runs, seed 12345: holdout', Path(directory) / '06_holdout_all_runs.png')
 
 
 # (seed, fixed-LR run, its holdout id, PBT run, its holdout id, holdout campaign)
@@ -128,42 +133,20 @@ def seeds_overview(directory):
 # (seed label, holdout campaign, checkpoint suffix); a seed appears once its campaign has an analysis.
 SEL1M_SEEDS = [('seed 12345', 'holdout_sel1m_v1', 's12345'), ('seed 22345', 'holdout_sel1m_v1', 's22345'),
                ('seed 32345', 'holdout_sel1m_seed32345_v1', 's32345')]
-SEL1M_ARMS = [('standard', 'standard ParT', '#1baf7a', 'D'), ('fixed', 'constant-LR grid', ARM_COLOR['fixed_lr'], 's'),
-              ('pbt', 'fast PBT', ARM_COLOR['windowed_pbt_v2'], 'o')]
+SEL1M_ARMS = [('standard', 'standard ParT', '#1baf7a'), ('fixed', 'fixed 6e-5 to 1.6e-4', ARM_COLOR['fixed_lr']),
+              ('pbt', 'PBT, fast', ARM_COLOR['windowed_pbt_v2'])]
 
 
 def sel1m_overview(directory):
-    """Holdout score of the three arms of the sel1m comparison, one row per seed."""
-    from training.pbt.reporting.style import plot_setup
-    plt = plot_setup()
+    """Holdout score of the three arms of the sel1m comparison, grouped by seed, in the style of figure 06."""
     rows = []
     for seed, campaign, suffix in SEL1M_SEEDS:
         path = EVAL / campaign / 'analysis.json'
         if path.exists():
             metrics = load(path)['metrics']
-            rows.append((seed, {arm: metrics[f'{arm}_sel1m_{suffix}'][PRIMARY] for arm, *_ in SEL1M_ARMS}))
-    fig, ax = plt.subplots(figsize=(7.2, 0.9 + 0.75 * len(rows)))
-    for y, (_, values) in enumerate(rows):
-        ax.hlines(y, min(values.values()), max(values.values()), color='#c3c2bd', lw=2, zorder=1)
-        for arm, label, color, marker in SEL1M_ARMS:
-            ax.plot(values[arm], y, marker, ms=9, color=color, mec='white', mew=1.5, zorder=2,
-                    label=label if y == 0 else None)
-            below = arm == 'fixed'
-            ax.annotate(f'{values[arm]:.4f}', (values[arm], y), xytext=(0, -10 if below else 9),
-                        textcoords='offset points', ha='center', va='top' if below else 'bottom', fontsize=8,
-                        color='#52514e')
-    ax.set_yticks(range(len(rows)), [seed for seed, _ in rows])
-    ax.set_ylim(len(rows) - 0.45, -0.6)
-    lo = min(min(v.values()) for _, v in rows); hi = max(max(v.values()) for _, v in rows)
-    ax.set_xlim(lo - 0.0008, hi + 0.0008)
-    ax.set(xlabel='holdout primary mistag (%), lower is better', title='Holdout score, selection on 1M jets')
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.22 - 0.06 * (3 - len(rows))), ncol=3, frameon=False, fontsize=8)
-    ax.grid(axis='x', color='#ebeae6', lw=0.8)
-    ax.tick_params(axis='y', length=0)
-    path = Path(directory) / '08_sel1m_holdout.png'
-    fig.savefig(path, dpi=200, bbox_inches='tight')
-    plt.close(fig)
-    return path
+            rows += [(f'{label}, {seed}', metrics[f'{arm}_sel1m_{suffix}'][PRIMARY], color)
+                     for arm, label, color in SEL1M_ARMS]
+    return lollipop(rows, 'train800k runs, selection on 1M jets: holdout', Path(directory) / '08_sel1m_holdout.png')
 
 
 def main(argv=None):
