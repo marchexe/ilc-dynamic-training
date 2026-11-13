@@ -185,6 +185,53 @@ def sel1m_relative(directory):
     return path
 
 
+def sel1m_metrics():
+    """{seed label: {arm: holdout primary metric}} for the seeds whose holdout campaign has an analysis."""
+    out = {}
+    for seed, campaign, suffix in SEL1M_SEEDS:
+        path = EVAL / campaign / 'analysis.json'
+        if path.exists():
+            metrics = load(path)['metrics']
+            out[seed] = {arm: metrics[f'{arm}_sel1m_{suffix}'][PRIMARY] for arm, _, _ in SEL1M_ARMS}
+    return out
+
+
+def sel1m_gain(directory):
+    """Improvement of the fixed-LR grid and of PBT over standard ParT of the same seed, as grouped bars."""
+    from training.pbt.reporting.style import plot_setup
+    plt = plot_setup()
+    data = sel1m_metrics()
+    groups = [(seed, {arm: 100 * (1 - v[arm] / v['standard']) for arm in v}) for seed, v in data.items()]
+    arms = [(arm, dict(fixed='fixed LR, best of 6e-5 to 1.6e-4', pbt='PBT').get(arm, label), color)
+            for arm, label, color in SEL1M_ARMS if arm != 'standard']
+    groups.append(('average', {arm: sum(g[arm] for _, g in groups) / len(groups) for arm, _, _ in arms}))
+    fig, ax = plt.subplots(figsize=(7.2, 3.8))
+    ax.set_axisbelow(True)
+    width = 0.36
+    for i, (seed, gains) in enumerate(groups):
+        x0 = i + (0.35 if seed == 'average' else 0)
+        for j, (arm, label, color) in enumerate(arms):
+            x = x0 + (j - 0.5) * (width + 0.03)
+            value = gains[arm]
+            ax.bar(x, value, width, color=color, label=label if i == 0 else None, zorder=2)
+            ax.annotate(f'{value:+.2f}%', (x, value), xytext=(0, 3 if value >= 0 else -3), textcoords='offset points',
+                        ha='center', va='bottom' if value >= 0 else 'top', fontsize=8, color='#52514e')
+    ax.axhline(0, color='#1baf7a', lw=2, zorder=3)
+    ax.annotate('standard ParT', (len(groups) - 0.6, 0), xytext=(0, -4), textcoords='offset points',
+                ha='center', va='top', fontsize=8, color='#52514e')
+    ax.set_xticks([i + (0.35 if s == 'average' else 0) for i, (s, _) in enumerate(groups)], [s for s, _ in groups])
+    ax.set_ylim(-0.2, 1.1)
+    ax.set(ylabel='better than standard ParT (%)',
+           title='Holdout (2.8M jets): improvement over standard ParT of the same seed')
+    ax.grid(axis='y', color='#ebeae6', lw=0.8)
+    ax.tick_params(axis='x', length=0)
+    ax.legend(frameon=False, loc='upper left', fontsize=8)
+    path = Path(directory) / '10_sel1m_gain.png'
+    fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.close(fig)
+    return path
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--output', type=Path, default=EVAL / 'lr_level_followups/figures')
@@ -199,7 +246,7 @@ def main(argv=None):
                       text=dict(epoch='train800k epoch', selection_title='Best member so far, validation set',
                                 test_title='Holdout: B vs A per working point (negative = B better)'))
     written += [overview(args.output), seeds_overview(args.output), sel1m_overview(args.output),
-                sel1m_relative(args.output)]
+                sel1m_relative(args.output), sel1m_gain(args.output)]
     for path in written:
         print(path)
     return 0
