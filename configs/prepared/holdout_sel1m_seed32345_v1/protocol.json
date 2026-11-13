@@ -1,0 +1,181 @@
+{
+  "allocation": {
+    "authorized_nodes": [
+      "iutgpu01",
+      "iutgpu02",
+      "iutgpu03",
+      "iutgpu04",
+      "iutgpu05",
+      "iutgpu06",
+      "iutgpu07"
+    ],
+    "evaluation_timeout_seconds": 14400,
+    "max_parallelism": 9,
+    "max_resource_wait_seconds": 120,
+    "max_used_memory_mib": 500,
+    "max_util_percent": 5,
+    "mechanism": "direct_ssh_tmux",
+    "min_gpu_memory_mib": 40000,
+    "policy_source": "explicit user confirmation 2026-10-12",
+    "preferred_node": "iutgpu05"
+  },
+  "analysis": {
+    "bootstrap_replicates": 200,
+    "bootstrap_seed": 20261012,
+    "physical_event_ci": "unavailable_without_physical_event_ids",
+    "training_seed_inference": "descriptive_only"
+  },
+  "campaign": "holdout_sel1m_seed32345_v1",
+  "checkpoints": [
+    {
+      "checkpoint": {
+        "path": "/data/suehara/part/march/runs/pbt/sel1m_standard_part_seed32345/checkpoints/global-best-hsuebr0h/global_best_state.pt",
+        "sha256": "40b586e18c904938c53103d6579582c8a0c00045a59ed52384e806ae8f6e33ab",
+        "size_bytes": 3587665
+      },
+      "generation": 48,
+      "id": "standard_sel1m_s32345",
+      "member": "flat_decay_100e-6",
+      "provenance": [
+        {
+          "path": "/data/suehara/part/march/runs/pbt/sel1m_standard_part_seed32345/manifest.json",
+          "sha256": "a2afc8ed73284a6a0e658c87c7c3f3adbe7260a3652f7ee11533b386293db9e0",
+          "size_bytes": 6296414
+        }
+      ],
+      "run": "sel1m_standard_part_seed32345",
+      "run_fingerprint": "4ab654515c28ed8f1844c392e3a7352f48a6050320526e2b6891f51c63dfb7ba",
+      "selection": "validation_primary_global_best",
+      "training_seed": 32345,
+      "validation_metric": 0.3004155947441655,
+      "weaver_epoch": 66
+    },
+    {
+      "checkpoint": {
+        "path": "/data/suehara/part/march/runs/pbt/sel1m_fixed_lr_grid_seed32345/checkpoints/global-best-1ghoik7c/global_best_state.pt",
+        "sha256": "79ae4695730120e755218704d48a895a3152994f7649c74b3c652c96b319234e",
+        "size_bytes": 3587665
+      },
+      "generation": 33,
+      "id": "fixed_sel1m_s32345",
+      "member": "lr_160e-6",
+      "provenance": [
+        {
+          "path": "/data/suehara/part/march/runs/pbt/sel1m_fixed_lr_grid_seed32345/manifest.json",
+          "sha256": "f8e38253e7a08cded37edfeb0ee500ad5ce668d922310e4a7f2eb32c0348c05f",
+          "size_bytes": 6274992
+        }
+      ],
+      "run": "sel1m_fixed_lr_grid_seed32345",
+      "run_fingerprint": "158c1cbeeb32953cecebaf0364edb092f8bdbf03328e1dcd18eb4313a08a3725",
+      "selection": "validation_primary_global_best",
+      "training_seed": 32345,
+      "validation_metric": 0.3001704361946301,
+      "weaver_epoch": 51
+    },
+    {
+      "checkpoint": {
+        "path": "/data/suehara/part/march/runs/pbt/sel1m_fast_pbt_seed32345/checkpoints/global-best-10bn3zyi/global_best_state.pt",
+        "sha256": "7f5abfed28518019b1d5daadfe778c688a87b7485f474700af86a71eebb26b74",
+        "size_bytes": 3587665
+      },
+      "generation": 42,
+      "id": "pbt_sel1m_s32345",
+      "member": "lr_60e-6",
+      "provenance": [
+        {
+          "path": "/data/suehara/part/march/runs/pbt/sel1m_fast_pbt_seed32345/manifest.json",
+          "sha256": "adb0038eeb8862ec10a7f0d93a3bc6b5f5b278aafad92c1b71cbcf5fe33fa27c",
+          "size_bytes": 7025542
+        }
+      ],
+      "run": "sel1m_fast_pbt_seed32345",
+      "run_fingerprint": "d97fa75fb2bfdbfddf371126264188394acc29e6ebbdefa699467a862dbecf83",
+      "selection": "validation_primary_global_best",
+      "training_seed": 32345,
+      "validation_metric": 0.29920851401409965,
+      "weaver_epoch": 60
+    }
+  ],
+  "commit": "93e7cb009b1cc9c49eb9148bed377072e672d7a7",
+  "dataset": {
+    "audit_fingerprint": "31ac0c24ca7843733df85f20bb7aa608d010161c302aab335e8548b6f6190ccd",
+    "holdout_files": [
+      {
+        "flavor": "bb",
+        "offset": 0,
+        "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_bb_val_holdout.parquet",
+        "rows": 943645,
+        "sha256": "94fd5aca6ba59c8f990bc92ede5c6b0c6f0692138d2ebcb0a2c3a2dca9cb86a9",
+        "size_bytes": 2463882042,
+        "tier": "full_holdout"
+      },
+      {
+        "flavor": "cc",
+        "offset": 943645,
+        "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_cc_val_holdout.parquet",
+        "rows": 941995,
+        "sha256": "1276387fc13b2525c8d2eab942565d637431a35de01472278ddb29fb6b9fd932",
+        "size_bytes": 2243049376,
+        "tier": "full_holdout"
+      },
+      {
+        "flavor": "dd",
+        "offset": 1885640,
+        "path": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet/ml_flavtag_6cat_dd_val_holdout.parquet",
+        "rows": 939485,
+        "sha256": "3a1a8cbe9e2d26b8f6b9aa9f06f87d6db55a57842122788a65e27cd535052bff",
+        "size_bytes": 2102232525,
+        "tier": "full_holdout"
+      }
+    ],
+    "rows": 2825125
+  },
+  "evaluation": {
+    "amp_dtype": "fp16",
+    "batch_size": 1024,
+    "data_audit": true,
+    "data_config": "/data/suehara/part/march/checkpoints/pretrained/ilc_nnqq_sgvnew_3cat_cut/data_config.auto.yaml",
+    "data_extension": "parquet",
+    "dataset": "/data/suehara/part/march/datasets/20250711_ilc_nnqq_sgv_10m_3cat_parquet",
+    "deterministic": true,
+    "fetch_step": 0.01,
+    "network_config": "/data/suehara/part/march/networks/pretrained_sgv_particle_transformer.py",
+    "num_workers": 1,
+    "prefetch_factor": 2,
+    "save_prediction_row_ids": true,
+    "save_predictions": true,
+    "seed": 12345,
+    "use_amp": true,
+    "validation_suffix": "val_holdout"
+  },
+  "frozen_at": "2026-11-13T07:27:31.394987+00:00",
+  "no_holdout_reselection": true,
+  "pairs": [
+    [
+      "standard_sel1m_s32345",
+      "pbt_sel1m_s32345"
+    ],
+    [
+      "fixed_sel1m_s32345",
+      "pbt_sel1m_s32345"
+    ],
+    [
+      "standard_sel1m_s32345",
+      "fixed_sel1m_s32345"
+    ]
+  ],
+  "primary_metric": "validation_total_reference_mistag_geomean_percent",
+  "purpose": "Third training seed (32345) of holdout_sel1m_v1: standard ParT (Weaver flat+decay restarted from the epoch-17 checkpoint, start LRs 1e-5 to 1e-3), the constant-LR grid (6e-5 to 1.6e-4) and the fast windowed PBT with fallback copies, each selected on sel1m_tail (global best). Fixed before training. Primary comparison: fast PBT against standard ParT. Secondary: fast PBT against the constant-LR grid, and the constant-LR grid against standard ParT.",
+  "schema_version": 1,
+  "spec": {
+    "path": "/data/suehara/part/march/configs/prepared/holdout_sel1m_seed32345_v1/spec.json",
+    "sha256": "11f740a4d755f583521f9c8117b803afa77d05bcca65d65babcfb43e9efa2ddc",
+    "size_bytes": 958
+  },
+  "stage2a_protocol": {
+    "path": "/data/suehara/part/march/configs/prepared/stage2a_holdout_v1/protocol.json",
+    "sha256": "cabf6703bf3d70fc2a91c92bd65513c9de791490b267ce4309ae1a26498f2d90",
+    "size_bytes": 198324
+  }
+}
