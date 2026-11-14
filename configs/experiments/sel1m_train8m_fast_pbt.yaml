@@ -1,4 +1,11 @@
 # Step 3: sel1m_fast_pbt on the 8M training set (train8m_head), selecting on sel1m_tail. Only after step 2.
+#
+# Change of 2026-11-14, before this run started: on 8M the standard ParT run (sel1m_train8m_standard_part) is
+# best at its highest start LR, 1e-3 (sel1m_tail 0.188 at epoch 40, against 0.20 at 3e-4), while the fast PBT
+# was capped at 5e-4. The PBT now gets the LR range of standard ParT: the same five start LRs (1e-5 to 1e-3)
+# and max_lr 1e-3, the highest LR standard ParT uses. Rules, seed and data are unchanged. At the cap a
+# loser can find both fallback LRs in use; it then takes a power of the fallback factors (windowed_pbt_v2.py),
+# a case that never occurred in the 800k runs.
 presets:
   - sel1m_fast_pbt.yaml
 experiment:
@@ -8,3 +15,16 @@ shared:
   dataset: datasets/20250711_ilc_nnqq_sgv_10m_3cat_sel1m_parquet
   train_suffix: train8m_head
   generations: 50
+pbt:
+  max_lr: 1.0e-3
+population:
+  - name: lr_10e-6
+    start_lr: 1.0e-5
+  - name: lr_30e-6
+    start_lr: 3.0e-5
+  - name: lr_100e-6
+    start_lr: 1.0e-4
+  - name: lr_300e-6
+    start_lr: 3.0e-4
+  - name: lr_1000e-6
+    start_lr: 1.0e-3

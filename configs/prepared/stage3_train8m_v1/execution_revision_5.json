@@ -1,0 +1,18 @@
+{
+  "applies": "only after the campaign completed (status completed with report_integrity.json); until then every launch and resume still refuses changed execution files",
+  "changed_execution_files": [
+    {
+      "current_sha256": "3d30176ec7006fad48e44532659e540ccf17dcc5910b7bf8879c7ccf07c2f961",
+      "frozen_sha256": "19783bf6ef3325454cb82d9b4c7d7718c8da797d4c7bae3775821173a04b3091",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/planning/windowed_pbt_v2.py"
+    }
+  ],
+  "protocol": {
+    "file": "configs/prepared/stage3_train8m_v1/protocol_v2.json",
+    "sha256": "b696ff639a4f24bc700984076411944bd0647760db60bdcc338b3f102b309339"
+  },
+  "reason": "Second-level fallback copies for windowed_pbt_v2 with fallback_factors: when every plain fallback LR is in use (for example the donor at max_lr with the LRs just below it taken), the second to fourth powers of the fallback factors are tried with the same farthest-LR rule. Before, such a loser was skipped. Decisions change only where a loser was skipped after the plain fallback, which never happened in any recorded run with fallback_factors (0 of 6 runs), so those runs replay unchanged (tests/test_windowed_pbt_v2.py). This record supersedes the earlier entries of the same file. The campaign ran on the frozen files; this record lets later work use the changed file without reporting drift for the completed study.",
+  "recorded_at": "2026-11-14T20:47:14.898130+00:00",
+  "schema_version": 1
+}

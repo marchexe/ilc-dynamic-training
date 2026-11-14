@@ -17,7 +17,8 @@ def windowed_pbt_v2_plan(config, generation, members, manifest=None):
     The reference skips a selected loser when both mutation factors give an LR that another member already
     has. With factors 0.5 and 2 the LRs fall on one power-of-two ladder and this repeats window after window,
     so the loser neither copies nor mutates. A fallback copy gives it the donor's weights and the fallback
-    factor that keeps its LR farthest from the other LRs. It stays skipped only if every fallback LR is in use.
+    factor that keeps its LR farthest from the other LRs. If every fallback LR is in use, the second to fourth
+powers of the fallback factors are tried the same way; the loser stays skipped only if all of those are in use.
 
     With `final_decay`, no decision is made from generation G - n - 1 on: the LRs then decay every epoch, which
     the reference windows do not allow, and the last copy lands before the decay starts.
@@ -44,11 +45,16 @@ def _fallback_mutations(config, members, decision, ranking, plan, factors):
         if item['reason'] != 'no_distinct_mutation':
             continue
         best = None
-        for factor in factors:
-            lr = min(p['max_lr'], max(p['min_lr'], donor_lr * factor))
-            gap = min(abs(math.log(lr / other)) for n, other in lrs.items() if n != name)
-            if gap >= 1e-12 and (best is None or gap > best[0]):
-                best = (gap, factor, lr)
+        # Powers 2-4 of the fallback factors are tried only when every plain fallback LR is in use, for
+        # example when the donor sits at max_lr and the LRs just below it are taken (2026-11 train8m runs).
+        for candidates in (factors, [f ** k for k in (2, 3, 4) for f in factors]):
+            for factor in candidates:
+                lr = min(p['max_lr'], max(p['min_lr'], donor_lr * factor))
+                gap = min(abs(math.log(lr / other)) for n, other in lrs.items() if n != name)
+                if gap >= 1e-12 and (best is None or gap > best[0]):
+                    best = (gap, factor, lr)
+            if best is not None:
+                break
         if best is None:
             continue
         _, factor, lr = best

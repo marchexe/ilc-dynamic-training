@@ -136,6 +136,22 @@ class WindowedPBTTest(unittest.TestCase):
             self.assertEqual(len(set(resulting.values())), len(resulting))
             self.assertTrue(all(g['windowed_pbt_v2']['members'][n]['next_loss_count'] == 0 for n in 'ab'))
 
+    def test_fallback_powers_when_the_donor_is_at_max_lr_and_plain_fallbacks_are_taken(self):
+        # Donor 'e' at max_lr 1e-3; x2 and x1.4 clamp to the donor's LR, x0.5 and x0.7 are taken by 'c' and 'd'.
+        lrs = dict(a=3e-5, b=1e-5, c=5e-4, d=7e-4, e=1e-3)
+        values = [0.45, 0.44, 0.405, 0.4, 0.399]
+        config = copy.deepcopy(self.config)
+        config['pbt'].update(min_lr=5e-6, max_lr=1e-3, mutation_factors=[0.5, 2.0])
+        config['pbt']['windowed_pbt_v2']['fallback_factors'] = [0.7, 1.4]
+        manifest = manifest_fixture(config)
+        for name, lr in lrs.items():
+            manifest['members'][name]['lr'] = lr
+        g = plan_until(manifest, 2 * config['pbt']['windowed_pbt_v2']['window_epochs'], values)
+        self.assertEqual({e['recipient'] for e in g['exploit']}, {'a', 'b'})
+        resulting = dict(lrs, **{e['recipient']: e['new_lr'] for e in g['exploit']})
+        self.assertEqual(len(set(resulting.values())), len(resulting))
+        self.assertTrue(all(e['new_lr'] < 5e-4 for e in g['exploit']))
+
     def test_replay_after_manifest_roundtrip_and_terminal_no_copy(self):
         plan_until(self.manifest, 9)
         reloaded = PBTManifest.parse_payload(json.loads(json.dumps(self.manifest))).to_runtime_dict()
