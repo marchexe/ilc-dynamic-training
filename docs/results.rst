@@ -6,10 +6,115 @@ Composite mistag in percent; lower is better. Endpoints and splits are defined i
 evaluation by :repo:`scripts/publish/export_results_summary.py`; tables, trajectories
 and source hashes are in :repo:`published/results`.
 
+.. _pbt-vs-standard-part:
+
+PBT versus standard ParT training (current main result)
+--------------------------------------------------------
+
+**Result.** With three training seeds, the fast windowed PBT is better on the holdout than
+standard ParT training on every seed: 0.67%, 0.85% and 0.91% lower composite mistag, 0.81% on
+average (95% interval 0.34–1.34%, holdout sampling only). It is better at seven of eight
+working points on average. A grid of constant learning rates is not stable: on one seed it is
+as good as PBT, on the other two it is the same as standard ParT.
+
+**Runs.** Each seed has three runs. All start from the same pretrained checkpoint, train on the
+same 800k jets for 50 epochs with five members, and therefore use the same compute. Each run
+keeps the checkpoint (epoch and member) with the best value on a 1M-jet selection set, taken
+from training-file rows that the 800k training does not use. The 2.8M-jet holdout is used only
+afterwards, once per checkpoint; the holdout specifications were committed before training and
+the selected checkpoints were frozen before the holdout evaluation
+(:repo:`configs/prepared/holdout_sel1m_v1`, :repo:`configs/prepared/holdout_sel1m_seed32345_v1`).
+
+* **Standard ParT**: Weaver's flat+decay learning-rate schedule (constant, then ×0.01 over the
+  last 15 epochs), restarted from the pretrained checkpoint with start learning rates 1×10⁻⁵,
+  3×10⁻⁵, 1×10⁻⁴, 3×10⁻⁴ and 1×10⁻³. The best member was the 1×10⁻⁴ one for every seed.
+* **Constant learning rates**: five members from 6×10⁻⁵ to 1.6×10⁻⁴.
+* **Fast windowed PBT**: five members starting log-spaced over 1×10⁻⁵–3.5×10⁻⁴, bounds
+  5×10⁻⁶–5×10⁻⁴, decisions every two epochs from epoch 4, mutation ×0.5 or ×2, and fallback
+  copies (×0.7 or ×1.4) when both mutations give a learning rate already in use.
+
+.. list-table:: Holdout composite mistag (%), selected checkpoints
+   :header-rows: 1
+   :widths: 25 18 18 18 21
+
+   * - Seed
+     - Standard ParT
+     - Constant LRs
+     - Fast PBT
+     - PBT − standard (95% interval)
+   * - 12345
+     - 0.3029
+     - 0.3028
+     - 0.3008
+     - −0.67% (−1.50, +0.05)
+   * - 22345
+     - 0.3038
+     - 0.3013
+     - 0.3012
+     - −0.85% (−1.43, −0.24)
+   * - 32345
+     - 0.3024
+     - 0.3024
+     - 0.2996
+     - −0.91% (−1.75, −0.15)
+   * - Mean of the seeds
+     -
+     -
+     -
+     - **−0.81% (−1.34, −0.34)**
+
+.. figure:: ../published/results/sel1m/figures/gain_over_standard_part.png
+   :alt: Holdout improvement of the constant-LR grid and of PBT over standard ParT, per seed
+   :width: 100%
+
+   Holdout improvement over standard ParT of the same seed; the green line is standard ParT.
+
+.. figure:: ../published/results/sel1m/figures/working_points.png
+   :alt: Holdout improvement of PBT over standard ParT at each working point
+   :width: 100%
+
+   The same comparison at each working point: bar, mean of the seeds; dots, single seeds. The
+   exception is c-tag against light jets at 50% efficiency (1.1% worse on average).
+
+**Intervals.** The holdout files have no event identifier, but the jets of one event are
+adjacent rows: the invariant mass of two adjacent jets peaks at the Higgs mass, and that of two
+random jets does not. The intervals resample blocks of 100 adjacent rows of one file with the
+same draws for both checkpoints (and, for the mean, for all seeds), so the jets of an event stay
+together. They do not change with the block size between 1 and 1000 rows. They describe the
+holdout sample for these fixed checkpoints, not seed-to-seed variation, which the three seeds
+show directly (:repo:`scripts/experiments/holdout_block_bootstrap.py`,
+:repo:`published/results/sel1m`).
+
+**What did not help.** Adding Weaver's final decay to PBT (no decisions in the last 15
+epochs) selected the same checkpoints as PBT without it. Weight averaging of nearby checkpoints
+or of population members did not improve on the plain selected checkpoint. Training standard
+ParT from random initialization reached only 0.378 on the selection set, against about 0.30
+from the pretrained checkpoint.
+
+.. _correction-of-earlier-comparisons:
+
+Correction of the earlier comparisons
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The comparisons in the following sections (1.3–1.7% at 800k, 7.7% on ``train8m``) are kept as
+recorded, but they do not measure the gain over a tuned baseline. Their fixed learning rates
+(3×10⁻⁶–1.4×10⁻⁵) and the PBT bounds were far below the learning rates that work best: a
+constant learning-rate grid at 3×10⁻⁵–8×10⁻⁵ reached 0.3018 on the holdout, against 0.3225
+for the windowed PBT of :ref:`main-comparisons`. A faster PBT with a wider range then gained
+0.5% over the best constant learning rate on one seed, but a second seed reversed the sign
+(+0.5% on the holdout although 1.4% better on validation). The 150k-jet validation set was too
+small to select checkpoints reliably. The current comparison therefore selects on 1M jets and
+uses standard ParT training as the comparator.
+
 .. _main-comparisons:
 
 Main comparisons
 ----------------
+
+.. note::
+
+   Superseded by :ref:`pbt-vs-standard-part`; the comparators here used learning rates that
+   were too low (:ref:`correction-of-earlier-comparisons`).
 
 Treatment − comparator; negative favours the treatment. The validation column is the
 population endpoint (final-10 current-best); the holdout column is one selected
@@ -192,6 +297,13 @@ Per-checkpoint values, eight working points and paired counts:
 
 Large-dataset comparison
 ------------------------
+
+.. note::
+
+   The fixed learning rates of arm A (3×10⁻⁶–1.4×10⁻⁵) were far below the learning rates that
+   work best, so the 7.7% below is a gain over this grid, not over a tuned baseline
+   (:ref:`correction-of-earlier-comparisons`). A comparison of PBT with standard ParT training
+   on 8M jets is running (:doc:`ongoing`).
 
 Windowed PBT (arm B) against a matched fixed-learning-rate population (arm A), both
 trained on ``train8m``, ten times the training data of the comparisons above, with a
@@ -481,9 +593,10 @@ run with the other seed took 226 s.
 Limitations
 -----------
 
-* One seed per policy (two for cadence); differences of 0.001–0.002 pp changed sign
-  between evaluations. The large-dataset comparison also has one seed.
-* No event-level confidence intervals.
+* The main result (:ref:`pbt-vs-standard-part`) has three training seeds and one PBT
+  configuration; its intervals cover the holdout sample only.
+* The earlier comparisons have one seed per policy (two for cadence), comparators with too-low
+  learning rates, and no confidence intervals.
 * PBT decisions, checkpoint selection and the primary endpoint share one validation set.
 * The holdout was inspected in earlier diagnostics.
 * The 100-epoch comparator is one selected member, not a population.
@@ -499,7 +612,6 @@ Limitations
 Open questions
 --------------
 
-How much of the large-dataset gain comes from adapting the learning rate during training,
-and how much from reaching learning rates above the fixed grid (:ref:`large-dataset-results`)?
-How large is seed-to-seed variation? Does adaptation frequency matter once selection
+Does the gain over standard ParT training hold on 8M training jets, and does it hold from other
+pretrained starting points? How large is seed-to-seed variation with more seeds? Does adaptation frequency matter once selection
 optimism is controlled? Does sub-epoch adaptation help with full optimizer state?

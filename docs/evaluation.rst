@@ -78,11 +78,15 @@ drives its decisions; holdout values are not.
 Statistical rules
 -----------------
 
-* One training seed per policy (two for cadence): differences describe these runs; no
-  significance is claimed.
-* No event-level confidence intervals, because no event identifier exists. Paired
-  holdout comparisons report point differences and per-working-point counts of
-  background jets mistagged by only one model.
+* Earlier comparisons: one training seed per policy (two for cadence); differences describe
+  these runs and no significance is claimed. The comparison with standard ParT training has
+  three seeds.
+* The holdout files have no event identifier, but the jets of one event are adjacent rows
+  (the mass of two adjacent jets peaks at the Higgs mass; that of two random jets does not).
+  Intervals for the comparison with standard ParT training resample blocks of 100 adjacent
+  rows of one file, with shared draws for the compared checkpoints; they cover the holdout
+  sample only, not seed-to-seed variation. The earlier comparisons report point differences
+  and per-working-point counts of background jets mistagged by only one model.
 * Holdout checkpoints are fixed by the validation rule before evaluation. The holdout
   was inspected in earlier diagnostics, so it is not pristine; the large-dataset
   comparison uses a sealed test set instead.

@@ -1,0 +1,318 @@
+{
+  "comparisons": [
+    {
+      "block": 1,
+      "bootstrap": {
+        "confidence_level": 0.95,
+        "intervals": {
+          "validation_bc_mistag_eff_0.80_percent": [
+            -0.00670090834045221,
+            -0.0008930563367704823
+          ],
+          "validation_bc_mistag_eff_0.90_percent": [
+            -0.03773117726202391,
+            -0.0048153034683947535
+          ],
+          "validation_bd_mistag_eff_0.80_percent": [
+            -0.00260932922705401,
+            5.586771366130282e-05
+          ],
+          "validation_bd_mistag_eff_0.90_percent": [
+            -0.00516216572831635,
+            -0.0002077071823892014
+          ],
+          "validation_cb_mistag_eff_0.50_percent": [
+            -0.004676078409725946,
+            0.0032824037315353797
+          ],
+          "validation_cb_mistag_eff_0.80_percent": [
+            -0.01714340598970778,
+            0.007853076922510745
+          ],
+          "validation_cd_mistag_eff_0.50_percent": [
+            -0.0005318671641646965,
+            0.002768751323379042
+          ],
+          "validation_cd_mistag_eff_0.80_percent": [
+            -0.015518209205118927,
+            -0.0008512776975046016
+          ],
+          "validation_total_reference_mistag_geomean_percent": [
+            -0.00464826114477567,
+            -0.0009287378015421833
+          ]
+        },
+        "method": "paired physical-event cluster percentile bootstrap",
+        "n_events": 2825125,
+        "replicates": 100,
+        "seed": 20261012,
+        "status": "available",
+        "unit": "physical_event",
+        "valid_replicates": 100
+      },
+      "campaign": "holdout_sel1m_seed32345_v1",
+      "change_percent": -0.9135819938613565,
+      "interval_percent": [
+        -1.5372990648367821,
+        -0.30715738839115336
+      ],
+      "left": "standard",
+      "left_primary": 0.3023654441154027,
+      "right": "pbt",
+      "right_primary": 0.2996030878623055,
+      "seed": "s32345"
+    },
+    {
+      "block": 2,
+      "bootstrap": {
+        "confidence_level": 0.95,
+        "intervals": {
+          "validation_bc_mistag_eff_0.80_percent": [
+            -0.007282969754595551,
+            -0.0005312883538875271
+          ],
+          "validation_bc_mistag_eff_0.90_percent": [
+            -0.04069620402312428,
+            0.00029232919831304115
+          ],
+          "validation_bd_mistag_eff_0.80_percent": [
+            -0.002449199370521889,
+            0.0
+          ],
+          "validation_bd_mistag_eff_0.90_percent": [
+            -0.00575785063150387,
+            -0.0008522960389355183
+          ],
+          "validation_cb_mistag_eff_0.50_percent": [
+            -0.004983754369271169,
+            0.0042145350036311945
+          ],
+          "validation_cb_mistag_eff_0.80_percent": [
+            -0.017085634213749958,
+            0.003390747151048057
+          ],
+          "validation_cd_mistag_eff_0.50_percent": [
+            -0.0005369758659798408,
+            0.0024032624885225893
+          ],
+          "validation_cd_mistag_eff_0.80_percent": [
+            -0.01443168328714867,
+            -0.0010639257669579655
+          ],
+          "validation_total_reference_mistag_geomean_percent": [
+            -0.0049678369782387545,
+            -0.0006708643648790024
+          ]
+        },
+        "method": "paired physical-event cluster percentile bootstrap",
+        "n_events": 1412564,
+        "replicates": 100,
+        "seed": 20261012,
+        "status": "available",
+        "unit": "physical_event",
+        "valid_replicates": 100
+      },
+      "campaign": "holdout_sel1m_seed32345_v1",
+      "change_percent": -0.9135819938613565,
+      "interval_percent": [
+        -1.642990981582769,
+        -0.22187203529215332
+      ],
+      "left": "standard",
+      "left_primary": 0.3023654441154027,
+      "right": "pbt",
+      "right_primary": 0.2996030878623055,
+      "seed": "s32345"
+    },
+    {
+      "block": 10,
+      "bootstrap": {
+        "confidence_level": 0.95,
+        "intervals": {
+          "validation_bc_mistag_eff_0.80_percent": [
+            -0.0064827664677516595,
+            -0.0001565142124406649
+          ],
+          "validation_bc_mistag_eff_0.90_percent": [
+            -0.03808360316190651,
+            -0.0038109022599262764
+          ],
+          "validation_bd_mistag_eff_0.80_percent": [
+            -0.0024992711075492624,
+            0.00011167697806313991
+          ],
+          "validation_bd_mistag_eff_0.90_percent": [
+            -0.005805878962372007,
+            -0.000849829109918629
+          ],
+          "validation_cb_mistag_eff_0.50_percent": [
+            -0.004402480746951297,
+            0.004883500491471782
+          ],
+          "validation_cb_mistag_eff_0.80_percent": [
+            -0.01802352282276424,
+            0.0048557806940135815
+          ],
+          "validation_cd_mistag_eff_0.50_percent": [
+            -0.0005936455304844403,
+            0.0028719646083928173
+          ],
+          "validation_cd_mistag_eff_0.80_percent": [
+            -0.014352149863827107,
+            -0.00036499948732930383
+          ],
+          "validation_total_reference_mistag_geomean_percent": [
+            -0.00480466099611074,
+            -0.0006274609837446049
+          ]
+        },
+        "method": "paired physical-event cluster percentile bootstrap",
+        "n_events": 282514,
+        "replicates": 100,
+        "seed": 20261012,
+        "status": "available",
+        "unit": "physical_event",
+        "valid_replicates": 100
+      },
+      "campaign": "holdout_sel1m_seed32345_v1",
+      "change_percent": -0.9135819938613565,
+      "interval_percent": [
+        -1.5890245031694041,
+        -0.2075174250087666
+      ],
+      "left": "standard",
+      "left_primary": 0.3023654441154027,
+      "right": "pbt",
+      "right_primary": 0.2996030878623055,
+      "seed": "s32345"
+    },
+    {
+      "block": 100,
+      "bootstrap": {
+        "confidence_level": 0.95,
+        "intervals": {
+          "validation_bc_mistag_eff_0.80_percent": [
+            -0.0063991436693112275,
+            -0.00026350604467250153
+          ],
+          "validation_bc_mistag_eff_0.90_percent": [
+            -0.03733419901996813,
+            0.00015849014223167485
+          ],
+          "validation_bd_mistag_eff_0.80_percent": [
+            -0.003004603252748901,
+            0.00021224618922969853
+          ],
+          "validation_bd_mistag_eff_0.90_percent": [
+            -0.006054506196913914,
+            -0.0006403901400416266
+          ],
+          "validation_cb_mistag_eff_0.50_percent": [
+            -0.00522668839127804,
+            0.004445995117587576
+          ],
+          "validation_cb_mistag_eff_0.80_percent": [
+            -0.01720797385060139,
+            0.0043927639759561024
+          ],
+          "validation_cd_mistag_eff_0.50_percent": [
+            -0.000581704506972185,
+            0.0023302409761049754
+          ],
+          "validation_cd_mistag_eff_0.80_percent": [
+            -0.0147748275559967,
+            0.00017054124213144556
+          ],
+          "validation_total_reference_mistag_geomean_percent": [
+            -0.00562041294446206,
+            -0.0004017634299113021
+          ]
+        },
+        "method": "paired physical-event cluster percentile bootstrap",
+        "n_events": 28252,
+        "replicates": 100,
+        "seed": 20261012,
+        "status": "available",
+        "unit": "physical_event",
+        "valid_replicates": 100
+      },
+      "campaign": "holdout_sel1m_seed32345_v1",
+      "change_percent": -0.9135819938613565,
+      "interval_percent": [
+        -1.8588145748285103,
+        -0.1328734608171569
+      ],
+      "left": "standard",
+      "left_primary": 0.3023654441154027,
+      "right": "pbt",
+      "right_primary": 0.2996030878623055,
+      "seed": "s32345"
+    },
+    {
+      "block": 1000,
+      "bootstrap": {
+        "confidence_level": 0.95,
+        "intervals": {
+          "validation_bc_mistag_eff_0.80_percent": [
+            -0.0067024313637380544,
+            -0.000259904461634843
+          ],
+          "validation_bc_mistag_eff_0.90_percent": [
+            -0.03914200464242249,
+            0.0011845880087835163
+          ],
+          "validation_bd_mistag_eff_0.80_percent": [
+            -0.0025957680500316117,
+            -4.891918213341691e-05
+          ],
+          "validation_bd_mistag_eff_0.90_percent": [
+            -0.005361780354543908,
+            -0.0004822687052703315
+          ],
+          "validation_cb_mistag_eff_0.50_percent": [
+            -0.0046918128337280094,
+            0.003810678536204383
+          ],
+          "validation_cb_mistag_eff_0.80_percent": [
+            -0.015726281533645768,
+            0.0060406916273065235
+          ],
+          "validation_cd_mistag_eff_0.50_percent": [
+            -0.0005287670272523344,
+            0.0028997503405809666
+          ],
+          "validation_cd_mistag_eff_0.80_percent": [
+            -0.016844650802496912,
+            -0.0025573552548887133
+          ],
+          "validation_total_reference_mistag_geomean_percent": [
+            -0.0050349631469829344,
+            -0.000542850241314576
+          ]
+        },
+        "method": "paired physical-event cluster percentile bootstrap",
+        "n_events": 2826,
+        "replicates": 100,
+        "seed": 20261012,
+        "status": "available",
+        "unit": "physical_event",
+        "valid_replicates": 100
+      },
+      "campaign": "holdout_sel1m_seed32345_v1",
+      "change_percent": -0.9135819938613565,
+      "interval_percent": [
+        -1.6651913255872117,
+        -0.17953448447217013
+      ],
+      "left": "standard",
+      "left_primary": 0.3023654441154027,
+      "right": "pbt",
+      "right_primary": 0.2996030878623055,
+      "seed": "s32345"
+    }
+  ],
+  "finished_at": "2026-11-14T21:10:38.473633+00:00",
+  "replicates": 100,
+  "schema_version": 1,
+  "unit": "block of adjacent rows of one holdout file"
+}

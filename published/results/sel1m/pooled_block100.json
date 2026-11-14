@@ -1,0 +1,24 @@
+{
+  "block": 100,
+  "change_percent_per_seed": [
+    -0.668317751114289,
+    -0.8549173875213589,
+    -0.9135819938613565
+  ],
+  "finished_at": "2026-11-14T22:20:03.326158+00:00",
+  "fraction_of_replicates_with_mean_below_zero": 0.998,
+  "left": "standard",
+  "mean_change_percent": -0.8122723774990015,
+  "mean_interval_percent": [
+    -1.3377595081815739,
+    -0.34089936188176756
+  ],
+  "replicates": 500,
+  "right": "pbt",
+  "schema_version": 1,
+  "seeds": [
+    "s12345",
+    "s22345",
+    "s32345"
+  ]
+}

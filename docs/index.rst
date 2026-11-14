@@ -9,15 +9,14 @@ for model selection.
 
 **Status.**
 
-* Completed: windowed PBT improved on fixed learning rates by about 1–2% in composite
-  mistag, both on validation and on an independent holdout
-  (:ref:`main-comparisons`). The evidence is one training seed and has no event-level
-  uncertainty.
-* Completed: on ten times more training data, in a preregistered comparison with a
-  sealed test set, windowed PBT's selected checkpoint has a 7.7% lower composite mistag
-  than the fixed-learning-rate one, with fewer mistagged background jets at all eight
-  working points (:ref:`large-dataset-results`). One training seed; PBT ended at learning
-  rates above the fixed grid.
+* Main result: with three training seeds, PBT gives a lower composite mistag on the
+  holdout than standard ParT training (Weaver's flat+decay learning-rate schedule) on every
+  seed, by 0.67%, 0.85% and 0.91%; 0.81% on average, 95% interval 0.34–1.34% for the
+  holdout sample. Both use the same compute (:ref:`pbt-vs-standard-part`).
+* Running: the same comparison on ten times more training data.
+* Corrected: the earlier gains of 1–2% and 7.7% were measured against fixed learning
+  rates that were too low, and do not measure the gain over a tuned baseline
+  (:ref:`correction-of-earlier-comparisons`).
 * Inconclusive: whether adapting more often helps; the ranking reversed on the
   holdout (:ref:`adaptation-frequency`).
 
@@ -34,5 +33,5 @@ for model selection.
 * :doc:`evaluation`: splits, metrics, endpoints and statistical rules used everywhere.
 * :doc:`results`: completed comparisons, including the large-dataset study, supporting
   studies and limitations.
-* :doc:`ongoing`: sub-epoch adaptation.
+* :doc:`ongoing`: PBT versus standard ParT training on 8M jets, and sub-epoch adaptation.
 * :doc:`reproducibility`: repository map, commands, experiment records and history.
