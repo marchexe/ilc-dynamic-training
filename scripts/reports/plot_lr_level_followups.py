@@ -232,6 +232,54 @@ def sel1m_gain(directory):
     return path
 
 
+WORKING_POINTS = [('bc', 0.80), ('bc', 0.90), ('bd', 0.80), ('bd', 0.90), ('cb', 0.50), ('cb', 0.80), ('cd', 0.50),
+                  ('cd', 0.80)]
+WP_NAMES = dict(b='b', c='c', d='light')
+
+
+def sel1m_working_points(directory):
+    """Improvement of PBT over standard ParT of the same seed at each working point: mean bar, one dot per seed."""
+    from training.pbt.reporting.style import plot_setup
+    from training.runtime import mistag_percent_key
+    plt = plot_setup()
+    gains = {wp: [] for wp in WORKING_POINTS}
+    for seed, campaign, suffix in SEL1M_SEEDS:
+        path = EVAL / campaign / 'analysis.json'
+        if not path.exists():
+            continue
+        metrics = load(path)['metrics']
+        standard, pbt = metrics[f'standard_sel1m_{suffix}'], metrics[f'pbt_sel1m_{suffix}']
+        for pair, eff in WORKING_POINTS:
+            key = mistag_percent_key(pair, eff)
+            gains[(pair, eff)].append(100 * (1 - pbt[key] / standard[key]))
+    fig, ax = plt.subplots(figsize=(8.4, 3.8))
+    ax.set_axisbelow(True)
+    color = ARM_COLOR['windowed_pbt_v2']
+    for i, wp in enumerate(WORKING_POINTS):
+        values = gains[wp]
+        mean = sum(values) / len(values)
+        ax.bar(i, mean, 0.6, color=color, alpha=0.35, zorder=2, label='average of the seeds' if i == 0 else None)
+        ax.plot([i] * len(values), values, 'o', ms=6, color=color, mec='white', mew=1, zorder=3,
+                label='one seed' if i == 0 else None)
+        top = mean >= 0
+        ax.annotate(f'{mean:+.1f}%', (i, max(max(values), mean) if top else min(min(values), mean)),
+                    xytext=(0, 5 if top else -6), textcoords='offset points', ha='center',
+                    va='bottom' if top else 'top', fontsize=8, color='#52514e')
+    ax.axhline(0, color='#1baf7a', lw=2, zorder=1, label='standard ParT')
+    labels = [f'{WP_NAMES[p[0]]}-tag vs {WP_NAMES[p[1]]}\n{round(100 * e)}% eff.' for p, e in WORKING_POINTS]
+    ax.set_xticks(range(len(WORKING_POINTS)), labels, fontsize=8)
+    ax.set_ylim(min(min(v) for v in gains.values()) - 0.8, max(max(v) for v in gains.values()) + 0.8)
+    ax.set(ylabel='better than standard ParT (%)',
+           title=f'Holdout: PBT against standard ParT at each working point ({len(next(iter(gains.values())))} seeds)')
+    ax.grid(axis='y', color='#ebeae6', lw=0.8)
+    ax.tick_params(axis='x', length=0)
+    ax.legend(frameon=False, loc='upper right', fontsize=8)
+    path = Path(directory) / '11_sel1m_working_points.png'
+    fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.close(fig)
+    return path
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--output', type=Path, default=EVAL / 'lr_level_followups/figures')
@@ -246,7 +294,8 @@ def main(argv=None):
                       text=dict(epoch='train800k epoch', selection_title='Best member so far, validation set',
                                 test_title='Holdout: B vs A per working point (negative = B better)'))
     written += [overview(args.output), seeds_overview(args.output), sel1m_overview(args.output),
-                sel1m_relative(args.output), sel1m_gain(args.output)]
+                sel1m_relative(args.output), sel1m_gain(args.output),
+                sel1m_working_points(args.output)]
     for path in written:
         print(path)
     return 0
