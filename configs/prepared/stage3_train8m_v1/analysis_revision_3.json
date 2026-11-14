@@ -1,0 +1,37 @@
+{
+  "correction": {
+    "change_commit": "1a5ce78",
+    "files": [
+      {
+        "corrected_sha256": "60407d0edca93f7c170d47ab5837080c5d7cbb114d490824cdd63b31c9ceb8fe",
+        "file": "scripts/experiments/stage3/analysis.py",
+        "original_sha256": "3595d1e047134b3d6867cdd54fb33af0cae21d9ca7dc8d1d422b32088c1bb43e"
+      }
+    ],
+    "original_commit": "aa668cd",
+    "rule": [
+      "figures() takes optional arm labels and axis/title text, so other fixed-LR against windowed-PBT comparisons can use the same figures. The defaults are the Stage 3 report's labels and text, so the Stage 3 figures are unchanged.",
+      "No validity check, selection rule, metric, comparison or report value is changed."
+    ]
+  },
+  "observed_defect": [
+    "Not a defect. The 2026-11-09 commit 1a5ce78 changed figure labels only and did not add an analysis revision record, so the record check reported the file as changed."
+  ],
+  "protocol": {
+    "changed": false,
+    "file": "configs/prepared/stage3_train8m_v1/protocol_v2.json",
+    "sha256": "b696ff639a4f24bc700984076411944bd0647760db60bdcc338b3f102b309339"
+  },
+  "revised_at": "2026-11-14T21:00:25.509837+00:00",
+  "revision": 3,
+  "schema_version": 1,
+  "scope": "Figure labels and titles of the Stage 3 analysis only (scripts/experiments/stage3/analysis.py, not a protocol execution file). The Stage 3 campaign, its analysis and its report were completed before the change and are not rebuilt.",
+  "supersedes": {
+    "file": "configs/prepared/stage3_train8m_v1/analysis_revision_2.json",
+    "revision": 2,
+    "sha256": "980336dc00d526ad7ed68c69791c00ed393addb07650641b05f1129ddc9bb1cc"
+  },
+  "verification": {
+    "tests": "tests/test_stage3_campaign.py and tests/test_checkpoint_contents.py pass with the changed file."
+  }
+}

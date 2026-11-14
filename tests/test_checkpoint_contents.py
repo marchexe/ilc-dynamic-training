@@ -186,8 +186,9 @@ class AnalysisRevisionRecordTest(unittest.TestCase):
     def test_records_are_pinned_and_chain_to_the_current_files(self):
         protocol_sha = (common.PREPARED / 'protocol_v2.sha256').read_text().strip()
         latest = {}
-        for number in (1, 2):
-            path = common.PREPARED / f'analysis_revision_{number}.json'
+        paths = sorted(common.PREPARED.glob('analysis_revision_*.json'), key=lambda p: int(p.stem.rsplit('_', 1)[1]))
+        self.assertGreaterEqual(len(paths), 3)
+        for number, path in enumerate(paths, start=1):
             record = common.load_json(path)
             self.assertEqual(common.sha256(path), path.with_suffix('.sha256').read_text().strip())
             self.assertEqual(record['revision'], number)
