@@ -280,6 +280,44 @@ def sel1m_working_points(directory):
     return path
 
 
+TRAIN8M = [('standard ParT', 'sel1m_train8m_standard_part', '#1baf7a'),
+           ('PBT, fast', 'sel1m_train8m_fast_pbt', ARM_COLOR['windowed_pbt_v2'])]
+
+
+def train8m_trajectories(directory):
+    """8M runs: best validation (sel1m_tail) so far per epoch, and the learning rates used per epoch."""
+    from training.pbt.reporting.style import plot_setup
+    plt = plot_setup()
+    fig, (left, right) = plt.subplots(1, 2, figsize=(10, 3.8))
+    for label, run, color in TRAIN8M:
+        epochs, best, low, high, top = [], [], [], [], []
+        current = None
+        for g in load(PROJECT_DIR / 'runs/pbt' / run / 'manifest.json')['generations']:
+            workers = g['workers']
+            if not all(w.get('metrics') for w in workers.values()):
+                continue
+            name, value = min(((n, w['metrics'][PRIMARY]) for n, w in workers.items()), key=lambda t: t[1])
+            current = value if current is None else min(current, value)
+            lrs = [w['lr'] for w in workers.values()]
+            epochs.append(g['epoch']); best.append(current); low.append(min(lrs)); high.append(max(lrs))
+            top.append(workers[name]['lr'])
+        left.plot(epochs, best, color=color, lw=2, label=label)
+        if run.endswith('pbt'):
+            right.fill_between(epochs, low, high, step='post', color=color, alpha=0.25, lw=0, label=f'{label}, all members')
+        else:
+            right.step(epochs, top, where='post', color=color, lw=2, label=f'{label}, best member')
+    left.set(xlabel='weaver epoch', ylabel='mistag, geometric mean (%)', title='Best on validation so far (8M training)')
+    left.set_ylim(0.155, 0.26)
+    right.set(xlabel='weaver epoch', ylabel='learning rate', yscale='log', title='Learning rates used')
+    for ax, where in ((left, 'upper right'), (right, 'lower left')):
+        ax.grid(color='#ebeae6', lw=0.8)
+        ax.legend(frameon=False, fontsize=8, loc=where)
+    path = Path(directory) / '12_train8m_trajectories.png'
+    fig.savefig(path, dpi=200, bbox_inches='tight')
+    plt.close(fig)
+    return path
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--output', type=Path, default=EVAL / 'lr_level_followups/figures')
@@ -295,7 +333,7 @@ def main(argv=None):
                                 test_title='Holdout: B vs A per working point (negative = B better)'))
     written += [overview(args.output), seeds_overview(args.output), sel1m_overview(args.output),
                 sel1m_relative(args.output), sel1m_gain(args.output),
-                sel1m_working_points(args.output)]
+                sel1m_working_points(args.output), train8m_trajectories(args.output)]
     for path in written:
         print(path)
     return 0

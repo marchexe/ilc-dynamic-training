@@ -15,7 +15,9 @@ PBT versus standard ParT training (current main result)
 standard ParT training on every seed: 0.67%, 0.85% and 0.91% lower composite mistag, 0.81% on
 average (95% interval 0.34–1.34%, holdout sampling only). It is better at seven of eight
 working points on average. A grid of constant learning rates is not stable: on one seed it is
-as good as PBT, on the other two it is the same as standard ParT.
+as good as PBT, on the other two it is the same as standard ParT. On ten times more training
+data (8M jets, one seed) the result reverses: PBT is 10.8% worse than standard ParT
+(:ref:`pbt-vs-standard-part-8m`).
 
 **Runs.** Each seed has three runs. All start from the same pretrained checkpoint, train on the
 same 800k jets for 50 epochs with five members, and therefore use the same compute. Each run
@@ -90,6 +92,60 @@ epochs) selected the same checkpoints as PBT without it. Weight averaging of nea
 or of population members did not improve on the plain selected checkpoint. Training standard
 ParT from random initialization reached only 0.378 on the selection set, against about 0.30
 from the pretrained checkpoint.
+
+.. _pbt-vs-standard-part-8m:
+
+On 8M training jets
+~~~~~~~~~~~~~~~~~~~
+
+The same comparison with the 8M training set (``train8m`` without the selection-set rows), one
+seed (12345), the same selection set and holdout, standard ParT and fast PBT only
+(:repo:`configs/prepared/holdout_sel1m_train8m_v1`). Standard ParT trained first, then PBT.
+
+One change was made after standard ParT had trained 31 of 50 epochs and before PBT started. On
+8M jets standard ParT was best at its highest start learning rate, 1×10⁻³, above the PBT upper
+bound of 5×10⁻⁴ used at 800k. PBT therefore got the learning-rate range of standard ParT: the
+same five start learning rates (1×10⁻⁵–1×10⁻³) and an upper bound of 1×10⁻³
+(:repo:`configs/experiments/sel1m_train8m_fast_pbt.yaml`). The other PBT rules are unchanged.
+
+.. list-table:: Composite mistag (%), selected checkpoints, 8M training jets
+   :header-rows: 1
+   :widths: 30 25 25 20
+
+   * - Run
+     - Selection set (1M)
+     - Holdout (2.8M)
+     - Selected epoch
+   * - Standard ParT (start LR 1×10⁻³)
+     - 0.1619
+     - **0.1635**
+     - 67 (last)
+   * - Fast PBT
+     - 0.1844
+     - 0.1812
+     - 66
+   * - PBT − standard
+     - +13.9%
+     - **+10.8%**
+     -
+
+.. figure:: ../published/results/sel1m/figures/train8m_trajectories.png
+   :alt: Best selection-set value so far and learning rates per epoch of standard ParT and PBT on 8M jets
+   :width: 100%
+
+   Left: best value on the selection set so far. Right: learning rate of the best standard ParT
+   member, and the range of learning rates of the PBT members.
+
+PBT was ahead until about epoch 33, then fell behind; standard ParT gained most in its final
+decay (0.180 at epoch 52, 0.162 at epoch 67). The likely cause is the short decision horizon:
+PBT compares members two epochs after each decision, and over two epochs a lower learning rate
+almost always looks better. PBT therefore lowered all learning rates early (at most 2.5×10⁻⁴ from
+epoch 28, 1.1×10⁻⁵–6.3×10⁻⁵ at the end), while standard ParT kept 1×10⁻³ for 35 epochs and
+decayed only at the end. At 800k this cost little; with ten times more data, the long phase
+at a high learning rate is worth more than the early gains. This is one seed and one PBT
+configuration. The difference is far larger than the holdout sampling intervals of the 800k
+comparison, so no interval was computed. Changes to PBT that address the horizon are not yet
+tested.
 
 .. _correction-of-earlier-comparisons:
 
@@ -302,8 +358,8 @@ Large-dataset comparison
 
    The fixed learning rates of arm A (3×10⁻⁶–1.4×10⁻⁵) were far below the learning rates that
    work best, so the 7.7% below is a gain over this grid, not over a tuned baseline
-   (:ref:`correction-of-earlier-comparisons`). A comparison of PBT with standard ParT training
-   on 8M jets is running (:doc:`ongoing`).
+   (:ref:`correction-of-earlier-comparisons`). Against standard ParT training on 8M jets, PBT
+   is 10.8% worse (:ref:`pbt-vs-standard-part-8m`).
 
 Windowed PBT (arm B) against a matched fixed-learning-rate population (arm A), both
 trained on ``train8m``, ten times the training data of the comparisons above, with a
@@ -594,7 +650,8 @@ Limitations
 -----------
 
 * The main result (:ref:`pbt-vs-standard-part`) has three training seeds and one PBT
-  configuration; its intervals cover the holdout sample only.
+  configuration; its intervals cover the holdout sample only. It holds at 800k training jets
+  and not at 8M, where PBT is 10.8% worse (one seed).
 * The earlier comparisons have one seed per policy (two for cadence), comparators with too-low
   learning rates, and no confidence intervals.
 * PBT decisions, checkpoint selection and the primary endpoint share one validation set.
@@ -612,6 +669,8 @@ Limitations
 Open questions
 --------------
 
-Does the gain over standard ParT training hold on 8M training jets, and does it hold from other
-pretrained starting points? How large is seed-to-seed variation with more seeds? Does adaptation frequency matter once selection
+Can PBT keep its gain on 8M training jets if its decisions look further ahead than two epochs,
+for example by scoring members after a short learning-rate decay? Is standard ParT on 8M better
+still with a start learning rate above 1×10⁻³? Does the 800k gain hold from other pretrained
+starting points? How large is seed-to-seed variation with more seeds? Does adaptation frequency matter once selection
 optimism is controlled? Does sub-epoch adaptation help with full optimizer state?

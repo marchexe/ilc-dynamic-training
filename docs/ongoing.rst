@@ -3,28 +3,15 @@ Ongoing Research
 
 The large-dataset comparison against fixed learning rates is complete. Its design, execution record and results are in
 :ref:`large-dataset-comparison`.
+The comparison of PBT with standard ParT training on 8M jets is also complete:
+:ref:`pbt-vs-standard-part-8m`.
 
 .. raw:: html
 
    <span id="large-dataset-comparison"></span><span id="large-dataset-status"></span>
    <span id="large-dataset-design"></span><span id="full-epoch-gate"></span>
    <span id="execution-record"></span><span id="determinism-verification"></span>
-
-.. _pbt-vs-standard-part-8m:
-
-PBT versus standard ParT training on 8M jets
---------------------------------------------
-
-The comparison of :ref:`pbt-vs-standard-part` on the 8M training set, one seed, with the same
-selection set and holdout (:repo:`configs/prepared/holdout_sel1m_train8m_v1`). Standard ParT
-trains first, then PBT.
-
-One change was made after standard ParT had trained 31 of 50 epochs and before PBT started.
-On 8M jets standard ParT is best at its highest start learning rate, 1×10⁻³, above the PBT
-bound of 5×10⁻⁴ used at 800k. PBT therefore gets the learning-rate range of standard ParT: the
-same five start learning rates (1×10⁻⁵–1×10⁻³) and an upper bound of 1×10⁻³
-(:repo:`configs/experiments/sel1m_train8m_fast_pbt.yaml`). Because the best standard ParT
-member is at the top of its range, a higher start learning rate will be tested afterwards.
+   <span id="pbt-vs-standard-part-8m"></span>
 
 .. _sub-epoch-adaptation:
 
