@@ -281,7 +281,7 @@ def sel1m_working_points(directory):
 
 
 TRAIN8M = [('standard ParT', 'sel1m_train8m_standard_part', '#1baf7a'),
-           ('PBT, fast', 'sel1m_train8m_fast_pbt', ARM_COLOR['windowed_pbt_v2'])]
+           ('PBT', 'sel1m_train8m_fast_pbt', ARM_COLOR['windowed_pbt_v2'])]
 
 
 def train8m_trajectories(directory):
