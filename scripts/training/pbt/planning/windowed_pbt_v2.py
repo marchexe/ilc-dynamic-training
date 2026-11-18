@@ -8,6 +8,7 @@ from training.pbt.reference.windowed_v2 import (
 from training.checkpoints import bundle_paths, bundle_identity, check_bundle, copy_bundle as _copy_bundle
 from training.pbt.state.optimizer_state import atomic_set_optimizer_lr
 from training.pbt.planning.lr_schedule import final_decay_start
+from training.pbt.planning.window_probe import probe_scored_generation
 from training.runtime import atomic_json, utc_now
 
 
@@ -20,6 +21,8 @@ def windowed_pbt_v2_plan(config, generation, members, manifest=None):
     factor that keeps its LR farthest from the other LRs. If every fallback LR is in use, the second to fourth
 powers of the fallback factors are tried the same way; the loser stays skipped only if all of those are in use.
 
+    With `probe`, the decision ranks the members on short cool-down probes (planning/window_probe.py).
+
     With `final_decay`, no decision is made from generation G - n - 1 on: the LRs then decay every epoch, which
     the reference windows do not allow, and the last copy lands before the decay starts.
     """
@@ -27,7 +30,12 @@ powers of the fallback factors are tried the same way; the loser stays skipped o
     if start is not None and generation['index'] >= start - 1:
         metric = config['pbt']['metric']
         return sorted(members, key=lambda n: (generation['workers'][n]['metrics'][metric], n)), []
-    ranking, plan = reference_plan(config, generation, members, manifest)
+    scored = probe_scored_generation(config, generation)
+    ranking, plan = reference_plan(config, scored, members, manifest)
+    if scored is not generation:
+        # With probes the reference decision ranks on the probe values (window_probe.py); the live record keeps
+        # the population's own metrics and receives only the decision.
+        generation[STRATEGY] = dict(scored[STRATEGY], scored_on='probe')
     factors = (config['pbt'].get(STRATEGY) or {}).get('fallback_factors')
     decision = generation.get(STRATEGY)
     if not factors or not decision or decision['terminal']:

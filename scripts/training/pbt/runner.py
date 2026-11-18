@@ -57,6 +57,7 @@ from training.pbt.planning import (
 from training.pbt.state.transitions import apply_exploit
 from training.pbt.planning.lr_schedule import apply_lr_schedule
 from training.pbt.planning.windowed_pbt_v2 import STRATEGY as WINDOWED_PBT, prepare_boundary, apply_window_exploits
+from training.pbt.planning.window_probe import run_window_probes
 from training.pbt.planning.cadenced_pbt_v1 import (
     STRATEGY as CADENCED_PBT,
     prepare_boundary as prepare_cadenced_boundary,
@@ -842,6 +843,7 @@ def run(args):
             )
 
             if existing["exploit"] is None:
+                run_window_probes(config, backend, experiment_dir, manifest, existing, manifest_path)
                 is_final_generation = generation == int(config["shared"]["generations"]) - 1
                 _plan_generation_exploit(
                     config, manifest, existing, generation, is_final_generation,

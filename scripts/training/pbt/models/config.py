@@ -72,6 +72,13 @@ class FinalDecayConfig(StrictSectionModel):
     final_factor: float = Field(default=0.01, gt=0.0, lt=1.0)
 
 
+class WindowProbeConfig(StrictSectionModel):
+    """Cool-down probes of windowed_pbt_v2 (planning/window_probe.py): `samples` training jets at lr_factor x LR."""
+
+    lr_factor: float = Field(gt=0.0, lt=1.0)
+    samples: int = Field(gt=0)
+
+
 class PopulationMember(StrictSectionModel):
     name: str
     start_lr: float | None = None
@@ -421,11 +428,16 @@ class WindowedPBTConfig(StrictSectionModel):
     # decisions and every member's LR decays as in Weaver flat+decay from its LR at the start of the decay
     # (planning/lr_schedule.py), so the run ends like standard ParT training.
     final_decay: FinalDecayConfig | None = None
+    # None: decisions rank the window's own validation values. Set: they rank short cool-down probes
+    # (planning/window_probe.py); score_epochs must then be 1.
+    probe: WindowProbeConfig | None = None
 
     @model_validator(mode="after")
     def validate_window(self):
         if self.score_epochs > self.window_epochs:
             raise ValueError("score_epochs must fit inside the decision window")
+        if self.probe is not None and self.score_epochs != 1:
+            raise ValueError("probe-scored decisions require score_epochs: 1")
         f = self.fallback_factors
         if f is not None and (not f or len(set(f)) != len(f) or any(not math.isfinite(x) or x <= 0 or x == 1 for x in f)):
             raise ValueError("fallback_factors must be distinct finite positive factors other than 1")

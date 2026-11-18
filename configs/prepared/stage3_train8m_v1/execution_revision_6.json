@@ -1,0 +1,30 @@
+{
+  "applies": "only after the campaign completed (status completed with report_integrity.json); until then every launch and resume still refuses changed execution files",
+  "changed_execution_files": [
+    {
+      "current_sha256": "0e738c46653fa2600699fbc6b96088aa7a24198502ff8075349e97d30ff2df39",
+      "frozen_sha256": "c8026d59391c380ef25523e90dfc156fe32a71a54198279ecdcc15535b6424fe",
+      "original_commit": "78dccacdd9dc913fba7df500a0d164bd93fb45ce",
+      "path": "scripts/training/pbt/models/config.py"
+    },
+    {
+      "current_sha256": "8c63176606759cd4766a9de6b94389480761e3cd6cbe3b941482f3341b15cb53",
+      "frozen_sha256": "19783bf6ef3325454cb82d9b4c7d7718c8da797d4c7bae3775821173a04b3091",
+      "original_commit": "f9f51a85496b5ee766834a77e0933b6fc8006565",
+      "path": "scripts/training/pbt/planning/windowed_pbt_v2.py"
+    },
+    {
+      "current_sha256": "4805ac0418e79b517dd4b8acd29b91320eda6d1ba65c62a1cd93396dde32506d",
+      "frozen_sha256": "d23c39d138be098360c29775c4a366a5dccf2718d55e7316b1f868c953b21a92",
+      "original_commit": "21d20c5871b9255a757f597497ffd0fc6074e1e8",
+      "path": "scripts/training/pbt/runner.py"
+    }
+  ],
+  "protocol": {
+    "file": "configs/prepared/stage3_train8m_v1/protocol_v2.json",
+    "sha256": "b696ff639a4f24bc700984076411944bd0647760db60bdcc338b3f102b309339"
+  },
+  "reason": "Cool-down probes for windowed_pbt_v2 (scripts/training/pbt/planning/window_probe.py): with the new optional windowed_pbt_v2.probe setting (models/config.py), at every boundary that can copy members the runner (runner.py) trains a copy of each member for a few training jets at a lower LR and validates it, and the decision (planning/windowed_pbt_v2.py) ranks the members on these probe values. Without probe, which every recorded run and configuration uses, the files behave as before: the decision receives the unchanged generation, and the runner starts no probe (tests/test_window_probe.py, tests/test_windowed_pbt_v2.py). This record supersedes the earlier entries of the same files. The campaign ran on the frozen files; this record lets later work use the changed files without reporting drift for the completed study.",
+  "recorded_at": "2026-11-18T23:46:52.171587+00:00",
+  "schema_version": 1
+}
