@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_sel1m_train8m_lr3e-3_v1",
+  "purpose": "Addendum to holdout_sel1m_train8m_v1, fixed before training: standard ParT on train8m_head with start LR 3e-3 (one member, otherwise as sel1m_train8m_standard_part), because there the best member had the highest start LR, 1e-3. The standard ParT (1e-3) and fast PBT checkpoints of holdout_sel1m_train8m_v1 are re-evaluated as references. The standard ParT result on 8M is the one of the two standard ParT checkpoints with the better sel1m_tail value; the holdout does not choose. Pairs: the 3e-3 checkpoint against the 1e-3 one, and the fast PBT against the 3e-3 one.",
+  "runs": [
+    {"id": "standard3e3_sel1m_8m_s12345", "run": "sel1m_train8m_standard_part_3e-3"}
+  ],
+  "references": [
+    {"id": "standard_sel1m_8m_s12345", "checkpoint_id": "standard_sel1m_8m_s12345",
+     "protocol": "configs/prepared/holdout_sel1m_train8m_v1/protocol.json", "results": "runs/eval/holdout_sel1m_train8m_v1"},
+    {"id": "pbt_sel1m_8m_s12345", "checkpoint_id": "pbt_sel1m_8m_s12345",
+     "protocol": "configs/prepared/holdout_sel1m_train8m_v1/protocol.json", "results": "runs/eval/holdout_sel1m_train8m_v1"}
+  ],
+  "pairs": [
+    ["standard_sel1m_8m_s12345", "standard3e3_sel1m_8m_s12345"],
+    ["standard3e3_sel1m_8m_s12345", "pbt_sel1m_8m_s12345"]
+  ]
+}

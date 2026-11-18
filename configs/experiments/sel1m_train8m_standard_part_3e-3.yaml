@@ -1,0 +1,15 @@
+# Standard ParT on train8m_head with start LR 3e-3: one more member for sel1m_train8m_standard_part. There the
+# best member was the one with the highest start LR, 1e-3 (sel1m_tail 0.1619, at the last epoch), so the
+# baseline may still improve above its range. Same start, seed, data, schedule (flat for 35 generations, then
+# x0.01**(1/15) per epoch) and selection set; only the start LR differs. The standard ParT result on 8M is the
+# better of the two runs' selected checkpoints, chosen on sel1m_tail.
+presets:
+  - sel1m_train8m_standard_part.yaml
+experiment:
+  name: sel1m_train8m_standard_part_3e-3
+pbt:
+  max_lr: 3.0e-3
+population:
+  - name: flat_decay_3000e-6
+    start_lr: 3.0e-3
+    lr_schedule: {kind: flat_decay}
