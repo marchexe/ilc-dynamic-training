@@ -1,0 +1,16 @@
+# sel1m_train8m_fast_pbt with cool-down probes (planning/window_probe.py), the fix for its result: on train8m the
+# fast PBT lowered every LR within ten epochs and lost 10.8% to standard ParT. Each decision ranks the members on
+# a probe: a copy of each member trains a quarter epoch (5.15M of about 20.6M jets) at 0.1 x its LR and is
+# validated on sel1m_tail. Probe weights never return to the population. Everything else, including the LR
+# range of standard ParT (1e-5 to 1e-3), is sel1m_train8m_fast_pbt (seed 12345). Started before the 800k probe
+# run (sel1m_fast_pbt_probe) had finished, to save time; stopped if that run shows a fault.
+presets:
+  - sel1m_train8m_fast_pbt.yaml
+experiment:
+  name: sel1m_train8m_fast_pbt_probe
+pbt:
+  windowed_pbt_v2:
+    score_epochs: 1
+    probe:
+      lr_factor: 0.1
+      samples: 5150000

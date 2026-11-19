@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_sel1m_probe_v1",
+  "purpose": "Fast windowed PBT with cool-down probes (planning/window_probe.py: each decision ranks the members on a copy trained a quarter epoch at 0.1 x its LR), on 800k (sel1m_fast_pbt_probe) and on 8M (sel1m_train8m_fast_pbt_probe), seed 12345, selected on sel1m_tail. Fixed before training. The probe settings (0.1 x LR, a quarter epoch) were chosen after the 8M result of holdout_sel1m_train8m_v1 and are not tuned. References: standard ParT and fast PBT without probes of the same training set and seed. Primary comparisons: probe PBT against standard ParT on each training set. Secondary: probe PBT against PBT without probes.",
+  "runs": [
+    {"id": "pbt_probe_sel1m_s12345", "run": "sel1m_fast_pbt_probe"},
+    {"id": "pbt_probe_sel1m_8m_s12345", "run": "sel1m_train8m_fast_pbt_probe"}
+  ],
+  "references": [
+    {"id": "standard_sel1m_s12345", "checkpoint_id": "standard_sel1m_s12345",
+     "protocol": "configs/prepared/holdout_sel1m_v1/protocol.json", "results": "runs/eval/holdout_sel1m_v1"},
+    {"id": "pbt_sel1m_s12345", "checkpoint_id": "pbt_sel1m_s12345",
+     "protocol": "configs/prepared/holdout_sel1m_v1/protocol.json", "results": "runs/eval/holdout_sel1m_v1"},
+    {"id": "standard_sel1m_8m_s12345", "checkpoint_id": "standard_sel1m_8m_s12345",
+     "protocol": "configs/prepared/holdout_sel1m_train8m_v1/protocol.json", "results": "runs/eval/holdout_sel1m_train8m_v1"},
+    {"id": "pbt_sel1m_8m_s12345", "checkpoint_id": "pbt_sel1m_8m_s12345",
+     "protocol": "configs/prepared/holdout_sel1m_train8m_v1/protocol.json", "results": "runs/eval/holdout_sel1m_train8m_v1"}
+  ],
+  "pairs": [
+    ["standard_sel1m_s12345", "pbt_probe_sel1m_s12345"],
+    ["pbt_sel1m_s12345", "pbt_probe_sel1m_s12345"],
+    ["standard_sel1m_8m_s12345", "pbt_probe_sel1m_8m_s12345"],
+    ["pbt_sel1m_8m_s12345", "pbt_probe_sel1m_8m_s12345"]
+  ]
+}
