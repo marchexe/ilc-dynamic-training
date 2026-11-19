@@ -1,0 +1,18 @@
+# GPU smoke test of sel1m_fast_pbt_probe: 6 generations, 4 members (one GPU each, within the 5-GPU budget while
+# a 1-GPU run is active). Probes run after generations 1 and 3; the decision after generation 3 can copy.
+# Not a result.
+presets:
+  - sel1m_fast_pbt_probe.yaml
+experiment:
+  name: sel1m_fast_pbt_probe_smoke
+shared:
+  generations: 6
+population:
+  - name: lr_25e-6
+    start_lr: 2.5e-5
+  - name: lr_60e-6
+    start_lr: 6.0e-5
+  - name: lr_150e-6
+    start_lr: 1.5e-4
+  - name: lr_350e-6
+    start_lr: 3.5e-4
