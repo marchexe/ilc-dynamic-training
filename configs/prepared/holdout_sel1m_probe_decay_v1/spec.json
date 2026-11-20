@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_sel1m_probe_decay_v1",
+  "purpose": "Fast windowed PBT with cool-down probes, the final LR decay of standard ParT (last 15 of 50 generations, x0.01) and the LR range of standard ParT on train8m including the 3e-3 run (start LRs 3e-5 to 3e-3, max_lr 3e-3): sel1m_train8m_fast_pbt_probe_decay, seed 12345, selected on sel1m_tail. Fixed before training, after the sel1m_tail curves (not the holdout) of sel1m_train8m_fast_pbt_probe and sel1m_train8m_standard_part_3e-3. A development run: this seed and training set have already been used for three PBT variants. References: standard ParT with start LR 1e-3 and 3e-3, and probe PBT without decay. Primary comparison: this run against the standard ParT checkpoint (1e-3 or 3e-3) with the better sel1m_tail value; the holdout does not choose. Secondary: this run against probe PBT without decay.",
+  "runs": [
+    {"id": "pbt_probe_decay_sel1m_8m_s12345", "run": "sel1m_train8m_fast_pbt_probe_decay"}
+  ],
+  "references": [
+    {"id": "standard_sel1m_8m_s12345", "checkpoint_id": "standard_sel1m_8m_s12345",
+     "protocol": "configs/prepared/holdout_sel1m_train8m_v1/protocol.json", "results": "runs/eval/holdout_sel1m_train8m_v1"},
+    {"id": "standard3e3_sel1m_8m_s12345", "checkpoint_id": "standard3e3_sel1m_8m_s12345",
+     "protocol": "configs/prepared/holdout_sel1m_train8m_lr3e-3_v1/protocol.json", "results": "runs/eval/holdout_sel1m_train8m_lr3e-3_v1"},
+    {"id": "pbt_probe_sel1m_8m_s12345", "checkpoint_id": "pbt_probe_sel1m_8m_s12345",
+     "protocol": "configs/prepared/holdout_sel1m_probe_v1/protocol.json", "results": "runs/eval/holdout_sel1m_probe_v1"}
+  ],
+  "pairs": [
+    ["standard_sel1m_8m_s12345", "pbt_probe_decay_sel1m_8m_s12345"],
+    ["standard3e3_sel1m_8m_s12345", "pbt_probe_decay_sel1m_8m_s12345"],
+    ["pbt_probe_sel1m_8m_s12345", "pbt_probe_decay_sel1m_8m_s12345"]
+  ]
+}
