@@ -1,0 +1,21 @@
+# Standard ParT on train8m_head with training seed 22345, for the confirmation of the 8M comparison. Only the two
+# start LRs that were best on seed 12345 (sel1m_train8m_standard_part, 1e-3, and
+# sel1m_train8m_standard_part_3e-3, 3e-3); the lower start LRs were far behind there. One run, so the selected
+# checkpoint is the better member on sel1m_tail, the rule of holdout_sel1m_train8m_lr3e-3_v1. Schedule, start,
+# data and selection set as sel1m_train8m_standard_part. Committed before the result of
+# sel1m_train8m_fast_pbt_probe_decay (seed 12345) was known.
+presets:
+  - sel1m_train8m_standard_part.yaml
+experiment:
+  name: sel1m_train8m_standard_part_seed22345
+shared:
+  seed: 22345
+pbt:
+  max_lr: 3.0e-3
+population:
+  - name: flat_decay_1000e-6
+    start_lr: 1.0e-3
+    lr_schedule: {kind: flat_decay}
+  - name: flat_decay_3000e-6
+    start_lr: 3.0e-3
+    lr_schedule: {kind: flat_decay}

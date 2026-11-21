@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_sel1m_train8m_seeds_v1",
+  "purpose": "Confirmation of the 8M comparison with two new training seeds (22345, 32345), fixed before training and before the result of the seed-12345 development run sel1m_train8m_fast_pbt_probe_decay was known. Per seed: standard ParT on train8m_head with start LRs 1e-3 and 3e-3 (the two best on seed 12345; the selected checkpoint is the better member on sel1m_tail) against fast windowed PBT with cool-down probes, the final LR decay of standard ParT and its LR range up to 3e-3 (sel1m_train8m_fast_pbt_probe_decay, unchanged). Selection on sel1m_tail; the holdout does not choose. Primary comparison: PBT minus standard ParT per seed and averaged over the two seeds; seed 12345 is development and is not part of the confirmation. These runs start only if the seed-12345 run is not clearly worse than standard ParT; that decision and its reason are recorded before they start.",
+  "runs": [
+    {"id": "standard_sel1m_8m_s22345", "run": "sel1m_train8m_standard_part_seed22345"},
+    {"id": "pbt_probe_decay_sel1m_8m_s22345", "run": "sel1m_train8m_fast_pbt_probe_decay_seed22345"},
+    {"id": "standard_sel1m_8m_s32345", "run": "sel1m_train8m_standard_part_seed32345"},
+    {"id": "pbt_probe_decay_sel1m_8m_s32345", "run": "sel1m_train8m_fast_pbt_probe_decay_seed32345"}
+  ],
+  "references": [],
+  "pairs": [
+    ["standard_sel1m_8m_s22345", "pbt_probe_decay_sel1m_8m_s22345"],
+    ["standard_sel1m_8m_s32345", "pbt_probe_decay_sel1m_8m_s32345"]
+  ]
+}
