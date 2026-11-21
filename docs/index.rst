@@ -13,8 +13,8 @@ for model selection.
   holdout than standard ParT training (Weaver's flat+decay learning-rate schedule) on every
   seed, by 0.67%, 0.85% and 0.91%; 0.81% on average, 95% interval 0.34–1.34% for the
   holdout sample. Both use the same compute (:ref:`pbt-vs-standard-part`).
-* On ten times more training data (8M jets, one seed) the result reverses: PBT is 10.8%
-  worse than standard ParT on the holdout. PBT lowers the learning rate too early
+* On ten times more training data (8M jets, one seed) the result reverses: PBT is 12.4%
+  worse than standard ParT on the holdout (best at start learning rate 3×10⁻³). PBT lowers the learning rate too early
   (:ref:`pbt-vs-standard-part-8m`).
 * Corrected: the earlier gains of 1–2% and 7.7% were measured against fixed learning
   rates that were too low, and do not measure the gain over a tuned baseline

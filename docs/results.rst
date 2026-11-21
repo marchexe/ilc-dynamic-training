@@ -16,7 +16,7 @@ standard ParT training on every seed: 0.67%, 0.85% and 0.91% lower composite mis
 average (95% interval 0.34–1.34%, holdout sampling only). It is better at seven of eight
 working points on average. A grid of constant learning rates is not stable: on one seed it is
 as good as PBT, on the other two it is the same as standard ParT. On ten times more training
-data (8M jets, one seed) the result reverses: PBT is 10.8% worse than standard ParT
+data (8M jets, one seed) the result reverses: PBT is 12.4% worse than standard ParT
 (:ref:`pbt-vs-standard-part-8m`).
 
 **Runs.** Each seed has three runs. All start from the same pretrained checkpoint, train on the
@@ -101,6 +101,11 @@ On 8M training jets
 The same comparison with the 8M training set (``train8m`` without the selection-set rows), one
 seed (12345), the same selection set and holdout, standard ParT and fast PBT only
 (:repo:`configs/prepared/holdout_sel1m_train8m_v1`). Standard ParT trained first, then PBT.
+Because the best standard ParT member had the highest start learning rate, one more
+standard ParT member with start learning rate 3×10⁻³ trained afterwards; its holdout
+specification was committed before it started and fixes that the 8M standard ParT result is
+the better of the two on the selection set
+(:repo:`configs/prepared/holdout_sel1m_train8m_lr3e-3_v1`).
 
 One change was made after standard ParT had trained 31 of 50 epochs and before PBT started. On
 8M jets standard ParT was best at its highest start learning rate, 1×10⁻³, above the PBT upper
@@ -116,25 +121,32 @@ same five start learning rates (1×10⁻⁵–1×10⁻³) and an upper bound of 
      - Selection set (1M)
      - Holdout (2.8M)
      - Selected epoch
+   * - Standard ParT (start LR 3×10⁻³)
+     - 0.1584
+     - **0.1611**
+     - 67 (last)
    * - Standard ParT (start LR 1×10⁻³)
      - 0.1619
-     - **0.1635**
+     - 0.1635
      - 67 (last)
    * - Fast PBT
      - 0.1844
      - 0.1812
      - 66
-   * - PBT − standard
-     - +13.9%
-     - **+10.8%**
+   * - PBT − standard (3×10⁻³)
+     - +16.4%
+     - **+12.4%**
      -
 
 .. figure:: ../published/results/sel1m/figures/train8m_trajectories.png
    :alt: Best selection-set value so far and learning rates per epoch of standard ParT and PBT on 8M jets
    :width: 100%
 
-   Left: best value on the selection set so far. Right: learning rate of the best standard ParT
-   member, and the range of learning rates of the PBT members.
+   Left: best value on the selection set so far. Right: learning rate of the standard ParT
+   member with start learning rate 1×10⁻³, and the range of learning rates of the PBT members.
+
+The 3×10⁻³ member is 1.4% better on the holdout than the 1×10⁻³ member (0.1611 against
+0.1635) and also better on the selection set, so it is the 8M standard ParT result.
 
 PBT was ahead until about epoch 33, then fell behind; standard ParT gained most in its final
 decay (0.180 at epoch 52, 0.162 at epoch 67). The likely cause is the short decision horizon:
@@ -651,7 +663,7 @@ Limitations
 
 * The main result (:ref:`pbt-vs-standard-part`) has three training seeds and one PBT
   configuration; its intervals cover the holdout sample only. It holds at 800k training jets
-  and not at 8M, where PBT is 10.8% worse (one seed).
+  and not at 8M, where PBT is 12.4% worse (one seed).
 * The earlier comparisons have one seed per policy (two for cadence), comparators with too-low
   learning rates, and no confidence intervals.
 * PBT decisions, checkpoint selection and the primary endpoint share one validation set.
@@ -670,7 +682,7 @@ Open questions
 --------------
 
 Can PBT keep its gain on 8M training jets if its decisions look further ahead than two epochs,
-for example by scoring members after a short learning-rate decay? Is standard ParT on 8M better
-still with a start learning rate above 1×10⁻³? Does the 800k gain hold from other pretrained
+for example by scoring members after a short learning-rate decay (in progress:
+:ref:`probe-scored-pbt`)? Does the 800k gain hold from other pretrained
 starting points? How large is seed-to-seed variation with more seeds? Does adaptation frequency matter once selection
 optimism is controlled? Does sub-epoch adaptation help with full optimizer state?
