@@ -3,47 +3,39 @@ Ongoing Research
 
 The large-dataset comparison against fixed learning rates is complete. Its design, execution record and results are in
 :ref:`large-dataset-comparison`.
-The comparison of PBT with standard ParT training on 8M jets is also complete:
-:ref:`pbt-vs-standard-part-8m`. A fix for its result is in progress: :ref:`probe-scored-pbt`.
+The comparison of PBT with standard ParT training on 8M jets and the fixes tried for it are
+complete: :ref:`pbt-vs-standard-part-8m`, :ref:`probe-scored-pbt`.
 
 .. raw:: html
 
    <span id="large-dataset-comparison"></span><span id="large-dataset-status"></span>
    <span id="large-dataset-design"></span><span id="full-epoch-gate"></span>
    <span id="execution-record"></span><span id="determinism-verification"></span>
-   <span id="pbt-vs-standard-part-8m"></span>
+   <span id="pbt-vs-standard-part-8m"></span><span id="probe-scored-pbt"></span>
 
-.. _probe-scored-pbt:
+.. _ensemble-diversity:
 
-PBT with cool-down probes on 8M jets
-------------------------------------
+Where the ensemble gain comes from
+----------------------------------
 
-On 8M jets PBT lowers every learning rate within ten epochs (:ref:`pbt-vs-standard-part-8m`).
-A cool-down probe tests a fix: at each decision, a copy of every member trains a quarter epoch
-at 0.1× its learning rate and is validated, and the decision ranks the members on these probe
-values. Probe weights never return to the population and are never selected
-(:repo:`scripts/training/pbt/planning/window_probe.py`). The probe settings were chosen after
-the 8M result and are not tuned.
+The prediction ensemble of the two standard ParT models is 5.05% better on the holdout than the
+better single model (:ref:`prediction-ensemble`). An analysis of the saved selection-set
+predictions of nine finished 8M models measures, for every pair, the ensemble gain and how
+differently the two models err. It runs on existing checkpoints only. The open question is whether
+the gain comes from the different learning rates of the two models or from training two models
+separately; if the learning rates matter, a population method that keeps its members different,
+instead of copying them, could give a better ensemble at the same cost.
 
-All values below are on the selection set; holdout evaluation follows once each run has
-completed (:repo:`configs/prepared/holdout_sel1m_probe_v1`,
-:repo:`configs/prepared/holdout_sel1m_probe_decay_v1`).
+.. _dropout-branch:
 
-* **800k, probes** (:repo:`configs/experiments/sel1m_fast_pbt_probe.yaml`): completed;
-  best 0.2989, against 0.2982 for PBT without probes and 0.3006 for standard ParT. The probes
-  change little where PBT already wins.
-* **8M, probes** (:repo:`configs/experiments/sel1m_train8m_fast_pbt_probe.yaml`): the
-  learning rates stay at 1.2×10⁻⁴–1×10⁻³ instead of collapsing, and at epoch 45 the run is 8%
-  better than PBT without probes. Without a final decay it then stops improving (0.1684 from
-  epoch 61), behind standard ParT (0.1584 at start learning rate 3×10⁻³).
-* **8M, probes and final decay** (:repo:`configs/experiments/sel1m_train8m_fast_pbt_probe_decay.yaml`):
-  in progress. As above, plus the final decay of standard ParT (last 15 of 50 epochs, ×0.01)
-  and the learning-rate range of standard ParT including 3×10⁻³.
+Final decay without dropout
+---------------------------
 
-These runs use seed 12345, on which three PBT variants have now been tried on 8M, so they are
-development runs. A claim needs new seeds with the configuration fixed beforehand: the
-configurations and holdout specification for seeds 22345 and 32345 were committed before the
-result of the last run was known (:repo:`configs/prepared/holdout_sel1m_train8m_seeds_v1`).
+The model does not overfit at 8M (:ref:`no-overfitting-at-8m`), so its dropout (0.1 in the
+particle-attention blocks) may only slow it down. A test repeats the final decay of standard ParT
+at 3×10⁻³ (epochs 53–67) from its saved epoch-52 checkpoint with dropout 0 and otherwise the
+recorded commands. This is a quarter of a full run; a full run follows only if the decay alone
+shows a gain.
 
 .. _sub-epoch-adaptation:
 

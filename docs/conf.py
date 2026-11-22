@@ -9,6 +9,11 @@ extlinks = {"repo": ("https://github.com/marchexe/ilc-dynamic-training/blob/main
 root_doc = "index"
 source_suffix = ".rst"
 exclude_patterns = ["_build", ".venv", ".venv-*", "Thumbs.db", ".DS_Store"]
-html_theme = "alabaster"
+html_theme = "furo"
+html_theme_options = {
+    "source_repository": "https://github.com/marchexe/ilc-dynamic-training/",
+    "source_branch": "main",
+    "source_directory": "docs/",
+}
 html_title = project
 html_static_path = ["_static"]

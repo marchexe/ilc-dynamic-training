@@ -17,7 +17,9 @@ average (95% interval 0.34–1.34%, holdout sampling only). It is better at seve
 working points on average. A grid of constant learning rates is not stable: on one seed it is
 as good as PBT, on the other two it is the same as standard ParT. On ten times more training
 data (8M jets, one seed) the result reverses: PBT is 12.4% worse than standard ParT
-(:ref:`pbt-vs-standard-part-8m`).
+(:ref:`pbt-vs-standard-part-8m`). Fixes close most but not all of that gap
+(:ref:`probe-scored-pbt`); the reason is that the model overfits at 800k but not at 8M
+(:ref:`no-overfitting-at-8m`).
 
 **Runs.** Each seed has three runs. All start from the same pretrained checkpoint, train on the
 same 800k jets for 50 epochs with five members, and therefore use the same compute. Each run
@@ -156,8 +158,149 @@ epoch 28, 1.1×10⁻⁵–6.3×10⁻⁵ at the end), while standard ParT kept 1�
 decayed only at the end. At 800k this cost little; with ten times more data, the long phase
 at a high learning rate is worth more than the early gains. This is one seed and one PBT
 configuration. The difference is far larger than the holdout sampling intervals of the 800k
-comparison, so no interval was computed. Changes to PBT that address the horizon are not yet
-tested.
+comparison, so no interval was computed. The changes to PBT that address the horizon are in
+:ref:`probe-scored-pbt`, and the reason why 8M differs from 800k is in
+:ref:`no-overfitting-at-8m`.
+
+.. _probe-scored-pbt:
+
+Fixes tried on 8M: cool-down probes and a final decay
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Two changes address the short decision horizon. Each was fixed in a holdout specification
+before its run started (:repo:`configs/prepared/holdout_sel1m_probe_v1`,
+:repo:`configs/prepared/holdout_sel1m_probe_decay_v1`).
+
+* **Cool-down probes.** At each decision a copy of every member trains a quarter epoch at
+  0.1× its learning rate, and the decision ranks the members on these copies. A high learning
+  rate is then judged after a short decay, which is where its benefit shows. The copies never
+  return to the population and are never selected
+  (:repo:`scripts/training/pbt/planning/window_probe.py`). The probe settings were chosen after
+  the 8M result and are not tuned.
+* **Final decay.** In the last 15 of 50 epochs PBT makes no decisions, and every member's
+  learning rate decays by ×0.01 as in standard ParT. This run also had the learning-rate range of
+  standard ParT including 3×10⁻³.
+
+.. list-table:: Holdout composite mistag (%), 8M training jets, seed 12345
+   :header-rows: 1
+   :widths: 46 18 36
+
+   * - Run
+     - Holdout
+     - Against standard ParT (3×10⁻³)
+   * - Standard ParT, start LR 3×10⁻³
+     - **0.1611**
+     -
+   * - PBT
+     - 0.1812
+     - +12.4%
+   * - PBT + probes
+     - 0.1699
+     - +5.4%
+   * - PBT + probes + final decay
+     - 0.1655
+     - +2.7%
+
+.. figure:: ../published/results/sel1m/figures/train8m_holdout_overview.png
+   :alt: Holdout composite mistag of every 8M run, with the change against standard ParT at 3e-3
+   :width: 100%
+
+   Holdout composite mistag on 8M training jets; the dashed line is standard ParT at start
+   learning rate 3×10⁻³. The ensemble is described in :ref:`prediction-ensemble`.
+
+The probes kept the learning rates high (1.2×10⁻⁴–1×10⁻³ instead of below 2.5×10⁻⁴), and the
+final decay added the gain that standard ParT gets at the end. Together they closed 78% of the
+gap (from 12.4% to 2.7%), but PBT is still worse than standard ParT. In epochs 44–51 the probes
+again preferred lower learning rates (down to 1.3×10⁻⁴), so the final decay started from lower
+learning rates than 3×10⁻³. A probe at 0.1× the member's own learning rate for a quarter epoch
+is a much shorter and weaker decay than the real one (×0.01 over 15 epochs), so it still favours
+low learning rates.
+
+At 800k the probes changed little: 0.3024 on the holdout, against 0.3029 for standard ParT and
+0.3008 for PBT without probes (seed 12345).
+
+These are development runs: seed 12345 and the 8M training set had already been used for
+earlier PBT variants. Configurations and a holdout specification for two new seeds were committed
+in advance, with the rule that they run only if the last run is not clearly worse than standard
+ParT (:repo:`configs/prepared/holdout_sel1m_train8m_seeds_v1`). At +2.7% it is clearly worse, so
+the new seeds were not started.
+
+.. _no-overfitting-at-8m:
+
+Why 8M differs from 800k: the model does not overfit
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The loss on the training data and on the selection set (data the model never trains on) shows
+the difference between the two training sets.
+
+.. figure:: ../published/results/sel1m/figures/overfitting.png
+   :alt: Training and selection-set loss per epoch of the best standard ParT member at 800k and 8M
+   :width: 100%
+
+   Loss per epoch of the best standard ParT member (start learning rate 1×10⁻⁴ at 800k,
+   3×10⁻³ at 8M), on the training data and on the selection set.
+
+* **800k:** from about epoch 40 the training loss keeps falling (0.270 at the end) while the
+  selection-set loss almost stops (0.276). The model starts to memorise its training data
+  (overfitting), and lowering the learning rate early and keeping the best checkpoint helps.
+  This is what PBT does, and it wins.
+* **8M:** the two losses stay together until the end (0.2443 and 0.2448). The model does not
+  overfit; it is still limited by how much it can learn. Then the best recipe is a long phase at
+  a high learning rate followed by a decay, which is standard ParT. PBT judges every decision
+  after two epochs and lowers the learning rate too early.
+
+This also limits what PBT can gain on 8M by tuning the learning rate: after the decay, the two
+best constant start learning rates differ by only 1.4% (0.1611 and 0.1635), about as much as the
+selection set can resolve. Methods against overfitting, such as more weight decay or dropout, are
+not expected to help at 8M for the same reason. Weight averaging was also tested on the saved
+8M checkpoints: averages of the last 3–10 epochs did not reliably rank a member with a high
+learning rate above one with a lower rate before the decay, and averages after the decay or
+across PBT members were not better than the best single checkpoint (selection set only).
+
+.. _prediction-ensemble:
+
+Prediction ensemble of the two standard ParT models (development result)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The mean of the class probabilities of the two 8M standard ParT models (start learning rates
+3×10⁻³ and 1×10⁻³) is **5.05% better on the holdout** than the better single model
+(0.1530 against 0.1611; 95% interval 3.75–6.36% for the holdout sample). No training is
+needed: both models already exist as members of the standard ParT learning-rate scan.
+
+.. list-table:: Holdout composite mistag (%), 8M training jets, seed 12345
+   :header-rows: 1
+   :widths: 46 18 36
+
+   * - Model
+     - Holdout
+     - Ensemble against it (95% interval)
+   * - Standard ParT, start LR 3×10⁻³
+     - 0.1611
+     - −5.05% (−6.36, −3.75)
+   * - PBT + probes + final decay
+     - 0.1655
+     - −7.54% (−8.86, −5.83)
+   * - **Ensemble of the two standard ParT models**
+     - **0.1530**
+     -
+
+How it was found and checked: eight ensembles of finished 8M models were scored on the
+selection set only; this one was the best there (0.1515 against 0.1584 for the single 3×10⁻³
+model). The comparison was then fixed in a specification and committed before the ensemble was
+scored on the holdout (:repo:`configs/prepared/holdout_ensemble_8m_dev_v1/spec.json`), and no
+other ensemble was scored on the holdout. The interval uses the block bootstrap described above.
+
+On the selection set, ensembles of PBT members gave nothing: the two best members of the last
+PBT run together were 0.1605, against 0.1604 for the best one alone. PBT copies the weights of
+the best member into the others, so its members make the same errors, while separately trained
+models make different errors that partly cancel in the mean. The weights of the two standard
+ParT models also cannot be averaged into one model (0.39 on the selection set), which confirms
+that they ended in different solutions.
+
+Limits: one training seed; the ensemble costs two models at inference time; and the gain was
+found by looking at eight candidates on the selection set before the single holdout check.
+Whether the gain comes from the different learning rates or from training two separate models is
+open (:ref:`ensemble-diversity`).
 
 .. _correction-of-earlier-comparisons:
 

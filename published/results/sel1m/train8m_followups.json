@@ -1,0 +1,584 @@
+{
+ "schema_version": 1,
+ "metric": "validation_total_reference_mistag_geomean_percent",
+ "holdout": [
+  {
+   "label": "Standard ParT, start LR 1e-3",
+   "value": 0.16348219789364563,
+   "source": "runs/eval/holdout_sel1m_train8m_v1/evaluations/standard_sel1m_8m_s12345"
+  },
+  {
+   "label": "Standard ParT, start LR 3e-3",
+   "value": 0.16114742374181168,
+   "source": "runs/eval/holdout_sel1m_train8m_lr3e-3_v1/evaluations/standard3e3_sel1m_8m_s12345"
+  },
+  {
+   "label": "PBT",
+   "value": 0.18114974809492024,
+   "source": "runs/eval/holdout_sel1m_train8m_v1/evaluations/pbt_sel1m_8m_s12345"
+  },
+  {
+   "label": "PBT + probes",
+   "value": 0.16989391059321565,
+   "source": "runs/eval/holdout_sel1m_probe_v1/evaluations/pbt_probe_sel1m_8m_s12345"
+  },
+  {
+   "label": "PBT + probes + final decay",
+   "value": 0.16549082160186201,
+   "source": "runs/eval/holdout_sel1m_probe_decay_v1/evaluations/pbt_probe_decay_sel1m_8m_s12345"
+  },
+  {
+   "label": "Ensemble of the two standard ParT models",
+   "value": 0.15300889574064885,
+   "source": "runs/eval/holdout_ensemble_8m_dev_v1 (configs/prepared/holdout_ensemble_8m_dev_v1/spec.json)"
+  }
+ ],
+ "ensemble_comparisons": [
+  {
+   "name": "primary",
+   "left": "standard3e3_sel1m_8m_s12345",
+   "right": "ensemble",
+   "left_value": 0.16114742374181168,
+   "right_value": 0.15300889574064885,
+   "change_percent": -5.050361843948725,
+   "interval_percent": [
+    -6.357884620090781,
+    -3.7499427647033596
+   ],
+   "working_points_percent": {
+    "validation_working_point_mistag_percent": -3.989591297183892,
+    "validation_ctag_reference_mistag_percent": -2.982963188777754
+   }
+  },
+  {
+   "name": "secondary",
+   "left": "pbt_probe_decay_sel1m_8m_s12345",
+   "right": "ensemble",
+   "left_value": 0.16549082160186201,
+   "right_value": 0.15300889574064885,
+   "change_percent": -7.542367449985954,
+   "interval_percent": [
+    -8.85790544140996,
+    -5.83172530480418
+   ],
+   "working_points_percent": {
+    "validation_working_point_mistag_percent": -6.8045859853732455,
+    "validation_ctag_reference_mistag_percent": -5.545513022311832
+   }
+  }
+ ],
+ "loss_curves": {
+  "800k": {
+   "run": "sel1m_standard_part",
+   "member": "flat_decay_100e-6",
+   "epochs": [
+    {
+     "epoch": 18,
+     "train": 0.29484,
+     "selection": 0.28513
+    },
+    {
+     "epoch": 19,
+     "train": 0.29076,
+     "selection": 0.28323
+    },
+    {
+     "epoch": 20,
+     "train": 0.28852,
+     "selection": 0.28188
+    },
+    {
+     "epoch": 21,
+     "train": 0.28695,
+     "selection": 0.28129
+    },
+    {
+     "epoch": 22,
+     "train": 0.28593,
+     "selection": 0.28066
+    },
+    {
+     "epoch": 23,
+     "train": 0.28482,
+     "selection": 0.28034
+    },
+    {
+     "epoch": 24,
+     "train": 0.28444,
+     "selection": 0.27969
+    },
+    {
+     "epoch": 25,
+     "train": 0.28346,
+     "selection": 0.27943
+    },
+    {
+     "epoch": 26,
+     "train": 0.28267,
+     "selection": 0.27904
+    },
+    {
+     "epoch": 27,
+     "train": 0.282,
+     "selection": 0.27869
+    },
+    {
+     "epoch": 28,
+     "train": 0.28186,
+     "selection": 0.27856
+    },
+    {
+     "epoch": 29,
+     "train": 0.28106,
+     "selection": 0.27827
+    },
+    {
+     "epoch": 30,
+     "train": 0.28066,
+     "selection": 0.27793
+    },
+    {
+     "epoch": 31,
+     "train": 0.28,
+     "selection": 0.27772
+    },
+    {
+     "epoch": 32,
+     "train": 0.27968,
+     "selection": 0.27778
+    },
+    {
+     "epoch": 33,
+     "train": 0.27923,
+     "selection": 0.27741
+    },
+    {
+     "epoch": 34,
+     "train": 0.27868,
+     "selection": 0.27737
+    },
+    {
+     "epoch": 35,
+     "train": 0.27828,
+     "selection": 0.27719
+    },
+    {
+     "epoch": 36,
+     "train": 0.27769,
+     "selection": 0.27711
+    },
+    {
+     "epoch": 37,
+     "train": 0.27737,
+     "selection": 0.27682
+    },
+    {
+     "epoch": 38,
+     "train": 0.27706,
+     "selection": 0.27699
+    },
+    {
+     "epoch": 39,
+     "train": 0.27656,
+     "selection": 0.27673
+    },
+    {
+     "epoch": 40,
+     "train": 0.27659,
+     "selection": 0.27661
+    },
+    {
+     "epoch": 41,
+     "train": 0.27553,
+     "selection": 0.27651
+    },
+    {
+     "epoch": 42,
+     "train": 0.27529,
+     "selection": 0.2763
+    },
+    {
+     "epoch": 43,
+     "train": 0.2751,
+     "selection": 0.27639
+    },
+    {
+     "epoch": 44,
+     "train": 0.27531,
+     "selection": 0.27627
+    },
+    {
+     "epoch": 45,
+     "train": 0.27463,
+     "selection": 0.27627
+    },
+    {
+     "epoch": 46,
+     "train": 0.27418,
+     "selection": 0.27614
+    },
+    {
+     "epoch": 47,
+     "train": 0.27393,
+     "selection": 0.27621
+    },
+    {
+     "epoch": 48,
+     "train": 0.27365,
+     "selection": 0.27587
+    },
+    {
+     "epoch": 49,
+     "train": 0.27343,
+     "selection": 0.27592
+    },
+    {
+     "epoch": 50,
+     "train": 0.27285,
+     "selection": 0.27587
+    },
+    {
+     "epoch": 51,
+     "train": 0.27269,
+     "selection": 0.27565
+    },
+    {
+     "epoch": 52,
+     "train": 0.27222,
+     "selection": 0.27562
+    },
+    {
+     "epoch": 53,
+     "train": 0.27172,
+     "selection": 0.27562
+    },
+    {
+     "epoch": 54,
+     "train": 0.27172,
+     "selection": 0.27545
+    },
+    {
+     "epoch": 55,
+     "train": 0.27108,
+     "selection": 0.27549
+    },
+    {
+     "epoch": 56,
+     "train": 0.27109,
+     "selection": 0.27561
+    },
+    {
+     "epoch": 57,
+     "train": 0.27072,
+     "selection": 0.27547
+    },
+    {
+     "epoch": 58,
+     "train": 0.27069,
+     "selection": 0.27569
+    },
+    {
+     "epoch": 59,
+     "train": 0.27051,
+     "selection": 0.2756
+    },
+    {
+     "epoch": 60,
+     "train": 0.27008,
+     "selection": 0.27564
+    },
+    {
+     "epoch": 61,
+     "train": 0.27035,
+     "selection": 0.27575
+    },
+    {
+     "epoch": 62,
+     "train": 0.27034,
+     "selection": 0.27574
+    },
+    {
+     "epoch": 63,
+     "train": 0.27031,
+     "selection": 0.27564
+    },
+    {
+     "epoch": 64,
+     "train": 0.2703,
+     "selection": 0.27563
+    },
+    {
+     "epoch": 65,
+     "train": 0.27034,
+     "selection": 0.27564
+    },
+    {
+     "epoch": 66,
+     "train": 0.27036,
+     "selection": 0.27563
+    },
+    {
+     "epoch": 67,
+     "train": 0.27,
+     "selection": 0.27567
+    }
+   ]
+  },
+  "8M": {
+   "run": "sel1m_train8m_standard_part_3e-3",
+   "member": "flat_decay_3000e-6",
+   "epochs": [
+    {
+     "epoch": 18,
+     "train": 0.29067,
+     "selection": 0.27593
+    },
+    {
+     "epoch": 19,
+     "train": 0.28087,
+     "selection": 0.27089
+    },
+    {
+     "epoch": 20,
+     "train": 0.27611,
+     "selection": 0.2666
+    },
+    {
+     "epoch": 21,
+     "train": 0.27301,
+     "selection": 0.26537
+    },
+    {
+     "epoch": 22,
+     "train": 0.27099,
+     "selection": 0.26346
+    },
+    {
+     "epoch": 23,
+     "train": 0.26911,
+     "selection": 0.26434
+    },
+    {
+     "epoch": 24,
+     "train": 0.26749,
+     "selection": 0.26158
+    },
+    {
+     "epoch": 25,
+     "train": 0.26581,
+     "selection": 0.25833
+    },
+    {
+     "epoch": 26,
+     "train": 0.26437,
+     "selection": 0.26119
+    },
+    {
+     "epoch": 27,
+     "train": 0.26339,
+     "selection": 0.25986
+    },
+    {
+     "epoch": 28,
+     "train": 0.2625,
+     "selection": 0.25733
+    },
+    {
+     "epoch": 29,
+     "train": 0.26162,
+     "selection": 0.25627
+    },
+    {
+     "epoch": 30,
+     "train": 0.26089,
+     "selection": 0.25633
+    },
+    {
+     "epoch": 31,
+     "train": 0.26042,
+     "selection": 0.25662
+    },
+    {
+     "epoch": 32,
+     "train": 0.25982,
+     "selection": 0.25618
+    },
+    {
+     "epoch": 33,
+     "train": 0.25934,
+     "selection": 0.25536
+    },
+    {
+     "epoch": 34,
+     "train": 0.25885,
+     "selection": 0.25502
+    },
+    {
+     "epoch": 35,
+     "train": 0.25845,
+     "selection": 0.25514
+    },
+    {
+     "epoch": 36,
+     "train": 0.25803,
+     "selection": 0.25403
+    },
+    {
+     "epoch": 37,
+     "train": 0.25769,
+     "selection": 0.25596
+    },
+    {
+     "epoch": 38,
+     "train": 0.25737,
+     "selection": 0.25267
+    },
+    {
+     "epoch": 39,
+     "train": 0.25697,
+     "selection": 0.25644
+    },
+    {
+     "epoch": 40,
+     "train": 0.25672,
+     "selection": 0.25233
+    },
+    {
+     "epoch": 41,
+     "train": 0.25629,
+     "selection": 0.25229
+    },
+    {
+     "epoch": 42,
+     "train": 0.25594,
+     "selection": 0.2555
+    },
+    {
+     "epoch": 43,
+     "train": 0.25591,
+     "selection": 0.2522
+    },
+    {
+     "epoch": 44,
+     "train": 0.2555,
+     "selection": 0.25183
+    },
+    {
+     "epoch": 45,
+     "train": 0.25521,
+     "selection": 0.25217
+    },
+    {
+     "epoch": 46,
+     "train": 0.25486,
+     "selection": 0.25189
+    },
+    {
+     "epoch": 47,
+     "train": 0.25474,
+     "selection": 0.25191
+    },
+    {
+     "epoch": 48,
+     "train": 0.25448,
+     "selection": 0.25083
+    },
+    {
+     "epoch": 49,
+     "train": 0.25424,
+     "selection": 0.25114
+    },
+    {
+     "epoch": 50,
+     "train": 0.25399,
+     "selection": 0.2507
+    },
+    {
+     "epoch": 51,
+     "train": 0.25391,
+     "selection": 0.25191
+    },
+    {
+     "epoch": 52,
+     "train": 0.25378,
+     "selection": 0.25124
+    },
+    {
+     "epoch": 53,
+     "train": 0.25175,
+     "selection": 0.24891
+    },
+    {
+     "epoch": 54,
+     "train": 0.24998,
+     "selection": 0.24801
+    },
+    {
+     "epoch": 55,
+     "train": 0.24867,
+     "selection": 0.24709
+    },
+    {
+     "epoch": 56,
+     "train": 0.24756,
+     "selection": 0.24682
+    },
+    {
+     "epoch": 57,
+     "train": 0.2468,
+     "selection": 0.24596
+    },
+    {
+     "epoch": 58,
+     "train": 0.24617,
+     "selection": 0.24542
+    },
+    {
+     "epoch": 59,
+     "train": 0.24567,
+     "selection": 0.24607
+    },
+    {
+     "epoch": 60,
+     "train": 0.24536,
+     "selection": 0.2451
+    },
+    {
+     "epoch": 61,
+     "train": 0.24506,
+     "selection": 0.24509
+    },
+    {
+     "epoch": 62,
+     "train": 0.24482,
+     "selection": 0.24492
+    },
+    {
+     "epoch": 63,
+     "train": 0.24471,
+     "selection": 0.24494
+    },
+    {
+     "epoch": 64,
+     "train": 0.24452,
+     "selection": 0.24479
+    },
+    {
+     "epoch": 65,
+     "train": 0.24446,
+     "selection": 0.24487
+    },
+    {
+     "epoch": 66,
+     "train": 0.24447,
+     "selection": 0.24481
+    },
+    {
+     "epoch": 67,
+     "train": 0.24434,
+     "selection": 0.2448
+    }
+   ]
+  }
+ }
+}
