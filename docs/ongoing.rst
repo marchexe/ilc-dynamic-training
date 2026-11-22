@@ -19,12 +19,22 @@ Where the ensemble gain comes from
 ----------------------------------
 
 The prediction ensemble of the two standard ParT models is 5.05% better on the holdout than the
-better single model (:ref:`prediction-ensemble`). An analysis of the saved selection-set
-predictions of nine finished 8M models measures, for every pair, the ensemble gain and how
-differently the two models err. It runs on existing checkpoints only. The open question is whether
-the gain comes from the different learning rates of the two models or from training two models
-separately; if the learning rates matter, a population method that keeps its members different,
-instead of copying them, could give a better ensemble at the same cost.
+better single model (:ref:`prediction-ensemble`). The selection-set predictions of nine finished
+8M models were compared in all 36 pairs (selection set only, existing checkpoints only):
+
+* Two checkpoints of the same run, or two members of the same PBT run, disagree on 0.2–0.4% of
+  the jets and give no ensemble gain.
+* Two separately trained models disagree on 1.5–2.3% of the jets. If both are strong, the
+  ensemble is 1.5–6.5% better than the better of the two; a weak partner (selection value above
+  0.17) gives little or makes it worse.
+* The largest gains need the standard ParT model at 1×10⁻³: with standard ParT at 3×10⁻³ 4.4%
+  (6.5% with the last epoch of both), with members of the last PBT run 4.0–4.7%. Standard ParT
+  at 3×10⁻³ with the same PBT members gives only 1.5–2.9%.
+
+Separate training is therefore necessary, and a different learning rate seems to add to it, but
+with one seed the two effects cannot be separated. A second standard ParT run at 3×10⁻³ with a
+new seed would separate them. If the learning rate matters, a population method that keeps its
+members different, instead of copying them, could give a better ensemble at the same cost.
 
 .. _dropout-branch:
 
