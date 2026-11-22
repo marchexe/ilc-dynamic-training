@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "campaign": "holdout_ensemble_8m_dev_v1",
+  "status": "development check, written before the ensemble is scored on the holdout set",
+  "purpose": "Is a prediction ensemble of the two standard ParT checkpoints on train8m better than the better single standard ParT checkpoint on the holdout set? The ensemble is the mean of the class probabilities of the two checkpoints. No training and no new evaluation: the per-jet holdout predictions of both checkpoints already exist and are averaged.",
+  "selection_history": "On sel1m_tail (not the holdout set), eight ensembles of finished train8m checkpoints were scored on 2026-11-23 (runs/eval/ensemble_8m_explore_v1): two and three standard ParT checkpoints, two, three and five PBT members, and mixes. This ensemble had the best sel1m_tail value (0.15150 against 0.15845 for the standard 3e-3 checkpoint alone). It is the only ensemble scored on the holdout set here; the other seven are not.",
+  "ensemble": {
+    "id": "ensemble_standard_3e-3_1e-3_8m_s12345",
+    "members": [
+      {"id": "standard3e3_sel1m_8m_s12345", "predictions": "runs/eval/holdout_sel1m_train8m_lr3e-3_v1/evaluations/standard3e3_sel1m_8m_s12345",
+       "checkpoint": "sel1m_train8m_standard_part_3e-3, member flat_decay_3000e-6, epoch 62", "checkpoint_sha256_prefix": "365d817623c6"},
+      {"id": "standard_sel1m_8m_s12345", "predictions": "runs/eval/holdout_sel1m_train8m_v1/evaluations/standard_sel1m_8m_s12345",
+       "checkpoint": "sel1m_train8m_standard_part, member flat_decay_1000e-6, epoch 67", "checkpoint_sha256_prefix": "1af683e64c45"}
+    ],
+    "combination": "mean of the softmax scores, row by row after ordering by Weaver row ID"
+  },
+  "comparisons": [
+    {"name": "primary", "left": "standard3e3_sel1m_8m_s12345", "right": "ensemble",
+     "note": "the better single standard ParT checkpoint on sel1m_tail (rule of holdout_sel1m_train8m_lr3e-3_v1)"},
+    {"name": "secondary", "left": "pbt_probe_decay_sel1m_8m_s12345", "right": "ensemble",
+     "predictions_left": "runs/eval/holdout_sel1m_probe_decay_v1/evaluations/pbt_probe_decay_sel1m_8m_s12345"}
+  ],
+  "metric": "validation_total_reference_mistag_geomean_percent, recomputed from the predictions with experiments.stage2a.analysis.score_metrics; each single checkpoint must reproduce its recorded holdout value",
+  "interval": {"method": "paired block bootstrap of holdout_block_bootstrap.py", "block_rows": 100, "replicates": 500, "seed": 20261012},
+  "rule": "The ensemble is reported as better if its holdout metric is lower than the left checkpoint's and the 95% interval of the change is below zero. This is one training seed and a development result: it says nothing about other seeds, and the ensemble costs two models at inference.",
+  "no_holdout_reselection": true
+}
