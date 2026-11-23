@@ -30,7 +30,7 @@
   {
    "label": "Ensemble of the two standard ParT models",
    "value": 0.15300889574064885,
-   "source": "runs/eval/holdout_ensemble_8m_dev_v1 (configs/prepared/holdout_ensemble_8m_dev_v1/spec.json)"
+   "source": "runs/eval/holdout_ensemble_8m_dev_v1 (configs/prepared/ensemble_8m_dev_v1/spec.json)"
   }
  ],
  "ensemble_comparisons": [

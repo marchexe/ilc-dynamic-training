@@ -1,0 +1,12 @@
+# Standard ParT at start LR 3e-3 on train8m (sel1m_train8m_standard_part_3e-3, seed 12345), trained on the mean
+# class probabilities of the ensemble of configs/prepared/ensemble_8m_dev_v1 (distillation): the loss is
+# 0.5 x cross-entropy on the true labels + 0.5 x cross-entropy on the ensemble probabilities
+# (networks/distill_ensemble_8m_s12345.py). Everything else, the seed included, is the 3e-3 run, so the only
+# difference is the training target. A checkpoint is a plain ParT checkpoint: one model at inference.
+# Development run: the teachers were trained on the same data and seed.
+presets:
+  - sel1m_train8m_standard_part_3e-3.yaml
+experiment:
+  name: sel1m_train8m_distill_s12345
+shared:
+  network_config: networks/distill_ensemble_8m_s12345.py

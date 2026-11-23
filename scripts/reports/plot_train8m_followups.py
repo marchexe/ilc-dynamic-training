@@ -47,7 +47,7 @@ def holdout_values():
     ensemble = json.loads((EVAL / 'holdout_ensemble_8m_dev_v1/result.json').read_text())
     rows.append(dict(label='Ensemble of the two standard ParT models', value=ensemble['values']['ensemble'],
                      colour=ENSEMBLE, source='runs/eval/holdout_ensemble_8m_dev_v1 '
-                     '(configs/prepared/holdout_ensemble_8m_dev_v1/spec.json)'))
+                     '(configs/prepared/ensemble_8m_dev_v1/spec.json)'))
     return rows, ensemble['comparisons']
 
 

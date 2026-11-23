@@ -287,7 +287,7 @@ needed: both models already exist as members of the standard ParT learning-rate 
 How it was found and checked: eight ensembles of finished 8M models were scored on the
 selection set only; this one was the best there (0.1515 against 0.1584 for the single 3×10⁻³
 model). The comparison was then fixed in a specification and committed before the ensemble was
-scored on the holdout (:repo:`configs/prepared/holdout_ensemble_8m_dev_v1/spec.json`), and no
+scored on the holdout (:repo:`configs/prepared/ensemble_8m_dev_v1/spec.json`), and no
 other ensemble was scored on the holdout. The interval uses the block bootstrap described above.
 
 On the selection set, ensembles of PBT members gave nothing: the two best members of the last
