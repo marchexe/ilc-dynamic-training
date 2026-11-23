@@ -302,6 +302,77 @@ found by looking at eight candidates on the selection set before the single hold
 Whether the gain comes from the different learning rates or from training two separate models is
 open (:ref:`ensemble-diversity`).
 
+.. _ensemble-800k:
+
+Ensembles at 800k: no gain
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The same check on the 800k runs, with three training seeds (selection set only; no holdout
+evaluation). Fifteen finished models were scored: per seed, the standard ParT members with start
+learning rates 1×10⁻⁴, 3×10⁻⁴ and 3×10⁻⁵ at their best epoch, and the selected PBT and
+constant-learning-rate checkpoints. Gains are against the better model of each pair (negative is
+better); disagreement is the share of jets on which the two models predict different classes.
+
+.. list-table:: Ensembles of two models, 800k training jets, selection set
+   :header-rows: 1
+   :widths: 52 22 26
+
+   * - Pair
+     - Gain (mean)
+     - Disagreement
+   * - Standard ParT 1×10⁻⁴, two different seeds (3 pairs)
+     - 0.0%
+     - 0.6–0.7%
+   * - Standard ParT 3×10⁻⁴, two different seeds (3 pairs)
+     - −1.0%
+     - 1.2–1.3%
+   * - Standard ParT 1×10⁻⁴ and 3×10⁻⁴, same seed (3 pairs)
+     - −0.3%
+     - 1.0–1.4%
+   * - PBT and standard ParT 1×10⁻⁴, same seed (3 pairs)
+     - +0.5%
+     - 0.6–0.8%
+   * - PBT of two different seeds (3 pairs)
+     - −0.2%
+     - 0.7%
+
+At 800k the best learning rates are low, and the models stay close to the common pretrained
+checkpoint: even with different seeds they disagree on only 0.6–0.7% of the jets, and their mean
+is no better than either. On 8M the learning rates are ten times higher, separately trained models
+disagree on 1.5–2.3% of the jets, and the ensemble gains 4–6.5% (:ref:`ensemble-diversity`). The
+diversity of the models therefore seems to grow with how far training moves them from the
+pretrained checkpoint. Of all 105 pairs, the best are about 0.9% better than the best single
+model, which is within what the choice among so many pairs can give by chance.
+
+.. _two-regimes:
+
+Summary: two regimes
+~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 36 36
+
+   * -
+     - 800k training jets
+     - 8M training jets
+   * - The model
+     - overfits
+     - does not overfit
+   * - Best learning rate
+     - low (1×10⁻⁴)
+     - high (3×10⁻³)
+   * - PBT against standard ParT
+     - **better**, 0.81% (3 seeds)
+     - worse, 12.4%; 2.7% after the fixes (1 seed)
+   * - Ensemble of two models
+     - no gain
+     - **better**, 5.05% (1 seed)
+
+With little data, adapting the learning rate with PBT helps and ensembles do not; with much data,
+standard ParT with an ensemble of its learning-rate scan helps and PBT does not. The 8M results
+use one training seed; a second seed is in progress (:ref:`ensemble-diversity`).
+
 .. _correction-of-earlier-comparisons:
 
 Correction of the earlier comparisons

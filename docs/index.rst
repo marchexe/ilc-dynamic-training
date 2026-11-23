@@ -24,7 +24,10 @@ Findings
 4. **An ensemble of two standard ParT models is 5.05% better** on the 8M holdout than the
    better single model (interval 3.75–6.36%; one seed, development result). Both models are
    members of the learning-rate scan that standard ParT training runs anyway
-   (:ref:`prediction-ensemble`).
+   (:ref:`prediction-ensemble`). At 800k ensembles give no gain (:ref:`ensemble-800k`).
+
+In short: with little training data PBT helps a little and ensembles do not; with much data an
+ensemble of standard ParT models helps and PBT does not (:ref:`two-regimes`).
 
 .. figure:: ../published/results/sel1m/figures/train8m_holdout_overview.png
    :alt: Holdout composite mistag of every 8M run and of the ensemble
