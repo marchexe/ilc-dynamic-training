@@ -38,6 +38,24 @@ repeat the holdout check of the ensemble with that seed; the comparisons and the
 fixed before it started (:repo:`configs/prepared/ensemble_seed22345_v1/spec.json`). If the learning rate matters, a population method that keeps its
 members different, instead of copying them, could give a better ensemble at the same cost.
 
+.. _distillation:
+
+Distillation of the ensemble into one model
+-------------------------------------------
+
+The ensemble needs two models at inference time. Distillation trains one model on the mean class
+probabilities of the ensemble instead of only the true labels; if it keeps part of the gain, the
+result is a single model that is better than standard ParT at the same inference cost. The loss is
+half the usual cross-entropy on the true labels and half the cross-entropy on the ensemble
+probabilities; the two ensemble models run next to the trained model and are not part of its
+checkpoint (:repo:`networks/distill_particle_transformer.py`,
+:repo:`networks/distill_ensemble_8m_s12345.py`).
+
+A first test repeats only the final decay of standard ParT at 3×10⁻³ (epochs 53–67) from its saved
+epoch-52 checkpoint with this loss, as in the dropout test below (selection set only). A full run
+(:repo:`configs/experiments/sel1m_train8m_distill_s12345.yaml`) follows only if the test shows a
+clear gain.
+
 .. _dropout-branch:
 
 Final decay without dropout (stopped, negative)
