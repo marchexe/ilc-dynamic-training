@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "campaign": "ensemble_seed22345_v1",
+  "status": "fixed before sel1m_train8m_standard_part_seed22345 starts (2026-11-23)",
+  "purpose": "Two questions about the prediction ensemble of holdout_ensemble_8m_dev_v1 (standard ParT 3e-3 + 1e-3 on train8m, seed 12345, 5.05% better than the better single model on the holdout). (A) Does the gain come from the different start LRs of the two models or only from training two models separately? (B) Does the gain repeat with a new training seed?",
+  "training": {
+    "config": "configs/experiments/sel1m_train8m_standard_part_seed22345.yaml",
+    "note": "Committed on 2026-11-20 for the PBT seed confirmation (holdout_sel1m_train8m_seeds_v1). The PBT seed runs of that specification stay not started: its rule stops them, because the last PBT run was clearly worse than standard ParT. This standard ParT run is used here for a different purpose; its configuration is unchanged."
+  },
+  "models": {
+    "s1_3e-3": "sel1m_train8m_standard_part_3e-3, member flat_decay_3000e-6, epoch 62 (as in holdout_ensemble_8m_dev_v1)",
+    "s1_1e-3": "sel1m_train8m_standard_part, member flat_decay_1000e-6, epoch 67 (as in holdout_ensemble_8m_dev_v1)",
+    "s2_3e-3": "sel1m_train8m_standard_part_seed22345, member flat_decay_3000e-6, the epoch with its best sel1m_tail value",
+    "s2_1e-3": "sel1m_train8m_standard_part_seed22345, member flat_decay_1000e-6, the epoch with its best sel1m_tail value"
+  },
+  "ensemble": "mean of the class probabilities of two models",
+  "gain": "ensemble value against the better of its two models, in percent, on the named set",
+  "question_A": {
+    "set": "sel1m_tail only",
+    "same_lr_pairs": [["s1_3e-3", "s2_3e-3"], ["s1_1e-3", "s2_1e-3"]],
+    "different_lr_pairs": [["s1_3e-3", "s1_1e-3"], ["s2_3e-3", "s2_1e-3"], ["s1_3e-3", "s2_1e-3"], ["s2_3e-3", "s1_1e-3"]],
+    "rule": "The start LR adds to the gain if the mean gain of the four different-LR pairs is better than the mean gain of the two same-LR pairs by more than 1 percentage point. If the difference is within 1 percentage point, separate training alone explains the gain. Otherwise (same-LR pairs better by more than 1 point) different LRs hurt. Descriptive: one new seed, no interval."
+  },
+  "question_B": {
+    "set": "holdout (val_holdout, 2.8M jets), evaluated once per model after both seed-22345 checkpoints are fixed",
+    "comparison": "ensemble of s2_3e-3 and s2_1e-3 against the one of the two with the better sel1m_tail value",
+    "interval": {"method": "paired block bootstrap of holdout_block_bootstrap.py", "block_rows": 100, "replicates": 500, "seed": 20261012},
+    "rule": "The ensemble gain repeats if the ensemble is better and the 95% interval of the change is below zero. No other ensemble of seed 22345 is scored on the holdout.",
+    "no_holdout_reselection": true
+  }
+}
