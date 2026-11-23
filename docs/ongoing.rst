@@ -32,20 +32,24 @@ better single model (:ref:`prediction-ensemble`). The selection-set predictions 
   at 3×10⁻³ with the same PBT members gives only 1.5–2.9%.
 
 Separate training is therefore necessary, and a different learning rate seems to add to it, but
-with one seed the two effects cannot be separated. A second standard ParT run at 3×10⁻³ with a
-new seed would separate them. If the learning rate matters, a population method that keeps its
+with one seed the two effects cannot be separated. A standard ParT run with a new training seed
+(22345) and the start learning rates 3×10⁻³ and 1×10⁻³ is in progress to separate them and to
+repeat the holdout check of the ensemble with that seed; the comparisons and their rules were
+fixed before it started (:repo:`configs/prepared/ensemble_seed22345_v1/spec.json`). If the learning rate matters, a population method that keeps its
 members different, instead of copying them, could give a better ensemble at the same cost.
 
 .. _dropout-branch:
 
-Final decay without dropout
----------------------------
+Final decay without dropout (stopped, negative)
+-----------------------------------------------
 
 The model does not overfit at 8M (:ref:`no-overfitting-at-8m`), so its dropout (0.1 in the
-particle-attention blocks) may only slow it down. A test repeats the final decay of standard ParT
-at 3×10⁻³ (epochs 53–67) from its saved epoch-52 checkpoint with dropout 0 and otherwise the
-recorded commands. This is a quarter of a full run; a full run follows only if the decay alone
-shows a gain.
+particle-attention blocks) might only slow it down. A test repeated the final decay of standard
+ParT at 3×10⁻³ from its saved epoch-52 checkpoint with dropout 0 and otherwise the recorded
+commands (selection set only). Without dropout the model almost stopped improving during the
+decay: 0.1730 at epoch 61, against 0.1595 with dropout. The test ended at epoch 62 when the
+process was lost on the node and was not restarted, since the result is clear. Dropout helps at 8M
+even without visible overfitting.
 
 .. _sub-epoch-adaptation:
 
