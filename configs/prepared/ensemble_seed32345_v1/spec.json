@@ -1,0 +1,100 @@
+{
+ "schema_version": 1,
+ "campaign": "ensemble_seed32345_v1",
+ "status": "fixed before sel1m_train8m_standard_part_seed32345 starts (2026-11-24); a third seed for ensemble_seed22345_v1, while that run is still training",
+ "purpose": "Two questions about the prediction ensemble of holdout_ensemble_8m_dev_v1 (standard ParT 3e-3 + 1e-3 on train8m, seed 12345, 5.05% better than the better single model on the holdout). (A) Does the gain come from the different start LRs of the two models or only from training two models separately? (B) Does the gain repeat with a new training seed?",
+ "training": {
+  "config": "configs/experiments/sel1m_train8m_standard_part_seed32345.yaml",
+  "note": "Committed on 2026-11-20 for the PBT seed confirmation (holdout_sel1m_train8m_seeds_v1), whose PBT runs stay not started. Used here unchanged, as sel1m_train8m_standard_part_seed22345 in ensemble_seed22345_v1."
+ },
+ "models": {
+  "s1_3e-3": "sel1m_train8m_standard_part_3e-3, member flat_decay_3000e-6, epoch 62 (as in holdout_ensemble_8m_dev_v1)",
+  "s1_1e-3": "sel1m_train8m_standard_part, member flat_decay_1000e-6, epoch 67 (as in holdout_ensemble_8m_dev_v1)",
+  "s2_3e-3": "sel1m_train8m_standard_part_seed22345, member flat_decay_3000e-6, the epoch with its best sel1m_tail value",
+  "s2_1e-3": "sel1m_train8m_standard_part_seed22345, member flat_decay_1000e-6, the epoch with its best sel1m_tail value",
+  "s3_3e-3": "sel1m_train8m_standard_part_seed32345, member flat_decay_3000e-6, the epoch with its best sel1m_tail value",
+  "s3_1e-3": "sel1m_train8m_standard_part_seed32345, member flat_decay_1000e-6, the epoch with its best sel1m_tail value"
+ },
+ "ensemble": "mean of the class probabilities of two models",
+ "gain": "ensemble value against the better of its two models, in percent, on the named set",
+ "question_A": {
+  "set": "sel1m_tail only",
+  "same_lr_pairs": [
+   [
+    "s1_3e-3",
+    "s2_3e-3"
+   ],
+   [
+    "s1_1e-3",
+    "s2_1e-3"
+   ],
+   [
+    "s1_3e-3",
+    "s3_3e-3"
+   ],
+   [
+    "s2_3e-3",
+    "s3_3e-3"
+   ],
+   [
+    "s1_1e-3",
+    "s3_1e-3"
+   ],
+   [
+    "s2_1e-3",
+    "s3_1e-3"
+   ]
+  ],
+  "different_lr_pairs": [
+   [
+    "s1_3e-3",
+    "s1_1e-3"
+   ],
+   [
+    "s2_3e-3",
+    "s2_1e-3"
+   ],
+   [
+    "s1_3e-3",
+    "s2_1e-3"
+   ],
+   [
+    "s2_3e-3",
+    "s1_1e-3"
+   ],
+   [
+    "s3_3e-3",
+    "s3_1e-3"
+   ],
+   [
+    "s1_3e-3",
+    "s3_1e-3"
+   ],
+   [
+    "s3_3e-3",
+    "s1_1e-3"
+   ],
+   [
+    "s2_3e-3",
+    "s3_1e-3"
+   ],
+   [
+    "s3_3e-3",
+    "s2_1e-3"
+   ]
+  ],
+  "rule": "As in ensemble_seed22345_v1, over all listed pairs of the three seeds, once both seed runs have completed; the seed-22345 answer of ensemble_seed22345_v1 is reported first and on its own."
+ },
+ "question_B": {
+  "set": "holdout (val_holdout, 2.8M jets), evaluated once per model after both seed-22345 checkpoints are fixed",
+  "comparison": "ensemble of s3_3e-3 and s3_1e-3 against the one of the two with the better sel1m_tail value; reported with the same result of seed 12345 (ensemble_8m_dev_v1) and seed 22345 (ensemble_seed22345_v1), and their mean over the three seeds with one set of resampled blocks for all seeds (pooled interval of holdout_block_bootstrap.py)",
+  "interval": {
+   "method": "paired block bootstrap of holdout_block_bootstrap.py",
+   "block_rows": 100,
+   "replicates": 500,
+   "seed": 20261012
+  },
+  "rule": "The ensemble gain repeats on seed 32345 if the ensemble is better and its 95% interval is below zero. The three-seed claim holds if the mean change is below zero with its pooled 95% interval below zero. No other ensemble of seed 32345 is scored on the holdout.",
+  "no_holdout_reselection": true
+ }
+}
