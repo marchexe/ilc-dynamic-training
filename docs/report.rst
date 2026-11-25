@@ -30,8 +30,8 @@ jets and by 7.7% on 8M training jets.
 Step 2 (early November): the win was not real
 ---------------------------------------------
 
-The fixed LRs of step 1 were too low. We trained with higher fixed LRs: the best one (8×10⁻⁵, ten
-times higher) is as good as PBT. So PBT won in step 1 because it moved to a higher LR, not because
+The fixed LRs of step 1 were too low. We trained with higher fixed LRs: the best one (8×10⁻⁵, about six
+times the highest LR of step 1) is as good as PBT. So PBT won in step 1 because it moved to a higher LR, not because
 it adapts the LR. We also found that the Validation set (150k jets) was too small to select models
 reliably, and changed to 1M jets.
 
@@ -61,8 +61,16 @@ to 2.7%, but PBT stays worse.
 
 The reason: on 8M jets the model does not overfit, so the best plan is a high LR for a long time
 and a decay at the end. PBT judges each change after only two epochs. Over two epochs a lower LR
-always looks better, so PBT lowers the LR too early. On 800k jets the model overfits, and an early
-low LR is correct; this is why PBT wins there.
+almost always looks better, so PBT lowers the LR too early. On 800k jets the model overfits, and an early
+low LR is correct; this is why PBT wins there. The figure below shows this: on 800k jets the
+loss on the training data falls below the loss on Validation (the model memorises its training
+data); on 8M jets the two stay together.
+
+.. figure:: ../published/results/sel1m/figures/overfitting.png
+   :alt: Training and Validation loss per epoch of the best standard ParT model, 800k and 8M
+   :width: 100%
+
+   Loss per epoch of the best standard ParT model (weaver epoch 18 is training epoch 1).
 
 .. figure:: ../published/results/report/step4.png
    :alt: How much worse PBT is than standard ParT on 8M training jets, with and without the fixes
@@ -105,6 +113,9 @@ Summary
      - **5.0% better** (3 seeds)
 
 .. _report-corrections:
+
+Limits: the 8M PBT results have one seed. All trials start from one pretrained model. Test
+(2.8M) was also used in diagnostics before step 3, so it is not fully unseen.
 
 Earlier statements that changed: the 1.4% and 7.7% of step 1 are not valid (step 2), and the
 first 8M value, 10.8% worse, is 12.4% against the better standard ParT model.
@@ -172,7 +183,15 @@ Every run with its selected model is listed in :ref:`report-runs`.
 Phase 0 (Jul 22 – Aug 31) was set-up. We tested first PBT versions and LR controllers and fixed
 two defects. These runs used an older training set-up and are not comparable.
 
+.. raw:: html
+
+   <details><summary><b>Show the 33 trials</b> (dates, runs, links)</summary>
+
 .. include:: report_trials.inc
+
+.. raw:: html
+
+   </details>
 
 Run names link to the configuration files. GPU-h is the GPU time of all members of the trial's runs.
 After phase 3 we changed to Validation (1M) and to standard ParT as the comparator, because with
@@ -187,8 +206,17 @@ All runs
 
 Every training run of trials 1–33. The selected model is the one with the best Validation value
 over the run; the epoch counts from the pretrained start (1–50, or 51–100 for trial 2). For PBT the
-name is the identity of a member, and the LR is the member's LR at that epoch. Validation is
+name is the identity of a member, and the LR is the member's LR at that epoch; for standard ParT
+the LR is the start LR (the schedule then lowers it). Validation is
 Validation (150k) for trials 1–17 and Validation (1M) from trial 18. Download:
 :download:`runs.csv <../published/results/report/runs.csv>`.
 
+.. raw:: html
+
+   <details><summary><b>Show the 42 runs</b></summary>
+
 .. include:: report_runs.inc
+
+.. raw:: html
+
+   </details>

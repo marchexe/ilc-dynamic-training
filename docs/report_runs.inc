@@ -8,7 +8,7 @@
      - Run (configuration)
      - Start → end (JST)
      - GPU-h
-     - Selected model: name, LR, epoch
+     - Selected model, LR, epoch
      - Validation
      - Test (2.8M)
    * - 1
@@ -98,14 +98,14 @@
    * - 11
      - :repo:`full_state_gpu_one_epoch <configs/experiments/full_state_gpu_one_epoch.yaml>`
      - Nov 03 08:39 → Nov 03 08:45
-     - 0
+     - <1
      - lr_14e-6, 1.4×10⁻⁵, 1
      - 0.4005
      - —
    * - 11
      - :repo:`full_state_gpu_fifths <configs/experiments/full_state_gpu_fifths.yaml>`
      - Nov 03 08:46 → Nov 03 09:03
-     - 0
+     - <1
      - lr_14e-6, 1.4×10⁻⁵, 5
      - 0.4005
      - —
@@ -162,7 +162,7 @@
      - :repo:`sel1m_standard_part <configs/experiments/sel1m_standard_part.yaml>`
      - Nov 10 06:06 → Nov 10 11:47
      - 27
-     - flat_decay_100e-6, 1×10⁻⁴, 35
+     - flat_decay_100e-6, start 1×10⁻⁴, 35
      - 0.3006
      - 0.3029
    * - 18
@@ -183,7 +183,7 @@
      - :repo:`sel1m_standard_part_seed22345 <configs/experiments/sel1m_standard_part_seed22345.yaml>`
      - Nov 10 23:25 → Nov 11 05:22
      - 29
-     - flat_decay_100e-6, 5.41×10⁻⁵, 37
+     - flat_decay_100e-6, start 1×10⁻⁴, 37
      - 0.3002
      - 0.3038
    * - 18
@@ -204,7 +204,7 @@
      - :repo:`sel1m_standard_part_seed32345 <configs/experiments/sel1m_standard_part_seed32345.yaml>`
      - Nov 12 19:14 → Nov 13 00:23
      - 25
-     - flat_decay_100e-6, 1.36×10⁻⁶, 49
+     - flat_decay_100e-6, start 1×10⁻⁴, 49
      - 0.3004
      - 0.3024
    * - 18
@@ -239,14 +239,14 @@
      - :repo:`sel1m_scratch_standard_part <configs/experiments/sel1m_scratch_standard_part.yaml>`
      - Nov 12 09:55 → Nov 12 14:31
      - 22
-     - flat_decay_4000e-6, 4×10⁻³, 14
+     - flat_decay_4000e-6, start 4×10⁻³, 14
      - 0.3777
      - —
    * - 22
      - :repo:`sel1m_train8m_standard_part <configs/experiments/sel1m_train8m_standard_part.yaml>`
      - Nov 14 07:51 → Nov 15 19:28
      - 176
-     - flat_decay_1000e-6, 1×10⁻⁵, 50
+     - flat_decay_1000e-6, start 1×10⁻³, 50
      - 0.1619
      - 0.1635
    * - 23
@@ -260,7 +260,7 @@
      - :repo:`sel1m_train8m_standard_part_3e-3 <configs/experiments/sel1m_train8m_standard_part_3e-3.yaml>`
      - Nov 19 08:38 → Nov 20 19:09
      - 34
-     - flat_decay_3000e-6, 1.39×10⁻⁴, 45
+     - flat_decay_3000e-6, start 3×10⁻³, 45
      - 0.1584
      - 0.1611
    * - 25
@@ -288,20 +288,20 @@
      - :repo:`sel1m_train8m_standard_part_seed22345 <configs/experiments/sel1m_train8m_standard_part_seed22345.yaml>`
      - Nov 23 20:08 → Nov 25 06:08
      - 67
-     - flat_decay_3000e-6, 3×10⁻⁵, 50
+     - flat_decay_3000e-6, start 3×10⁻³, 50
      - 0.1592
      - 0.1597
    * - 28
      - :repo:`sel1m_train8m_standard_part_seed32345 <configs/experiments/sel1m_train8m_standard_part_seed32345.yaml>`
      - Nov 24 05:11 → Nov 25 14:38
      - 66
-     - flat_decay_3000e-6, 4.08×10⁻⁵, 49
+     - flat_decay_3000e-6, start 3×10⁻³, 49
      - 0.1623
      - 0.1623
    * - 33
      - :repo:`sel1m_train8m_standard_part_1e-2 <configs/experiments/sel1m_train8m_standard_part_1e-2.yaml>`
      - Nov 24 05:17 → Nov 25 14:38
      - 33
-     - flat_decay_10000e-6, 1.36×10⁻⁴, 49
+     - flat_decay_10000e-6, start 1×10⁻², 49
      - 0.1631
      - 0.1599

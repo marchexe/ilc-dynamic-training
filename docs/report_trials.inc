@@ -99,7 +99,7 @@
      - ⚠️
    * - 11
      - Nov 03 08:39 → Nov 03 09:03
-     - Save the full optimizer state; GPU check · 0 GPU-h
+     - Save the full optimizer state; GPU check · <1 GPU-h
 
        :repo:`full_state_gpu_one_epoch <configs/experiments/full_state_gpu_one_epoch.yaml>` · :repo:`full_state_gpu_fifths <configs/experiments/full_state_gpu_fifths.yaml>` · :ref:`details <sub-epoch-adaptation>`
      - bit-identical; not used in a PBT run

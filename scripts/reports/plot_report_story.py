@@ -41,13 +41,18 @@ def hbars(ax, rows, xlabel, fmt, lim):
 
 
 def step1():
-    fig, (a, b) = plt.subplots(1, 2, figsize=(11, 2.6))
-    hbars(a, [('fixed LR', 0.3269, FIXED, None), ('PBT', 0.3225, PBT, '0.3225  (1.4% better)')],
-          'mistag on Test (2.8M), %', '{:.4f}', 0.42)
-    a.set_title('800k training jets', loc='left', color=INK)
-    hbars(b, [('fixed LR', 0.2572, FIXED, None), ('PBT', 0.2375, PBT, '0.2375  (7.7% better)')],
-          'mistag on Test (9.0M), %', '{:.4f}', 0.34)
-    b.set_title('8M training jets', loc='left', color=INK)
+    fig, ax = plt.subplots(figsize=(11, 2.4))
+    rows = [('800k training jets, Test (2.8M)', 1.36), ('8M training jets, Test (9.0M)', 7.67)]
+    for i, (label, v) in enumerate(rows):
+        y = len(rows) - 1 - i
+        ax.barh(y, v, height=0.6, color=PBT)
+        ax.text(v + 0.1, y, f'{v:.1f}% better', va='center', fontsize=11, color=INK)
+    ax.set_yticks(range(len(rows)), [r[0] for r in reversed(rows)], color=INK)
+    ax.tick_params(axis='y', length=0)
+    ax.set_xlim(0, 10)
+    ax.set_xlabel('improvement of PBT over fixed LR, %')
+    ax.set_title('PBT against fixed LRs 3×10⁻⁶ – 1.4×10⁻⁵ (these LRs were too low, see step 2)', loc='left', color=INK)
+    clean(ax)
     fig.tight_layout()
     fig.savefig(OUT / 'step1.png', dpi=150)
     plt.close(fig)
@@ -125,8 +130,8 @@ if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
     step1()
     step2()
-    gain_chart('step3.png', [('seed 1', 0.67), ('seed 2', 0.85), ('seed 3', 0.91)], 0.81, (0.34, 1.34),
+    gain_chart('step3.png', [('seed 12345', 0.67), ('seed 22345', 0.85), ('seed 32345', 0.91)], 0.81, (0.34, 1.34),
                '800k training jets: PBT against standard ParT', PBT, 2.4)
     step4()
-    gain_chart('step5.png', [('seed 1', 5.05), ('seed 2', 4.86), ('seed 3', 5.14)], 5.01, (4.17, 5.84),
+    gain_chart('step5.png', [('seed 12345', 5.05), ('seed 22345', 4.86), ('seed 32345', 5.14)], 5.01, (4.17, 5.84),
                '8M training jets: ensemble of two standard ParT models against the better one', ENS, 9.5)
