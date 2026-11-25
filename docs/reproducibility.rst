@@ -27,7 +27,7 @@ Repository map
    * - :repo:`scripts/validation`
      - run verifiers, checkpoint evaluation, proxy construction and qualification
    * - :repo:`scripts/experiments`
-     - campaign launchers: ``stage2a`` holdout evaluation, ``stage2b`` ``train8m``
+     - campaign launchers: ``stage2a`` Test (2.8M) evaluation, ``stage2b`` ``train8m``
        preparation, ``stage3`` large-dataset study (names: :doc:`history`)
    * - :repo:`scripts/publish`, :repo:`scripts/reports`
      - exporters for ``published/``; plotting library
@@ -72,7 +72,7 @@ Commands
    # Verify
    .venv/bin/python -m unittest discover -s tests -t .
    .venv/bin/python scripts/validation/verify_fixed_lr.py runs/pbt/<run>   # any completed run
-   .venv/bin/python scripts/validation/verify_stage2a_provenance.py        # holdout evaluation
+   .venv/bin/python scripts/validation/verify_stage2a_provenance.py        # Test (2.8M) evaluation
 
    # Publish
    .venv/bin/python scripts/publish/export_results_summary.py

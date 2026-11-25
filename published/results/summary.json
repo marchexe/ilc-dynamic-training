@@ -955,7 +955,7 @@
     "holdout_paired_counts.csv": "37471ea7441b2d3dc397656219697aaf1369adeb8baba32fc8af8e1e284f3360",
     "validation_endpoints.csv": "105889ec332348c64a5616fb6d94b57b9df57834dd154fdc55f5c6624525db5e",
     "figures/current_best_trajectories.png": "dbe9e103cd982090edfc279607927b630bb7e3140aac60226b1829f2fcf2eacc",
-    "figures/holdout_selected_checkpoints.png": "dce1398224d54b0e31dfcbb109a489c8578dc7294dadf5fb7f597532bd1ce3a8",
-    "figures/matched_differences.png": "4107f250b8764ab961c36f49c38e78283e4f81b2917a3a33d77ec9a1730c9221"
+    "figures/holdout_selected_checkpoints.png": "9319b8432d84384b44f10242c5dab8e0b7f9408c8db3ca8c76f4a52e2b516058",
+    "figures/matched_differences.png": "f38a1f0eb9eea64a0c5c44e2ef189d307c52625ecbd4da7c86c5542ca138bdb6"
   }
 }

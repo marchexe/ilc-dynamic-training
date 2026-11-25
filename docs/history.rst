@@ -4,6 +4,8 @@ Research History
 Timeline
 --------
 
+The complete list of trials to 2026-11-25, with results, is in :doc:`report`.
+
 * **Jul–Aug 2026, exploratory phase:** smooth-LR populations, a LinUCB controller,
   exploit-and-mutate and anchor-copy PBT, a learning-rate/mistag correlation study.
   These runs used an earlier contract (samples capped per epoch, damped optimizer
@@ -15,7 +17,7 @@ Timeline
   shadow audit.
 * **2026-09-23 to 09-28:** every-epoch versus every-five-epochs PBT, two seeds; sub-epoch
   adaptation found blocked. :doc:`Interim report <archive/index>`, 2026-10-01.
-* **2026-10-12:** independent holdout evaluation.
+* **2026-10-12:** Test (2.8M) evaluation.
 * **2026-10-13:** large-dataset study preregistered and launched (:ref:`large-dataset-design`).
 * **2026-10-14:** documentation reorganised; 100-epoch endpoint corrected.
 * **2026-10-14 to 10-19:** large-dataset study, fixed-learning-rate arm completed after
@@ -25,9 +27,9 @@ Timeline
 * **2026-10-17 to 10-19:** full-state restart format for sub-epoch adaptation developed on
   a separate branch.
 * **2026-10-21:** PBT arm completed; the validation analysis stopped on a
-  configuration-check defect, corrected before the sealed test was opened
+  configuration-check defect, corrected before Test (9.0M) was opened
   (:ref:`configuration-verification`).
-* **2026-11-02:** sealed test and final report completed (:ref:`large-dataset-results`);
+* **2026-11-02:** Test (9.0M) and final report completed (:ref:`large-dataset-results`);
   the full-state restart work merged (:ref:`sub-epoch-adaptation`).
 
 Internal names
@@ -43,7 +45,7 @@ records hash them.
    * - Name in paths and records
      - Meaning
    * - Stage 2A, ``stage2a_holdout_v1``
-     - independent holdout evaluation
+     - Test (2.8M) evaluation
    * - Stage 2B, ``stage2b_train8m_v1``
      - ``train8m`` preparation and GPU smoke test
    * - Stage 3, ``stage3_train8m_v1``
@@ -53,7 +55,7 @@ records hash them.
    * - Variant B
      - sub-epoch adaptation (implemented, not yet run)
    * - "control proxy", "full reference" for ``val50k_tail``
-     - selection validation set
+     - Validation (150k)
    * - generation
      - one training epoch in all current experiments
 

@@ -237,7 +237,7 @@ def figures(output, trajectories, results):
     ax.scatter([c['selected_validation_primary'] for c in trained], list(positions), s=55, color=COLORS['orange'],
                edgecolor=COLORS['surface'], linewidth=2, zorder=3, label='Selection validation (selected checkpoint)')
     ax.scatter([c['holdout_primary'] for c in trained], list(positions), s=55, color=COLORS['blue'],
-               edgecolor=COLORS['surface'], linewidth=2, zorder=3, label='Independent holdout (same checkpoint)')
+               edgecolor=COLORS['surface'], linewidth=2, zorder=3, label='Test (2.8M) (same checkpoint)')
     ax.set_yticks(list(positions), [c['label'] for c in trained])
     ax.set_xlabel('Composite mistag (%), lower is better')
     ax.grid(axis='y', visible=False)
@@ -251,7 +251,7 @@ def figures(output, trajectories, results):
     fig, axes = plt.subplots(1, 2, figsize=(10.5, 3.6), sharey=True)
     positions = list(range(len(comparisons)))[::-1]
     for ax, key, title in ((axes[0], 'validation_final10_delta_pp', 'Validation: final-10 current-best (population)'),
-                           (axes[1], 'holdout_selected_delta_pp', 'Independent holdout: selected checkpoint')):
+                           (axes[1], 'holdout_selected_delta_pp', 'Test (2.8M): selected checkpoint')):
         ax.axvline(0, color=COLORS['muted'], lw=1)
         values = [c[key] for c in comparisons]
         ax.scatter(values, positions, s=55, color=COLORS['blue'], edgecolor=COLORS['surface'], linewidth=2, zorder=3)

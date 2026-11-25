@@ -89,8 +89,8 @@ def main(argv=None):
     ax.set_yticks(y, [r['label'] for r in rows], fontsize=9)
     ax.axvline(best_single, color='#888888', linewidth=1, linestyle='--', zorder=0)
     ax.set_xlim(0.14, 0.19)
-    ax.set_xlabel('holdout mistag, geometric mean (%) — lower is better')
-    ax.set_title('8M training jets, holdout (2.8M jets)', fontsize=11)
+    ax.set_xlabel('Test (2.8M) mistag, geometric mean (%) — lower is better')
+    ax.set_title('8M training jets, Test (2.8M)', fontsize=11)
     style(ax)
     ax.grid(axis='y', visible=False)
     fig.tight_layout()
@@ -103,7 +103,7 @@ def main(argv=None):
         c = curves[name]
         epochs = [p['epoch'] for p in c]
         ax.plot(epochs, [p['train'] for p in c], color='#555555', linewidth=2, label='training data')
-        ax.plot(epochs, [p['selection'] for p in c], color=STANDARD, linewidth=2, label='selection set (unseen)')
+        ax.plot(epochs, [p['selection'] for p in c], color=STANDARD, linewidth=2, label='Validation (1M), not trained on')
         ax.set_title(f'{name} training jets', fontsize=11)
         ax.set_xlabel('weaver epoch')
         style(ax)

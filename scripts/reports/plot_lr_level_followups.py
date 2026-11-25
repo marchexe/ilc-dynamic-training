@@ -56,7 +56,7 @@ def lollipop(rows, title, path):
     ax.set_yticks(range(len(rows)), [r[0] for r in rows])
     ax.invert_yaxis()
     ax.set_xlim(min(values) - 0.004, max(values) + 0.006)
-    ax.set(xlabel='holdout primary mistag (%), lower is better', title=title)
+    ax.set(xlabel='Test (2.8M) primary mistag (%), lower is better', title=title)
     ax.grid(axis='x', color='#ebeae6', lw=0.8)
     ax.tick_params(axis='y', length=0)
     fig.savefig(path, dpi=200, bbox_inches='tight')
@@ -104,13 +104,13 @@ def seeds_overview(directory):
     left.set_ylim(len(rows) - 0.4, -0.6)
     lo = min(min(r['hf'], r['hp']) for r in rows); hi = max(max(r['hf'], r['hp']) for r in rows)
     left.set_xlim(lo - 0.0012, hi + 0.0012)
-    left.set(xlabel='holdout primary mistag (%), lower is better', title='Holdout score')
+    left.set(xlabel='Test (2.8M) primary mistag (%), lower is better', title='Test (2.8M) score')
     left.legend(loc='lower right', frameon=False, fontsize=8)
     right.axvline(0, color='#8a8984', lw=1)
     for y, r in enumerate(rows):
         right.hlines(y, min(r['dv'], r['dh']), max(r['dv'], r['dh']), color='#c3c2bd', lw=2, zorder=1)
         for value, marker, color, label in ((r['dv'], 's', '#8a8984', 'validation (150k)'),
-                                            (r['dh'], 'o', '#2b2a27', 'holdout (2.8M)')):
+                                            (r['dh'], 'o', '#2b2a27', 'Test (2.8M)')):
             right.plot(value, y, marker, ms=8, color=color, mec='white', mew=1.5, zorder=2, label=label if y == 0 else None)
             right.annotate(f'{value:+.1f}%', (value, y), xytext=(0, 9), textcoords='offset points', ha='center',
                            fontsize=8, color='#52514e')
@@ -118,7 +118,7 @@ def seeds_overview(directory):
     right.set_ylim(len(rows) - 0.4, -0.6)
     span = max(abs(v) for r in rows for v in (r['dv'], r['dh'])) + 0.5
     right.set_xlim(-span, span)
-    right.set(xlabel='fast PBT vs fixed LR (%), negative = PBT better', title='PBT vs fixed LR: validation and holdout')
+    right.set(xlabel='fast PBT vs fixed LR (%), negative = PBT better', title='PBT vs fixed LR: validation and Test (2.8M)')
     right.legend(loc='lower right', frameon=False, fontsize=8)
     for ax in (left, right):
         ax.grid(axis='x', color='#ebeae6', lw=0.8)
@@ -175,8 +175,8 @@ def sel1m_relative(directory):
     ax.set_yticks(range(len(rows)), [r[0] for r in rows])
     ax.set_ylim(len(rows) - 0.5, -0.8)
     ax.set_xlim(-1.2, 0.4)
-    ax.set(xlabel='holdout change against standard ParT of the same seed (%), negative is better',
-           title='train800k runs, selection on 1M jets: holdout')
+    ax.set(xlabel='Test (2.8M) change against standard ParT of the same seed (%), negative is better',
+           title='train800k runs, Validation (1M): Test (2.8M)')
     ax.grid(axis='x', color='#ebeae6', lw=0.8)
     ax.tick_params(axis='y', length=0)
     path = Path(directory) / '09_sel1m_vs_standard.png'
@@ -222,7 +222,7 @@ def sel1m_gain(directory):
     ax.set_xticks([i + (0.35 if s == 'average' else 0) for i, (s, _) in enumerate(groups)], [s for s, _ in groups])
     ax.set_ylim(-0.2, 1.1)
     ax.set(ylabel='better than standard ParT (%)',
-           title='Holdout (2.8M jets): improvement over standard ParT of the same seed')
+           title='Test (2.8M): improvement over standard ParT of the same seed')
     ax.grid(axis='y', color='#ebeae6', lw=0.8)
     ax.tick_params(axis='x', length=0)
     ax.legend(frameon=False, loc='upper left', fontsize=8)
@@ -270,7 +270,7 @@ def sel1m_working_points(directory):
     ax.set_xticks(range(len(WORKING_POINTS)), labels, fontsize=8)
     ax.set_ylim(min(min(v) for v in gains.values()) - 0.8, max(max(v) for v in gains.values()) + 0.8)
     ax.set(ylabel='better than standard ParT (%)',
-           title=f'Holdout: PBT against standard ParT at each working point ({len(next(iter(gains.values())))} seeds)')
+           title=f'Test (2.8M): PBT against standard ParT at each working point ({len(next(iter(gains.values())))} seeds)')
     ax.grid(axis='y', color='#ebeae6', lw=0.8)
     ax.tick_params(axis='x', length=0)
     ax.legend(frameon=False, loc='upper right', fontsize=8)
@@ -330,7 +330,7 @@ def main(argv=None):
     written = figures(args.output, summaries, test=test,
                       labels=dict(fixed_lr='A fixed LR 8e-5 to 3.2e-4', windowed_pbt_v2='B fast PBT'),
                       text=dict(epoch='train800k epoch', selection_title='Best member so far, validation set',
-                                test_title='Holdout: B vs A per working point (negative = B better)'))
+                                test_title='Test (2.8M): B vs A per working point (negative = B better)'))
     written += [overview(args.output), seeds_overview(args.output), sel1m_overview(args.output),
                 sel1m_relative(args.output), sel1m_gain(args.output),
                 sel1m_working_points(args.output), train8m_trajectories(args.output)]

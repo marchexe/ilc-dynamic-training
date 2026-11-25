@@ -5,8 +5,8 @@
 Does learning-rate adaptation with Population Based Training (PBT) improve a pretrained
 Particle Transformer b/c/light-jet tagger over standard ParT training? With three training
 seeds and the same compute, PBT lowers the composite mistag on an independent 2.8M-jet
-holdout by 0.67%, 0.85% and 0.91% (0.81% on average; 95% interval 0.34–1.34% for the
-holdout sample). On ten times more training data (8M jets, one seed) PBT is 12.4% worse than
+test sample, Test (2.8M), by 0.67%, 0.85% and 0.91% (0.81% on average; 95% interval 0.34–1.34% for the
+Test (2.8M) sample). On ten times more training data (8M jets, one seed) PBT is 12.4% worse than
 standard ParT, because it lowers the learning rate too early; cool-down probes and a final
 decay reduce this to 2.7%. The model overfits at 800k but not at 8M, which explains the
 difference. A prediction ensemble of two separately trained 8M standard ParT models is 5.0% better than

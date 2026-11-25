@@ -23,7 +23,7 @@ Final decay without dropout (stopped, negative)
 The model does not overfit at 8M (:ref:`no-overfitting-at-8m`), so its dropout (0.1 in the
 particle-attention blocks) might only slow it down. A test repeated the final decay of standard
 ParT at 3×10⁻³ from its saved epoch-52 checkpoint with dropout 0 and otherwise the recorded
-commands (selection set only). Without dropout the model almost stopped improving during the
+commands (Validation (1M) only). Without dropout the model almost stopped improving during the
 decay: 0.1730 at epoch 61, against 0.1595 with dropout. The test ended at epoch 62 when the
 process was lost on the node and was not restarted, since the result is clear. Dropout helps at 8M
 even without visible overfitting.

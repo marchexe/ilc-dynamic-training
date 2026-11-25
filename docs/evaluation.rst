@@ -24,22 +24,29 @@ after preselection.
    * - Training ``train8m``
      - 23,921,449
      - :ref:`large-dataset comparison <large-dataset-comparison>`; source entries below 8 M
-   * - Selection validation ``val50k_tail``
+   * - Validation (150k) ``val50k_tail``
      - 150,000
-     - evaluated after every epoch; drives PBT and checkpoint selection
-   * - Independent holdout ``val_holdout``
+     - evaluated after every epoch; drives PBT and checkpoint selection, until 2026-11-09
+   * - Validation (1M) ``sel1m_tail``
+     - 999,999
+     - the same role, from 2026-11-10; the last 333,333 rows of each ``train8m`` file, removed
+       from training
+   * - Test (2.8M) ``val_holdout``
      - 2,825,125
      - one-time evaluation of selected checkpoints; never used for selection
-   * - Sealed test ``test3000k``
+   * - Test (9.0M) ``test3000k``
      - 8,970,477
      - large-dataset comparison only; opened once, after both arms had completed
 
-Validation and holdout are disjoint windows of source entries 16–17 M; the sealed test
-covers 17–20 M. Training shares no identical jet record with validation, holdout or
-sealed test; holdout and sealed test also share none with the pretraining sample
+Validation (150k) and Test (2.8M) are disjoint windows of source entries 16–17 M; Test (9.0M)
+covers 17–20 M. Training shares no identical jet record with Validation (150k), Test (2.8M) or
+Test (9.0M); Test (2.8M) and Test (9.0M) also share none with the pretraining sample
 (:repo:`configs/prepared/stage2b_train8m_v1/PROVENANCE.md`,
 :repo:`configs/prepared/stage3_train8m_v1/TEST3000K_PROVENANCE.md`). Source entries are
 jets; with no event identifier, isolation holds at the jet level only.
+
+Earlier versions of this site called Test (2.8M) the "holdout" and Test (9.0M) the "sealed test".
+File, directory and configuration names keep these words, because frozen records contain them.
 
 .. _metric:
 
@@ -66,12 +73,12 @@ Endpoints
    The single member-epoch with the lowest validation value over the run (global best).
    Its validation value is optimistic: it is the minimum of many noisy measurements.
 
-**Holdout performance**
-   The selected checkpoint evaluated once on the independent holdout, on identical jets
+**Test (2.8M) performance**
+   The selected checkpoint evaluated once on Test (2.8M), on identical jets
    for every checkpoint.
 
 PBT's validation values are additionally optimistic because the same validation set
-drives its decisions; holdout values are not.
+drives its decisions; Test (2.8M) values are not.
 
 .. _statistical-rules:
 
@@ -81,25 +88,25 @@ Statistical rules
 * Earlier comparisons: one training seed per policy (two for cadence); differences describe
   these runs and no significance is claimed. The comparison with standard ParT training has
   three seeds.
-* The holdout files have no event identifier, but the jets of one event are adjacent rows
+* Test (2.8M) files have no event identifier, but the jets of one event are adjacent rows
   (the mass of two adjacent jets peaks at the Higgs mass; that of two random jets does not).
   Intervals for the comparison with standard ParT training resample blocks of 100 adjacent
-  rows of one file, with shared draws for the compared checkpoints; they cover the holdout
+  rows of one file, with shared draws for the compared checkpoints; they cover Test (2.8M)
   sample only, not seed-to-seed variation. The earlier comparisons report point differences
   and per-working-point counts of background jets mistagged by only one model.
-* Holdout checkpoints are fixed by the validation rule before evaluation. The holdout
+* The checkpoints for Test (2.8M) are fixed by the validation rule before evaluation. Test (2.8M)
   was inspected in earlier diagnostics, so it is not pristine; the large-dataset
-  comparison uses a sealed test set instead.
+  comparison uses Test (9.0M) instead.
 
 .. _holdout-protocol:
 
-Independent holdout evaluation
+Test (2.8M) evaluation
 ------------------------------
 
 * **Checkpoints.** The pretrained start and, for each of eight completed runs, its
   selected checkpoint (validation global best). The rule was fixed and the checkpoints
-  frozen by hash before inference; the holdout was never used to re-select a model.
-* **Data.** All 2,825,125 holdout jets (b 943,645; c 941,995; d 939,485), without
+  frozen by hash before inference; Test (2.8M) was never used to re-select a model.
+* **Data.** All 2,825,125 test jets (b 943,645; c 941,995; d 939,485), without
   reweighting. Every checkpoint is evaluated on identical jets, so comparisons are paired
   at the jet level.
 * **Integrity.** Inference only (no optimizer step), complete and non-repeating row
