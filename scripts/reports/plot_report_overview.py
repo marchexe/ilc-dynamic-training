@@ -3,7 +3,7 @@
 
     .venv/bin/python scripts/reports/plot_report_overview.py
 
-Writes published/results/report/{timeline,results,progress}.png. All values are copied from the
+Writes published/results/report/timeline.png (results() and progress() are kept but not published). All values are copied from the
 results pages (docs/results.rst and docs/report.rst); this script reads no run data.
 """
 from datetime import date, timedelta
@@ -249,5 +249,3 @@ def progress():
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
     timeline()
-    results()
-    progress()
