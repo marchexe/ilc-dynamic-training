@@ -35,23 +35,23 @@ TRIALS = [
     (1, 1, '09-15', '09-16', BASE), (2, 1, '09-16', '09-17', BASE), (3, 1, '09-17', '09-18', PBT),
     (4, 1, '09-18', '09-19', PBT), (5, 1, '09-19', '09-21', INFRA), (6, 1, '09-22', '09-28', PBT),
     (7, 1, '09-28', '09-28', INFRA),
-    (8, 2, '10-12', '10-12', INFRA), (9, 2, '10-13', '10-13', INFRA), (10, 2, '10-13', '11-02', PBT),
-    (11, 2, '10-17', '11-03', INFRA),
-    (12, 3, '11-02', '11-03', BASE), (13, 3, '11-03', '11-03', BASE), (14, 3, '11-03', '11-04', BASE),
-    (15, 3, '11-04', '11-04', PBT), (16, 3, '11-08', '11-09', PBT), (17, 3, '11-09', '11-09', PBT),
-    (18, 4, '11-09', '11-13', PBT), (19, 4, '11-11', '11-12', PBT), (20, 4, '11-12', '11-12', OTHER),
-    (21, 4, '11-12', '11-12', OTHER),
-    (22, 5, '11-13', '11-15', BASE), (23, 5, '11-15', '11-16', PBT), (24, 5, '11-18', '11-20', BASE),
-    (25, 5, '11-19', '11-21', PBT), (26, 5, '11-20', '11-22', PBT), (27, 5, '11-23', '11-23', OTHER),
+    (8, 1, '10-12', '10-12', INFRA), (9, 1, '10-13', '10-13', INFRA), (10, 1, '10-13', '11-02', PBT),
+    (11, 1, '10-17', '11-03', INFRA),
+    (12, 2, '11-02', '11-03', BASE), (13, 2, '11-03', '11-03', BASE), (14, 2, '11-03', '11-04', BASE),
+    (15, 2, '11-04', '11-04', PBT), (16, 2, '11-08', '11-09', PBT), (17, 2, '11-09', '11-09', PBT),
+    (18, 3, '11-09', '11-13', PBT), (19, 3, '11-11', '11-12', PBT), (20, 3, '11-12', '11-12', OTHER),
+    (21, 3, '11-12', '11-12', OTHER),
+    (22, 4, '11-13', '11-15', BASE), (23, 4, '11-15', '11-16', PBT), (24, 4, '11-18', '11-20', BASE),
+    (25, 4, '11-19', '11-21', PBT), (26, 4, '11-20', '11-22', PBT), (27, 5, '11-23', '11-23', OTHER),
     (28, 5, '11-23', '11-25', OTHER), (29, 5, '11-23', '11-23', OTHER), (30, 5, '11-23', '11-23', OTHER),
     (31, 5, '11-23', '11-24', OTHER), (32, 5, '11-24', '11-24', OTHER), (33, 5, '11-23', '11-25', BASE),
 ]
 PHASES = {
-    1: ('1  PBT vs fixed LRs', '800k training jets', 'PBT 1.4% better, but the fixed LRs were too low'),
-    2: ('2  Large data, first time', '8M training jets', 'PBT 7.7% better, again against too-low LRs'),
-    3: ('3  Higher fixed LRs', '800k training jets', 'Good fixed LRs equal PBT; Validation (150k) too small'),
-    4: ('4  PBT vs standard ParT', '800k, Validation (1M)', 'PBT 0.8% better on 3 seeds'),
-    5: ('5  Large data, standard ParT', '8M, Validation (1M)', 'PBT 2.7–12% worse; ensemble 5.0% better'),
+    1: ('Step 1  PBT seems to win', '800k, then 8M', 'PBT 1.4% and 7.7% better, but against too-low LRs'),
+    2: ('Step 2  The win was not real', '800k', 'A good constant LR equals PBT'),
+    3: ('Step 3  Fair test, little data', '800k, Validation (1M)', 'PBT 0.8% better on 3 seeds'),
+    4: ('Step 4  Much data: PBT loses', '8M, Validation (1M)', 'PBT 2.7–12.4% worse'),
+    5: ('Step 5  Much data: ensemble', '8M, Validation (1M)', 'Ensemble 5.0% better on 3 seeds'),
 }
 
 
@@ -115,7 +115,7 @@ def timeline():
     ax.set_axisbelow(True)
     for side in ('top', 'right', 'left'):
         ax.spines[side].set_visible(False)
-    ax.set_title('All trials in time order, JST (number = trial in the tables below; phase 0, Jul–Aug, was set-up)',
+    ax.set_title('All trials in time order, JST (number = trial in the tables below; July–August was set-up)',
                  loc='left', fontsize=11, color=INK)
     ax.legend(handles=[Patch(color=BASE, label='baseline (fixed LR, standard ParT)'), Patch(color=PBT, label='PBT'),
                        Patch(color=OTHER, label='other idea (ensemble, distillation, ...)'),

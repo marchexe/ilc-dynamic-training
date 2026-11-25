@@ -17,3 +17,4 @@ html_theme_options = {
 }
 html_title = project
 html_static_path = ["_static"]
+html_extra_path = ["_extra"]

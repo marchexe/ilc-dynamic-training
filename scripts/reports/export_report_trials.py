@@ -53,48 +53,48 @@ TEST = {  # Test (2.8M) value of the run's selected checkpoint (docs/results.rst
 
 # Phases: (title, data, validation set, trials). Trial: (number, what, runs, records, dates if no run, result,
 # outcome). Records are repository paths (test specifications, analyses) or :ref: targets.
-PHASES = [
-    ('Phase 1: PBT against fixed LRs', 'Training (800k)', 'Validation (150k)', [
+PHASES = [  # grouped by the five steps of the report
+    ('Step 1: PBT seems to win', 'Training (800k), then (8M)', 'Validation (150k)', [
         (1, 'Fixed LRs 3×10⁻⁶ – 1.4×10⁻⁵', ['foundation_fixed_lr_50epochs_20260916'], [':doc:`run page <experiments/fixed-lr-50>`'], None, '0.3269', '🔧'),
         (2, 'Two fixed-LR members continued to 100 epochs', ['fixed_lr_continuation_20260917_lr_14e-6', 'fixed_lr_continuation_20260917_lr_8_5e-6'], [':doc:`run page <experiments/fixed-lr-100>`'], None, '0.3156', '🔧'),
-        (3, 'Windowed PBT: decision every 5 epochs, ×0.8 or ×1.2', ['windowed_pbt_v2'], [':doc:`run page <experiments/pbt-v2-50>`'], None, '0.3225, −1.4% vs 1', '⚠️'),
-        (4, 'Windowed PBT, 100 epochs', ['windowed_pbt_v2_100epochs'], [':doc:`run page <experiments/pbt-v2-100>`'], None, '0.3111, −1.4% vs 2', '⚠️'),
+        (3, 'Windowed PBT: decision every 5 epochs, ×0.8 or ×1.2', ['windowed_pbt_v2'], [':doc:`run page <experiments/pbt-v2-50>`'], None, '0.3225, 1.4% better than 1', '⚠️'),
+        (4, 'Windowed PBT, 100 epochs', ['windowed_pbt_v2_100epochs'], [':doc:`run page <experiments/pbt-v2-100>`'], None, '0.3111, 1.4% better than 2', '⚠️'),
         (5, 'LR controller on a 60k Validation subset, observe only', ['pretrained_fixed_lr_8gpu_representative60k_shadow'], [':repo:`audit <published/studies/controller-shadow-audit/report.md>`'], None, 'controller did nothing', '➖'),
-        (6, 'PBT every epoch vs every 5 epochs, 2 seeds', ['cadenced_pbt_v1_50epochs', 'cadenced_pbt_v1_cadence5_50epochs', 'cadenced_pbt_v1_seed22345_50epochs', 'cadenced_pbt_v1_cadence5_seed22345_50epochs'], [':doc:`run page <experiments/cadenced-pbt-v1-50>`'], None, '+0.5%, +0.1% (Test reverses Validation)', '➖'),
+        (6, 'PBT every epoch vs every 5 epochs, 2 seeds', ['cadenced_pbt_v1_50epochs', 'cadenced_pbt_v1_cadence5_50epochs', 'cadenced_pbt_v1_seed22345_50epochs', 'cadenced_pbt_v1_cadence5_seed22345_50epochs'], [':doc:`run page <experiments/cadenced-pbt-v1-50>`'], None, 'every epoch 0.5% and 0.1% worse (Validation said better)', '➖'),
         (7, 'PBT decisions inside an epoch: restart test', [], [':ref:`result <sub-epoch-restart-test>`'], 'Sep 28', 'not possible: optimizer state lost', '🔧'),
-    ]),
-    ('Phase 2: first large-data comparison', 'Training (8M)', 'Validation (150k)', [
         (8, 'First Test (2.8M) evaluation of trials 1–6', [], [':repo:`protocol <configs/prepared/stage2a_holdout_v1>`'], 'Oct 12', 'agrees with Validation for large differences', '🔧'),
         (9, 'Prepare Training (8M) and Test (9.0M); one-epoch GPU check', [], [':repo:`records <configs/prepared/stage2b_train8m_v1>`'], 'Oct 13', 'ready', '🔧'),
-        (10, 'PBT vs fixed LRs as in trial 1, preregistered', ['stage3_train8m_fixed_lr_v1', 'stage3_train8m_windowed_pbt_v2_v1'], [':repo:`protocol <configs/prepared/stage3_train8m_v1>`', ':ref:`result <large-dataset-results>`'], None, '−7.7% on Test (9.0M): 0.2375 vs 0.2572', '⚠️'),
+        (10, 'PBT vs fixed LRs as in trial 1, preregistered', ['stage3_train8m_fixed_lr_v1', 'stage3_train8m_windowed_pbt_v2_v1'], [':repo:`protocol <configs/prepared/stage3_train8m_v1>`', ':ref:`result <large-dataset-results>`'], None, '7.7% better on Test (9.0M): 0.2375 vs 0.2572', '⚠️'),
         (11, 'Save the full optimizer state; GPU check', ['full_state_gpu_one_epoch', 'full_state_gpu_fifths'], [':ref:`details <sub-epoch-adaptation>`'], None, 'bit-identical; not used in a PBT run', '🔧'),
     ]),
-    ('Phase 3: higher fixed LRs', 'Training (800k)', 'Validation (150k)', [
+    ('Step 2: the win was not real', 'Training (800k)', 'Validation (150k)', [
         (12, 'Fixed LRs 1.4×10⁻⁵ – 3×10⁻⁵', ['fixed_lr_high_grid_50epochs'], [':repo:`test spec <configs/prepared/holdout_high_lr_grid_v1>`'], None, '0.3146', '🔧'),
         (13, 'Fixed LRs 3×10⁻⁵ – 8×10⁻⁵', ['fixed_lr_ceiling_grid_50epochs'], [':repo:`test spec <configs/prepared/holdout_fixed_lr_ceiling_v1>`'], None, '**0.3018**, better than all PBT so far', '🔧'),
         (14, 'Fixed LRs 8×10⁻⁵ – 3.2×10⁻⁴', ['fixed_lr_top_grid_50epochs'], [':repo:`test spec <configs/prepared/holdout_fast_pbt_v1>`'], None, '0.3033', '🔧'),
-        (15, 'Fast PBT: decision every 2 epochs, ×0.5 or ×2', ['windowed_pbt_v2_fast'], [':repo:`test spec <configs/prepared/holdout_fast_pbt_v1>`'], None, '0.3003, −1.0% vs 14', '✅'),
-        (16, 'Trials 14 and 15 with seed 22345', ['windowed_pbt_v2_fast_seed22345', 'fixed_lr_best_grid_50epochs_seed22345'], [':repo:`test spec <configs/prepared/holdout_fast_pbt_seed22345_v1>`'], None, 'PBT 0.3041 vs 0.3027: +0.5%', '❌'),
-        (17, 'Fast PBT with extra copies', ['windowed_pbt_v2_fast_fallback'], [':repo:`test spec <configs/prepared/holdout_fast_pbt_seed22345_v1>`'], None, '0.3026, +0.8% vs 15', '❌'),
+        (15, 'Fast PBT: decision every 2 epochs, ×0.5 or ×2', ['windowed_pbt_v2_fast'], [':repo:`test spec <configs/prepared/holdout_fast_pbt_v1>`'], None, '0.3003, 1.0% better than 14', '✅'),
+        (16, 'Trials 14 and 15 with seed 22345', ['windowed_pbt_v2_fast_seed22345', 'fixed_lr_best_grid_50epochs_seed22345'], [':repo:`test spec <configs/prepared/holdout_fast_pbt_seed22345_v1>`'], None, 'PBT 0.3041 vs 0.3027: 0.5% worse', '❌'),
+        (17, 'Fast PBT with extra copies', ['windowed_pbt_v2_fast_fallback'], [':repo:`test spec <configs/prepared/holdout_fast_pbt_seed22345_v1>`'], None, '0.3026, 0.8% worse than 15', '❌'),
     ]),
-    ('Phase 4: PBT against standard ParT', 'Training (800k)', 'Validation (1M)', [
-        (18, 'Standard ParT, fixed LRs and fast PBT; 3 seeds', ['sel1m_standard_part', 'sel1m_fixed_lr_grid', 'sel1m_fast_pbt', 'sel1m_standard_part_seed22345', 'sel1m_fixed_lr_grid_seed22345', 'sel1m_fast_pbt_seed22345', 'sel1m_standard_part_seed32345', 'sel1m_fixed_lr_grid_seed32345', 'sel1m_fast_pbt_seed32345'], [':repo:`plan <configs/prepared/sel1m_plan.md>`', ':repo:`test spec <configs/prepared/holdout_sel1m_v1>`', ':repo:`seed 32345 <configs/prepared/holdout_sel1m_seed32345_v1>`', ':ref:`result <pbt-vs-standard-part>`'], None, '**PBT −0.8%** (−0.7, −0.9, −0.9)', '✅'),
+    ('Step 3: fair test with little data', 'Training (800k)', 'Validation (1M)', [
+        (18, 'Standard ParT, fixed LRs and fast PBT; 3 seeds', ['sel1m_standard_part', 'sel1m_fixed_lr_grid', 'sel1m_fast_pbt', 'sel1m_standard_part_seed22345', 'sel1m_fixed_lr_grid_seed22345', 'sel1m_fast_pbt_seed22345', 'sel1m_standard_part_seed32345', 'sel1m_fixed_lr_grid_seed32345', 'sel1m_fast_pbt_seed32345'], [':repo:`plan <configs/prepared/sel1m_plan.md>`', ':repo:`test spec <configs/prepared/holdout_sel1m_v1>`', ':repo:`seed 32345 <configs/prepared/holdout_sel1m_seed32345_v1>`', ':ref:`result <pbt-vs-standard-part>`'], None, '**PBT 0.8% better** (0.7, 0.9, 0.9 per seed)', '✅'),
         (19, 'PBT with a final decay, 2 seeds', ['sel1m_fast_pbt_decay', 'sel1m_fast_pbt_decay_seed22345'], [], None, 'same models as 18', '➖'),
         (20, 'Standard ParT without pretraining', ['sel1m_scratch_standard_part'], [], None, '0.378 (Validation), far worse', '❌'),
         (21, 'Weight averages of checkpoints', [], [':repo:`spec <configs/prepared/weight_averaging_sel1m_v1/spec.json>`'], 'Nov 12', 'no gain (Validation)', '➖'),
     ]),
-    ('Phase 5: large data against standard ParT', 'Training (8M)', 'Validation (1M)', [
+    ('Step 4: much data, PBT loses', 'Training (8M)', 'Validation (1M)', [
         (22, 'Standard ParT, start LRs 1×10⁻⁵ – 1×10⁻³', ['sel1m_train8m_standard_part'], [':repo:`test spec <configs/prepared/holdout_sel1m_train8m_v1>`'], None, '0.1635', '🔧'),
-        (23, 'Fast PBT with the LR range of standard ParT', ['sel1m_train8m_fast_pbt'], [':repo:`test spec <configs/prepared/holdout_sel1m_train8m_v1>`', ':ref:`result <pbt-vs-standard-part-8m>`'], None, '0.1812, **+12.4%** vs 24', '❌'),
+        (23, 'Fast PBT with the LR range of standard ParT', ['sel1m_train8m_fast_pbt'], [':repo:`test spec <configs/prepared/holdout_sel1m_train8m_v1>`', ':ref:`result <pbt-vs-standard-part-8m>`'], None, '0.1812, **12.4% worse** than 24', '❌'),
         (24, 'Standard ParT, start LR 3×10⁻³', ['sel1m_train8m_standard_part_3e-3'], [':repo:`test spec <configs/prepared/holdout_sel1m_train8m_lr3e-3_v1>`'], None, '**0.1611**, the reference', '🔧'),
-        (25, 'PBT with cool-down probes (8M and 800k)', ['sel1m_train8m_fast_pbt_probe', 'sel1m_fast_pbt_probe'], [':repo:`test spec <configs/prepared/holdout_sel1m_probe_v1>`', ':ref:`result <probe-scored-pbt>`'], None, '0.1699, +5.4% vs 24', '❌'),
-        (26, 'PBT with probes and a final decay', ['sel1m_train8m_fast_pbt_probe_decay'], [':repo:`test spec <configs/prepared/holdout_sel1m_probe_decay_v1>`'], None, '0.1655, +2.7% vs 24', '❌'),
-        (27, 'Ensemble of trials 22 and 24', [], [':repo:`spec <configs/prepared/ensemble_8m_dev_v1/spec.json>`', ':ref:`result <prediction-ensemble>`'], 'Nov 23', '0.1530, **−5.1%** vs 24', '✅'),
-        (28, 'Trial 27 with seeds 22345 and 32345', ['sel1m_train8m_standard_part_seed22345', 'sel1m_train8m_standard_part_seed32345'], [':repo:`spec 22345 <configs/prepared/ensemble_seed22345_v1/spec.json>`', ':repo:`spec 32345 <configs/prepared/ensemble_seed32345_v1/spec.json>`'], None, '−4.9%, −5.1%; **mean −5.0%**', '✅'),
+        (25, 'PBT with cool-down probes (8M and 800k)', ['sel1m_train8m_fast_pbt_probe', 'sel1m_fast_pbt_probe'], [':repo:`test spec <configs/prepared/holdout_sel1m_probe_v1>`', ':ref:`result <probe-scored-pbt>`'], None, '0.1699, 5.4% worse than 24', '❌'),
+        (26, 'PBT with probes and a final decay', ['sel1m_train8m_fast_pbt_probe_decay'], [':repo:`test spec <configs/prepared/holdout_sel1m_probe_decay_v1>`'], None, '0.1655, 2.7% worse than 24', '❌'),
+    ]),
+    ('Step 5: much data, an ensemble wins', 'Training (8M)', 'Validation (1M)', [
+        (27, 'Ensemble of trials 22 and 24', [], [':repo:`spec <configs/prepared/ensemble_8m_dev_v1/spec.json>`', ':ref:`result <prediction-ensemble>`'], 'Nov 23', '0.1530, **5.1% better** than 24', '✅'),
+        (28, 'Trial 27 with seeds 22345 and 32345', ['sel1m_train8m_standard_part_seed22345', 'sel1m_train8m_standard_part_seed32345'], [':repo:`spec 22345 <configs/prepared/ensemble_seed22345_v1/spec.json>`', ':repo:`spec 32345 <configs/prepared/ensemble_seed32345_v1/spec.json>`'], None, '4.9% and 5.1% better; **mean of 3 seeds 5.0%**', '✅'),
         (29, 'Ensembles at 800k, 15 models', [], [':ref:`result <ensemble-800k>`'], 'Nov 23', 'no gain (Validation)', '➖'),
         (30, 'Where the ensemble gain comes from', [], [':ref:`result <ensemble-diversity>`'], 'Nov 23–25', 'mostly from separate training', '🔧'),
         (31, 'Final decay of 24 without dropout', [], [':ref:`result <dropout-branch>`'], 'Nov 23–24', 'much worse (Validation)', '❌'),
-        (32, 'Distillation of the ensemble into one model', [], [':repo:`network <networks/distill_particle_transformer.py>`', ':ref:`result <distillation>`'], 'Nov 24', '+1.0% (Validation)', '❌'),
+        (32, 'Distillation of the ensemble into one model', [], [':repo:`network <networks/distill_particle_transformer.py>`', ':ref:`result <distillation>`'], 'Nov 24', '1.0% worse (Validation)', '❌'),
         (33, 'Standard ParT, start LR 1×10⁻²', ['sel1m_train8m_standard_part_1e-2'], [':repo:`test spec <configs/prepared/holdout_sel1m_train8m_lr1e-2_v1>`'], None, '0.1599, as 24', '➖'),
     ]),
 ]
@@ -149,7 +149,7 @@ def main():
     out = ['.. This file is generated by scripts/reports/export_report_trials.py; do not edit.', '']
     rows = []
     for title, data, validation, trials in PHASES:
-        out += [f'.. _report-{title.split(":")[0].lower().replace(" ", "-")}:', '',
+        out += [f'.. _report-trials-{title.split(":")[0].lower().replace(" ", "-")}:', '',
                 f'**{title}** · {data} · {validation}', '',
                 '.. list-table::', '   :header-rows: 1', '   :widths: 4 15 47 24 6', '',
                 '   * - #', '     - Dates (JST)', '     - What, runs and records', '     - Result', '     -']
