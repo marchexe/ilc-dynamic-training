@@ -125,7 +125,7 @@ def load(directory):
     if not np.array_equal(ids[order], np.arange(len(ids))):
         raise ValueError(f'{directory}: row IDs are not 0..N-1')
     labels = table['_label_'].to_numpy()[order]
-    scores = np.stack(table['scores'].to_numpy(zero_copy_only=False))[order].astype(np.float64)
+    scores = np.stack(table['scores'].to_numpy(zero_copy_only=False))[order]  # float32, as Weaver scores it
     recorded = json.loads((directory / 'done.json').read_text())['metric']
     if not np.isclose(score_metrics(labels, scores)[PRIMARY], recorded, rtol=1e-9):
         raise ValueError(f'{directory}: recomputed metric differs from the Weaver log')
