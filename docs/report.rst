@@ -5,8 +5,8 @@ Report: All Trials and Results
 
 .. note::
 
-   **Visual overview:** `overview.html <overview.html>`_, the same story on one page with
-   interactive figures and every trial and run.
+   **Summary note:** `overview.html <overview.html>`_, the whole study as a short note with
+   figures, a table of all comparisons and every trial and run.
 
 Status on 2026-11-26. No run is in progress. The project asks one question: does PBT, which
 changes the learning rate (LR) during training, give a better jet tagger than normal training?

@@ -53,7 +53,7 @@ Contents
    evaluation
    reproducibility
 
-* `Visual overview <overview.html>`_: the whole project on one interactive page.
+* `Summary note <overview.html>`_: the whole study as a short note with figures and all trials.
 * :doc:`report`: every trial in time order, with dates, configuration, short results and an
   interpretation.
 * :doc:`results`: all completed comparisons, the 8M study, supporting studies and limitations.
