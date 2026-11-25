@@ -96,6 +96,7 @@ def main(argv=None):
         if not np.isclose(score_metrics(labels, sel[key][1])[PRIMARY], chosen[key]['training_time_sel1m'], rtol=1e-6):
             raise ValueError(f'{key}: sel1m_tail value differs from the training-time value')
 
+    sel_value = {k: score_metrics(labels, v[1])[PRIMARY] for k, v in sel.items()}
     qa = spec['question_A']
     same = [dict(pair=p, **base.gain(labels, sel[p[0]][1], sel[p[1]][1])) for p in qa['same_lr_pairs']]
     diff = [dict(pair=p, **base.gain(labels, sel[p[0]][1], sel[p[1]][1])) for p in qa['different_lr_pairs']]
@@ -122,7 +123,7 @@ def main(argv=None):
 
     per_seed, arrays = {}, {'labels': hl}
     for k, tag in enumerate(('s1', 's2', 's3')):
-        left = min((f'{tag}_3e-3', f'{tag}_1e-3'), key=lambda m: chosen[m]['training_time_sel1m'])
+        left = min((f'{tag}_3e-3', f'{tag}_1e-3'), key=lambda m: sel_value[m])  # better on sel1m_tail
         a = h[left][1]
         b = ((h[f'{tag}_3e-3'][1] + h[f'{tag}_1e-3'][1]) / 2).astype(a.dtype)
         base_value, ens = score_metrics(hl, a)[PRIMARY], score_metrics(hl, b)[PRIMARY]
