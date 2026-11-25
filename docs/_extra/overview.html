@@ -5,15 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PBT Study Report</title>
 <style>
-:root{--ink:#111;--ink2:#555;--rule:#111;--light:#d8d8d8;--link:#1f4f8f}
+:root{--ink:#111;--ink2:#555;--rule:#111;--link:#1f4f8f}
 body{margin:0;background:#fff;color:var(--ink);font:16px/1.55 Georgia,"Times New Roman",Times,serif}
 main{max-width:62rem;margin:0 auto;padding:2.6rem 1.25rem 4rem}
 .text{max-width:46rem}
 a{color:var(--link);text-decoration:none} a:hover{text-decoration:underline}
 h1{font-size:1.5rem;font-weight:normal;margin:0 0 .3rem}
 .byline{color:var(--ink2);font-size:.93rem;margin-bottom:1.6rem}
-h2{font-size:1.12rem;margin:2rem 0 .5rem}
+h2{font-size:1.15rem;margin:2.2rem 0 .5rem}
 p{margin:.55rem 0}
+ul.short{padding-left:1.2rem;margin:.4rem 0 0} ul.short li{margin:.25rem 0}
+figure{margin:1.4rem 0;max-width:46rem}
+figure img{width:100%;display:block}
+figure.wide{max-width:none}
+figure.wide figcaption{max-width:46rem}
+figcaption{font-size:.88rem;line-height:1.45;margin-top:.4rem;color:#222}
 table{border-collapse:collapse;width:100%;font-size:.88rem;line-height:1.4;border-top:1.5px solid var(--rule);border-bottom:1.5px solid var(--rule)}
 th{text-align:left;font-weight:normal;border-bottom:.8px solid var(--rule);padding:.4rem .45rem}
 td{padding:.32rem .45rem;vertical-align:top;border-bottom:.4px solid #ececec}
@@ -30,85 +36,107 @@ ol{padding-left:1.3rem;max-width:46rem} li{margin:.4rem 0}
 <body>
 <main>
 <h1>PBT for ParT jet-flavour tagging: trials and results, July&ndash;November 2026</h1>
-<div class="byline">Status on 26 November 2026; no run in progress. Details of every trial:
-<a href="results.html">results</a>, <a href="report.html#report-trials">trial list with run records and configuration files</a>.</div>
+<div class="byline">Status on 26 November 2026; no run in progress. Details:
+<a href="results.html">results</a>, <a href="report.html#report-trials">run records and configuration files</a>.</div>
 
 <div class="text">
 <p>The question: does Population Based Training (PBT), which changes the learning rate (LR) during fine-tuning,
-give a better b/c/light-jet tagger than training with a fixed LR schedule? Every trial fine-tunes the same pretrained
-ParT model (pretraining epoch 17) for 50 epochs with five models on five GPUs, unless the table says otherwise.</p>
-<p class="note">Data: Training (800k) = 2.4M jets, Training (8M) = 24M jets. Validation (150k) or, from 10 November,
-Validation (1M) is evaluated after each epoch; it drives PBT and selects the model. Test (2.8M) is evaluated once
-for each selected model; Test (9.0M) was used once, in trial 10. Values are the composite mistag (%) on Test
-(2.8M), lower is better; &Delta; is the relative change against the comparator, negative is better.
-<i>Standard ParT</i>: constant LR for 35 epochs, then &times;0.01 over 15 epochs, five start LRs, best one kept.</p>
+give a better b/c/light-jet tagger than training with a fixed LR schedule?</p>
+<p><b>In short:</b></p>
+<ul class="short">
+<li>The early gains of PBT (1.4%, 7.7%) came from a higher LR, not from adapting it.</li>
+<li>With 800k training jets, PBT is <b class="good">0.8% better</b> than standard ParT training (3 seeds).</li>
+<li>With 8M training jets, PBT is <b class="bad">2.7&ndash;12.4% worse</b> (1 seed).</li>
+<li>With 8M training jets, an ensemble of two standard ParT models is <b class="good">5.0% better</b> (3 seeds).</li>
+</ul>
 </div>
+
+<figure class="wide"><img src="note/history.png" alt="Test mistag of the selected model of every trial, 800k and 8M training jets">
+<figcaption><b>Figure 1.</b> Result of every trial that trained models: Test (2.8M) mistag of the selected model,
+lower is better; one point per seed. Numbers are the trial numbers of the table below, in time order. Grey lines
+separate the stages of the study.</figcaption></figure>
+
+<p class="text note">Terms: Training (800k) = 2.4M jets, Training (8M) = 24M jets. Validation (150k), from 10 November
+Validation (1M), is evaluated after each epoch; it drives PBT and selects the model. Test (2.8M) is evaluated once
+per selected model. Every trial fine-tunes the same pretrained ParT for 50 epochs with five models, unless the table
+says otherwise. &Delta; is the change of the mistag against the comparator; negative is better. <i>Standard ParT</i>:
+constant LR for 35 epochs, then &times;0.01 over 15 epochs; five start LRs, the best one is kept.</p>
 
 <h2>Trials</h2>
 <table>
-<tr><th>#</th><th>Dates</th><th>Training</th><th>Configuration</th><th>Result</th></tr>
-<tr class="step"><td colspan="5">Jul 22 &ndash; Aug 31: set-up <span>&middot; first PBT versions (exploit-and-mutate, anchor-copy),
-bandit and rule-based LR controllers. Two defects found and fixed (BatchNorm not frozen; a controller overwrote the
-PBT LR). Older training set-up; no result is comparable with the trials below.</span></td></tr>
+<tr><th>#</th><th>Dates</th><th>Training</th><th>Configuration</th><th>Result (Test 2.8M)</th></tr>
+<tr class="step"><td colspan="5">Jul 22 &ndash; Aug 31: set-up <span>&middot; first PBT versions and LR controllers;
+two defects fixed. Older training set-up, not comparable.</span></td></tr>
 
 <tr class="step"><td colspan="5">PBT against constant LRs <span>&middot; Validation (150k)</span></td></tr>
-<tr><td>1</td><td>Sep 16</td><td>800k</td><td>Constant LRs, 5 models, 3&times;10<sup>&minus;6</sup>&ndash;1.4&times;10<sup>&minus;5</sup></td><td>0.3269; best model is the highest LR</td></tr>
-<tr><td>2</td><td>Sep 17&ndash;18</td><td>800k</td><td>LRs 1.4&times;10<sup>&minus;5</sup> and 8.5&times;10<sup>&minus;6</sup> of trial 1 continued to 100 epochs</td><td>0.3156</td></tr>
-<tr><td>3</td><td>Sep 18</td><td>800k</td><td>PBT: start LRs as trial 1; every 5 epochs the weakest copies the best, LR &times;0.8 or &times;1.2; max 3&times;10<sup>&minus;5</sup></td><td>0.3225; &Delta; = &minus;1.4% vs 1</td></tr>
-<tr><td>4</td><td>Sep 19</td><td>800k</td><td>As 3, 100 epochs</td><td>0.3111; &Delta; = &minus;1.4% vs 2</td></tr>
-<tr><td>5</td><td>Sep 20</td><td>800k</td><td>Rule-based LR controller, observe only, on a 60k Validation subset; 8 models, 96 short epochs</td><td>the subset ranks models like the full set; controller proposed almost nothing</td></tr>
-<tr><td>6</td><td>Sep 23&ndash;29</td><td>800k</td><td>PBT with decisions every epoch against every 5 epochs; seeds 12345, 22345</td><td>every epoch &Delta; = +0.5%, +0.1% (Validation said the opposite): inconclusive</td></tr>
-<tr><td>7</td><td>Sep 28</td><td>800k</td><td>Restart test for decisions within an epoch</td><td>not possible: optimizer (Lookahead) state is not saved</td></tr>
-<tr><td>8</td><td>Oct 12</td><td>&ndash;</td><td>First Test (2.8M) evaluation of trials 1&ndash;6</td><td>large differences keep their order; small ones reorder</td></tr>
-<tr><td>9</td><td>Oct 13</td><td>8M</td><td>Preparation of Training (8M) and Test (9.0M); one-epoch GPU check</td><td>ready</td></tr>
-<tr><td>10</td><td>Oct 14&ndash;21</td><td>8M</td><td>Preregistered: constant LRs as trial 1 against PBT as trial 3; Test (9.0M) opened Nov 2</td><td>PBT &Delta; = &minus;7.7% on Test (9.0M); again best constant model at the highest LR</td></tr>
-<tr><td>11</td><td>Oct 17 &ndash; Nov 3</td><td>800k</td><td>Checkpoints with the full optimizer state, for decisions within an epoch</td><td>one epoch = five restarted parts, bit for bit; not used in a PBT run</td></tr>
+<tr><td>1</td><td>Sep 16</td><td>800k</td><td>Constant LRs 3&times;10<sup>&minus;6</sup>&ndash;1.4&times;10<sup>&minus;5</sup></td><td>0.3269; best is the highest LR</td></tr>
+<tr><td>2</td><td>Sep 17&ndash;18</td><td>800k</td><td>Two LRs of trial 1, 100 epochs</td><td>0.3156</td></tr>
+<tr><td>3</td><td>Sep 18</td><td>800k</td><td>PBT: decisions every 5 epochs, LR &times;0.8 or &times;1.2, max 3&times;10<sup>&minus;5</sup></td><td>0.3225; &Delta; = &minus;1.4% vs 1</td></tr>
+<tr><td>4</td><td>Sep 19</td><td>800k</td><td>PBT as 3, 100 epochs</td><td>0.3111; &Delta; = &minus;1.4% vs 2</td></tr>
+<tr><td>6</td><td>Sep 23&ndash;29</td><td>800k</td><td>PBT, decisions every epoch vs every 5 epochs; 2 seeds</td><td>&Delta; = +0.5%, +0.1%; inconclusive</td></tr>
+<tr><td>10</td><td>Oct 14&ndash;21</td><td>8M</td><td>Preregistered: trial 1 vs trial 3 on 8M; Test (9.0M)</td><td>&Delta; = &minus;7.7%; best constant LR again the highest</td></tr>
 
 <tr class="step"><td colspan="5">Higher constant LRs <span>&middot; Validation (150k)</span></td></tr>
-<tr><td>12</td><td>Nov 3</td><td>800k</td><td>Constant LRs 1.4&times;10<sup>&minus;5</sup>&ndash;3&times;10<sup>&minus;5</sup></td><td>0.3146; best model again the highest LR</td></tr>
-<tr><td>13</td><td>Nov 3&ndash;4</td><td>800k</td><td>Constant LRs 3&times;10<sup>&minus;5</sup>&ndash;8&times;10<sup>&minus;5</sup></td><td><b>0.3018</b>: better than every PBT run so far</td></tr>
-<tr><td>14</td><td>Nov 4</td><td>800k</td><td>Constant LRs 8&times;10<sup>&minus;5</sup>&ndash;3.2&times;10<sup>&minus;4</sup></td><td>0.3033; best 1.2&times;10<sup>&minus;4</sup></td></tr>
-<tr><td>15</td><td>Nov 4</td><td>800k</td><td>Fast PBT: start 10<sup>&minus;5</sup>&ndash;3.5&times;10<sup>&minus;4</sup>; every 2 epochs, LR &times;0.5 or &times;2; max 5&times;10<sup>&minus;4</sup></td><td>0.3003; &Delta; = &minus;1.0% vs 14</td></tr>
-<tr><td>16</td><td>Nov 9</td><td>800k</td><td>Trials 15 and 14 (6&times;10<sup>&minus;5</sup>&ndash;1.6&times;10<sup>&minus;4</sup>) with seed 22345</td><td>PBT &Delta; = +0.5%, although 1.4% better on Validation</td></tr>
-<tr><td>17</td><td>Nov 9</td><td>800k</td><td>As 15, with extra copies (&times;0.7 or &times;1.4) when &times;0.5 and &times;2 are both in use</td><td>&Delta; = +0.8% vs 15</td></tr>
+<tr><td>12</td><td>Nov 3</td><td>800k</td><td>Constant LRs 1.4&times;10<sup>&minus;5</sup>&ndash;3&times;10<sup>&minus;5</sup></td><td>0.3146; best is the highest LR</td></tr>
+<tr><td>13</td><td>Nov 3&ndash;4</td><td>800k</td><td>Constant LRs 3&times;10<sup>&minus;5</sup>&ndash;8&times;10<sup>&minus;5</sup></td><td><b>0.3018</b>, better than all PBT before</td></tr>
+<tr><td>14</td><td>Nov 4</td><td>800k</td><td>Constant LRs 8&times;10<sup>&minus;5</sup>&ndash;3.2&times;10<sup>&minus;4</sup></td><td>0.3033</td></tr>
+<tr><td>15</td><td>Nov 4</td><td>800k</td><td>Fast PBT: every 2 epochs, LR &times;0.5 or &times;2, max 5&times;10<sup>&minus;4</sup></td><td>0.3003; &Delta; = &minus;1.0% vs 14</td></tr>
+<tr><td>16</td><td>Nov 9</td><td>800k</td><td>Trials 14 and 15 with seed 22345</td><td>&Delta; = +0.5%: sign reversed</td></tr>
+<tr><td>17</td><td>Nov 9</td><td>800k</td><td>Fast PBT with extra copies</td><td>0.3026; &Delta; = +0.8% vs 15</td></tr>
 
-<tr class="step"><td colspan="5">PBT against standard ParT, little data <span>&middot; Validation (1M) from here</span></td></tr>
-<tr><td>18</td><td>Nov 10&ndash;13</td><td>800k</td><td>Standard ParT (start 10<sup>&minus;5</sup>&ndash;10<sup>&minus;3</sup>), constant LRs (6&times;10<sup>&minus;5</sup>&ndash;1.6&times;10<sup>&minus;4</sup>) and PBT as 17; seeds 12345, 22345, 32345</td><td><b class="good">PBT &Delta; = &minus;0.81%</b> vs standard ParT (&minus;0.67, &minus;0.85, &minus;0.91; 95% interval &minus;1.34 to &minus;0.34); constant LRs unstable across seeds</td></tr>
-<tr><td>19</td><td>Nov 12</td><td>800k</td><td>PBT as 18 with a final decay (no decisions in the last 15 epochs); 2 seeds</td><td>same models selected as 18</td></tr>
-<tr><td>20</td><td>Nov 12</td><td>800k</td><td>Standard ParT from random weights (no pretraining)</td><td>0.378 on Validation, against ~0.30</td></tr>
-<tr><td>21</td><td>Nov 12</td><td>800k</td><td>Weight averages of nearby checkpoints and of PBT models</td><td>no gain (Validation)</td></tr>
+<tr class="step"><td colspan="5">PBT against standard ParT, 800k <span>&middot; Validation (1M) from here</span></td></tr>
+<tr><td>18</td><td>Nov 10&ndash;13</td><td>800k</td><td>Standard ParT (start 10<sup>&minus;5</sup>&ndash;10<sup>&minus;3</sup>), constant LRs, fast PBT; 3 seeds</td><td><b class="good">PBT &Delta; = &minus;0.81%</b> (95% interval &minus;1.34 to &minus;0.34)</td></tr>
+<tr><td>19</td><td>Nov 12</td><td>800k</td><td>PBT with a final LR decay; 2 seeds</td><td>same models as 18</td></tr>
+<tr><td>20</td><td>Nov 12</td><td>800k</td><td>Standard ParT without pretraining</td><td>0.378 (Validation): far worse</td></tr>
+<tr><td>21</td><td>Nov 12</td><td>800k</td><td>Weight averaging of checkpoints</td><td>no gain (Validation)</td></tr>
 
-<tr class="step"><td colspan="5">PBT against standard ParT, much data <span>&middot; Validation (1M), seed 12345</span></td></tr>
-<tr><td>22</td><td>Nov 14&ndash;15</td><td>8M</td><td>Standard ParT, start 10<sup>&minus;5</sup>&ndash;10<sup>&minus;3</sup></td><td>0.1635; best model the highest LR</td></tr>
-<tr><td>23</td><td>Nov 15&ndash;17</td><td>8M</td><td>PBT as 18, LR range of standard ParT (max 10<sup>&minus;3</sup>)</td><td>0.1812; <b class="bad">&Delta; = +12.4%</b> vs 24</td></tr>
-<tr><td>24</td><td>Nov 19&ndash;20</td><td>8M</td><td>Standard ParT, start 3&times;10<sup>&minus;3</sup> (1 model)</td><td><b>0.1611</b>: the 8M reference</td></tr>
-<tr><td>25</td><td>Nov 19&ndash;21</td><td>8M, 800k</td><td>PBT with cool-down probes: decisions use a copy trained &frac14; epoch at 0.1&times; its LR</td><td>8M: 0.1699, &Delta; = +5.4% vs 24; 800k: no change</td></tr>
-<tr><td>26</td><td>Nov 20&ndash;23</td><td>8M</td><td>PBT with probes and the final decay; max LR 3&times;10<sup>&minus;3</sup></td><td>0.1655; &Delta; = +2.7% vs 24. Planned extra seeds not run (rule fixed in advance)</td></tr>
+<tr class="step"><td colspan="5">PBT against standard ParT, 8M <span>&middot; seed 12345</span></td></tr>
+<tr><td>22</td><td>Nov 14&ndash;15</td><td>8M</td><td>Standard ParT, start 10<sup>&minus;5</sup>&ndash;10<sup>&minus;3</sup></td><td>0.1635; best is the highest LR</td></tr>
+<tr><td>23</td><td>Nov 15&ndash;17</td><td>8M</td><td>Fast PBT, max LR 10<sup>&minus;3</sup></td><td>0.1812; <b class="bad">&Delta; = +12.4%</b> vs 24</td></tr>
+<tr><td>24</td><td>Nov 19&ndash;20</td><td>8M</td><td>Standard ParT, start 3&times;10<sup>&minus;3</sup></td><td><b>0.1611</b>: 8M reference</td></tr>
+<tr><td>25</td><td>Nov 19&ndash;21</td><td>8M</td><td>PBT with cool-down probes</td><td>0.1699; &Delta; = +5.4% vs 24</td></tr>
+<tr><td>26</td><td>Nov 20&ndash;23</td><td>8M</td><td>PBT with probes and a final LR decay</td><td>0.1655; &Delta; = +2.7% vs 24</td></tr>
 
-<tr class="step"><td colspan="5">Other ways to gain with much data <span>&middot; Validation (1M)</span></td></tr>
-<tr><td>27</td><td>Nov 23</td><td>8M</td><td>Ensemble: mean of the class probabilities of trials 22 and 24; chosen on Validation, Test check fixed in advance</td><td>0.1530; &Delta; = &minus;5.1% vs 24</td></tr>
-<tr><td>28</td><td>Nov 23&ndash;25</td><td>8M</td><td>Trial 27 repeated: standard ParT at 3&times;10<sup>&minus;3</sup> and 10<sup>&minus;3</sup>, seeds 22345, 32345</td><td>&Delta; = &minus;4.9%, &minus;5.1%; <b class="good">mean &minus;5.0%</b> (95% interval &minus;5.8 to &minus;4.2)</td></tr>
-<tr><td>29</td><td>Nov 23</td><td>800k</td><td>Ensembles of any two of 15 models of trial 18</td><td>no gain (Validation)</td></tr>
-<tr><td>30</td><td>Nov 23&ndash;25</td><td>8M</td><td>Ensemble pairs: same LR and different seeds, against different LRs</td><td>&Delta; = &minus;3.6% and &minus;4.7% (Validation): mostly from separate training</td></tr>
-<tr><td>31</td><td>Nov 23&ndash;24</td><td>8M</td><td>Final decay of trial 24 with dropout 0</td><td>much worse (Validation); stopped</td></tr>
-<tr><td>32</td><td>Nov 24</td><td>8M</td><td>Distillation: final decay of 24 trained half on labels, half on the ensemble of 27</td><td>0.1600 against 0.1584 (Validation): no gain</td></tr>
-<tr><td>33</td><td>Nov 24&ndash;25</td><td>8M</td><td>Standard ParT, start 10<sup>&minus;2</sup> (1 model)</td><td>0.1599; worse on Validation: same as 24</td></tr>
+<tr class="step"><td colspan="5">Other ways to gain, 8M</td></tr>
+<tr><td>27</td><td>Nov 23</td><td>8M</td><td>Ensemble: mean output of trials 22 and 24</td><td>0.1530; &Delta; = &minus;5.1% vs 24</td></tr>
+<tr><td>28</td><td>Nov 23&ndash;25</td><td>8M</td><td>Trial 27 with seeds 22345 and 32345</td><td><b class="good">mean &Delta; = &minus;5.0%</b> (95% interval &minus;5.8 to &minus;4.2)</td></tr>
+<tr><td>29</td><td>Nov 23</td><td>800k</td><td>Ensembles of the 800k models</td><td>no gain (Validation)</td></tr>
+<tr><td>31</td><td>Nov 23&ndash;24</td><td>8M</td><td>Final decay of 24 without dropout</td><td>worse (Validation)</td></tr>
+<tr><td>32</td><td>Nov 24</td><td>8M</td><td>Distillation of the ensemble into one model</td><td>no gain (Validation)</td></tr>
+<tr><td>33</td><td>Nov 24&ndash;25</td><td>8M</td><td>Standard ParT, start 10<sup>&minus;2</sup></td><td>0.1599: same as 24</td></tr>
 </table>
+<p class="note">Checks without a training comparison: 5 (LR controller in observe mode), 7 (restart within an
+epoch), 8 (first Test evaluation), 9 (8M data preparation), 11 (full optimizer state in checkpoints), 30 (source of
+the ensemble gain).</p>
 
 <h2>Interpretation</h2>
 <ol>
-<li><b>The early gains of PBT were gains of a higher LR.</b> In trials 1&ndash;10 the comparator LRs were too low;
-PBT won because it moved to higher LRs. A good constant LR (trial 13) is as good as PBT.</li>
-<li><b>With little data, PBT gives a small real gain.</b> Against standard ParT, PBT is 0.8% better on all three
-seeds (trial 18). At 800k the model starts to overfit after about 20 epochs, and PBT finds the right time to lower
-the LR.</li>
-<li><b>With much data, PBT is worse.</b> At 8M the model does not overfit; the best schedule is a high LR for a
-long time and a decay at the end. PBT judges each change after two epochs, where a lower LR almost always looks
-better, so it lowers the LR too early (trial 23: 12.4% worse). Probes and a final decay reduce this to 2.7%
-(trial 26), but PBT stays worse.</li>
-<li><b>With much data, an ensemble of two standard ParT models is 5.0% better</b> on three seeds (trials 27&ndash;28).
-Both models come from the LR scan that standard ParT runs anyway; the cost is two models at inference time. PBT
-models do not ensemble, because PBT copies weights between them.</li>
+<li><b>The early gains of PBT were gains of a higher LR.</b> In trials 1&ndash;10 the constant LRs were too low.
+PBT moved to higher LRs and won. A good constant LR is as good as PBT (Figure 2).</li>
+</ol>
+<figure><img src="note/fig1.png" alt="Test mistag against the learning rate, constant LRs and PBT">
+<figcaption><b>Figure 2.</b> Test (2.8M) mistag against the LR of the selected model, 800k. Black: best model of
+each constant-LR grid (trials 1, 12, 13, 14). Red: the PBT runs (trials 3 and 15). Grey: the LR range of September.
+Both PBT runs lie on the curve of the constant LRs.</figcaption></figure>
+<ol start="2">
+<li><b>With 800k training jets, PBT gives a small real gain</b> (trial 18). The model starts to overfit after about
+20 epochs (Figure 4a); PBT finds the right time to lower the LR.</li>
+<li><b>With 8M training jets, PBT is worse.</b> The model does not overfit (Figure 4b), so the best schedule is a
+high LR for a long time and a decay at the end. PBT judges each change after two epochs, where a lower LR almost
+always looks better, so it lowers the LR too early (Figure 3). Probes and a final decay reduce the loss from 12.4% to
+2.7%, but PBT stays worse.</li>
+</ol>
+<figure><img src="note/fig3.png" alt="Learning rate and best Validation mistag per epoch, 8M">
+<figcaption><b>Figure 3.</b> 8M, seed 12345. (a) LR per epoch: standard ParT (trial 24) and the range of the five
+PBT models (trial 23). (b) Best Validation mistag so far. Grey: the final decay of standard ParT. PBT leads until
+about epoch 20 and loses in the final decay.</figcaption></figure>
+<figure><img src="note/fig4.png" alt="Training and Validation loss per epoch, 800k and 8M">
+<figcaption><b>Figure 4.</b> Loss of the best standard ParT model on the training data and on Validation (1M).
+(a) 800k: the training loss falls below the Validation loss (overfitting). (b) 8M: the two stay together.</figcaption></figure>
+<ol start="4">
+<li><b>With 8M training jets, an ensemble of two standard ParT models is 5.0% better</b> on three seeds
+(trials 27&ndash;28, Figure 1b). Both models come from the LR scan that standard ParT runs anyway; the cost is two
+models at inference time. Two PBT models do not ensemble, because PBT copies weights between them.</li>
 </ol>
 <p class="text note">Limits: the 8M PBT trials have one seed; all trials start from one pretrained model; Test
 (2.8M) was also used in diagnostics before November.</p>
