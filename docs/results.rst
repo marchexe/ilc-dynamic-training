@@ -148,7 +148,12 @@ same five start learning rates (1×10⁻⁵–1×10⁻³) and an upper bound of 
    member with start learning rate 1×10⁻³, and the range of learning rates of the PBT members.
 
 The 3×10⁻³ member is 1.4% better on the holdout than the 1×10⁻³ member (0.1611 against
-0.1635) and also better on the selection set, so it is the 8M standard ParT result.
+0.1635) and also better on the selection set, so it is the 8M standard ParT result. A further
+member at 1×10⁻², again fixed before training (:repo:`configs/prepared/holdout_sel1m_train8m_lr1e-2_v1`),
+was worse on the selection set (0.1631 against 0.1584), so 3×10⁻³ stays the result; on the holdout
+it was 0.76% better (0.1599). The two disagree in sign, and the difference is as large as the
+spread of the 3×10⁻³ model over three seeds (0.1597–0.1623 on the holdout): above 1×10⁻³ the
+start learning rate of standard ParT hardly matters on 8M.
 
 PBT was ahead until about epoch 33, then fell behind; standard ParT gained most in its final
 decay (0.180 at epoch 52, 0.162 at epoch 67). The likely cause is the short decision horizon:
@@ -259,48 +264,97 @@ across PBT members were not better than the best single checkpoint (selection se
 
 .. _prediction-ensemble:
 
-Prediction ensemble of the two standard ParT models (development result)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Prediction ensemble of two standard ParT models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The mean of the class probabilities of the two 8M standard ParT models (start learning rates
-3×10⁻³ and 1×10⁻³) is **5.05% better on the holdout** than the better single model
-(0.1530 against 0.1611; 95% interval 3.75–6.36% for the holdout sample). No training is
-needed: both models already exist as members of the standard ParT learning-rate scan.
+The mean of the class probabilities of the two 8M standard ParT models of one training seed
+(start learning rates 3×10⁻³ and 1×10⁻³) is better on the holdout than the better single model
+for each of three training seeds: by 5.05%, 4.86% and 5.14%, **5.01% on average (95% interval
+4.17–5.84%)**. Both models are members of the learning-rate scan that standard ParT training
+runs anyway; the cost is two models at inference time.
 
-.. list-table:: Holdout composite mistag (%), 8M training jets, seed 12345
+.. list-table:: Holdout composite mistag (%), 8M training jets
    :header-rows: 1
-   :widths: 46 18 36
+   :widths: 16 18 18 18 30
 
-   * - Model
-     - Holdout
-     - Ensemble against it (95% interval)
-   * - Standard ParT, start LR 3×10⁻³
+   * - Seed
+     - Standard ParT 3×10⁻³
+     - Standard ParT 1×10⁻³
+     - Ensemble
+     - Ensemble − 3×10⁻³ (95% interval)
+   * - 12345
      - 0.1611
+     - 0.1635
+     - 0.1530
      - −5.05% (−6.36, −3.75)
-   * - PBT + probes + final decay
-     - 0.1655
-     - −7.54% (−8.86, −5.83)
-   * - **Ensemble of the two standard ParT models**
-     - **0.1530**
+   * - 22345
+     - 0.1597
+     - 0.1623
+     - 0.1519
+     - −4.86% (−6.37, −3.54)
+   * - 32345
+     - 0.1623
+     - 0.1634
+     - 0.1540
+     - −5.14% (−6.45, −3.88)
+   * - Mean of the seeds
      -
+     -
+     -
+     - **−5.01% (−5.84, −4.17)**
 
-How it was found and checked: eight ensembles of finished 8M models were scored on the
-selection set only; this one was the best there (0.1515 against 0.1584 for the single 3×10⁻³
-model). The comparison was then fixed in a specification and committed before the ensemble was
-scored on the holdout (:repo:`configs/prepared/ensemble_8m_dev_v1/spec.json`), and no
-other ensemble was scored on the holdout. The interval uses the block bootstrap described above.
+In every seed the 3×10⁻³ model was the better single model on the selection set and is the
+reference. Against the last PBT run (0.1655, seed 12345) the ensemble of the same seed is 7.54%
+better.
 
-On the selection set, ensembles of PBT members gave nothing: the two best members of the last
-PBT run together were 0.1605, against 0.1604 for the best one alone. PBT copies the weights of
-the best member into the others, so its members make the same errors, while separately trained
-models make different errors that partly cancel in the mean. The weights of the two standard
-ParT models also cannot be averaged into one model (0.39 on the selection set), which confirms
-that they ended in different solutions.
+**How it was found and checked.** On seed 12345, eight ensembles of finished 8M models were
+scored on the selection set only; this one was the best there (0.1515 against 0.1584 for the
+single 3×10⁻³ model). Its holdout comparison was then fixed and committed before the ensemble was
+scored on the holdout (:repo:`configs/prepared/ensemble_8m_dev_v1/spec.json`). Seeds 22345 and
+32345 were trained afterwards to test it, with their comparisons, the selection rule for their
+checkpoints and the rule for the three-seed claim committed before each run started
+(:repo:`configs/prepared/ensemble_seed22345_v1/spec.json`,
+:repo:`configs/prepared/ensemble_seed32345_v1/spec.json`; analysis:
+:repo:`scripts/experiments/ensemble_seed_analysis.py`,
+:repo:`scripts/experiments/ensemble_seed32345_analysis.py`). No other ensemble was scored on the
+holdout. The intervals use the block bootstrap described above; the interval of the mean uses the
+same resampled blocks for all three seeds.
 
-Limits: one training seed; the ensemble costs two models at inference time; and the gain was
-found by looking at eight candidates on the selection set before the single holdout check.
-Whether the gain comes from the different learning rates or from training two separate models is
-open (:ref:`ensemble-diversity`).
+**Why PBT members do not ensemble.** On the selection set the two best members of the last PBT run
+together were 0.1605, against 0.1604 for the best one alone. PBT copies the weights of the best
+member into the others, so its members make the same errors, while separately trained models
+make different errors that partly cancel in the mean. The weights of two separately trained
+standard ParT models also cannot be averaged into one model (0.39 on the selection set): they end
+in different solutions.
+
+.. _ensemble-diversity:
+
+Where the gain comes from
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+On the selection set (all models of the three seeds), two checkpoints of the same run, or two
+members of the same PBT run, disagree on 0.2–0.4% of the jets and give no ensemble gain; two
+separately trained models disagree on about 1.5–2.3%. Pairs with the same start learning rate and
+different seeds gain 3.56% on average, and pairs with different start learning rates 4.65%. The
+pre-registered rule counts a difference above 1 percentage point as a contribution of the learning
+rate; at 1.08 points this is just above it, while seed 22345 alone gave 0.41 points. So most of the
+gain comes from training the models separately, and a different learning rate adds about one
+point.
+
+.. _distillation:
+
+Distillation of the ensemble into one model: no gain
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Distillation trains one model on the mean class probabilities of the ensemble, so that it could
+keep part of the gain at the cost of one model. The loss was half the usual cross-entropy on the
+true labels and half the cross-entropy on the ensemble probabilities of seed 12345
+(:repo:`networks/distill_particle_transformer.py`, :repo:`networks/distill_ensemble_8m_s12345.py`).
+A test repeated only the final decay of standard ParT at 3×10⁻³ (epochs 53–67) from its saved
+epoch-52 checkpoint with this loss (selection set only). The distilled model was 2–3% ahead in the
+first epochs of the decay, but the plain run caught up: best 0.1600 against 0.1584, and 0.1604
+against 0.1597 at the last epoch. The full distillation run
+(:repo:`configs/experiments/sel1m_train8m_distill_s12345.yaml`) was therefore not started.
 
 .. _ensemble-800k:
 
@@ -339,7 +393,7 @@ better); disagreement is the share of jets on which the two models predict diffe
 At 800k the best learning rates are low, and the models stay close to the common pretrained
 checkpoint: even with different seeds they disagree on only 0.6–0.7% of the jets, and their mean
 is no better than either. On 8M the learning rates are ten times higher, separately trained models
-disagree on 1.5–2.3% of the jets, and the ensemble gains 4–6.5% (:ref:`ensemble-diversity`). The
+disagree on 1.5–2.3% of the jets, and the ensemble gains about 5% (:ref:`ensemble-diversity`). The
 diversity of the models therefore seems to grow with how far training moves them from the
 pretrained checkpoint. Of all 105 pairs, the best are about 0.9% better than the best single
 model, which is within what the choice among so many pairs can give by chance.
@@ -367,11 +421,11 @@ Summary: two regimes
      - worse, 12.4%; 2.7% after the fixes (1 seed)
    * - Ensemble of two models
      - no gain
-     - **better**, 5.05% (1 seed)
+     - **better**, 5.01% (3 seeds)
 
-With little data, adapting the learning rate with PBT helps and ensembles do not; with much data,
-standard ParT with an ensemble of its learning-rate scan helps and PBT does not. The 8M results
-use one training seed; a second seed is in progress (:ref:`ensemble-diversity`).
+With little data, adapting the learning rate with PBT helps a little and ensembles do not; with
+much data, an ensemble of two separately trained standard ParT models helps and PBT does not. The
+8M PBT results use one training seed.
 
 .. _correction-of-earlier-comparisons:
 

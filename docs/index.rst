@@ -21,10 +21,11 @@ Findings
 3. **The reason is overfitting.** At 800k the model starts to memorise its training data, and
    lowering the learning rate early helps. At 8M it does not overfit, and a long phase at a high
    learning rate followed by a decay is better (:ref:`no-overfitting-at-8m`).
-4. **An ensemble of two standard ParT models is 5.05% better** on the 8M holdout than the
-   better single model (interval 3.75–6.36%; one seed, development result). Both models are
-   members of the learning-rate scan that standard ParT training runs anyway
-   (:ref:`prediction-ensemble`). At 800k ensembles give no gain (:ref:`ensemble-800k`).
+4. **An ensemble of two standard ParT models is 5.0% better** on the 8M holdout than the better
+   single model, on each of three training seeds (5.05%, 4.86%, 5.14%; mean interval
+   4.17–5.84%). The two models are trained separately, for example two members of the
+   learning-rate scan that standard ParT training runs anyway (:ref:`prediction-ensemble`). At
+   800k ensembles give no gain (:ref:`ensemble-800k`).
 
 In short: with little training data PBT helps a little and ensembles do not; with much data an
 ensemble of standard ParT models helps and PBT does not (:ref:`two-regimes`).

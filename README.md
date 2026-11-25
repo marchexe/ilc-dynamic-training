@@ -9,8 +9,8 @@ holdout by 0.67%, 0.85% and 0.91% (0.81% on average; 95% interval 0.34–1.34% f
 holdout sample). On ten times more training data (8M jets, one seed) PBT is 12.4% worse than
 standard ParT, because it lowers the learning rate too early; cool-down probes and a final
 decay reduce this to 2.7%. The model overfits at 800k but not at 8M, which explains the
-difference. A prediction ensemble of the two 8M standard ParT models is 5.05% better than the
-better single model (one seed, development result). Earlier gains of 1–2% and 7.7% were
+difference. A prediction ensemble of two separately trained 8M standard ParT models is 5.0% better than
+the better single model on each of three training seeds. Earlier gains of 1–2% and 7.7% were
 measured against fixed learning rates that were too low.
 
 - [Results and limitations](https://marchexe.github.io/ilc-dynamic-training/results.html)
