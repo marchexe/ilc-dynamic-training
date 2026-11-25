@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Build the summary note of the project: docs/_extra/overview.html.
 
-    .venv/bin/python scripts/reports/plot_report_note.py   # figures first
     .venv/bin/python scripts/reports/build_report_page.py
 
-A static page (no scripts), copied to the site root by Sphinx (html_extra_path). The appendix of trials and runs
-comes from export_report_trials.py (run manifests); the figures from plot_report_note.py.
+A static page (no scripts), copied to the site root by Sphinx (html_extra_path): the trial table and the
+interpretation, written in scripts/reports/report_note.html.
 """
 import html
 import shutil
@@ -87,14 +86,10 @@ def appendix():
 
 
 def main():
-    src, dst = ROOT / 'published/results/report', ROOT / 'docs/_extra/note'
-    dst.mkdir(parents=True, exist_ok=True)
-    for i in range(1, 6):
-        shutil.copyfile(src / f'note_fig{i}.png', dst / f'fig{i}.png')
-    page = NOTE.replace('<!--APPENDIX-->', appendix())
     out = ROOT / 'docs/_extra/overview.html'
-    out.write_text(page)
-    print(f'{out.relative_to(ROOT)}: {len(page) // 1024} kB')
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(NOTE)
+    print(f'{out.relative_to(ROOT)}: {len(NOTE) // 1024} kB')
 
 
 NOTE = open(Path(__file__).with_name('report_note.html')).read()

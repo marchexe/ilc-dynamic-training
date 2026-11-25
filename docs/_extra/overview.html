@@ -3,251 +3,115 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PBT Study Summary</title>
+<title>PBT Study Report</title>
 <style>
-:root{--ink:#111;--ink2:#555;--rule:#111;--light:#d8d8d8;--bg:#fff;--link:#1f4f8f}
-body{margin:0;background:var(--bg);color:var(--ink);font:16.5px/1.6 Georgia,"Times New Roman",Times,serif}
-main{max-width:46rem;margin:0 auto;padding:3rem 1.25rem 4rem}
+:root{--ink:#111;--ink2:#555;--rule:#111;--light:#d8d8d8;--link:#1f4f8f}
+body{margin:0;background:#fff;color:var(--ink);font:16px/1.55 Georgia,"Times New Roman",Times,serif}
+main{max-width:62rem;margin:0 auto;padding:2.6rem 1.25rem 4rem}
+.text{max-width:46rem}
 a{color:var(--link);text-decoration:none} a:hover{text-decoration:underline}
-h1{font-size:1.55rem;line-height:1.3;font-weight:normal;margin:0 0 .4rem;text-align:center}
-.byline{text-align:center;color:var(--ink2);font-size:.95rem;margin-bottom:2rem}
-.abstract{margin:0 2rem 2rem;font-size:.97rem}
-.abstract b{font-variant:small-caps;letter-spacing:.04em}
-h2{font-size:1.15rem;font-weight:bold;margin:2.2rem 0 .6rem}
-h3{font-size:1rem;font-style:italic;font-weight:normal;margin:1.6rem 0 .4rem}
-p{margin:.6rem 0;text-align:justify;hyphens:auto}
-figure{margin:1.6rem 0}
-figure img{width:100%;display:block}
-figcaption{font-size:.9rem;line-height:1.45;margin-top:.5rem;text-align:justify}
-figcaption b{font-weight:bold}
-table{border-collapse:collapse;width:100%;font-size:.92rem;margin:.4rem 0 1rem}
-caption{caption-side:top;text-align:left;font-size:.9rem;margin-bottom:.4rem}
-table.book{border-top:1.5px solid var(--rule);border-bottom:1.5px solid var(--rule)}
-table.book th{border-bottom:.8px solid var(--rule);font-weight:normal;text-align:left;padding:.35rem .5rem}
-table.book td{padding:.3rem .5rem;vertical-align:top}
-table.book td:first-child{white-space:nowrap}
-.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.sub td{border-top:.6px solid var(--light)}
-ol.tight{padding-left:1.3rem} ol.tight li{margin:.35rem 0}
-.meta{color:var(--ink2);font-size:.88rem;margin:.2rem 0 .6rem}
-details{border-bottom:.6px solid var(--light);font-size:.9rem}
-summary{display:grid;grid-template-columns:2rem 11.5rem 1fr 13rem;gap:.6rem;padding:.35rem 0;cursor:pointer;list-style:none}
-summary::-webkit-details-marker{display:none}
-summary .tn{font-variant-numeric:tabular-nums}
-summary .td{color:var(--ink2);font-variant-numeric:tabular-nums}
-details[open] summary{font-weight:bold}
-details .body{padding:.2rem 0 .6rem 2.6rem}
-table.runs{font-size:.8rem;margin:.3rem 0}
-table.runs th{text-align:left;font-weight:normal;color:var(--ink2);border-bottom:.6px solid var(--light);padding:.2rem .35rem}
-table.runs td{padding:.2rem .35rem;border-bottom:.4px solid #eee}
-.foot{margin-top:3rem;color:var(--ink2);font-size:.85rem;border-top:.6px solid var(--light);padding-top:.8rem}
-@media (max-width:700px){summary{grid-template-columns:2rem 1fr}summary .td,summary .tr{grid-column:2}.abstract{margin:0 0 2rem}
-details .body{padding-left:0;overflow-x:auto}p{text-align:left}}
+h1{font-size:1.5rem;font-weight:normal;margin:0 0 .3rem}
+.byline{color:var(--ink2);font-size:.93rem;margin-bottom:1.6rem}
+h2{font-size:1.12rem;margin:2rem 0 .5rem}
+p{margin:.55rem 0}
+table{border-collapse:collapse;width:100%;font-size:.88rem;line-height:1.4;border-top:1.5px solid var(--rule);border-bottom:1.5px solid var(--rule)}
+th{text-align:left;font-weight:normal;border-bottom:.8px solid var(--rule);padding:.4rem .45rem}
+td{padding:.32rem .45rem;vertical-align:top;border-bottom:.4px solid #ececec}
+td:nth-child(1),td:nth-child(2),td:nth-child(3){white-space:nowrap}
+td:nth-child(1){color:var(--ink2)}
+tr.step td{border-bottom:.8px solid var(--rule);padding-top:1rem;font-style:italic;white-space:normal}
+tr.step td span{font-style:normal;color:var(--ink2)}
+b.good{color:#0b6b1d} b.bad{color:#9e1c22}
+ol{padding-left:1.3rem;max-width:46rem} li{margin:.4rem 0}
+.note{color:var(--ink2);font-size:.9rem}
+@media (max-width:760px){main{padding:1.6rem .8rem}table{font-size:.8rem}td:nth-child(2),td:nth-child(3){white-space:normal}}
 </style>
 </head>
 <body>
 <main>
+<h1>PBT for ParT jet-flavour tagging: trials and results, July&ndash;November 2026</h1>
+<div class="byline">Status on 26 November 2026; no run in progress. Details of every trial:
+<a href="results.html">results</a>, <a href="report.html#report-trials">trial list with run records and configuration files</a>.</div>
 
-<h1>Learning-rate adaptation with Population Based Training<br>for ParT jet-flavour tagging at the ILC</h1>
-<div class="byline">Summary of all trials, July&ndash;November 2026 &middot; status on 26 November 2026, no run in progress<br>
-<a href="report.html">Text version</a> &middot; <a href="results.html">Detailed results</a> &middot;
-<a href="https://github.com/marchexe/ilc-dynamic-training">Repository</a></div>
+<div class="text">
+<p>The question: does Population Based Training (PBT), which changes the learning rate (LR) during fine-tuning,
+give a better b/c/light-jet tagger than training with a fixed LR schedule? Every trial fine-tunes the same pretrained
+ParT model (pretraining epoch 17) for 50 epochs with five models on five GPUs, unless the table says otherwise.</p>
+<p class="note">Data: Training (800k) = 2.4M jets, Training (8M) = 24M jets. Validation (150k) or, from 10 November,
+Validation (1M) is evaluated after each epoch; it drives PBT and selects the model. Test (2.8M) is evaluated once
+for each selected model; Test (9.0M) was used once, in trial 10. Values are the composite mistag (%) on Test
+(2.8M), lower is better; &Delta; is the relative change against the comparator, negative is better.
+<i>Standard ParT</i>: constant LR for 35 epochs, then &times;0.01 over 15 epochs, five start LRs, best one kept.</p>
+</div>
 
-<p class="abstract"><b>Summary.</b> We fine-tune a pretrained Particle Transformer (ParT) that separates b, c and
-light-quark jets, and ask whether Population Based Training (PBT), which changes the learning rate (LR) during
-training, gives a lower mistag rate than standard ParT training. With 800k training jets, PBT lowers the mistag by
-0.81% (three seeds; 95% interval 0.34&ndash;1.34%). With 8M training jets, PBT raises it by 12.4% (one seed), and
-by 2.7% after two modifications. Earlier gains of 1.4% and 7.7% were measured against constant LRs that were too
-low. With 8M training jets, the mean output of two separately trained standard ParT models lowers the mistag by
-5.0% relative to the better of the two (three seeds; 4.2&ndash;5.8%).</p>
+<h2>Trials</h2>
+<table>
+<tr><th>#</th><th>Dates</th><th>Training</th><th>Configuration</th><th>Result</th></tr>
+<tr class="step"><td colspan="5">Jul 22 &ndash; Aug 31: set-up <span>&middot; first PBT versions (exploit-and-mutate, anchor-copy),
+bandit and rule-based LR controllers. Two defects found and fixed (BatchNorm not frozen; a controller overwrote the
+PBT LR). Older training set-up; no result is comparable with the trials below.</span></td></tr>
 
-<h2>1&ensp;Setup</h2>
-<p>All trials start from the same pretrained ParT checkpoint (epoch 17 of the pretraining) and fine-tune it for 50
-epochs with the Ranger optimizer. The data samples are disjoint:</p>
-<table class="book">
-<tr><th>Sample</th><th class="n">Jets</th><th>Use</th></tr>
-<tr><td>Training (800k)</td><td class="n">2.4M</td><td>training, July &ndash; 13 November</td></tr>
-<tr><td>Training (8M)</td><td class="n">24M</td><td>training, large-data trials</td></tr>
-<tr><td>Validation (150k)</td><td class="n">0.15M</td><td>evaluated after every epoch; drives PBT and selects the model; until 9 November</td></tr>
-<tr><td>Validation (1M)</td><td class="n">1.0M</td><td>the same role from 10 November</td></tr>
-<tr><td>Test (2.8M)</td><td class="n">2.8M</td><td>one evaluation of each selected model; never used to select</td></tr>
-<tr><td>Test (9.0M)</td><td class="n">9.0M</td><td>used once, for the preregistered large-data comparison of October</td></tr>
-</table>
-<p>The <i>mistag</i> is the geometric mean of the background mistag rates at eight working points (b-tag at 80%
-and 90% efficiency against c and light jets; c-tag at 50% and 80% against b and light jets). Lower is better. A
-change &Delta; is relative to the comparator; negative &Delta; means a lower mistag.</p>
-<p>Three training methods are compared. <i>Standard ParT</i> keeps a constant LR for 35 epochs and then lowers it
-by &times;0.01 over 15 epochs; it is run at five start LRs and the best model on Validation is kept. A
-<i>constant-LR grid</i> trains five models at five constant LRs. <i>PBT</i> trains five models in parallel; at each
-decision (every 5 epochs in September, every 2 epochs from November) the weakest model copies the weights of the
-best one and multiplies its LR by 0.5 or 2. All methods use five GPUs for the same number of epochs. Each selected
-model was fixed, and its Test evaluation was specified in the repository, before the Test data was read. Intervals
-are 95% intervals from a bootstrap over blocks of 100 adjacent jets of the Test sample; they do not include
-seed-to-seed variation.</p>
+<tr class="step"><td colspan="5">PBT against constant LRs <span>&middot; Validation (150k)</span></td></tr>
+<tr><td>1</td><td>Sep 16</td><td>800k</td><td>Constant LRs, 5 models, 3&times;10<sup>&minus;6</sup>&ndash;1.4&times;10<sup>&minus;5</sup></td><td>0.3269; best model is the highest LR</td></tr>
+<tr><td>2</td><td>Sep 17&ndash;18</td><td>800k</td><td>LRs 1.4&times;10<sup>&minus;5</sup> and 8.5&times;10<sup>&minus;6</sup> of trial 1 continued to 100 epochs</td><td>0.3156</td></tr>
+<tr><td>3</td><td>Sep 18</td><td>800k</td><td>PBT: start LRs as trial 1; every 5 epochs the weakest copies the best, LR &times;0.8 or &times;1.2; max 3&times;10<sup>&minus;5</sup></td><td>0.3225; &Delta; = &minus;1.4% vs 1</td></tr>
+<tr><td>4</td><td>Sep 19</td><td>800k</td><td>As 3, 100 epochs</td><td>0.3111; &Delta; = &minus;1.4% vs 2</td></tr>
+<tr><td>5</td><td>Sep 20</td><td>800k</td><td>Rule-based LR controller, observe only, on a 60k Validation subset; 8 models, 96 short epochs</td><td>the subset ranks models like the full set; controller proposed almost nothing</td></tr>
+<tr><td>6</td><td>Sep 23&ndash;29</td><td>800k</td><td>PBT with decisions every epoch against every 5 epochs; seeds 12345, 22345</td><td>every epoch &Delta; = +0.5%, +0.1% (Validation said the opposite): inconclusive</td></tr>
+<tr><td>7</td><td>Sep 28</td><td>800k</td><td>Restart test for decisions within an epoch</td><td>not possible: optimizer (Lookahead) state is not saved</td></tr>
+<tr><td>8</td><td>Oct 12</td><td>&ndash;</td><td>First Test (2.8M) evaluation of trials 1&ndash;6</td><td>large differences keep their order; small ones reorder</td></tr>
+<tr><td>9</td><td>Oct 13</td><td>8M</td><td>Preparation of Training (8M) and Test (9.0M); one-epoch GPU check</td><td>ready</td></tr>
+<tr><td>10</td><td>Oct 14&ndash;21</td><td>8M</td><td>Preregistered: constant LRs as trial 1 against PBT as trial 3; Test (9.0M) opened Nov 2</td><td>PBT &Delta; = &minus;7.7% on Test (9.0M); again best constant model at the highest LR</td></tr>
+<tr><td>11</td><td>Oct 17 &ndash; Nov 3</td><td>800k</td><td>Checkpoints with the full optimizer state, for decisions within an epoch</td><td>one epoch = five restarted parts, bit for bit; not used in a PBT run</td></tr>
 
-<h2>2&ensp;History of the trials</h2>
-<table class="book">
-<tr><th>Period</th><th>What was done</th><th>Result</th><th>Consequence</th></tr>
-<tr><td>Jul 22 &ndash; Aug 31</td><td>First PBT versions and LR controllers</td><td>set-up; two defects fixed</td><td>training contract changed; results not used</td></tr>
-<tr class="sub"><td>Sep 15 &ndash; Nov 2<br><span class="meta">trials 1&ndash;11</span></td><td>PBT against a constant-LR grid (3&times;10<sup>&minus;6</sup>&ndash;1.4&times;10<sup>&minus;5</sup>); 800k, then 8M (preregistered)</td><td>&Delta; = &minus;1.4% (800k), &minus;7.7% (8M, Test 9.0M)</td><td>best constant LR was the top of the grid: grid too low?</td></tr>
-<tr class="sub"><td>Nov 2 &ndash; 9<br><span class="meta">trials 12&ndash;17</span></td><td>Constant LRs up to 3.2&times;10<sup>&minus;4</sup>; faster PBT; second seed</td><td>constant 8&times;10<sup>&minus;5</sup> equals PBT; sign reverses with seed</td><td>Validation (150k) too noisy; change to 1M and to standard ParT</td></tr>
-<tr class="sub"><td>Nov 9 &ndash; 13<br><span class="meta">trials 18&ndash;21</span></td><td>PBT against standard ParT and a constant-LR grid, 800k, three seeds</td><td>&Delta; = &minus;0.81% [&minus;1.34, &minus;0.34]</td><td>repeat with 10&times; more data</td></tr>
-<tr class="sub"><td>Nov 13 &ndash; 23<br><span class="meta">trials 22&ndash;26</span></td><td>The same at 8M; then cool-down probes and a final LR decay in PBT</td><td>&Delta; = +12.4%; +5.4%; +2.7%</td><td>PBT stopped; other ways to gain at 8M</td></tr>
-<tr class="sub"><td>Nov 23 &ndash; 25<br><span class="meta">trials 27&ndash;33</span></td><td>Ensembles of two standard ParT models, checked on two new seeds; distillation; no dropout; start LR 10<sup>&minus;2</sup></td><td>ensemble &Delta; = &minus;5.01% [&minus;5.84, &minus;4.17]; others no gain</td><td>current result</td></tr>
-</table>
-<p class="meta">Each trial, with its runs, dates, GPU time and configuration files, is listed in the Appendix.</p>
+<tr class="step"><td colspan="5">Higher constant LRs <span>&middot; Validation (150k)</span></td></tr>
+<tr><td>12</td><td>Nov 3</td><td>800k</td><td>Constant LRs 1.4&times;10<sup>&minus;5</sup>&ndash;3&times;10<sup>&minus;5</sup></td><td>0.3146; best model again the highest LR</td></tr>
+<tr><td>13</td><td>Nov 3&ndash;4</td><td>800k</td><td>Constant LRs 3&times;10<sup>&minus;5</sup>&ndash;8&times;10<sup>&minus;5</sup></td><td><b>0.3018</b>: better than every PBT run so far</td></tr>
+<tr><td>14</td><td>Nov 4</td><td>800k</td><td>Constant LRs 8&times;10<sup>&minus;5</sup>&ndash;3.2&times;10<sup>&minus;4</sup></td><td>0.3033; best 1.2&times;10<sup>&minus;4</sup></td></tr>
+<tr><td>15</td><td>Nov 4</td><td>800k</td><td>Fast PBT: start 10<sup>&minus;5</sup>&ndash;3.5&times;10<sup>&minus;4</sup>; every 2 epochs, LR &times;0.5 or &times;2; max 5&times;10<sup>&minus;4</sup></td><td>0.3003; &Delta; = &minus;1.0% vs 14</td></tr>
+<tr><td>16</td><td>Nov 9</td><td>800k</td><td>Trials 15 and 14 (6&times;10<sup>&minus;5</sup>&ndash;1.6&times;10<sup>&minus;4</sup>) with seed 22345</td><td>PBT &Delta; = +0.5%, although 1.4% better on Validation</td></tr>
+<tr><td>17</td><td>Nov 9</td><td>800k</td><td>As 15, with extra copies (&times;0.7 or &times;1.4) when &times;0.5 and &times;2 are both in use</td><td>&Delta; = +0.8% vs 15</td></tr>
 
-<h2>3&ensp;Results</h2>
+<tr class="step"><td colspan="5">PBT against standard ParT, little data <span>&middot; Validation (1M) from here</span></td></tr>
+<tr><td>18</td><td>Nov 10&ndash;13</td><td>800k</td><td>Standard ParT (start 10<sup>&minus;5</sup>&ndash;10<sup>&minus;3</sup>), constant LRs (6&times;10<sup>&minus;5</sup>&ndash;1.6&times;10<sup>&minus;4</sup>) and PBT as 17; seeds 12345, 22345, 32345</td><td><b class="good">PBT &Delta; = &minus;0.81%</b> vs standard ParT (&minus;0.67, &minus;0.85, &minus;0.91; 95% interval &minus;1.34 to &minus;0.34); constant LRs unstable across seeds</td></tr>
+<tr><td>19</td><td>Nov 12</td><td>800k</td><td>PBT as 18 with a final decay (no decisions in the last 15 epochs); 2 seeds</td><td>same models selected as 18</td></tr>
+<tr><td>20</td><td>Nov 12</td><td>800k</td><td>Standard ParT from random weights (no pretraining)</td><td>0.378 on Validation, against ~0.30</td></tr>
+<tr><td>21</td><td>Nov 12</td><td>800k</td><td>Weight averages of nearby checkpoints and of PBT models</td><td>no gain (Validation)</td></tr>
 
-<h3>3.1&ensp;PBT against constant learning rates</h3>
-<p>The first comparisons (September&ndash;October) gave PBT a lower mistag by 1.4% at 800k and by 7.7% at 8M. In
-both, the best constant-LR model was the one with the highest LR of the grid, and PBT had moved its LRs above
-the grid. Constant LRs up to 3.2&times;10<sup>&minus;4</sup> showed that the grid was too low
-(Figure&nbsp;1): the mistag falls steeply with the LR up to about 10<sup>&minus;4</sup>, and both PBT runs lie on
-the same curve at the LR they reached. The gain of these comparisons therefore comes from reaching a higher LR,
-not from changing it during training. A second seed also reversed the sign (+0.5%), and the Validation (150k)
-sample disagreed with Test on which method was better; from 10 November the Validation sample has 1M jets and the
-comparator is standard ParT.</p>
-<figure><img src="note/fig1.png" alt="Test mistag against the learning rate of the selected model, 800k training jets">
-<figcaption><b>Figure 1.</b> Test (2.8M) mistag against the LR of the selected model, Training (800k), seed 12345.
-Black: best model of each constant-LR grid. Red: the two PBT runs, at the LR of their selected model. Grey band:
-the constant-LR grid used for the comparisons of September.</figcaption></figure>
+<tr class="step"><td colspan="5">PBT against standard ParT, much data <span>&middot; Validation (1M), seed 12345</span></td></tr>
+<tr><td>22</td><td>Nov 14&ndash;15</td><td>8M</td><td>Standard ParT, start 10<sup>&minus;5</sup>&ndash;10<sup>&minus;3</sup></td><td>0.1635; best model the highest LR</td></tr>
+<tr><td>23</td><td>Nov 15&ndash;17</td><td>8M</td><td>PBT as 18, LR range of standard ParT (max 10<sup>&minus;3</sup>)</td><td>0.1812; <b class="bad">&Delta; = +12.4%</b> vs 24</td></tr>
+<tr><td>24</td><td>Nov 19&ndash;20</td><td>8M</td><td>Standard ParT, start 3&times;10<sup>&minus;3</sup> (1 model)</td><td><b>0.1611</b>: the 8M reference</td></tr>
+<tr><td>25</td><td>Nov 19&ndash;21</td><td>8M, 800k</td><td>PBT with cool-down probes: decisions use a copy trained &frac14; epoch at 0.1&times; its LR</td><td>8M: 0.1699, &Delta; = +5.4% vs 24; 800k: no change</td></tr>
+<tr><td>26</td><td>Nov 20&ndash;23</td><td>8M</td><td>PBT with probes and the final decay; max LR 3&times;10<sup>&minus;3</sup></td><td>0.1655; &Delta; = +2.7% vs 24. Planned extra seeds not run (rule fixed in advance)</td></tr>
 
-<h3>3.2&ensp;PBT against standard ParT with 800k training jets</h3>
-<p>With three seeds, PBT gives a lower mistag than standard ParT for every seed (&Delta; = &minus;0.67%,
-&minus;0.85%, &minus;0.91%; mean &minus;0.81%, interval &minus;1.34 to &minus;0.34%). It is better at seven of the
-eight working points on average. The constant-LR grid equals PBT for one seed and standard ParT for the other two
-(Figure&nbsp;2). Adding a final LR decay to PBT selected the same models.</p>
-<figure><img src="note/fig2.png" alt="Test mistag of the three methods for three seeds, 800k training jets">
-<figcaption><b>Figure 2.</b> Test (2.8M) mistag of the selected model of each method, Training (800k),
-Validation (1M), for three seeds.</figcaption></figure>
-
-<h3>3.3&ensp;PBT against standard ParT with 8M training jets</h3>
-<p>With ten times more training data the result reverses. The best standard ParT model (start LR
-3&times;10<sup>&minus;3</sup>) reaches 0.1611; PBT reaches 0.1812 (&Delta; = +12.4%, seed 12345). Figure&nbsp;3
-shows why. Standard ParT keeps its LR at 3&times;10<sup>&minus;3</sup> for 35 epochs and gains most during the
-final decay. PBT compares its models two epochs after each decision; over two epochs a lower LR almost always
-looks better, so PBT lowers all LRs early (below 2.5&times;10<sup>&minus;4</sup> from epoch 11) and is overtaken in
-the final 15 epochs.</p>
-<figure><img src="note/fig3.png" alt="Learning rate and best Validation mistag per epoch, 8M training jets">
-<figcaption><b>Figure 3.</b> Training (8M), seed 12345. (a) LR per epoch of standard ParT (start
-3&times;10<sup>&minus;3</sup>) and the range of LRs of the five PBT models. (b) Best Validation (1M) mistag so far.
-Grey: the final decay of standard ParT (epochs 36&ndash;50).</figcaption></figure>
-<p>Two modifications address this. <i>Cool-down probes</i> judge each model on a copy that is trained for a quarter
-epoch at 0.1&times; its LR; a <i>final decay</i> stops the decisions in the last 15 epochs and lowers all LRs as in
-standard ParT. Together they reduce the difference from +12.4% to +5.4% and +2.7%, but PBT remains worse.</p>
-<p>The difference between 800k and 8M follows from the losses in Figure&nbsp;4. At 800k the training loss falls
-below the Validation loss after about 20 epochs: the model begins to memorise its training data, and an early lower
-LR with selection of the best epoch is the right strategy, which PBT finds. At 8M the two losses stay together to
-the end; the model is not limited by overfitting, and a long phase at a high LR followed by a decay is better.</p>
-<figure><img src="note/fig4.png" alt="Training and Validation loss per epoch, 800k and 8M">
-<figcaption><b>Figure 4.</b> Cross-entropy loss per epoch of the best standard ParT model on the training data and
-on Validation (1M). (a) Training (800k), start LR 10<sup>&minus;4</sup>. (b) Training (8M), start LR
-3&times;10<sup>&minus;3</sup>.</figcaption></figure>
-
-<h3>3.4&ensp;Ensembles of two models</h3>
-<p>The mean of the class probabilities of the two standard ParT models of one seed (start LRs
-3&times;10<sup>&minus;3</sup> and 10<sup>&minus;3</sup>) has a lower mistag than the better of the two for each of
-three seeds: &Delta; = &minus;5.05%, &minus;4.86%, &minus;5.14%; mean &minus;5.01%, interval &minus;5.84 to
-&minus;4.17% (Figure&nbsp;5). The pair was chosen on Validation for seed 12345, its Test comparison was specified
-before it was evaluated, and seeds 22345 and 32345 were trained afterwards to test it. Both models are part of the LR
-scan that standard ParT training runs anyway; the cost is two models at inference time.</p>
-<p>Two members of one PBT run give no gain (0.1605 against 0.1604 on Validation), because PBT copies weights
-between its models and they make the same errors. Most of the gain comes from training the models separately:
-pairs with the same start LR and different seeds gain 3.6%, pairs with different start LRs 4.7%. Distillation of
-the ensemble into one model, weight averaging, and training without dropout gave no gain. At 800k, ensembles of
-any two of fifteen models gave no gain; these models stay close to the pretrained start and disagree on only
-0.6&ndash;0.7% of the jets, against 1.5&ndash;2.3% at 8M.</p>
-<figure><img src="note/fig5.png" alt="Test mistag of every evaluated model, 8M training jets">
-<figcaption><b>Figure 5.</b> Test (2.8M) mistag of every evaluated model, Training (8M), Validation (1M). The three
-points of a row are seeds 12345, 22345 and 32345 from top to bottom; PBT and the start LR 10<sup>&minus;2</sup>
-were run for seed 12345 only. Dotted line: standard ParT at 3&times;10<sup>&minus;3</sup>, seed 12345.</figcaption></figure>
-
-<table class="book">
-<caption><b>Table 1.</b> All comparisons on Test (2.8M) unless noted. &Delta;: relative change of the mistag;
-negative is better.</caption>
-<tr><th>Comparison</th><th>Training</th><th class="n">Seeds</th><th class="n">&Delta;</th><th class="n">95% interval</th></tr>
-<tr><td>PBT &minus; constant LR (grid too low)</td><td>800k</td><td class="n">1</td><td class="n">&minus;1.4%</td><td class="n">&ndash;</td></tr>
-<tr><td>PBT &minus; constant LR (grid too low), Test (9.0M)</td><td>8M</td><td class="n">1</td><td class="n">&minus;7.7%</td><td class="n">&ndash;</td></tr>
-<tr><td>PBT every epoch &minus; every 5 epochs</td><td>800k</td><td class="n">2</td><td class="n">+0.5, +0.1%</td><td class="n">&ndash;</td></tr>
-<tr class="sub"><td>PBT &minus; best constant LR</td><td>800k</td><td class="n">2</td><td class="n">&minus;1.0, +0.5%</td><td class="n">&ndash;</td></tr>
-<tr><td>PBT &minus; standard ParT</td><td>800k</td><td class="n">3</td><td class="n"><b>&minus;0.81%</b></td><td class="n">&minus;1.34, &minus;0.34</td></tr>
-<tr class="sub"><td>PBT &minus; standard ParT</td><td>8M</td><td class="n">1</td><td class="n">+12.4%</td><td class="n">&ndash;</td></tr>
-<tr><td>PBT + probes &minus; standard ParT</td><td>8M</td><td class="n">1</td><td class="n">+5.4%</td><td class="n">&ndash;</td></tr>
-<tr><td>PBT + probes + final decay &minus; standard ParT</td><td>8M</td><td class="n">1</td><td class="n">+2.7%</td><td class="n">&ndash;</td></tr>
-<tr class="sub"><td>Ensemble of two &minus; better single model</td><td>8M</td><td class="n">3</td><td class="n"><b>&minus;5.01%</b></td><td class="n">&minus;5.84, &minus;4.17</td></tr>
-<tr><td>Ensemble of two &minus; better single model (Validation)</td><td>800k</td><td class="n">3</td><td class="n">&asymp; 0</td><td class="n">&ndash;</td></tr>
-<tr><td>Distilled model &minus; standard ParT (Validation)</td><td>8M</td><td class="n">1</td><td class="n">+1.0%</td><td class="n">&ndash;</td></tr>
+<tr class="step"><td colspan="5">Other ways to gain with much data <span>&middot; Validation (1M)</span></td></tr>
+<tr><td>27</td><td>Nov 23</td><td>8M</td><td>Ensemble: mean of the class probabilities of trials 22 and 24; chosen on Validation, Test check fixed in advance</td><td>0.1530; &Delta; = &minus;5.1% vs 24</td></tr>
+<tr><td>28</td><td>Nov 23&ndash;25</td><td>8M</td><td>Trial 27 repeated: standard ParT at 3&times;10<sup>&minus;3</sup> and 10<sup>&minus;3</sup>, seeds 22345, 32345</td><td>&Delta; = &minus;4.9%, &minus;5.1%; <b class="good">mean &minus;5.0%</b> (95% interval &minus;5.8 to &minus;4.2)</td></tr>
+<tr><td>29</td><td>Nov 23</td><td>800k</td><td>Ensembles of any two of 15 models of trial 18</td><td>no gain (Validation)</td></tr>
+<tr><td>30</td><td>Nov 23&ndash;25</td><td>8M</td><td>Ensemble pairs: same LR and different seeds, against different LRs</td><td>&Delta; = &minus;3.6% and &minus;4.7% (Validation): mostly from separate training</td></tr>
+<tr><td>31</td><td>Nov 23&ndash;24</td><td>8M</td><td>Final decay of trial 24 with dropout 0</td><td>much worse (Validation); stopped</td></tr>
+<tr><td>32</td><td>Nov 24</td><td>8M</td><td>Distillation: final decay of 24 trained half on labels, half on the ensemble of 27</td><td>0.1600 against 0.1584 (Validation): no gain</td></tr>
+<tr><td>33</td><td>Nov 24&ndash;25</td><td>8M</td><td>Standard ParT, start 10<sup>&minus;2</sup> (1 model)</td><td>0.1599; worse on Validation: same as 24</td></tr>
 </table>
 
-<h2>4&ensp;Interpretation</h2>
-<ol class="tight">
-<li>PBT gives a small but consistent gain when the training data is small enough for the model to overfit. Its
-benefit is to find the right time to lower the LR.</li>
-<li>When the model does not overfit, PBT is worse than standard ParT, because it judges LRs on a horizon of two
-epochs and therefore lowers them too early. The modifications reduce, but do not remove, this loss.</li>
-<li>The earlier positive results (1.4%, 7.7%) measured the benefit of a higher LR, not of adaptation.</li>
-<li>With much data, the useful gain comes from combining separately trained models, not from the LR schedule.</li>
+<h2>Interpretation</h2>
+<ol>
+<li><b>The early gains of PBT were gains of a higher LR.</b> In trials 1&ndash;10 the comparator LRs were too low;
+PBT won because it moved to higher LRs. A good constant LR (trial 13) is as good as PBT.</li>
+<li><b>With little data, PBT gives a small real gain.</b> Against standard ParT, PBT is 0.8% better on all three
+seeds (trial 18). At 800k the model starts to overfit after about 20 epochs, and PBT finds the right time to lower
+the LR.</li>
+<li><b>With much data, PBT is worse.</b> At 8M the model does not overfit; the best schedule is a high LR for a
+long time and a decay at the end. PBT judges each change after two epochs, where a lower LR almost always looks
+better, so it lowers the LR too early (trial 23: 12.4% worse). Probes and a final decay reduce this to 2.7%
+(trial 26), but PBT stays worse.</li>
+<li><b>With much data, an ensemble of two standard ParT models is 5.0% better</b> on three seeds (trials 27&ndash;28).
+Both models come from the LR scan that standard ParT runs anyway; the cost is two models at inference time. PBT
+models do not ensemble, because PBT copies weights between them.</li>
 </ol>
-
-<h2>5&ensp;Limitations and open questions</h2>
-<p>The 8M PBT results have one seed. All trials start from one pretrained checkpoint and use one optimizer
-setting. Test (2.8M) was also inspected in diagnostics before November, so it is not fully unseen. No result has
-been propagated to a physics analysis. Not studied: PBT decisions that look further ahead than two epochs (the
-probes are a first step); ensembles of more than two models; PBT decisions within an epoch (implemented and verified,
-not run); other pretrained starting points.</p>
-
-<h2>Appendix&ensp;All trials and runs</h2>
-<p class="meta">Click a trial to show its runs. Dates are JST. The selected model is the best one on Validation;
-for standard ParT the LR is the start LR, otherwise the LR at the selected epoch. Validation is Validation (150k)
-for trials 1&ndash;17 and Validation (1M) from trial 18. Run names link to the configuration files.</p>
-<h3>Step 1: PBT seems to win</h3>
-<p class="meta">Training (800k), then (8M) &middot; Validation (150k)</p>
-<details><summary><span class="tn">1</span><span class="td">Sep 16 06:58 → Sep 16 10:19</span><span class="tw">Fixed LRs 3×10⁻⁶ – 1.4×10⁻⁵</span><span class="tr">0.3269</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/foundation_fixed_lr_50epochs.yaml">foundation_fixed_lr_50epochs_20260916</a></td><td>Sep 16 06:58 &rarr; Sep 16 10:19</td><td class="n">16</td><td>lr_14e-6, 1.4×10⁻⁵, 44</td><td class="n">0.3446</td><td class="n">0.3269</td></tr></table><p class="meta">16 GPU-h &middot; records: <a href="experiments/fixed-lr-50.html">run page</a></p></div></details>
-<details><summary><span class="tn">2</span><span class="td">Sep 17 07:15 → Sep 18 04:33</span><span class="tw">Two fixed-LR members continued to 100 epochs</span><span class="tr">0.3156</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/fixed_lr_continuation_20260917/lr_14e-6.yaml">fixed_lr_continuation_20260917_lr_14e-6</a></td><td>Sep 17 07:15 &rarr; Sep 18 04:33</td><td class="n">3</td><td>lr_14e-6, 1.4×10⁻⁵, 99</td><td class="n">0.3314</td><td class="n">0.3156</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/fixed_lr_continuation_20260917/lr_8_5e-6.yaml">fixed_lr_continuation_20260917_lr_8_5e-6</a></td><td>Sep 17 07:15 &rarr; Sep 17 10:31</td><td class="n">3</td><td>lr_8_5e-6, 8.5×10⁻⁶, 100</td><td class="n">0.3391</td><td class="n">&ndash;</td></tr></table><p class="meta">6 GPU-h &middot; records: <a href="experiments/fixed-lr-100.html">run page</a></p></div></details>
-<details><summary><span class="tn">3</span><span class="td">Sep 18 05:56 → Sep 18 12:14</span><span class="tw">Windowed PBT: decision every 5 epochs, ×0.8 or ×1.2</span><span class="tr">0.3225, 1.4% better than 1</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/windowed_pbt_v2.yaml">windowed_pbt_v2</a></td><td>Sep 18 05:56 &rarr; Sep 18 12:14</td><td class="n">16</td><td>lr_11_25e-6, 2.02×10⁻⁵, 50</td><td class="n">0.3377</td><td class="n">0.3225</td></tr></table><p class="meta">16 GPU-h &middot; records: <a href="experiments/pbt-v2-50.html">run page</a></p></div></details>
-<details><summary><span class="tn">4</span><span class="td">Sep 19 07:16 → Sep 19 17:06</span><span class="tw">Windowed PBT, 100 epochs</span><span class="tr">0.3111, 1.4% better than 2</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/windowed_pbt_v2_100epochs">windowed_pbt_v2_100epochs</a></td><td>Sep 19 07:16 &rarr; Sep 19 17:06</td><td class="n">40</td><td>lr_3e-6, 2.9×10⁻⁵, 89</td><td class="n">0.3214</td><td class="n">0.3111</td></tr></table><p class="meta">40 GPU-h &middot; records: <a href="experiments/pbt-v2-100.html">run page</a></p></div></details>
-<details><summary><span class="tn">5</span><span class="td">Sep 20 08:28 → Sep 20 14:46</span><span class="tw">LR controller on a 60k Validation subset, observe only</span><span class="tr">controller did nothing</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/pretrained_fixed_lr_8gpu_representative60k_shadow.yaml">pretrained_fixed_lr_8gpu_representative60k_shadow</a></td><td>Sep 20 08:28 &rarr; Sep 20 14:46</td><td class="n">13</td><td>fixed_lr_14e-6, 1.4×10⁻⁵, 73</td><td class="n">0.3637</td><td class="n">&ndash;</td></tr></table><p class="meta">13 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/published/studies/controller-shadow-audit/report.md">audit</a></p></div></details>
-<details><summary><span class="tn">6</span><span class="td">Sep 23 07:18 → Sep 29 08:55</span><span class="tw">PBT every epoch vs every 5 epochs, 2 seeds</span><span class="tr">every epoch 0.5% and 0.1% worse (Validation said better)</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/cadenced_pbt_v1.yaml">cadenced_pbt_v1_50epochs</a></td><td>Sep 23 07:18 &rarr; Sep 23 17:07</td><td class="n">24</td><td>lr_5_75e-6, 1.92×10⁻⁵, 42</td><td class="n">0.3309</td><td class="n">0.3177</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/cadenced_pbt_v1_cadence5.yaml">cadenced_pbt_v1_cadence5_50epochs</a></td><td>Sep 25 20:34 &rarr; Sep 25 23:48</td><td class="n">16</td><td>lr_5_75e-6, 2.4×10⁻⁵, 47</td><td class="n">0.3314</td><td class="n">0.3162</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/cadenced_pbt_v1_seed22345.yaml">cadenced_pbt_v1_seed22345_50epochs</a></td><td>Sep 26 02:44 &rarr; Sep 26 06:00</td><td class="n">16</td><td>lr_14e-6, 2.4×10⁻⁵, 44</td><td class="n">0.3307</td><td class="n">0.3167</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/cadenced_pbt_v1_cadence5_seed22345.yaml">cadenced_pbt_v1_cadence5_seed22345_50epochs</a></td><td>Sep 29 05:41 &rarr; Sep 29 08:55</td><td class="n">16</td><td>lr_11_25e-6, 2.9×10⁻⁵, 49</td><td class="n">0.3314</td><td class="n">0.3163</td></tr></table><p class="meta">71 GPU-h &middot; records: <a href="experiments/cadenced-pbt-v1-50.html">run page</a></p></div></details>
-<details><summary><span class="tn">7</span><span class="td">Sep 28</span><span class="tw">PBT decisions inside an epoch: restart test</span><span class="tr">not possible: optimizer state lost</span></summary><div class="body"><p class="meta">records: <a href="results.html#sub-epoch-restart-test">result</a></p></div></details>
-<details><summary><span class="tn">8</span><span class="td">Oct 12</span><span class="tw">First Test (2.8M) evaluation of trials 1–6</span><span class="tr">agrees with Validation for large differences</span></summary><div class="body"><p class="meta">records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/stage2a_holdout_v1">protocol</a></p></div></details>
-<details><summary><span class="tn">9</span><span class="td">Oct 13</span><span class="tw">Prepare Training (8M) and Test (9.0M); one-epoch GPU check</span><span class="tr">ready</span></summary><div class="body"><p class="meta">records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/stage2b_train8m_v1">records</a></p></div></details>
-<details><summary><span class="tn">10</span><span class="td">Oct 14 03:50 → Oct 21 18:34</span><span class="tw">PBT vs fixed LRs as in trial 1, preregistered</span><span class="tr">7.7% better on Test (9.0M): 0.2375 vs 0.2572</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/stage3_train8m_fixed_lr.yaml">stage3_train8m_fixed_lr_v1</a></td><td>Oct 14 03:50 &rarr; Oct 19 09:56</td><td class="n">173</td><td>lr_14e-6, 1.4×10⁻⁵, 50</td><td class="n">0.2712</td><td class="n">0.2530</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/stage3_train8m_windowed_pbt_v2.yaml">stage3_train8m_windowed_pbt_v2_v1</a></td><td>Oct 19 09:58 &rarr; Oct 21 18:34</td><td class="n">180</td><td>lr_3e-6, 3×10⁻⁵, 50</td><td class="n">0.2517</td><td class="n">0.2359</td></tr></table><p class="meta">353 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/stage3_train8m_v1">protocol</a> &middot; <a href="results.html#large-dataset-results">result</a></p></div></details>
-<details><summary><span class="tn">11</span><span class="td">Nov 03 08:39 → Nov 03 09:03</span><span class="tw">Save the full optimizer state; GPU check</span><span class="tr">bit-identical; not used in a PBT run</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/full_state_gpu_one_epoch.yaml">full_state_gpu_one_epoch</a></td><td>Nov 03 08:39 &rarr; Nov 03 08:45</td><td class="n">&lt;1</td><td>lr_14e-6, 1.4×10⁻⁵, 1</td><td class="n">0.4005</td><td class="n">&ndash;</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/full_state_gpu_fifths.yaml">full_state_gpu_fifths</a></td><td>Nov 03 08:46 &rarr; Nov 03 09:03</td><td class="n">&lt;1</td><td>lr_14e-6, 1.4×10⁻⁵, 5</td><td class="n">0.4005</td><td class="n">&ndash;</td></tr></table><p class="meta">&lt;1 GPU-h &middot; records: <a href="ongoing.html#sub-epoch-adaptation">details</a></p></div></details>
-<h3>Step 2: the win was not real</h3>
-<p class="meta">Training (800k) &middot; Validation (150k)</p>
-<details><summary><span class="tn">12</span><span class="td">Nov 03 08:40 → Nov 03 13:25</span><span class="tw">Fixed LRs 1.4×10⁻⁵ – 3×10⁻⁵</span><span class="tr">0.3146</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/fixed_lr_high_grid_50epochs.yaml">fixed_lr_high_grid_50epochs</a></td><td>Nov 03 08:40 &rarr; Nov 03 13:25</td><td class="n">23</td><td>lr_30e-6, 3×10⁻⁵, 46</td><td class="n">0.3303</td><td class="n">0.3146</td></tr></table><p class="meta">23 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_high_lr_grid_v1">test spec</a></p></div></details>
-<details><summary><span class="tn">13</span><span class="td">Nov 03 20:17 → Nov 04 01:16</span><span class="tw">Fixed LRs 3×10⁻⁵ – 8×10⁻⁵</span><span class="tr">0.3018, better than all PBT so far</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/fixed_lr_ceiling_grid_50epochs.yaml">fixed_lr_ceiling_grid_50epochs</a></td><td>Nov 03 20:17 &rarr; Nov 04 01:16</td><td class="n">24</td><td>lr_80e-6, 8×10⁻⁵, 50</td><td class="n">0.3166</td><td class="n">0.3018</td></tr></table><p class="meta">24 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_fixed_lr_ceiling_v1">test spec</a></p></div></details>
-<details><summary><span class="tn">14</span><span class="td">Nov 04 05:43 → Nov 04 10:44</span><span class="tw">Fixed LRs 8×10⁻⁵ – 3.2×10⁻⁴</span><span class="tr">0.3033</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/fixed_lr_top_grid_50epochs.yaml">fixed_lr_top_grid_50epochs</a></td><td>Nov 04 05:43 &rarr; Nov 04 10:44</td><td class="n">24</td><td>lr_120e-6, 1.2×10⁻⁴, 39</td><td class="n">0.3141</td><td class="n">0.3033</td></tr></table><p class="meta">24 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_fast_pbt_v1">test spec</a></p></div></details>
-<details><summary><span class="tn">15</span><span class="td">Nov 04 10:47 → Nov 04 15:28</span><span class="tw">Fast PBT: decision every 2 epochs, ×0.5 or ×2</span><span class="tr">0.3003, 1.0% better than 14</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/windowed_pbt_v2_fast.yaml">windowed_pbt_v2_fast</a></td><td>Nov 04 10:47 &rarr; Nov 04 15:28</td><td class="n">22</td><td>lr_60e-6, 8.75×10⁻⁵, 38</td><td class="n">0.3156</td><td class="n">0.3003</td></tr></table><p class="meta">22 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_fast_pbt_v1">test spec</a></p></div></details>
-<details><summary><span class="tn">16</span><span class="td">Nov 09 03:32 → Nov 09 13:03</span><span class="tw">Trials 14 and 15 with seed 22345</span><span class="tr">PBT 0.3041 vs 0.3027: 0.5% worse</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/windowed_pbt_v2_fast_seed22345.yaml">windowed_pbt_v2_fast_seed22345</a></td><td>Nov 09 03:32 &rarr; Nov 09 08:20</td><td class="n">23</td><td>lr_25e-6, 1.75×10⁻⁴, 18</td><td class="n">0.3073</td><td class="n">0.3041</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/fixed_lr_best_grid_50epochs_seed22345.yaml">fixed_lr_best_grid_50epochs_seed22345</a></td><td>Nov 09 08:26 &rarr; Nov 09 13:03</td><td class="n">22</td><td>lr_120e-6, 1.2×10⁻⁴, 35</td><td class="n">0.3116</td><td class="n">0.3027</td></tr></table><p class="meta">46 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_fast_pbt_seed22345_v1">test spec</a></p></div></details>
-<details><summary><span class="tn">17</span><span class="td">Nov 09 13:07 → Nov 09 17:39</span><span class="tw">Fast PBT with extra copies</span><span class="tr">0.3026, 0.8% worse than 15</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/windowed_pbt_v2_fast_fallback.yaml">windowed_pbt_v2_fast_fallback</a></td><td>Nov 09 13:07 &rarr; Nov 09 17:39</td><td class="n">22</td><td>lr_10e-6, 8.57×10⁻⁵, 30</td><td class="n">0.3166</td><td class="n">0.3026</td></tr></table><p class="meta">22 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_fast_pbt_seed22345_v1">test spec</a></p></div></details>
-<h3>Step 3: fair test with little data</h3>
-<p class="meta">Training (800k) &middot; Validation (1M)</p>
-<details><summary><span class="tn">18</span><span class="td">Nov 10 06:06 → Nov 13 11:52</span><span class="tw">Standard ParT, fixed LRs and fast PBT; 3 seeds</span><span class="tr">PBT 0.8% better (0.7, 0.9, 0.9 per seed)</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_standard_part.yaml">sel1m_standard_part</a></td><td>Nov 10 06:06 &rarr; Nov 10 11:47</td><td class="n">27</td><td>flat_decay_100e-6, start 1×10⁻⁴, 35</td><td class="n">0.3006</td><td class="n">0.3029</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_fixed_lr_grid.yaml">sel1m_fixed_lr_grid</a></td><td>Nov 10 11:50 &rarr; Nov 10 17:30</td><td class="n">27</td><td>lr_160e-6, 1.6×10⁻⁴, 29</td><td class="n">0.3000</td><td class="n">0.3028</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_fast_pbt.yaml">sel1m_fast_pbt</a></td><td>Nov 10 17:35 &rarr; Nov 10 23:23</td><td class="n">28</td><td>lr_60e-6, 8.75×10⁻⁵, 31</td><td class="n">0.2982</td><td class="n">0.3008</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_standard_part_seed22345.yaml">sel1m_standard_part_seed22345</a></td><td>Nov 10 23:25 &rarr; Nov 11 05:22</td><td class="n">29</td><td>flat_decay_100e-6, start 1×10⁻⁴, 37</td><td class="n">0.3002</td><td class="n">0.3038</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_fixed_lr_grid_seed22345.yaml">sel1m_fixed_lr_grid_seed22345</a></td><td>Nov 11 05:26 &rarr; Nov 11 11:21</td><td class="n">29</td><td>lr_120e-6, 1.2×10⁻⁴, 36</td><td class="n">0.2989</td><td class="n">0.3013</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_fast_pbt_seed22345.yaml">sel1m_fast_pbt_seed22345</a></td><td>Nov 11 11:27 &rarr; Nov 11 15:47</td><td class="n">19</td><td>lr_25e-6, 3.06×10⁻⁵, 33</td><td class="n">0.2989</td><td class="n">0.3012</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_standard_part_seed32345.yaml">sel1m_standard_part_seed32345</a></td><td>Nov 12 19:14 &rarr; Nov 13 00:23</td><td class="n">25</td><td>flat_decay_100e-6, start 1×10⁻⁴, 49</td><td class="n">0.3004</td><td class="n">0.3024</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_fixed_lr_grid_seed32345.yaml">sel1m_fixed_lr_grid_seed32345</a></td><td>Nov 13 00:28 &rarr; Nov 13 06:03</td><td class="n">27</td><td>lr_160e-6, 1.6×10⁻⁴, 34</td><td class="n">0.3002</td><td class="n">0.3024</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_fast_pbt_seed32345.yaml">sel1m_fast_pbt_seed32345</a></td><td>Nov 13 06:07 &rarr; Nov 13 11:52</td><td class="n">28</td><td>lr_60e-6, 8.75×10⁻⁵, 43</td><td class="n">0.2992</td><td class="n">0.2996</td></tr></table><p class="meta">238 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/sel1m_plan.md">plan</a> &middot; <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_sel1m_v1">test spec</a> &middot; <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_sel1m_seed32345_v1">seed 32345</a> &middot; <a href="results.html#pbt-vs-standard-part">result</a></p></div></details>
-<details><summary><span class="tn">19</span><span class="td">Nov 12 05:42 → Nov 12 19:08</span><span class="tw">PBT with a final decay, 2 seeds</span><span class="tr">same models as 18</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_fast_pbt_decay.yaml">sel1m_fast_pbt_decay</a></td><td>Nov 12 05:42 &rarr; Nov 12 09:49</td><td class="n">20</td><td>lr_60e-6, 8.75×10⁻⁵, 31</td><td class="n">0.2982</td><td class="n">0.3008</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_fast_pbt_decay_seed22345.yaml">sel1m_fast_pbt_decay_seed22345</a></td><td>Nov 12 14:33 &rarr; Nov 12 19:08</td><td class="n">22</td><td>lr_25e-6, 3.06×10⁻⁵, 33</td><td class="n">0.2989</td><td class="n">0.3012</td></tr></table><p class="meta">42 GPU-h</p></div></details>
-<details><summary><span class="tn">20</span><span class="td">Nov 12 09:55 → Nov 12 14:31</span><span class="tw">Standard ParT without pretraining</span><span class="tr">0.378 (Validation), far worse</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_scratch_standard_part.yaml">sel1m_scratch_standard_part</a></td><td>Nov 12 09:55 &rarr; Nov 12 14:31</td><td class="n">22</td><td>flat_decay_4000e-6, start 4×10⁻³, 14</td><td class="n">0.3777</td><td class="n">&ndash;</td></tr></table><p class="meta">22 GPU-h</p></div></details>
-<details><summary><span class="tn">21</span><span class="td">Nov 12</span><span class="tw">Weight averages of checkpoints</span><span class="tr">no gain (Validation)</span></summary><div class="body"><p class="meta">records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/weight_averaging_sel1m_v1/spec.json">spec</a></p></div></details>
-<h3>Step 4: much data, PBT loses</h3>
-<p class="meta">Training (8M) &middot; Validation (1M)</p>
-<details><summary><span class="tn">22</span><span class="td">Nov 14 07:51 → Nov 15 19:28</span><span class="tw">Standard ParT, start LRs 1×10⁻⁵ – 1×10⁻³</span><span class="tr">0.1635</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_train8m_standard_part.yaml">sel1m_train8m_standard_part</a></td><td>Nov 14 07:51 &rarr; Nov 15 19:28</td><td class="n">176</td><td>flat_decay_1000e-6, start 1×10⁻³, 50</td><td class="n">0.1619</td><td class="n">0.1635</td></tr></table><p class="meta">176 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_sel1m_train8m_v1">test spec</a></p></div></details>
-<details><summary><span class="tn">23</span><span class="td">Nov 15 19:34 → Nov 17 07:09</span><span class="tw">Fast PBT with the LR range of standard ParT</span><span class="tr">0.1812, 12.4% worse than 24</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_train8m_fast_pbt.yaml">sel1m_train8m_fast_pbt</a></td><td>Nov 15 19:34 &rarr; Nov 17 07:09</td><td class="n">175</td><td>lr_10e-6, 2.19×10⁻⁵, 49</td><td class="n">0.1844</td><td class="n">0.1812</td></tr></table><p class="meta">175 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_sel1m_train8m_v1">test spec</a> &middot; <a href="results.html#pbt-vs-standard-part-8m">result</a></p></div></details>
-<details><summary><span class="tn">24</span><span class="td">Nov 19 08:38 → Nov 20 19:09</span><span class="tw">Standard ParT, start LR 3×10⁻³</span><span class="tr">0.1611, the reference</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_train8m_standard_part_3e-3.yaml">sel1m_train8m_standard_part_3e-3</a></td><td>Nov 19 08:38 &rarr; Nov 20 19:09</td><td class="n">34</td><td>flat_decay_3000e-6, start 3×10⁻³, 45</td><td class="n">0.1584</td><td class="n">0.1611</td></tr></table><p class="meta">34 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_sel1m_train8m_lr3e-3_v1">test spec</a></p></div></details>
-<details><summary><span class="tn">25</span><span class="td">Nov 19 17:43 → Nov 21 10:35</span><span class="tw">PBT with cool-down probes (8M and 800k)</span><span class="tr">0.1699, 5.4% worse than 24</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_train8m_fast_pbt_probe.yaml">sel1m_train8m_fast_pbt_probe</a></td><td>Nov 19 17:43 &rarr; Nov 21 10:35</td><td class="n">172</td><td>lr_10e-6, 1.2×10⁻⁴, 50</td><td class="n">0.1682</td><td class="n">0.1699</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_fast_pbt_probe.yaml">sel1m_fast_pbt_probe</a></td><td>Nov 20 15:59 &rarr; Nov 20 23:25</td><td class="n">28</td><td>lr_350e-6, 4.29×10⁻⁵, 40</td><td class="n">0.2989</td><td class="n">0.3024</td></tr></table><p class="meta">200 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_sel1m_probe_v1">test spec</a> &middot; <a href="results.html#probe-scored-pbt">result</a></p></div></details>
-<details><summary><span class="tn">26</span><span class="td">Nov 20 20:12 → Nov 23 00:18</span><span class="tw">PBT with probes and a final decay</span><span class="tr">0.1655, 2.7% worse than 24</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_train8m_fast_pbt_probe_decay.yaml">sel1m_train8m_fast_pbt_probe_decay</a></td><td>Nov 20 20:12 &rarr; Nov 23 00:18</td><td class="n">184</td><td>lr_300e-6, 2.64×10⁻⁵, 47</td><td class="n">0.1604</td><td class="n">0.1655</td></tr></table><p class="meta">184 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_sel1m_probe_decay_v1">test spec</a></p></div></details>
-<h3>Step 5: much data, an ensemble wins</h3>
-<p class="meta">Training (8M) &middot; Validation (1M)</p>
-<details><summary><span class="tn">27</span><span class="td">Nov 23</span><span class="tw">Ensemble of trials 22 and 24</span><span class="tr">0.1530, 5.1% better than 24</span></summary><div class="body"><p class="meta">records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/ensemble_8m_dev_v1/spec.json">spec</a> &middot; <a href="results.html#prediction-ensemble">result</a></p></div></details>
-<details><summary><span class="tn">28</span><span class="td">Nov 23 20:08 → Nov 25 14:38</span><span class="tw">Trial 27 with seeds 22345 and 32345</span><span class="tr">4.9% and 5.1% better; mean of 3 seeds 5.0%</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_train8m_standard_part_seed22345.yaml">sel1m_train8m_standard_part_seed22345</a></td><td>Nov 23 20:08 &rarr; Nov 25 06:08</td><td class="n">67</td><td>flat_decay_3000e-6, start 3×10⁻³, 50</td><td class="n">0.1592</td><td class="n">0.1597</td></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_train8m_standard_part_seed32345.yaml">sel1m_train8m_standard_part_seed32345</a></td><td>Nov 24 05:11 &rarr; Nov 25 14:38</td><td class="n">66</td><td>flat_decay_3000e-6, start 3×10⁻³, 49</td><td class="n">0.1623</td><td class="n">0.1623</td></tr></table><p class="meta">134 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/ensemble_seed22345_v1/spec.json">spec 22345</a> &middot; <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/ensemble_seed32345_v1/spec.json">spec 32345</a></p></div></details>
-<details><summary><span class="tn">29</span><span class="td">Nov 23</span><span class="tw">Ensembles at 800k, 15 models</span><span class="tr">no gain (Validation)</span></summary><div class="body"><p class="meta">records: <a href="results.html#ensemble-800k">result</a></p></div></details>
-<details><summary><span class="tn">30</span><span class="td">Nov 23–25</span><span class="tw">Where the ensemble gain comes from</span><span class="tr">mostly from separate training</span></summary><div class="body"><p class="meta">records: <a href="results.html#ensemble-diversity">result</a></p></div></details>
-<details><summary><span class="tn">31</span><span class="td">Nov 23–24</span><span class="tw">Final decay of 24 without dropout</span><span class="tr">much worse (Validation)</span></summary><div class="body"><p class="meta">records: <a href="ongoing.html#dropout-branch">result</a></p></div></details>
-<details><summary><span class="tn">32</span><span class="td">Nov 24</span><span class="tw">Distillation of the ensemble into one model</span><span class="tr">1.0% worse (Validation)</span></summary><div class="body"><p class="meta">records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/networks/distill_particle_transformer.py">network</a> &middot; <a href="results.html#distillation">result</a></p></div></details>
-<details><summary><span class="tn">33</span><span class="td">Nov 24 05:17 → Nov 25 14:38</span><span class="tw">Standard ParT, start LR 1×10⁻²</span><span class="tr">0.1599, as 24</span></summary><div class="body"><table class="runs"><tr><th>Run (configuration file)</th><th>Start &rarr; end (JST)</th><th class="n">GPU-h</th><th>Selected model, LR, epoch</th><th class="n">Valid.</th><th class="n">Test</th></tr><tr><td><a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/experiments/sel1m_train8m_standard_part_1e-2.yaml">sel1m_train8m_standard_part_1e-2</a></td><td>Nov 24 05:17 &rarr; Nov 25 14:38</td><td class="n">33</td><td>flat_decay_10000e-6, start 1×10⁻², 49</td><td class="n">0.1631</td><td class="n">0.1599</td></tr></table><p class="meta">33 GPU-h &middot; records: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/configs/prepared/holdout_sel1m_train8m_lr1e-2_v1">test spec</a></p></div></details>
-
-<p class="foot">Generated from the run records by scripts/reports/build_report_page.py and
-scripts/reports/plot_report_note.py. Detailed results, protocols and the frozen test specifications:
-<a href="results.html">results</a>, <a href="https://github.com/marchexe/ilc-dynamic-training/tree/main/configs/prepared">configs/prepared</a>.</p>
+<p class="text note">Limits: the 8M PBT trials have one seed; all trials start from one pretrained model; Test
+(2.8M) was also used in diagnostics before November.</p>
 </main>
 </body>
 </html>
