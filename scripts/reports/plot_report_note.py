@@ -3,7 +3,7 @@
 
     .venv/bin/python scripts/reports/plot_report_note.py
 
-Writes docs/_extra/note/{history,fig1,fig3,fig4,fig5}.png. Test values are the published values of docs/results.rst;
+Writes docs/_extra/note/{history,fig1,fig3,fig4}.png. Test values are the published values of docs/results.rst;
 trajectories come from the run manifests, loss curves from published/results/sel1m/train8m_followups.json.
 """
 import json
@@ -110,32 +110,6 @@ def fig4():
     save(fig, 'fig4.png')
 
 
-def fig5():
-    """8M: Test mistag of every evaluated model."""
-    rows = [  # (label, value, marker, colour, filled)
-        ('standard ParT, start LR 1×10⁻³', [0.1635, 0.1623, 0.1634], 'o', K, False),
-        ('standard ParT, start LR 3×10⁻³', [0.1611, 0.1597, 0.1623], 'o', K, True),
-        ('ensemble of the two', [0.1530, 0.1519, 0.1540], 'o', BLUE, True),
-        ('standard ParT, start LR 1×10⁻²', [0.1599, None, None], 'o', GREY, True),
-        ('PBT', [0.1812, None, None], 's', RED, True),
-        ('PBT + probes', [0.1699, None, None], 's', RED, False),
-        ('PBT + probes + final decay', [0.1655, None, None], 's', RED, True),
-    ]
-    fig, ax = plt.subplots(figsize=(9.6, 3.8))
-    offs = (0.18, 0, -0.18)  # seeds 12345, 22345, 32345 from top to bottom
-    for i, (label, vals, m, c, filled) in enumerate(rows):
-        y = len(rows) - 1 - i
-        for k, v in enumerate(vals):
-            if v is not None:
-                ax.plot(v, y + offs[k], m, color=c, mfc=c if filled else 'white', mew=1.3, ms=6)
-    ax.set_yticks(range(len(rows)), [r[0] for r in reversed(rows)])
-    ax.set_xlabel('Test (2.8M) mistag (%)')
-    ax.set_xlim(0.148, 0.186)
-    ax.set_ylim(-0.6, len(rows) - 0.4)
-    ax.tick_params(axis='y', length=0)
-    ax.axvline(0.1611, color='0.75', lw=0.8, ls=':', zorder=0)
-    save(fig, 'fig5.png')
-
 
 def fig_history():
     """One row per configuration, in time order: Test (2.8M) value of the selected model (one point per seed)."""
@@ -185,5 +159,5 @@ def fig_history():
 
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
-    for f in (fig_history, fig1, fig3, fig4, fig5):
+    for f in (fig_history, fig1, fig3, fig4):
         f()
