@@ -55,7 +55,21 @@ PHASES = {
 }
 
 
+def run_dates():
+    """{trial: (start, end)} in JST from published/results/report/runs.csv (export_report_trials.py)."""
+    import csv
+    from datetime import datetime
+    out = {}
+    with open(OUT / 'runs.csv') as handle:
+        for r in csv.DictReader(handle):
+            s, e = (datetime.strptime(r[k], '%Y-%m-%d %H:%M') for k in ('start_jst', 'end_jst'))
+            t = int(r['trial'])
+            out[t] = (min(s, out.get(t, (s, e))[0]), max(e, out.get(t, (s, e))[1]))
+    return out
+
+
 def timeline():
+    exact = run_dates()
     fig, ax = plt.subplots(figsize=(14, 6.4))
     y = 0
     ticks, labels = [], []
@@ -64,8 +78,11 @@ def timeline():
         lanes = []  # end date per lane
         placed = []
         for t in sorted(rows, key=lambda r: d(r[2])):
-            s0 = mdates.date2num(d(t[2]))
-            e0 = max(mdates.date2num(d(t[3])) + 1, s0 + 2.0)  # room for the number
+            if t[0] in exact:
+                s0, e0 = (mdates.date2num(x) for x in exact[t[0]])
+            else:
+                s0, e0 = mdates.date2num(d(t[2])), mdates.date2num(d(t[3])) + 1
+            e0 = max(e0, s0 + 2.0)  # room for the number
             lane = next((i for i, end in enumerate(lanes) if end + 0.3 <= s0), None)
             if lane is None:
                 lanes.append(e0)
@@ -98,7 +115,7 @@ def timeline():
     ax.set_axisbelow(True)
     for side in ('top', 'right', 'left'):
         ax.spines[side].set_visible(False)
-    ax.set_title('All trials in time order (number = trial in the table below; phase 0, Jul–Aug, was set-up)',
+    ax.set_title('All trials in time order, JST (number = trial in the tables below; phase 0, Jul–Aug, was set-up)',
                  loc='left', fontsize=11, color=INK)
     ax.legend(handles=[Patch(color=BASE, label='baseline (fixed LR, standard ParT)'), Patch(color=PBT, label='PBT'),
                        Patch(color=OTHER, label='other idea (ensemble, distillation, ...)'),

@@ -78,238 +78,17 @@ List of trials
 --------------
 
 Outcome: ✅ better · ❌ worse · ➖ no clear difference · ⚠️ not valid (comparator LRs too low) ·
-🔧 set-up or check. Values are on Test (2.8M) unless the cell says otherwise.
+🔧 set-up or check. Values are on Test (2.8M) unless the cell says otherwise. Times are JST.
+Every run with its selected model is listed in :ref:`report-runs`.
 
 Phase 0 (Jul 22 – Aug 31) was set-up. We tested first PBT versions and LR controllers and fixed
 two defects. These runs used an older training set-up and are not comparable.
 
-**Phase 1: PBT against fixed LRs** · 800k · Validation (150k) · Sep 15 – Sep 28
+.. include:: report_trials.inc
 
-.. list-table::
-   :header-rows: 1
-   :widths: 5 12 45 28 10
-
-   * - #
-     - Dates
-     - What
-     - Result
-     - Outcome
-   * - 1
-     - Sep 15–16
-     - Fixed LRs 3×10⁻⁶ – 1.4×10⁻⁵
-     - 0.3269
-     - 🔧
-   * - 2
-     - Sep 16–17
-     - Fixed LRs, 100 epochs
-     - 0.3156
-     - 🔧
-   * - 3
-     - Sep 17–18
-     - PBT, decision every 5 epochs
-     - 0.3225, −1.4% vs 1
-     - ⚠️
-   * - 4
-     - Sep 18–19
-     - PBT, 100 epochs
-     - 0.3111, −1.4% vs 2
-     - ⚠️
-   * - 5
-     - Sep 19–21
-     - Small Validation subset, LR controller
-     - controller did nothing
-     - ➖
-   * - 6
-     - Sep 22–28
-     - PBT every epoch vs every 5 epochs, 2 seeds
-     - +0.5%, +0.1%
-     - ➖
-   * - 7
-     - Sep 28
-     - PBT decisions inside an epoch
-     - not possible (optimizer state lost)
-     - 🔧
-
-**Phase 2: first large-data comparison** · 8M · Validation (150k) · Oct 12 – Nov 3
-
-.. list-table::
-   :header-rows: 1
-   :widths: 5 12 45 28 10
-
-   * - #
-     - Dates
-     - What
-     - Result
-     - Outcome
-   * - 8
-     - Oct 12
-     - First Test (2.8M) evaluation of trials 1–6
-     - agrees with Validation for large differences
-     - 🔧
-   * - 9
-     - Oct 13
-     - Prepare 8M training data and Test (9.0M)
-     - ready
-     - 🔧
-   * - 10
-     - Oct 13 – Nov 2
-     - PBT vs fixed LRs as in trial 1, preregistered
-     - **−7.7%** on Test (9.0M)
-     - ⚠️
-   * - 11
-     - Oct 17 – Nov 3
-     - Save the full optimizer state
-     - works; not used yet
-     - 🔧
-
-**Phase 3: higher fixed LRs** · 800k · Validation (150k) · Nov 2 – Nov 9
-
-.. list-table::
-   :header-rows: 1
-   :widths: 5 12 45 28 10
-
-   * - #
-     - Dates
-     - What
-     - Result
-     - Outcome
-   * - 12
-     - Nov 2–3
-     - Fixed LRs 1.4×10⁻⁵ – 3×10⁻⁵
-     - 0.3146
-     - 🔧
-   * - 13
-     - Nov 3
-     - Fixed LRs 3×10⁻⁵ – 8×10⁻⁵
-     - **0.3018**, better than all PBT so far
-     - 🔧
-   * - 14
-     - Nov 3–4
-     - Fixed LRs 8×10⁻⁵ – 3.2×10⁻⁴
-     - 0.3033
-     - 🔧
-   * - 15
-     - Nov 4
-     - Fast PBT: decision every 2 epochs, ×0.5 or ×2
-     - 0.3003, −1.0% vs 14
-     - ✅
-   * - 16
-     - Nov 8–9
-     - Trials 14 and 15 with a second seed
-     - PBT +0.5%
-     - ❌
-   * - 17
-     - Nov 9
-     - Fast PBT with extra copies
-     - +0.8% vs 15
-     - ❌
-
-Conclusion of phase 3: Validation (150k) is too small; the selection noise (about 0.5%) is as
-large as the effect. Next: Validation (1M), and standard ParT as the comparator.
-
-**Phase 4: PBT against standard ParT** · 800k · Validation (1M) · Nov 9 – Nov 20
-
-.. list-table::
-   :header-rows: 1
-   :widths: 5 12 45 28 10
-
-   * - #
-     - Dates
-     - What
-     - Result
-     - Outcome
-   * - 18
-     - Nov 9–13
-     - Standard ParT, fixed LRs and fast PBT; 3 seeds
-     - **PBT −0.8%** (−0.7, −0.9, −0.9)
-     - ✅
-   * - 19
-     - Nov 11–12
-     - PBT with a final decay
-     - same models as 18
-     - ➖
-   * - 20
-     - Nov 12
-     - Standard ParT without pretraining
-     - 0.378 (Validation), far worse
-     - ❌
-   * - 21
-     - Nov 12
-     - Weight averages of checkpoints
-     - no gain (Validation)
-     - ➖
-
-**Phase 5: large data against standard ParT** · 8M · Validation (1M) · Nov 13 – Nov 25
-
-.. list-table::
-   :header-rows: 1
-   :widths: 5 12 45 28 10
-
-   * - #
-     - Dates
-     - What
-     - Result
-     - Outcome
-   * - 22
-     - Nov 13–15
-     - Standard ParT, start LRs up to 1×10⁻³
-     - 0.1635
-     - 🔧
-   * - 23
-     - Nov 15–16
-     - Fast PBT
-     - 0.1812, **+12.4%** vs 24
-     - ❌
-   * - 24
-     - Nov 18–20
-     - Standard ParT, start LR 3×10⁻³
-     - **0.1611**, the reference
-     - 🔧
-   * - 25
-     - Nov 19–21
-     - PBT with cool-down probes
-     - 0.1699, +5.4% vs 24
-     - ❌
-   * - 26
-     - Nov 20–22
-     - PBT with probes and a final decay
-     - 0.1655, +2.7% vs 24
-     - ❌
-   * - 27
-     - Nov 23
-     - Ensemble of trials 22 and 24
-     - 0.1530, **−5.1%** vs 24
-     - ✅
-   * - 28
-     - Nov 23–25
-     - Trial 27 with two new seeds
-     - −4.9%, −5.1%; **mean −5.0%**
-     - ✅
-   * - 29
-     - Nov 23
-     - Ensembles at 800k
-     - no gain (Validation)
-     - ➖
-   * - 30
-     - Nov 23
-     - Where the ensemble gain comes from
-     - mostly from separate training
-     - 🔧
-   * - 31
-     - Nov 23–24
-     - Final decay without dropout
-     - much worse (Validation)
-     - ❌
-   * - 32
-     - Nov 24
-     - Distillation of the ensemble into one model
-     - +1.0% (Validation)
-     - ❌
-   * - 33
-     - Nov 23–25
-     - Standard ParT, start LR 1×10⁻²
-     - 0.1599, as 24
-     - ➖
+Run names link to the configuration files. GPU-h is the GPU time of all members of the trial's runs.
+After phase 3 we changed to Validation (1M) and to standard ParT as the comparator, because with
+Validation (150k) the selection noise (about 0.5%) was as large as the effect.
 
 Details of each trial: :doc:`results`.
 
@@ -364,3 +143,16 @@ Open items
 * Decision frequency (trial 6): inconclusive.
 * Possible next steps, not started: PBT decisions that look further ahead; ensembles of more
   than two models; other pretrained start models.
+
+.. _report-runs:
+
+All runs
+--------
+
+Every training run of trials 1–33. The selected model is the one with the best Validation value
+over the run; the epoch counts from the pretrained start (1–50, or 51–100 for trial 2). For PBT the
+name is the identity of a member, and the LR is the member's LR at that epoch. Validation is
+Validation (150k) for trials 1–17 and Validation (1M) from trial 18. Download:
+:download:`runs.csv <../published/results/report/runs.csv>`.
+
+.. include:: report_runs.inc
