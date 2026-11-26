@@ -53,7 +53,7 @@ def delta_bars(rows, lo, hi, label_w=270, row_h=34, note=None):
     while t <= hi:
         out.append(f'<line x1="{X(t):.1f}" x2="{X(t):.1f}" y1="{top}" y2="{h - bottom + 4}" class="s-grid"/>')
         out.append(f'<text x="{X(t):.1f}" y="{h - bottom + 18}" text-anchor="middle" class="t-axis">'
-                   f'{"+" if t > 0 else ""}{t:g}%</text>')
+                   f'{abs(t):g}%</text>')
         t += step
     out.append(f'<line x1="{X(0):.1f}" x2="{X(0):.1f}" y1="{top - 4}" y2="{h - bottom + 4}" class="s-ink" stroke-width="1.2"/>')
     out.append(f'<text x="{X(0) - 8:.1f}" y="{h - 1}" text-anchor="end" class="t-axis">← better</text>')
@@ -72,8 +72,9 @@ def delta_bars(rows, lo, hi, label_w=270, row_h=34, note=None):
                 out.append(f'<line x1="{X(c):.1f}" x2="{X(c):.1f}" y1="{yy - 5}" y2="{yy + 5}" class="s-ink" stroke-width="1.5"/>')
             edge = ci[0] if v < 0 else ci[1]
         tx = X(edge) + (8 if v >= 0 else -8)
+        word = 'better' if v < 0 else 'worse'
         out.append(f'<text x="{tx:.1f}" y="{y + row_h / 2 + 4:.1f}" text-anchor="{"start" if v >= 0 else "end"}" '
-                   f'class="t-value">{"+" if v > 0 else "−" if v < 0 else ""}{abs(v):.2f}%</text>')
+                   f'class="t-value">{abs(v):.1f}% {word}</text>')
     out.append('</svg>')
     return '\n'.join(out)
 
@@ -195,7 +196,7 @@ def table(rows):
     body = ''.join(
         f'<tr><td class="n">{n}</td><td class="d">{d}</td><td>{c}</td>'
         f'<td class="r {m}">{r}</td></tr>' for n, d, c, r, m in rows)
-    return (f'<div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result on Test</th>'
+    return (f'<div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th>'
             f'</tr></thead><tbody>{body}</tbody></table></div>')
 
 
@@ -208,13 +209,13 @@ def main():
 
     charts = dict(
         found=delta_bars([
-            ('800k jets: PBT vs standard ParT (3 seeds)', -0.81, 'good', (-1.34, -0.34)),
-            ('8M jets: PBT vs standard ParT (1 seed)', 12.4, 'bad', None),
-            ('8M jets: PBT with two fixes (1 seed)', 2.7, 'bad', None),
-            ('8M jets: ensemble of two vs best single (3 seeds)', -5.01, 'good', (-5.84, -4.17))],
-            -11, 14, label_w=340),
-        s1=delta_bars([('800k jets, Test (2.8M)', -1.36, 'invalid', None),
-                       ('8M jets, Test (9.0M)', -7.67, 'invalid', None)], -11, 3, label_w=230),
+            ('PBT vs standard ParT, 800k jets', -0.81, 'good', (-1.34, -0.34)),
+            ('PBT vs standard ParT, 8M jets', 12.4, 'bad', None),
+            ('PBT with two fixes, 8M jets', 2.7, 'bad', None),
+            ('Ensemble of two vs one model, 8M jets', -5.01, 'good', (-5.84, -4.17))],
+            -20, 16, label_w=310),
+        s1=delta_bars([('PBT vs constant LR, 800k jets', -1.36, 'invalid', None),
+                       ('PBT vs constant LR, 8M jets', -7.67, 'invalid', None)], -12, 3, label_w=250),
         s2=lr_curve(),
         s3=dot_rows([
             ('standard ParT', [0.3029, 0.3038, 0.3024], 'f-std', 'c'),
@@ -222,8 +223,8 @@ def main():
             ('PBT', [0.3008, 0.3012, 0.2996], 'f-pbt', 's')],
             0.2985, 0.3045, [0.299, 0.300, 0.301, 0.302, 0.303, 0.304], label_w=170, row_h=36,
             xlabel='Test mistag (%) of the selected model; one point per seed'),
-        s4=delta_bars([('PBT', 12.4, 'bad', None), ('PBT + cool-down probes', 5.4, 'bad', None),
-                       ('PBT + probes + final LR decay', 2.7, 'bad', None)], -2, 14, label_w=250),
+        s4=delta_bars([('PBT vs standard ParT', 12.4, 'bad', None), ('with fix 1 (cool-down probes)', 5.4, 'bad', None),
+                       ('with fixes 1 and 2 (final LR decay)', 2.7, 'bad', None)], -2, 16, label_w=270),
         s5=dot_rows([
             ('standard ParT, start 10⁻³', [0.1635, 0.1623, 0.1634], 'f-std', 'o'),
             ('standard ParT, start 3×10⁻³', [0.1611, 0.1597, 0.1623], 'f-std', 'c'),
@@ -235,53 +236,52 @@ def main():
             xlabel='Test mistag (%); one point per seed'),
         lr8=line_chart([([(e, a, b) for e, a, b, _ in pbt], 'f-pbt', 'band'), ([(e, a) for e, a, _, _ in std], 's-std', 'line')],
                        1e-5, 6e-3, [1e-5, 1e-4, 1e-3], lambda v: svg_sup(v), log=True, shade=(36, 50),
-                       ylabel='learning rate', legend=[('k-std', 'standard ParT'), ('k-pbt-band', 'PBT, range of 5 models')]),
+                       ylabel='8M jets: learning rate', legend=[('k-std', 'standard ParT'), ('k-pbt-band', 'PBT, range of 5 models')]),
         val8=line_chart([([(e, v) for e, _, _, v in std], 's-std', 'line'), ([(e, v) for e, _, _, v in pbt], 's-pbt', 'line'),
                          ([(e, v) for e, _, _, v in fix], 's-pbt', 'dash')],
                         0.155, 0.215, [0.16, 0.18, 0.20], lambda v: f'{v:.2f}', shade=(36, 50),
-                        ylabel='best Validation mistag so far (%)',
+                        ylabel='8M jets: best mistag so far (Validation)',
                         legend=[('k-std', 'standard ParT'), ('k-pbt', 'PBT'), ('k-pbt-dash', 'PBT + both fixes')]),
         loss800=line_chart([([(e, t) for e, t, _ in lc['800k']], 's-ink', 'line'), ([(e, v) for e, _, v in lc['800k']], 's-std', 'line')],
-                           0.268, 0.296, [0.27, 0.28, 0.29], lambda v: f'{v:.2f}', ylabel='loss, 800k jets',
+                           0.268, 0.296, [0.27, 0.28, 0.29], lambda v: f'{v:.2f}', ylabel='800k jets: loss per epoch',
                            legend=[('k-ink', 'training data'), ('k-std', 'Validation')]),
         loss8=line_chart([([(e, t) for e, t, _ in lc['8M']], 's-ink', 'line'), ([(e, v) for e, _, v in lc['8M']], 's-std', 'line')],
-                         0.242, 0.292, [0.25, 0.26, 0.27, 0.28, 0.29], lambda v: f'{v:.2f}', ylabel='loss, 8M jets',
+                         0.242, 0.292, [0.25, 0.26, 0.27, 0.28, 0.29], lambda v: f'{v:.2f}', ylabel='8M jets: loss per epoch',
                          legend=[('k-ink', 'training data'), ('k-std', 'Validation')]),
     )
     tables = dict(
         s1=table([
-            ('1', 'Sep 16', f'800k · constant LRs {sup(3e-6)}–{sup(1.4e-5)}', '0.3269 · best = highest LR', ''),
-            ('2', 'Sep 17–18', '800k · two LRs of #1, 100 epochs', '0.3156', ''),
-            ('3', 'Sep 18', f'800k · PBT: every 5 epochs, LR ×0.8 or ×1.2, max {sup(3e-5)}', '0.3225 · −1.4% vs #1', 'invalid'),
-            ('4', 'Sep 19', '800k · PBT as #3, 100 epochs', '0.3111 · −1.4% vs #2', 'invalid'),
-            ('6', 'Sep 23–29', '800k · PBT every epoch vs every 5 epochs · 2 seeds', '+0.5%, +0.1% · inconclusive', 'none'),
-            ('10', 'Oct 14–21', '8M · #1 vs #3, preregistered · Test (9.0M)', '−7.7% · best = highest LR again', 'invalid')]),
+            ('1', 'Sep 16', f'Constant LR, five values {sup(3e-6)} to {sup(1.4e-5)}', '0.3269; best value is the highest one', ''),
+            ('2', 'Sep 17–18', 'Two of these LRs continued to 100 epochs', '0.3156', ''),
+            ('3', 'Sep 18', f'PBT, LR changed every 5 epochs (×0.8 or ×1.2), at most {sup(3e-5)}', '0.3225: 1.4% better than #1', 'invalid'),
+            ('4', 'Sep 19', 'PBT as #3, 100 epochs', '0.3111: 1.4% better than #2', 'invalid'),
+            ('6', 'Sep 23–29', 'PBT, LR changed every epoch or every 5 epochs; 2 seeds', 'no clear difference', 'none'),
+            ('10', 'Oct 14–21', '8M jets: constant LR as #1 against PBT as #3; fixed in advance', '7.7% better (Test 9.0M)', 'invalid')]),
         s2=table([
-            ('12', 'Nov 3', f'800k · constant LRs {sup(1.4e-5)}–{sup(3e-5)}', '0.3146 · best = highest LR', ''),
-            ('13', 'Nov 3–4', f'800k · constant LRs {sup(3e-5)}–{sup(8e-5)}', '<b>0.3018</b> · better than all PBT so far', 'good'),
-            ('14', 'Nov 4', f'800k · constant LRs {sup(8e-5)}–{sup(3.2e-4)}', '0.3033', ''),
-            ('15', 'Nov 4', f'800k · fast PBT: every 2 epochs, LR ×0.5 or ×2, max {sup(5e-4)}', '0.3003 · −1.0% vs #14', 'good'),
-            ('16', 'Nov 9', '800k · #14 and #15 with seed 22345', '+0.5% · sign reversed', 'bad'),
-            ('17', 'Nov 9', '800k · fast PBT with extra copies', '0.3026 · +0.8% vs #15', 'bad')]),
+            ('12', 'Nov 3', f'Constant LR {sup(1.4e-5)} to {sup(3e-5)}', '0.3146; best is again the highest', ''),
+            ('13', 'Nov 3–4', f'Constant LR {sup(3e-5)} to {sup(8e-5)}', '0.3018: better than every PBT run before', 'good'),
+            ('14', 'Nov 4', f'Constant LR {sup(8e-5)} to {sup(3.2e-4)}', '0.3033: no further gain', ''),
+            ('15', 'Nov 4', f'Faster PBT: LR changed every 2 epochs (×0.5 or ×2), at most {sup(5e-4)}', '0.3003: 1.0% better than #14', 'good'),
+            ('16', 'Nov 9', '#14 and #15 again with another seed', 'PBT 0.5% worse: the sign reverses', 'bad'),
+            ('17', 'Nov 9', 'Faster PBT with extra weight copies', '0.8% worse than #15', 'bad')]),
         s3=table([
-            ('18', 'Nov 10–13', f'800k · standard ParT (start {sup(1e-5)}–{sup(1e-3)}), constant LRs, fast PBT · 3 seeds',
-             '<b>PBT −0.81%</b> vs standard ParT', 'good'),
-            ('19', 'Nov 12', '800k · PBT with a final LR decay · 2 seeds', 'same models as #18', 'none'),
-            ('20', 'Nov 12', '800k · standard ParT without pretraining', '0.378 (Validation) · far worse', 'bad'),
-            ('21', 'Nov 12', '800k · weight averaging of checkpoints', 'no gain (Validation)', 'none')]),
+            ('18', 'Nov 10–13', 'Standard ParT, constant LR and PBT; 3 seeds', 'PBT 0.81% better than standard ParT', 'good'),
+            ('19', 'Nov 12', 'PBT with a final LR decay; 2 seeds', 'same result as #18', 'none'),
+            ('20', 'Nov 12', 'Standard ParT from random weights (no pretraining)', 'far worse', 'bad'),
+            ('21', 'Nov 12', 'Averaging the weights of several checkpoints', 'no gain', 'none')]),
         s4=table([
-            ('22', 'Nov 14–15', f'8M · standard ParT, start {sup(1e-5)}–{sup(1e-3)}', '0.1635 · best = highest LR', ''),
-            ('23', 'Nov 15–17', f'8M · fast PBT, max LR {sup(1e-3)}', '0.1812 · <b>+12.4%</b> vs #24', 'bad'),
-            ('24', 'Nov 19–20', f'8M · standard ParT, start {sup(3e-3)}', '<b>0.1611</b> · 8M reference', ''),
-            ('25', 'Nov 19–21', '8M · PBT with cool-down probes', '0.1699 · +5.4% vs #24', 'bad'),
-            ('26', 'Nov 20–23', '8M · PBT with probes and a final LR decay', '0.1655 · +2.7% vs #24', 'bad')]),
+            ('22', 'Nov 14–15', f'Standard ParT, start LR {sup(1e-5)} to {sup(1e-3)}', '0.1635; best is the highest', ''),
+            ('23', 'Nov 15–17', f'PBT, LR at most {sup(1e-3)}', '0.1812: 12.4% worse than #24', 'bad'),
+            ('24', 'Nov 19–20', f'Standard ParT, start LR {sup(3e-3)}', '0.1611: the reference', ''),
+            ('25', 'Nov 19–21', 'PBT with fix 1: judge each LR after a short cool-down', '0.1699: 5.4% worse than #24', 'bad'),
+            ('26', 'Nov 20–23', 'PBT with fixes 1 and 2: plus the final LR decay', '0.1655: 2.7% worse than #24', 'bad')]),
         s5=table([
-            ('27', 'Nov 23', '8M · ensemble: mean output of #22 and #24', '0.1530 · −5.1% vs #24', 'good'),
-            ('28', 'Nov 23–25', '8M · #27 repeated with seeds 22345 and 32345', '−4.9%, −5.1% · <b>mean −5.0%</b>', 'good'),
-            ('29', 'Nov 23', '800k · ensembles of the 800k models', 'no gain (Validation)', 'none'),
-            ('31', 'Nov 23–24', '8M · final decay of #24 without dropout', 'worse (Validation)', 'bad'),
-            ('32', 'Nov 24', '8M · distillation of the ensemble into one model', 'no gain (Validation)', 'none'),
-            ('33', 'Nov 24–25', f'8M · standard ParT, start {sup(1e-2)}', '0.1599 · same as #24', 'none')]),
+            ('27', 'Nov 23', 'Ensemble: average of the outputs of #22 and #24', '0.1530: 5.1% better than #24', 'good'),
+            ('28', 'Nov 23–25', 'The same ensemble with two new seeds', '4.9% and 5.1% better; mean 5.0%', 'good'),
+            ('29', 'Nov 23', 'Ensembles of the 800k models', 'no gain', 'none'),
+            ('31', 'Nov 23–24', 'Final LR decay of #24 without dropout', 'worse', 'bad'),
+            ('32', 'Nov 24', 'Distillation: train one model on the ensemble output', 'no gain', 'none'),
+            ('33', 'Nov 24–25', f'Standard ParT, start LR {sup(1e-2)}', '0.1599: same as #24', 'none')]),
     )
     page = TEMPLATE
     for k, v in charts.items():

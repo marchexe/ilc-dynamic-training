@@ -39,10 +39,15 @@ svg{width:100%;height:auto;display:block;overflow:visible}
 .rail .when{font-family:var(--mono);color:var(--ink);font-size:.85rem}
 .stage h3{font-size:1.25rem;line-height:1.35;font-weight:600;margin:0 0 .5rem;text-wrap:balance}
 .stage p{margin:0 0 1rem;max-width:40rem}
-.verdict{display:inline-block;font:500 .78rem/1 var(--mono);padding:.3rem .5rem;border-radius:3px;margin-bottom:.7rem;letter-spacing:.02em}
-.verdict.good{color:var(--good);background:color-mix(in srgb,var(--good) 12%,transparent)}
-.verdict.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent)}
-.verdict.warn{color:var(--ink2);background:var(--band)}
+.answer{border-left:3px solid var(--ink);padding:.2rem 0 .2rem 1rem;font-size:1.15rem;line-height:1.5;margin:0 0 1rem;max-width:44rem}
+.terms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem 1.6rem;margin:1.6rem 0 0;font-size:.9rem}
+.terms div{min-width:0} .terms b{display:block;font-weight:600}
+.terms span{color:var(--ink2)}
+.dm{display:grid;grid-template-columns:6.2rem minmax(0,1fr);gap:.35rem 1rem;margin:0 0 1.1rem;max-width:42rem}
+.dm dt{font:500 .75rem/1.9 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink2)}
+.dm dd{margin:0}
+.stage h3 .tag{font:500 .8rem var(--mono);color:var(--ink2);margin-left:.4rem;font-weight:400}
+.why{margin-top:1.4rem}
 .tw{overflow-x:auto;margin-top:1rem}
 table{border-collapse:collapse;width:100%;font-size:.86rem;line-height:1.4}
 th{text-align:left;font-weight:500;color:var(--ink2);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;padding:.4rem .5rem;border-bottom:1px solid var(--rule)}
@@ -75,7 +80,7 @@ td.r.none{color:var(--ink2)}
 .t-axis{fill:var(--ink2);font:12.5px var(--mono)} .t-label{fill:var(--ink);font:15px var(--sans)}
 .t-value{fill:var(--ink);font:500 14.5px var(--mono)} .t-note{fill:var(--ink2);font:12px var(--mono)}
 .t-pbt{fill:var(--pbt)} .t-const{fill:var(--const)}
-@media (max-width:680px){h1{font-size:1.6rem}.lead{font-size:1.05rem}.stage{grid-template-columns:1fr;gap:.6rem}
+@media (max-width:680px){h1{font-size:1.6rem}.answer{font-size:1.02rem}.terms,.dm{grid-template-columns:1fr}.dm dt{line-height:1.2}.stage{grid-template-columns:1fr;gap:.6rem}
 .rail .num{display:inline;font-size:1.2rem;margin-right:.5rem}.minis,.notes{grid-template-columns:1fr}}
 </style>
 </head>
@@ -84,82 +89,107 @@ td.r.none{color:var(--ink2)}
 
 <div class="eyebrow">ILC jet-flavour tagging · ParT fine-tuning · Jul–Nov 2026</div>
 <h1>Does Population Based Training give a better tagger?</h1>
-<p class="lead">Only a little, and only with little training data: PBT is <b class="g">0.8% better</b> than
-standard ParT training on 800k jets, but <b class="r">2.7–12.4% worse</b> on 8M jets. With 8M jets, the mean of two
-standard ParT models is <b class="g">5.0% better</b>.</p>
-<div class="meta">Status 26 Nov 2026 · no run in progress · mistag on Test (2.8M jets), lower is better ·
-<a href="results.html">detailed results</a> · <a href="report.html#report-trials">run records and configuration files</a></div>
+<p class="answer"><b>Answer:</b> only with little training data, and only by 0.8%. With much training data PBT is
+worse; there, an ensemble of two normally trained models gains 5%.</p>
+<div class="meta">Status 26 Nov 2026 · no run in progress · <a href="results.html">detailed results</a> ·
+<a href="report.html#report-trials">run records and configuration files</a></div>
 
-<h2>The four results</h2>
-<p class="sub">Change of the mistag against the reference; bars left of zero are better. Thin lines: 95% interval for the Test sample.</p>
+<div class="terms">
+  <div><b>Standard ParT</b><span>the usual training of this model: a constant learning rate (LR) for 35 epochs, then
+  lowered by ×0.01 over 15 epochs. Five start LRs; the best model is kept.</span></div>
+  <div><b>PBT</b><span>five models train in parallel. Every few epochs the weakest copies the weights of the best one
+  and changes its LR.</span></div>
+  <div><b>Constant LR</b><span>five models, each with one LR for all 50 epochs.</span></div>
+  <div><b>Numbers</b><span>mistag (%) on Test data (2.8M jets, used once per model, after selection). Lower is
+  better. Training data: 800k or 8M jets.</span></div>
+</div>
+
+<h2>Main results</h2>
 <div class="figure">{{chart:found}}</div>
 
 <h2>How we got there</h2>
-<p class="sub">Five stages in time order. Each stage shows what we found, the chart that shows it, and the trials of the stage
-(numbers as in the full trial list).</p>
 
 <section class="stage">
-  <div class="rail"><span class="num">1</span><span class="when">Sep 16 – Oct 21</span><br>800k, then 8M jets<br>Validation 150k</div>
+  <div class="rail"><span class="num">1</span><span class="when">Sep 16 – Oct 21</span><br>800k, then 8M jets</div>
   <div>
-    <span class="verdict warn">later found not valid</span>
-    <h3>PBT seemed to win against constant learning rates</h3>
-    <p>PBT was 1.4% better on 800k jets and 7.7% better on 8M jets. But in both comparisons the best constant-LR model
-    was the one with the highest LR of the grid, and PBT had moved above the grid.</p>
+    <h3>PBT looked better than constant learning rates</h3>
+    <dl class="dm">
+      <dt>Did</dt><dd>Compared PBT with constant LRs, first on 800k jets, then on 8M jets.</dd>
+      <dt>Means</dt><dd>Not valid: the best constant LR was always the highest one tried, so the constant LRs were too low (stage 2).</dd>
+    </dl>
     <div class="figure">{{chart:s1}}</div>
     {{table:s1}}
   </div>
 </section>
 
 <section class="stage">
-  <div class="rail"><span class="num">2</span><span class="when">Nov 3 – Nov 9</span><br>800k jets<br>Validation 150k</div>
+  <div class="rail"><span class="num">2</span><span class="when">Nov 3 – Nov 9</span><br>800k jets</div>
   <div>
-    <span class="verdict bad">PBT = a good constant LR</span>
-    <h3>The gain came from a higher LR, not from adapting it</h3>
-    <p>With higher constant LRs the mistag falls steeply up to about 10<sup>−4</sup>. Both PBT runs lie on the same
-    curve as the constant LRs. A second seed reversed the sign, and the 150k Validation set was too small to pick
-    models, so we changed to 1M Validation jets and to standard ParT as the reference.</p>
+    <h3>A higher constant LR does what PBT did</h3>
+    <dl class="dm">
+      <dt>Did</dt><dd>Tried constant LRs up to 3×10<sup>−4</sup> and a faster PBT.</dd>
+      <dt>Means</dt><dd>The mistag falls with the LR up to about 10<sup>−4</sup>, and both PBT runs lie on that curve: PBT
+      gained because it reached a higher LR. The result also flipped with another seed, so from here models are
+      selected on 1M Validation jets (before: 150k) and compared with standard ParT.</dd>
+    </dl>
     <div class="figure">{{chart:s2}}</div>
     {{table:s2}}
   </div>
 </section>
 
 <section class="stage">
-  <div class="rail"><span class="num">3</span><span class="when">Nov 10 – Nov 13</span><br>800k jets<br>Validation 1M<br>3 seeds</div>
+  <div class="rail"><span class="num">3</span><span class="when">Nov 10 – Nov 13</span><br>800k jets<br>3 seeds</div>
   <div>
-    <span class="verdict good">PBT −0.81% (interval −1.34 to −0.34)</span>
-    <h3>Against standard ParT, PBT wins a little on every seed</h3>
-    <p>PBT has a lower mistag than standard ParT for all three seeds (−0.67%, −0.85%, −0.91%). A constant-LR grid
-    equals PBT for one seed and standard ParT for the other two.</p>
+    <h3>With 800k training jets, PBT is 0.8% better</h3>
+    <dl class="dm">
+      <dt>Did</dt><dd>PBT, standard ParT and constant LR, each with three seeds.</dd>
+      <dt>Means</dt><dd>PBT is better than standard ParT for every seed (0.67%, 0.85%, 0.91%; 95% interval 0.34 to
+      1.34%). Small, but real.</dd>
+    </dl>
     <div class="figure">{{chart:s3}}
       <div class="key"><span><i class="dot" style="background:var(--std)"></i>standard ParT</span>
-      <span><i class="dot" style="border:2px solid var(--const)"></i>constant LR grid</span>
+      <span><i class="dot" style="border:2px solid var(--const)"></i>constant LR</span>
       <span><i class="dot" style="background:var(--pbt);border-radius:1px"></i>PBT</span></div></div>
     {{table:s3}}
   </div>
 </section>
 
 <section class="stage">
-  <div class="rail"><span class="num">4</span><span class="when">Nov 14 – Nov 23</span><br>8M jets<br>Validation 1M<br>1 seed</div>
+  <div class="rail"><span class="num">4</span><span class="when">Nov 14 – Nov 23</span><br>8M jets<br>1 seed</div>
   <div>
-    <span class="verdict bad">PBT +12.4%, +2.7% after fixes</span>
-    <h3>With ten times more data, PBT loses</h3>
-    <p>The best standard ParT model reaches 0.1611; PBT reaches 0.1812. Two fixes (judge LRs after a short cool-down,
-    and add the final LR decay of standard ParT) reduce the loss to 2.7%, but PBT stays worse. The reason is shown in the
-    next section.</p>
+    <h3>With 8M training jets, PBT is worse</h3>
+    <dl class="dm">
+      <dt>Did</dt><dd>The same comparison with ten times more training data; then two fixes to PBT.</dd>
+      <dt>Means</dt><dd>PBT is 12.4% worse than standard ParT; with both fixes still 2.7% worse.</dd>
+    </dl>
     <div class="figure">{{chart:s4}}</div>
     {{table:s4}}
+    <dl class="dm why">
+      <dt>Why</dt><dd>With 800k jets the model starts to memorise its training data after about 20 epochs (top left),
+      so lowering the LR early helps, and PBT does that. With 8M jets it does not memorise (top right); then a high LR
+      for 35 epochs and a decay at the end is best. PBT judges each LR change after two epochs, where a lower LR almost
+      always looks better, so it lowers the LR early (bottom left) and loses in the final decay (bottom right, grey).</dd>
+    </dl>
+    <div class="minis">
+      {{chart:loss800}}
+      {{chart:loss8}}
+      {{chart:lr8}}
+      {{chart:val8}}
+    </div>
   </div>
 </section>
 
 <section class="stage">
-  <div class="rail"><span class="num">5</span><span class="when">Nov 23 – Nov 25</span><br>8M jets<br>Validation 1M<br>3 seeds</div>
+  <div class="rail"><span class="num">5</span><span class="when">Nov 23 – Nov 25</span><br>8M jets<br>3 seeds</div>
   <div>
-    <span class="verdict good">ensemble −5.0% (interval −5.8 to −4.2)</span>
-    <h3>With much data, an ensemble of two standard ParT models wins</h3>
-    <p>The mean output of the two standard ParT models of one seed (start LRs 3×10<sup>−3</sup> and 10<sup>−3</sup>) is
-    better than the better one alone for all three seeds. Both models come from the LR scan that standard ParT runs
-    anyway. Two PBT models do not help, because PBT copies weights between them. Distillation into one model gave no
-    gain.</p>
+    <h3>With 8M training jets, an ensemble of two models is 5% better</h3>
+    <dl class="dm">
+      <dt>Did</dt><dd>Averaged the outputs of the two standard ParT models of one seed (start LRs 3×10<sup>−3</sup> and
+      10<sup>−3</sup>). Fixed this test in advance, then repeated it with two new seeds.</dd>
+      <dt>Means</dt><dd>5.0% better than the better model alone, on every seed (95% interval 4.2 to 5.8%). Standard
+      ParT trains both models anyway; the cost is running two models. PBT models do not help here, because PBT copies
+      weights between them.</dd>
+    </dl>
     <div class="figure">{{chart:s5}}
       <div class="key"><span><i class="dot" style="background:var(--std)"></i>standard ParT</span>
       <span><i class="dot" style="background:var(--ens);border-radius:1px;transform:rotate(45deg)"></i>ensemble</span>
@@ -168,30 +198,13 @@ standard ParT models is <b class="g">5.0% better</b>.</p>
   </div>
 </section>
 
-<h2>Why more data changes the answer</h2>
-<p class="sub">On 800k jets the model starts to memorise its training data after about 20 epochs (the training loss
-falls below the Validation loss), so lowering the LR early is right, and PBT finds that time. On 8M jets the model
-does not memorise, so a high LR for a long time and a decay at the end is best. PBT judges every LR change after two
-epochs, where a lower LR almost always looks better, so it lowers the LR too early and loses in the final decay
-(grey band).</p>
-<div class="minis">
-  {{chart:loss800}}
-  {{chart:loss8}}
-  {{chart:lr8}}
-  {{chart:val8}}
-</div>
-
 <div class="notes">
-  <div><h4>Terms</h4>
-  <p>Training: 800k = 2.4M jets, 8M = 24M jets. Validation (150k, then 1M jets) is checked after every epoch; it
-  drives PBT and selects the model. Test (2.8M jets) is evaluated once per selected model. Mistag: mean background
-  mistag rate at eight b- and c-tag working points.</p>
-  <p>Standard ParT: constant LR for 35 epochs, then ×0.01 over 15 epochs; five start LRs, the best is kept. PBT: five
-  models; every 2 epochs (5 in September) the weakest copies the best one and changes its LR.</p></div>
   <div><h4>Limits</h4>
-  <p>The 8M PBT trials have one seed. All trials start from one pretrained model. Test (2.8M) was also used in
-  diagnostics before November. July–August was set-up with an older training contract; trials 5, 7, 8, 9, 11 and 30
-  are checks and are in the <a href="report.html#report-trials">full trial list</a>.</p></div>
+  <p>The 8M PBT runs have one seed. All runs start from one pretrained model. The Test data was also looked at in
+  checks before November.</p></div>
+  <div><h4>Not shown</h4>
+  <p>July–August: set-up with an older training method. Trials 5, 7, 8, 9, 11 and 30 are technical checks; they are
+  in the <a href="report.html#report-trials">full trial list</a>.</p></div>
 </div>
 
 </div>
