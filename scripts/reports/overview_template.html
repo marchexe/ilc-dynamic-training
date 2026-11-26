@@ -13,6 +13,7 @@ a{color:var(--link)}
 h1{font-size:30px;line-height:1.25;margin:0 0 14px}
 h2{font-size:23px;line-height:1.3;margin:48px 0 10px;padding-top:24px;border-top:1px solid var(--rule)}
 h2 small{display:block;font-size:15px;font-weight:normal;color:var(--ink2);margin-bottom:4px}
+ol.points{padding-left:22px} ol.points li{margin-bottom:10px}
 p{margin:0 0 12px}
 .meta{color:var(--ink2);font-size:15px;margin-bottom:24px}
 .answer{font-size:19px;margin:0 0 20px}
@@ -24,8 +25,8 @@ table{border-collapse:collapse;width:100%;font-size:15px;line-height:1.45}
 th{text-align:left;font-weight:bold;padding:6px 8px;border-bottom:2px solid var(--ink)}
 td{padding:6px 8px;border-bottom:1px solid var(--rule);vertical-align:top}
 td.n,td.d{white-space:nowrap;color:var(--ink2)}
+th.m,td.m{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 td.r.good{color:var(--good)} td.r.bad{color:var(--bad)} td.r.none,td.r.invalid{color:var(--ink2)}
-td.r.invalid::after{content:" (not valid)"}
 .end{margin-top:48px;padding-top:16px;border-top:1px solid var(--rule);font-size:15px;color:var(--ink2)}
 @media (max-width:600px){body{font-size:16px}h1{font-size:24px}h2{font-size:20px}.answer{font-size:17px}table{font-size:13.5px}}
 </style>
@@ -34,67 +35,82 @@ td.r.invalid::after{content:" (not valid)"}
 <main>
 
 <h1>Does Population Based Training give a better jet tagger?</h1>
-<p class="answer">Only with little training data, and only by 0.8%. With much training data PBT is worse; there, an
-ensemble of two normally trained models gains 5%.</p>
+<p class="answer">PBT helps only with little training data, and only a little. With much training data PBT is
+worse, and an ensemble of two normally trained models is better.</p>
 <p class="meta">ILC b/c/light-jet tagging with a pretrained Particle Transformer (ParT), July–November 2026. Status 26
 November: no run in progress. <a href="results.html">Detailed results</a> ·
 <a href="report.html#report-trials">run records and configuration files</a></p>
 
 <ul class="terms">
-<li><b>Standard ParT</b>: the usual training of this model. Constant learning rate (LR) for 35 epochs, then lowered
+<li><b>Standard ParT</b>: the usual training of this model: constant learning rate (LR) for 35 epochs, then lowered
 ×0.01 over 15 epochs. Five start LRs; the best model is kept.</li>
-<li><b>PBT</b>: five models train in parallel. Every few epochs the weakest copies the weights of the best one and
-changes its LR.</li>
 <li><b>Constant LR</b>: five models, each with one LR for all 50 epochs.</li>
-<li><b>Validation</b>: data checked after every epoch to select the best model and to steer PBT (150k jets until
-9 November, then 1M jets). It is separate from the Test data.</li>
-<li><b>Numbers</b>: mistag in % on Test data (2.8M jets, used once per model after selection); lower is better.
-Training data: 800k or 8M jets. With 8M training jets every model is much better (mistag about 0.16% instead of
-0.30%), so only comparisons within the same training data are meaningful.</li>
+<li><b>PBT</b>: five models train in parallel; every few epochs the weakest copies the weights of the best one and
+changes its LR.</li>
+<li><b>Validation</b>: data checked after every epoch to select the model and to steer PBT; 150k jets until 9 November,
+then 1M jets.</li>
+<li><b>Mistag</b>: mean background mistag rate (%) at eight b- and c-tag working points, on Test data (2.8M jets, used
+once per selected model). Lower is better. It is about 0.30% with 800k training jets and 0.16% with 8M training jets,
+so compare only within the same training data.</li>
 </ul>
 
 <img src="overview_figs/summary.png" alt="Main results: change of the mistag for four comparisons">
-<p class="cap">Main results. Bars to the left: lower mistag (better). Error bars: 95% interval for the Test sample (3 seeds).</p>
+<p class="cap">Figure 1. Main results. Error bars: 95% interval for the Test sample, mean of 3 seeds.</p>
 
-<h2><small>Stage 1 · Sep 16 – Oct 21 · 800k, then 8M jets</small>PBT looked better than constant learning rates</h2>
-<p><b>Did:</b> compared PBT with constant LRs, first on 800k jets, then on 8M jets.</p>
-<p><b>Means:</b> not valid. The best constant LR was always the highest one tried, so the constant LRs were too low (stage 2).</p>
+<h2><small>Stage 1 · Sep 16 – Oct 21 · 800k, then 8M training jets · 1 seed · Validation 150k</small>
+PBT looked better than constant learning rates</h2>
+<p>We compared PBT with constant LRs. The comparisons were not valid: the best constant LR was always the highest one
+tried, so the constant LRs were too low.</p>
 {{table:s1}}
 
-<h2><small>Stage 2 · Nov 3 – Nov 9 · 800k jets</small>A higher constant LR does what PBT did</h2>
-<p><b>Did:</b> tried constant LRs up to 3×10<sup>−4</sup> and a faster PBT.</p>
-<p><b>Means:</b> the mistag falls with the LR up to about 10<sup>−4</sup>, and both PBT runs lie on that curve. PBT
-gained because it reached a higher LR. The result also flipped with another seed, so from here models are selected
-on 1M Validation jets (before: 150k) and compared with standard ParT.</p>
+<h2><small>Stage 2 · Nov 3 – Nov 9 · 800k training jets · 1–2 seeds · Validation 150k</small>
+A higher constant LR does what PBT did</h2>
+<p>We tried higher constant LRs and a faster PBT. Both PBT runs lie on the curve of the constant LRs (Figure 2), so
+PBT gained only because it reached a higher LR. With a second seed the order changed, so from stage 3 we select on 1M
+Validation jets and compare with standard ParT.</p>
 <img src="overview_figs/stage2.png" alt="Mistag against the learning rate: constant LR and PBT">
+<p class="cap">Figure 2. Mistag against the LR of the selected model, seed 12345.</p>
 {{table:s2}}
 
-<h2><small>Stage 3 · Nov 10 – Nov 13 · 800k jets · 3 seeds</small>With 800k training jets, PBT is 0.8% better</h2>
-<p><b>Did:</b> PBT, standard ParT and constant LR, each with three seeds.</p>
-<p><b>Means:</b> PBT is better than standard ParT for every seed (0.67%, 0.85%, 0.91%; 95% interval 0.34 to 1.34%).
-Small, but real.</p>
+<h2><small>Stage 3 · Nov 10 – Nov 13 · 800k training jets · 3 seeds · Validation 1M</small>
+With little training data, PBT is a little better</h2>
+<p>We trained standard ParT, constant LR and PBT with three seeds each. PBT is the best method for every seed
+(Figure 3).</p>
 <img src="overview_figs/stage3.png" alt="Mistag of standard ParT, constant LR and PBT for three seeds">
+<p class="cap">Figure 3. Mistag of the selected model of each method (#18); one point per seed.</p>
 {{table:s3}}
 
-<h2><small>Stage 4 · Nov 14 – Nov 23 · 8M jets · 1 seed</small>With 8M training jets, PBT is worse</h2>
-<p><b>Did:</b> the same comparison with ten times more training data; then two fixes to PBT.</p>
-<p><b>Means:</b> PBT is 12.4% worse than standard ParT; with both fixes still 2.7% worse.</p>
-<img src="overview_figs/stage4.png" alt="PBT against standard ParT on 8M jets, with and without the fixes">
+<h2><small>Stage 4 · Nov 14 – Nov 23 · 8M training jets · 1 seed · Validation 1M</small>
+With much training data, PBT is worse</h2>
+<p>We repeated the comparison with ten times more training data, then tried two fixes to PBT. PBT lowers the LR
+early and falls behind in the final LR decay of standard ParT (Figure 4); the fixes reduce but do not remove the loss.</p>
+<img src="overview_figs/mech.png" alt="Learning rate and best Validation mistag per epoch, 8M training jets">
+<p class="cap">Figure 4. 8M training jets, seed 12345. (a) LR per epoch. (b) Best Validation mistag so far. Grey: the
+final LR decay of standard ParT.</p>
 {{table:s4}}
-<p style="margin-top:20px"><b>Why:</b> with 800k jets the model starts to memorise its training data after about 20
-epochs (a), so lowering the LR early helps, and PBT does that. With 8M jets it does not memorise (b); then a high LR
-for 35 epochs and a decay at the end is best. PBT judges each LR change after two epochs, where a lower LR almost
-always looks better, so it lowers the LR early (c) and loses in the final decay (d, grey).</p>
-<img src="overview_figs/why.png" alt="Loss, learning rate and mistag per epoch, 800k and 8M jets">
 
-<h2><small>Stage 5 · Nov 23 – Nov 25 · 8M jets · 3 seeds</small>With 8M training jets, an ensemble of two models is 5% better</h2>
-<p><b>Did:</b> averaged the outputs of the two standard ParT models of one seed (start LRs 3×10<sup>−3</sup> and
-10<sup>−3</sup>). Fixed this test in advance, then repeated it with two new seeds.</p>
-<p><b>Means:</b> 5.0% better than the better model alone, on every seed (95% interval 4.2 to 5.8%). Standard ParT
-trains both models anyway; the cost is running two models. PBT models do not help here, because PBT copies weights
-between them.</p>
-<img src="overview_figs/stage5.png" alt="Mistag of the standard ParT models, their ensemble and PBT on 8M jets">
+<h2><small>Stage 5 · Nov 23 – Nov 25 · 8M training jets · 3 seeds · Validation 1M</small>
+With much training data, an ensemble of two models is better</h2>
+<p>We averaged the outputs of the two standard ParT models of one seed (start LRs 3×10<sup>−3</sup> and
+10<sup>−3</sup>). We fixed this test in advance and repeated it with two new seeds. The ensemble is better than either
+model for every seed (Figure 5). We could not keep the gain in one model.</p>
+<img src="overview_figs/stage5.png" alt="Mistag of the two standard ParT models and of their ensemble, three seeds">
+<p class="cap">Figure 5. Mistag of the two standard ParT models and of their ensemble (#22, #24, #27, #28); one point per seed.</p>
 {{table:s5}}
+
+<h2>Interpretation</h2>
+<ol class="points">
+<li>The gains of stage 1 came from a higher LR, not from changing the LR during training.</li>
+<li>With 800k training jets the model starts to memorise its training data after about 20 epochs: the training loss
+falls below the Validation loss (Figure 6a). Then lowering the LR at the right time helps, and PBT finds that time.</li>
+<li>With 8M training jets the model does not memorise (Figure 6b). Then a high LR for a long time and a decay at the
+end is best. PBT judges each LR change after two epochs, where a lower LR almost always looks better, so it lowers
+the LR too early.</li>
+<li>With 8M training jets, the useful gain comes from combining separately trained models. Standard ParT trains both
+models anyway; the cost is running two models. Two PBT models do not help, because PBT copies weights between them.</li>
+</ol>
+<img src="overview_figs/loss.png" alt="Training and Validation loss per epoch, 800k and 8M training jets">
+<p class="cap">Figure 6. Loss per epoch of the best standard ParT model on the training data and on Validation.</p>
 
 <p class="end"><b>Limits:</b> the 8M PBT runs have one seed; all runs start from one pretrained model; the Test data
 was also looked at in checks before November. <b>Not shown:</b> July–August set-up with an older training method,

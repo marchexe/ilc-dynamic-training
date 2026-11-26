@@ -63,10 +63,10 @@ def delta_bars(name, rows, lim, height=None):
 
 def summary():
     delta_bars('summary.png', [
-        ('PBT vs standard ParT, 800k jets', -0.81, GOOD, (-1.34, -0.34), False),
-        ('PBT vs standard ParT, 8M jets', 12.4, BAD, None, False),
-        ('PBT + probes + final LR decay, 8M jets', 2.7, BAD, None, False),
-        ('ensemble of two vs one model, 8M jets', -5.01, GOOD, (-5.84, -4.17), False)], (-18, 22))
+        ('800k jets: PBT vs standard ParT', -0.81, GOOD, (-1.34, -0.34), False),
+        ('8M jets: PBT vs standard ParT', 12.4, BAD, None, False),
+        ('8M jets: PBT with both fixes vs standard ParT', 2.7, BAD, None, False),
+        ('8M jets: ensemble of two vs one model', -5.01, GOOD, (-5.84, -4.17), False)], (-18, 24))
 
 
 
@@ -108,7 +108,6 @@ def dots(name, rows, xlim, xlabel, legend):
     ax.set_xlim(*xlim)
     ax.xaxis.set_minor_locator(AutoMinorLocator())
     ax.set_xlabel(xlabel)
-    ax.legend(handles=legend, loc='center right', fontsize=11)
     save(fig, name)
 
 
@@ -116,23 +115,17 @@ def stage3():
     dots('stage3.png', [('standard ParT', [0.3029, 0.3038, 0.3024], 'o', STD, True),
                         ('constant LR', [0.3028, 0.3013, 0.3024], 'o', CONST, False),
                         ('PBT', [0.3008, 0.3012, 0.2996], 's', PBT, True)],
-         (0.2985, 0.3045), 'mistag (%) of the selected model', [
+         (0.2985, 0.3045), 'mistag (%)', [
              Line2D([], [], ls='none', marker='o', color='0.3', mfc='0.3', ms=8, label='one point per seed')])
 
-
-def stage4():
-    delta_bars('stage4.png', [('PBT vs standard ParT', 12.4, BAD, None, False),
-                              ('with fix 1 (cool-down probes)', 5.4, BAD, None, False),
-                              ('with fixes 1 and 2 (final LR decay)', 2.7, BAD, None, False)], (-2, 21))
 
 
 def stage5():
     dots('stage5.png', [('standard ParT, start LR 10$^{-3}$', [0.1635, 0.1623, 0.1634], 'o', STD, False),
                         ('standard ParT, start LR 3×10$^{-3}$', [0.1611, 0.1597, 0.1623], 'o', STD, True),
-                        ('ensemble of the two', [0.1530, 0.1519, 0.1540], 'D', ENS, True), None,
-                        ('PBT', [0.1812], 's', PBT, True), ('PBT with both fixes', [0.1655], 's', PBT, False)],
-         (0.148, 0.186), 'mistag (%) of the selected model', [
-             Line2D([], [], ls='none', marker='o', color='0.3', ms=8, label='one point per seed (PBT: one seed)')])
+                        ('ensemble of the two', [0.1530, 0.1519, 0.1540], 'D', ENS, True)],
+         (0.150, 0.166), 'mistag (%)', [
+             Line2D([], [], ls='none', marker='o', color='0.3', ms=8, label='one point per seed')])
 
 
 def trajectory(run, members=None):
@@ -148,48 +141,55 @@ def trajectory(run, members=None):
     return out
 
 
-def why():
-    loss = json.loads((ROOT / 'published/results/sel1m/train8m_followups.json').read_text())['loss_curves']
+def mech():
+    """8M jets, seed 12345: LR per epoch and best Validation mistag so far, standard ParT against PBT."""
     std = trajectory('sel1m_train8m_standard_part_3e-3')
     pbt = trajectory('sel1m_train8m_fast_pbt')
     fix = trajectory('sel1m_train8m_fast_pbt_probe_decay')
-    fig, axes = plt.subplots(2, 2, figsize=(11, 8))
-    for ax, key, title in ((axes[0, 0], '800k', '(a) 800k jets: loss per epoch'), (axes[0, 1], '8M', '(b) 8M jets: loss per epoch')):
-        pts = loss[key]['epochs']
+    fig, (a, b) = plt.subplots(1, 2, figsize=(11, 4.2))
+    a.plot([p[0] for p in std], [p[1] for p in std], color=STD, lw=2, label='standard ParT (#24)')
+    a.fill_between([p[0] for p in pbt], [p[1] for p in pbt], [p[2] for p in pbt], color=PBT, alpha=0.3, lw=0,
+                   label='PBT (#23), range of 5 models')
+    a.set_yscale('log')
+    a.set_ylim(5e-6, 6e-2)
+    a.set_ylabel('learning rate')
+    a.set_title('(a)', loc='left', fontsize=13)
+    a.legend(loc='upper right')
+    b.plot([p[0] for p in std], [p[3] for p in std], color=STD, lw=2, label='standard ParT (#24)')
+    b.plot([p[0] for p in pbt], [p[3] for p in pbt], color=PBT, lw=2, label='PBT (#23)')
+    b.plot([p[0] for p in fix], [p[3] for p in fix], color=PBT, lw=1.6, ls='--', label='PBT with both fixes (#26)')
+    b.set_ylim(0.155, 0.225)
+    b.set_ylabel('best Validation mistag so far (%)')
+    b.set_title('(b)', loc='left', fontsize=13)
+    b.legend(loc='upper right')
+    for ax in (a, b):
+        ax.axvspan(36, 50, color='0.92', zorder=0)
+        ax.set_xlim(1, 50)
+        ax.set_xlabel('epoch')
+        ax.xaxis.set_minor_locator(AutoMinorLocator())
+    b.yaxis.set_minor_locator(AutoMinorLocator())
+    save(fig, 'mech.png')
+
+
+def loss():
+    """Training and Validation loss of the best standard ParT model, 800k and 8M jets."""
+    data = json.loads((ROOT / 'published/results/sel1m/train8m_followups.json').read_text())['loss_curves']
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
+    for ax, key, title in zip(axes, ('800k', '8M'), ('(a) 800k training jets', '(b) 8M training jets')):
+        pts = data[key]['epochs']
         e = [p['epoch'] - 17 for p in pts]
         ax.plot(e, [p['train'] for p in pts], color='black', lw=1.8, label='training data')
         ax.plot(e, [p['selection'] for p in pts], color=STD, lw=1.8, label='Validation')
         ax.set_title(title, loc='left', fontsize=13)
         ax.set_ylabel('loss')
-        ax.legend(loc='upper right')
-    a, b = axes[1]
-    a.plot([p[0] for p in std], [p[1] for p in std], color=STD, lw=2, label='standard ParT')
-    a.fill_between([p[0] for p in pbt], [p[1] for p in pbt], [p[2] for p in pbt], color=PBT, alpha=0.3, lw=0,
-                   label='PBT (range of 5 models)')
-    a.set_yscale('log')
-    a.set_ylim(5e-6, 8e-3)
-    a.set_ylabel('learning rate')
-    a.set_title('(c) 8M jets: learning rate', loc='left', fontsize=13)
-    a.legend(loc='lower left')
-    b.plot([p[0] for p in std], [p[3] for p in std], color=STD, lw=2, label='standard ParT')
-    b.plot([p[0] for p in pbt], [p[3] for p in pbt], color=PBT, lw=2, label='PBT')
-    b.plot([p[0] for p in fix], [p[3] for p in fix], color=PBT, lw=1.6, ls='--', label='PBT with both fixes')
-    b.set_ylim(0.155, 0.225)
-    b.set_ylabel('best Validation mistag so far (%)')
-    b.set_title('(d) 8M jets: mistag', loc='left', fontsize=13)
-    b.legend(loc='upper right')
-    for ax in (a, b):
-        ax.axvspan(36, 50, color='0.92', zorder=0)
-    for ax in axes.flat:
-        ax.set_xlim(1, 50)
         ax.set_xlabel('epoch')
+        ax.set_xlim(1, 50)
         ax.xaxis.set_minor_locator(AutoMinorLocator())
-        if ax is not a:
-            ax.yaxis.set_minor_locator(AutoMinorLocator())
-    save(fig, 'why.png')
-
+        ax.yaxis.set_minor_locator(AutoMinorLocator())
+        ax.legend(loc='upper right')
+    save(fig, 'loss.png')
 
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
-    for f in (summary, stage2, stage3, stage4, stage5, why):
+    for f in (summary, stage2, stage3, stage5, mech, loss):
         f()
