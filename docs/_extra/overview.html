@@ -46,8 +46,11 @@ November: no run in progress. <a href="results.html">Detailed results</a> ·
 <li><b>PBT</b>: five models train in parallel. Every few epochs the weakest copies the weights of the best one and
 changes its LR.</li>
 <li><b>Constant LR</b>: five models, each with one LR for all 50 epochs.</li>
+<li><b>Validation</b>: data checked after every epoch to select the best model and to steer PBT (150k jets until
+9 November, then 1M jets). It is separate from the Test data.</li>
 <li><b>Numbers</b>: mistag in % on Test data (2.8M jets, used once per model after selection); lower is better.
-Training data: 800k or 8M jets.</li>
+Training data: 800k or 8M jets. With 8M training jets every model is much better (mistag about 0.16% instead of
+0.30%), so only comparisons within the same training data are meaningful.</li>
 </ul>
 
 <img src="overview_figs/summary.png" alt="Main results: change of the mistag for four comparisons">
@@ -56,7 +59,6 @@ Training data: 800k or 8M jets.</li>
 <h2><small>Stage 1 · Sep 16 – Oct 21 · 800k, then 8M jets</small>PBT looked better than constant learning rates</h2>
 <p><b>Did:</b> compared PBT with constant LRs, first on 800k jets, then on 8M jets.</p>
 <p><b>Means:</b> not valid. The best constant LR was always the highest one tried, so the constant LRs were too low (stage 2).</p>
-<img src="overview_figs/stage1.png" alt="PBT against constant LR, 800k and 8M jets">
 <div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td class="n">1</td><td class="d">Sep 16</td><td>Constant LR, five values 3×10<sup>−6</sup> to 1.4×10<sup>−5</sup></td><td class="r ">0.3269; best value is the highest one</td></tr><tr><td class="n">2</td><td class="d">Sep 17–18</td><td>Two of these LRs continued to 100 epochs</td><td class="r ">0.3156</td></tr><tr><td class="n">3</td><td class="d">Sep 18</td><td>PBT, LR changed every 5 epochs (×0.8 or ×1.2), at most 3×10<sup>−5</sup></td><td class="r invalid">0.3225: 1.4% better than #1</td></tr><tr><td class="n">4</td><td class="d">Sep 19</td><td>PBT as #3, 100 epochs</td><td class="r invalid">0.3111: 1.4% better than #2</td></tr><tr><td class="n">6</td><td class="d">Sep 23–29</td><td>PBT, LR changed every epoch or every 5 epochs; 2 seeds</td><td class="r none">no clear difference</td></tr><tr><td class="n">10</td><td class="d">Oct 14–21</td><td>8M jets: constant LR as #1 against PBT as #3; fixed in advance</td><td class="r invalid">7.7% better (Test 9.0M)</td></tr></tbody></table></div>
 
 <h2><small>Stage 2 · Nov 3 – Nov 9 · 800k jets</small>A higher constant LR does what PBT did</h2>

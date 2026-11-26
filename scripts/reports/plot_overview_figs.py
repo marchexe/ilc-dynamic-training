@@ -65,13 +65,9 @@ def summary():
     delta_bars('summary.png', [
         ('PBT vs standard ParT, 800k jets', -0.81, GOOD, (-1.34, -0.34), False),
         ('PBT vs standard ParT, 8M jets', 12.4, BAD, None, False),
-        ('PBT with two fixes, 8M jets', 2.7, BAD, None, False),
+        ('PBT + probes + final LR decay, 8M jets', 2.7, BAD, None, False),
         ('ensemble of two vs one model, 8M jets', -5.01, GOOD, (-5.84, -4.17), False)], (-18, 22))
 
-
-def stage1():
-    delta_bars('stage1.png', [('PBT vs constant LR, 800k jets', -1.36, CONST, None, True),
-                              ('PBT vs constant LR, 8M jets', -7.67, CONST, None, True)], (-15, 3))
 
 
 def stage2():
@@ -195,5 +191,5 @@ def why():
 
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
-    for f in (summary, stage1, stage2, stage3, stage4, stage5, why):
+    for f in (summary, stage2, stage3, stage4, stage5, why):
         f()
