@@ -37,27 +37,26 @@ def save(fig, name):
 
 
 def delta_bars(name, rows, lim, height=None):
-    """rows: (label, change %, colour, interval or None, hatched). Negative = lower mistag = better."""
-    fig, ax = plt.subplots(figsize=(9, height or 0.62 * len(rows) + 1.3))
+    """rows: (label, change %, colour, interval or None, hatched). Negative = lower mistag = better.
+    The value of each row is written in a column to the right of the plot."""
+    fig, ax = plt.subplots(figsize=(10, height or 0.7 * len(rows) + 1.3))
     n = len(rows)
     for i, (label, v, c, ci, hatch) in enumerate(rows):
         y = n - 1 - i
         ax.barh(y, v, height=0.55, color='white' if hatch else c, edgecolor=c, hatch='///' if hatch else None, lw=1.2)
         if ci:
-            ax.errorbar(v, y, xerr=[[v - ci[0]], [ci[1] - v]], fmt='none', ecolor='black', capsize=4, lw=1.3)
-        edge = (ci[0] if v < 0 else ci[1]) if ci else v
-        word = 'better' if v < 0 else 'worse'
-        ax.text(edge + (-0.3 if v < 0 else 0.3), y, f'{abs(v):.1f}% {word}', va='center',
-                ha='right' if v < 0 else 'left', fontsize=12.5)
+            ax.errorbar(v, y, xerr=[[v - ci[0]], [ci[1] - v]], fmt='none', ecolor='black', capsize=5, lw=1.4)
+        ax.text(1.03, y, f'{abs(v):.1f}% {"better" if v < 0 else "worse"}', transform=ax.get_yaxis_transform(),
+                va='center', ha='left', fontsize=13, color=c)
     ax.axvline(0, color='black', lw=1.2)
     ax.set_yticks(range(n), [r[0] for r in reversed(rows)])
     ax.tick_params(axis='y', which='both', length=0)
-    ax.set_xlim(*lim)
     ax.set_ylim(-0.6, n - 0.4)
-    ax.xaxis.set_minor_locator(AutoMinorLocator())
-    ax.set_xticks(ax.get_xticks(), [f'{abs(t):g}%' for t in ax.get_xticks()])
     ax.set_xlim(*lim)
-    ax.set_xlabel('change of the mistag   (← better | worse →)')
+    ticks = [t for t in range(-50, 55, 5) if lim[0] <= t <= lim[1]]
+    ax.set_xticks(ticks, [(f'+{t}%' if t > 0 else f'−{-t}%') if t else '0' for t in ticks])
+    ax.xaxis.set_minor_locator(AutoMinorLocator(5))
+    ax.set_xlabel('change of the mistag (negative = better)')
     save(fig, name)
 
 
@@ -65,8 +64,8 @@ def summary():
     delta_bars('summary.png', [
         ('800k jets: PBT vs standard ParT', -0.81, GOOD, (-1.34, -0.34), False),
         ('8M jets: PBT vs standard ParT', 12.4, BAD, None, False),
-        ('8M jets: PBT with both fixes vs standard ParT', 2.7, BAD, None, False),
-        ('8M jets: ensemble of two vs one model', -5.01, GOOD, (-5.84, -4.17), False)], (-18, 24))
+        ('8M jets: PBT + both fixes vs standard ParT', 2.7, BAD, None, False),
+        ('8M jets: ensemble of two vs one model', -5.01, GOOD, (-5.84, -4.17), False)], (-7, 14))
 
 
 
