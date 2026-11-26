@@ -4,469 +4,100 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PBT Study Report</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one reading column; each stage = finding + evidence chart + its trials, with dates in a left rail */
-:root{
-  --bg:#fbfcfd; --panel:#f2f5f8; --ink:#14202b; --ink2:#5a6672; --rule:#dbe2e8; --grid:#e8edf2; --band:#eef2f6;
-  --std:#1f5fa8; --pbt:#c4472a; --ens:#6a4fd0; --const:#6f7b86; --good:#1a7f37; --bad:#b42318;
-  --sans:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
-}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0f1419; --panel:#161d25; --ink:#e4ebf2; --ink2:#98a4b0; --rule:#28323d; --grid:#1f2831; --band:#1a222b;
-  --std:#5b9be6; --pbt:#ef7a5c; --ens:#a393f2; --const:#93a0ac; --good:#46b85e; --bad:#f07068; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0f1419; --panel:#161d25; --ink:#e4ebf2; --ink2:#98a4b0; --rule:#28323d; --grid:#1f2831; --band:#1a222b;
-  --std:#5b9be6; --pbt:#ef7a5c; --ens:#a393f2; --const:#93a0ac; --good:#46b85e; --bad:#f07068; color-scheme:dark}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 var(--sans)}
-.wrap{max-width:52rem;margin:0 auto;padding-block:3rem 4rem;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-a{color:var(--std)}
-.eyebrow{font:500 .8rem/1 var(--mono);letter-spacing:.06em;color:var(--ink2);text-transform:uppercase}
-h1{font-size:2.1rem;line-height:1.2;font-weight:600;margin:.6rem 0 .8rem;text-wrap:balance}
-.lead{font-size:1.2rem;line-height:1.5;margin:0 0 .8rem;max-width:44rem}
-.lead b.g{color:var(--good)} .lead b.r{color:var(--bad)}
-.meta{color:var(--ink2);font-size:.88rem}
-h2{font-size:1.35rem;font-weight:600;margin:3.2rem 0 .3rem;text-wrap:balance}
-.sub{color:var(--ink2);margin:0 0 1.2rem;max-width:44rem}
-svg{width:100%;height:auto;display:block;overflow:visible}
-.figure{background:var(--panel);border-radius:6px;padding:1rem 1rem .6rem}
-.stage{display:grid;grid-template-columns:8.5rem minmax(0,1fr);gap:1.4rem;padding:2rem 0;border-top:1px solid var(--rule)}
-.rail{font-size:.85rem;color:var(--ink2);line-height:1.45}
-.rail .num{font:600 2rem/1 var(--mono);color:var(--ink);display:block;margin-bottom:.4rem}
-.rail .when{font-family:var(--mono);color:var(--ink);font-size:.85rem}
-.stage h3{font-size:1.25rem;line-height:1.35;font-weight:600;margin:0 0 .5rem;text-wrap:balance}
-.stage p{margin:0 0 1rem;max-width:40rem}
-.answer{border-left:3px solid var(--ink);padding:.2rem 0 .2rem 1rem;font-size:1.15rem;line-height:1.5;margin:0 0 1rem;max-width:44rem}
-.terms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem 1.6rem;margin:1.6rem 0 0;font-size:.9rem}
-.terms div{min-width:0} .terms b{display:block;font-weight:600}
-.terms span{color:var(--ink2)}
-.dm{display:grid;grid-template-columns:6.2rem minmax(0,1fr);gap:.35rem 1rem;margin:0 0 1.1rem;max-width:42rem}
-.dm dt{font:500 .75rem/1.9 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink2)}
-.dm dd{margin:0}
-.stage h3 .tag{font:500 .8rem var(--mono);color:var(--ink2);margin-left:.4rem;font-weight:400}
-.why{margin-top:1.4rem}
-.tw{overflow-x:auto;margin-top:1rem}
-table{border-collapse:collapse;width:100%;font-size:.86rem;line-height:1.4}
-th{text-align:left;font-weight:500;color:var(--ink2);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;padding:.4rem .5rem;border-bottom:1px solid var(--rule)}
-td{padding:.45rem .5rem;border-bottom:1px solid var(--grid);vertical-align:top}
-td.n{font-family:var(--mono);color:var(--ink2);white-space:nowrap}
-td.d{font-family:var(--mono);white-space:nowrap;font-size:.8rem;padding-top:.55rem}
-td.r{font-variant-numeric:tabular-nums}
-td.r.good{color:var(--good)} td.r.bad{color:var(--bad)} td.r.invalid{color:var(--ink2)} td.r.invalid::after{content:" · not valid";font-style:italic}
-td.r.none{color:var(--ink2)}
-.minis{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-.mini{background:var(--panel);border-radius:6px;padding:.8rem .8rem .5rem;min-width:0}
-.mini-y{font-size:.85rem;color:var(--ink);font-weight:500;margin-bottom:.2rem}
-.legend{display:flex;flex-wrap:wrap;gap:.3rem 1rem;font-size:.78rem;color:var(--ink2);margin-top:.3rem}
-.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:.35rem}
-.k-std{background:var(--std)} .k-pbt{background:var(--pbt)} .k-ink{background:var(--ink)}
-.k-pbt-band{background:color-mix(in srgb,var(--pbt) 30%,transparent);height:10px!important}
-.k-pbt-dash{background:repeating-linear-gradient(90deg,var(--pbt) 0 5px,transparent 5px 8px)}
-.key{display:flex;flex-wrap:wrap;gap:.3rem 1.2rem;font-size:.8rem;color:var(--ink2);margin:.6rem 0 0}
-.key span{display:inline-flex;align-items:center;gap:.4rem}
-.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
-.notes{margin-top:3rem;padding-top:1.4rem;border-top:1px solid var(--rule);font-size:.88rem;color:var(--ink2);display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
-.notes h4{margin:0 0 .3rem;color:var(--ink);font-size:.9rem;font-weight:600}
-.notes p{margin:0 0 .5rem}
-/* svg */
-.f-good{fill:var(--good)} .f-bad{fill:var(--bad)} .f-hatch{fill:url(#hatch);stroke:var(--ink2);stroke-width:1}
-.f-std{fill:var(--std)} .f-pbt{fill:var(--pbt)} .f-ens{fill:var(--ens)} .f-const{fill:var(--const)} .f-bg{fill:var(--bg)} .f-band{fill:var(--band)}
-.s-std{stroke:var(--std)} .s-pbt{stroke:var(--pbt)} .s-const{stroke:var(--const)} .s-ink{stroke:var(--ink)} .s-ink2{stroke:var(--ink2)}
-.s-grid{stroke:var(--grid);stroke-width:1} .s-rule{stroke:var(--rule);stroke-width:1;stroke-dasharray:3 3}
-.f-bg.s-std,.f-bg.s-const{fill:var(--panel)}
-.t-axis{fill:var(--ink2);font:12.5px var(--mono)} .t-label{fill:var(--ink);font:15px var(--sans)}
-.t-value{fill:var(--ink);font:500 14.5px var(--mono)} .t-note{fill:var(--ink2);font:12px var(--mono)}
-.t-pbt{fill:var(--pbt)} .t-const{fill:var(--const)}
-@media (max-width:680px){h1{font-size:1.6rem}.answer{font-size:1.02rem}.terms,.dm{grid-template-columns:1fr}.dm dt{line-height:1.2}.stage{grid-template-columns:1fr;gap:.6rem}
-.rail .num{display:inline;font-size:1.2rem;margin-right:.5rem}.minis,.notes{grid-template-columns:1fr}}
+/* Plain report: one column of text, figures as images, one table per stage. Light only, like the figures. */
+:root{--ink:#1a1a1a;--ink2:#5c5c5c;--rule:#d9d9d9;--link:#1f5fa8;--good:#2e7d32;--bad:#b23a1f;color-scheme:light}
+body{margin:0;background:#ffffff;color:var(--ink);font:17px/1.6 "Helvetica Neue",Helvetica,Arial,sans-serif}
+main{max-width:860px;margin:0 auto;padding-block:40px 64px;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+a{color:var(--link)}
+h1{font-size:30px;line-height:1.25;margin:0 0 14px}
+h2{font-size:23px;line-height:1.3;margin:48px 0 10px;padding-top:24px;border-top:1px solid var(--rule)}
+h2 small{display:block;font-size:15px;font-weight:normal;color:var(--ink2);margin-bottom:4px}
+p{margin:0 0 12px}
+.meta{color:var(--ink2);font-size:15px;margin-bottom:24px}
+.answer{font-size:19px;margin:0 0 20px}
+ul.terms{padding-left:20px;margin:0 0 8px;font-size:16px} ul.terms li{margin-bottom:6px}
+img{display:block;width:100%;height:auto;margin:16px 0 8px}
+.cap{font-size:14px;color:var(--ink2);margin:0 0 18px}
+.tw{overflow-x:auto;margin:8px 0 0}
+table{border-collapse:collapse;width:100%;font-size:15px;line-height:1.45}
+th{text-align:left;font-weight:bold;padding:6px 8px;border-bottom:2px solid var(--ink)}
+td{padding:6px 8px;border-bottom:1px solid var(--rule);vertical-align:top}
+td.n,td.d{white-space:nowrap;color:var(--ink2)}
+td.r.good{color:var(--good)} td.r.bad{color:var(--bad)} td.r.none,td.r.invalid{color:var(--ink2)}
+td.r.invalid::after{content:" (not valid)"}
+.end{margin-top:48px;padding-top:16px;border-top:1px solid var(--rule);font-size:15px;color:var(--ink2)}
+@media (max-width:600px){body{font-size:16px}h1{font-size:24px}h2{font-size:20px}.answer{font-size:17px}table{font-size:13.5px}}
 </style>
 </head>
 <body>
-<div class="wrap">
+<main>
 
-<div class="eyebrow">ILC jet-flavour tagging · ParT fine-tuning · Jul–Nov 2026</div>
-<h1>Does Population Based Training give a better tagger?</h1>
-<p class="answer"><b>Answer:</b> only with little training data, and only by 0.8%. With much training data PBT is
-worse; there, an ensemble of two normally trained models gains 5%.</p>
-<div class="meta">Status 26 Nov 2026 · no run in progress · <a href="results.html">detailed results</a> ·
-<a href="report.html#report-trials">run records and configuration files</a></div>
+<h1>Does Population Based Training give a better jet tagger?</h1>
+<p class="answer">Only with little training data, and only by 0.8%. With much training data PBT is worse; there, an
+ensemble of two normally trained models gains 5%.</p>
+<p class="meta">ILC b/c/light-jet tagging with a pretrained Particle Transformer (ParT), July–November 2026. Status 26
+November: no run in progress. <a href="results.html">Detailed results</a> ·
+<a href="report.html#report-trials">run records and configuration files</a></p>
 
-<div class="terms">
-  <div><b>Standard ParT</b><span>the usual training of this model: a constant learning rate (LR) for 35 epochs, then
-  lowered by ×0.01 over 15 epochs. Five start LRs; the best model is kept.</span></div>
-  <div><b>PBT</b><span>five models train in parallel. Every few epochs the weakest copies the weights of the best one
-  and changes its LR.</span></div>
-  <div><b>Constant LR</b><span>five models, each with one LR for all 50 epochs.</span></div>
-  <div><b>Numbers</b><span>mistag (%) on Test data (2.8M jets, used once per model, after selection). Lower is
-  better. Training data: 800k or 8M jets.</span></div>
-</div>
+<ul class="terms">
+<li><b>Standard ParT</b>: the usual training of this model. Constant learning rate (LR) for 35 epochs, then lowered
+×0.01 over 15 epochs. Five start LRs; the best model is kept.</li>
+<li><b>PBT</b>: five models train in parallel. Every few epochs the weakest copies the weights of the best one and
+changes its LR.</li>
+<li><b>Constant LR</b>: five models, each with one LR for all 50 epochs.</li>
+<li><b>Numbers</b>: mistag in % on Test data (2.8M jets, used once per model after selection); lower is better.
+Training data: 800k or 8M jets.</li>
+</ul>
 
-<h2>Main results</h2>
-<div class="figure"><svg viewBox="0 0 720 178" role="img">
-<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" class="f-bg"/><line x1="0" y1="0" x2="0" y2="6" class="s-ink2" stroke-width="2"/></pattern></defs>
-<line x1="310.0" x2="310.0" y1="8" y2="148" class="s-grid"/>
-<text x="310.0" y="162" text-anchor="middle" class="t-axis">20%</text>
-<line x1="357.2" x2="357.2" y1="8" y2="148" class="s-grid"/>
-<text x="357.2" y="162" text-anchor="middle" class="t-axis">15%</text>
-<line x1="404.4" x2="404.4" y1="8" y2="148" class="s-grid"/>
-<text x="404.4" y="162" text-anchor="middle" class="t-axis">10%</text>
-<line x1="451.7" x2="451.7" y1="8" y2="148" class="s-grid"/>
-<text x="451.7" y="162" text-anchor="middle" class="t-axis">5%</text>
-<line x1="498.9" x2="498.9" y1="8" y2="148" class="s-grid"/>
-<text x="498.9" y="162" text-anchor="middle" class="t-axis">0%</text>
-<line x1="546.1" x2="546.1" y1="8" y2="148" class="s-grid"/>
-<text x="546.1" y="162" text-anchor="middle" class="t-axis">5%</text>
-<line x1="593.3" x2="593.3" y1="8" y2="148" class="s-grid"/>
-<text x="593.3" y="162" text-anchor="middle" class="t-axis">10%</text>
-<line x1="640.6" x2="640.6" y1="8" y2="148" class="s-grid"/>
-<text x="640.6" y="162" text-anchor="middle" class="t-axis">15%</text>
-<line x1="498.9" x2="498.9" y1="4" y2="148" class="s-ink" stroke-width="1.2"/>
-<text x="490.9" y="177" text-anchor="end" class="t-axis">← better</text>
-<text x="506.9" y="177" class="t-axis">worse →</text>
-<text x="298" y="29.0" text-anchor="end" class="t-label">PBT vs standard ParT, 800k jets</text>
-<rect x="491.2" y="16" width="7.6" height="18" rx="2" class="f-good"/>
-<line x1="486.2" x2="495.7" y1="25.0" y2="25.0" class="s-ink" stroke-width="1.5"/>
-<line x1="486.2" x2="486.2" y1="20.0" y2="30.0" class="s-ink" stroke-width="1.5"/>
-<line x1="495.7" x2="495.7" y1="20.0" y2="30.0" class="s-ink" stroke-width="1.5"/>
-<text x="478.2" y="29.0" text-anchor="end" class="t-value">0.8% better</text>
-<text x="298" y="63.0" text-anchor="end" class="t-label">PBT vs standard ParT, 8M jets</text>
-<rect x="498.9" y="50" width="117.1" height="18" rx="2" class="f-bad"/>
-<text x="624.0" y="63.0" text-anchor="start" class="t-value">12.4% worse</text>
-<text x="298" y="97.0" text-anchor="end" class="t-label">PBT with two fixes, 8M jets</text>
-<rect x="498.9" y="84" width="25.5" height="18" rx="2" class="f-bad"/>
-<text x="532.4" y="97.0" text-anchor="start" class="t-value">2.7% worse</text>
-<text x="298" y="131.0" text-anchor="end" class="t-label">Ensemble of two vs one model, 8M jets</text>
-<rect x="451.6" y="118" width="47.3" height="18" rx="2" class="f-good"/>
-<line x1="443.7" x2="459.5" y1="127.0" y2="127.0" class="s-ink" stroke-width="1.5"/>
-<line x1="443.7" x2="443.7" y1="122.0" y2="132.0" class="s-ink" stroke-width="1.5"/>
-<line x1="459.5" x2="459.5" y1="122.0" y2="132.0" class="s-ink" stroke-width="1.5"/>
-<text x="435.7" y="131.0" text-anchor="end" class="t-value">5.0% better</text>
-</svg></div>
+<img src="overview_figs/summary.png" alt="Main results: change of the mistag for four comparisons">
+<p class="cap">Main results. Bars to the left: lower mistag (better). Error bars: 95% interval for the Test sample (3 seeds).</p>
 
-<h2>How we got there</h2>
+<h2><small>Stage 1 · Sep 16 – Oct 21 · 800k, then 8M jets</small>PBT looked better than constant learning rates</h2>
+<p><b>Did:</b> compared PBT with constant LRs, first on 800k jets, then on 8M jets.</p>
+<p><b>Means:</b> not valid. The best constant LR was always the highest one tried, so the constant LRs were too low (stage 2).</p>
+<img src="overview_figs/stage1.png" alt="PBT against constant LR, 800k and 8M jets">
+<div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td class="n">1</td><td class="d">Sep 16</td><td>Constant LR, five values 3×10<sup>−6</sup> to 1.4×10<sup>−5</sup></td><td class="r ">0.3269; best value is the highest one</td></tr><tr><td class="n">2</td><td class="d">Sep 17–18</td><td>Two of these LRs continued to 100 epochs</td><td class="r ">0.3156</td></tr><tr><td class="n">3</td><td class="d">Sep 18</td><td>PBT, LR changed every 5 epochs (×0.8 or ×1.2), at most 3×10<sup>−5</sup></td><td class="r invalid">0.3225: 1.4% better than #1</td></tr><tr><td class="n">4</td><td class="d">Sep 19</td><td>PBT as #3, 100 epochs</td><td class="r invalid">0.3111: 1.4% better than #2</td></tr><tr><td class="n">6</td><td class="d">Sep 23–29</td><td>PBT, LR changed every epoch or every 5 epochs; 2 seeds</td><td class="r none">no clear difference</td></tr><tr><td class="n">10</td><td class="d">Oct 14–21</td><td>8M jets: constant LR as #1 against PBT as #3; fixed in advance</td><td class="r invalid">7.7% better (Test 9.0M)</td></tr></tbody></table></div>
 
-<section class="stage">
-  <div class="rail"><span class="num">1</span><span class="when">Sep 16 – Oct 21</span><br>800k, then 8M jets</div>
-  <div>
-    <h3>PBT looked better than constant learning rates</h3>
-    <dl class="dm">
-      <dt>Did</dt><dd>Compared PBT with constant LRs, first on 800k jets, then on 8M jets.</dd>
-      <dt>Means</dt><dd>Not valid: the best constant LR was always the highest one tried, so the constant LRs were too low (stage 2).</dd>
-    </dl>
-    <div class="figure"><svg viewBox="0 0 720 110" role="img">
-<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" class="f-bg"/><line x1="0" y1="0" x2="0" y2="6" class="s-ink2" stroke-width="2"/></pattern></defs>
-<line x1="250.0" x2="250.0" y1="8" y2="80" class="s-grid"/>
-<text x="250.0" y="94" text-anchor="middle" class="t-axis">12%</text>
-<line x1="303.3" x2="303.3" y1="8" y2="80" class="s-grid"/>
-<text x="303.3" y="94" text-anchor="middle" class="t-axis">10%</text>
-<line x1="356.7" x2="356.7" y1="8" y2="80" class="s-grid"/>
-<text x="356.7" y="94" text-anchor="middle" class="t-axis">8%</text>
-<line x1="410.0" x2="410.0" y1="8" y2="80" class="s-grid"/>
-<text x="410.0" y="94" text-anchor="middle" class="t-axis">6%</text>
-<line x1="463.3" x2="463.3" y1="8" y2="80" class="s-grid"/>
-<text x="463.3" y="94" text-anchor="middle" class="t-axis">4%</text>
-<line x1="516.7" x2="516.7" y1="8" y2="80" class="s-grid"/>
-<text x="516.7" y="94" text-anchor="middle" class="t-axis">2%</text>
-<line x1="570.0" x2="570.0" y1="8" y2="80" class="s-grid"/>
-<text x="570.0" y="94" text-anchor="middle" class="t-axis">0%</text>
-<line x1="623.3" x2="623.3" y1="8" y2="80" class="s-grid"/>
-<text x="623.3" y="94" text-anchor="middle" class="t-axis">2%</text>
-<line x1="570.0" x2="570.0" y1="4" y2="80" class="s-ink" stroke-width="1.2"/>
-<text x="562.0" y="109" text-anchor="end" class="t-axis">← better</text>
-<text x="578.0" y="109" class="t-axis">worse →</text>
-<text x="238" y="29.0" text-anchor="end" class="t-label">PBT vs constant LR, 800k jets</text>
-<rect x="533.7" y="16" width="36.3" height="18" rx="2" class="f-hatch"/>
-<text x="525.7" y="29.0" text-anchor="end" class="t-value">1.4% better</text>
-<text x="238" y="63.0" text-anchor="end" class="t-label">PBT vs constant LR, 8M jets</text>
-<rect x="365.5" y="50" width="204.5" height="18" rx="2" class="f-hatch"/>
-<text x="357.5" y="63.0" text-anchor="end" class="t-value">7.7% better</text>
-</svg></div>
-    <div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td class="n">1</td><td class="d">Sep 16</td><td>Constant LR, five values 3×10<sup>−6</sup> to 1.4×10<sup>−5</sup></td><td class="r ">0.3269; best value is the highest one</td></tr><tr><td class="n">2</td><td class="d">Sep 17–18</td><td>Two of these LRs continued to 100 epochs</td><td class="r ">0.3156</td></tr><tr><td class="n">3</td><td class="d">Sep 18</td><td>PBT, LR changed every 5 epochs (×0.8 or ×1.2), at most 3×10<sup>−5</sup></td><td class="r invalid">0.3225: 1.4% better than #1</td></tr><tr><td class="n">4</td><td class="d">Sep 19</td><td>PBT as #3, 100 epochs</td><td class="r invalid">0.3111: 1.4% better than #2</td></tr><tr><td class="n">6</td><td class="d">Sep 23–29</td><td>PBT, LR changed every epoch or every 5 epochs; 2 seeds</td><td class="r none">no clear difference</td></tr><tr><td class="n">10</td><td class="d">Oct 14–21</td><td>8M jets: constant LR as #1 against PBT as #3; fixed in advance</td><td class="r invalid">7.7% better (Test 9.0M)</td></tr></tbody></table></div>
-  </div>
-</section>
+<h2><small>Stage 2 · Nov 3 – Nov 9 · 800k jets</small>A higher constant LR does what PBT did</h2>
+<p><b>Did:</b> tried constant LRs up to 3×10<sup>−4</sup> and a faster PBT.</p>
+<p><b>Means:</b> the mistag falls with the LR up to about 10<sup>−4</sup>, and both PBT runs lie on that curve. PBT
+gained because it reached a higher LR. The result also flipped with another seed, so from here models are selected
+on 1M Validation jets (before: 150k) and compared with standard ParT.</p>
+<img src="overview_figs/stage2.png" alt="Mistag against the learning rate: constant LR and PBT">
+<div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td class="n">12</td><td class="d">Nov 3</td><td>Constant LR 1.4×10<sup>−5</sup> to 3×10<sup>−5</sup></td><td class="r ">0.3146; best is again the highest</td></tr><tr><td class="n">13</td><td class="d">Nov 3–4</td><td>Constant LR 3×10<sup>−5</sup> to 8×10<sup>−5</sup></td><td class="r good">0.3018: better than every PBT run before</td></tr><tr><td class="n">14</td><td class="d">Nov 4</td><td>Constant LR 8×10<sup>−5</sup> to 3.2×10<sup>−4</sup></td><td class="r ">0.3033: no further gain</td></tr><tr><td class="n">15</td><td class="d">Nov 4</td><td>Faster PBT: LR changed every 2 epochs (×0.5 or ×2), at most 5×10<sup>−4</sup></td><td class="r good">0.3003: 1.0% better than #14</td></tr><tr><td class="n">16</td><td class="d">Nov 9</td><td>#14 and #15 again with another seed</td><td class="r bad">PBT 0.5% worse: the sign reverses</td></tr><tr><td class="n">17</td><td class="d">Nov 9</td><td>Faster PBT with extra weight copies</td><td class="r bad">0.8% worse than #15</td></tr></tbody></table></div>
 
-<section class="stage">
-  <div class="rail"><span class="num">2</span><span class="when">Nov 3 – Nov 9</span><br>800k jets</div>
-  <div>
-    <h3>A higher constant LR does what PBT did</h3>
-    <dl class="dm">
-      <dt>Did</dt><dd>Tried constant LRs up to 3×10<sup>−4</sup> and a faster PBT.</dd>
-      <dt>Means</dt><dd>The mistag falls with the LR up to about 10<sup>−4</sup>, and both PBT runs lie on that curve: PBT
-      gained because it reached a higher LR. The result also flipped with another seed, so from here models are
-      selected on 1M Validation jets (before: 150k) and compared with standard ParT.</dd>
-    </dl>
-    <div class="figure"><svg viewBox="0 0 720 300" role="img">
-<rect x="94.9" y="14" width="210.7" height="242" class="f-band"/>
-<text x="200.3" y="246" text-anchor="middle" class="t-axis">LRs used in September</text>
-<line x1="70" x2="700" y1="240.9" y2="240.9" class="s-grid"/>
-<text x="62" y="244.9" text-anchor="end" class="t-axis">0.300</text>
-<line x1="70" x2="700" y1="203.1" y2="203.1" class="s-grid"/>
-<text x="62" y="207.1" text-anchor="end" class="t-axis">0.305</text>
-<line x1="70" x2="700" y1="165.2" y2="165.2" class="s-grid"/>
-<text x="62" y="169.2" text-anchor="end" class="t-axis">0.310</text>
-<line x1="70" x2="700" y1="127.4" y2="127.4" class="s-grid"/>
-<text x="62" y="131.4" text-anchor="end" class="t-axis">0.315</text>
-<line x1="70" x2="700" y1="89.6" y2="89.6" class="s-grid"/>
-<text x="62" y="93.6" text-anchor="end" class="t-axis">0.320</text>
-<line x1="70" x2="700" y1="51.8" y2="51.8" class="s-grid"/>
-<text x="62" y="55.8" text-anchor="end" class="t-axis">0.325</text>
-<line x1="70" x2="700" y1="14.0" y2="14.0" class="s-grid"/>
-<text x="62" y="18.0" text-anchor="end" class="t-axis">0.330</text>
-<text x="259.6" y="274" text-anchor="middle" class="t-axis">10<tspan dy="-5" font-size="9">−5</tspan></text>
-<text x="574.6" y="274" text-anchor="middle" class="t-axis">10<tspan dy="-5" font-size="9">−4</tspan></text>
-<text x="94.9" y="274" text-anchor="middle" class="t-axis">3×10<tspan dy="-5" font-size="9">−6</tspan></text>
-<text x="409.9" y="274" text-anchor="middle" class="t-axis">3×10<tspan dy="-5" font-size="9">−5</tspan></text>
-<text x="385.0" y="296" text-anchor="middle" class="t-axis">learning rate of the selected model (log scale)</text>
-<polyline points="305.7,37.4 409.9,130.5 544.1,227.3 599.6,215.9" class="s-const" fill="none" stroke-width="2"/>
-<circle cx="305.7" cy="37.4" r="5.5" class="f-bg s-const" stroke-width="2"/>
-<text x="314.7" y="29.4" class="t-note">#1</text>
-<circle cx="409.9" cy="130.5" r="5.5" class="f-bg s-const" stroke-width="2"/>
-<text x="418.9" y="122.5" class="t-note">#12</text>
-<circle cx="544.1" cy="227.3" r="5.5" class="f-bg s-const" stroke-width="2"/>
-<text x="553.1" y="219.3" class="t-note">#13</text>
-<circle cx="599.6" cy="215.9" r="5.5" class="f-bg s-const" stroke-width="2"/>
-<text x="608.6" y="207.9" class="t-note">#14</text>
-<rect x="349.8" y="64.7" width="12" height="12" class="f-pbt"/>
-<text x="365.8" y="86.7" class="t-label t-pbt">PBT, Sep (#3)</text>
-<rect x="550.4" y="232.6" width="12" height="12" class="f-pbt"/>
-<text x="566.4" y="254.6" class="t-label t-pbt">PBT, Nov (#15)</text>
-<text x="375.7" y="35.4" class="t-label t-const">constant LR, best model of each range</text>
-</svg></div>
-    <div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td class="n">12</td><td class="d">Nov 3</td><td>Constant LR 1.4×10<sup>−5</sup> to 3×10<sup>−5</sup></td><td class="r ">0.3146; best is again the highest</td></tr><tr><td class="n">13</td><td class="d">Nov 3–4</td><td>Constant LR 3×10<sup>−5</sup> to 8×10<sup>−5</sup></td><td class="r good">0.3018: better than every PBT run before</td></tr><tr><td class="n">14</td><td class="d">Nov 4</td><td>Constant LR 8×10<sup>−5</sup> to 3.2×10<sup>−4</sup></td><td class="r ">0.3033: no further gain</td></tr><tr><td class="n">15</td><td class="d">Nov 4</td><td>Faster PBT: LR changed every 2 epochs (×0.5 or ×2), at most 5×10<sup>−4</sup></td><td class="r good">0.3003: 1.0% better than #14</td></tr><tr><td class="n">16</td><td class="d">Nov 9</td><td>#14 and #15 again with another seed</td><td class="r bad">PBT 0.5% worse: the sign reverses</td></tr><tr><td class="n">17</td><td class="d">Nov 9</td><td>Faster PBT with extra weight copies</td><td class="r bad">0.8% worse than #15</td></tr></tbody></table></div>
-  </div>
-</section>
+<h2><small>Stage 3 · Nov 10 – Nov 13 · 800k jets · 3 seeds</small>With 800k training jets, PBT is 0.8% better</h2>
+<p><b>Did:</b> PBT, standard ParT and constant LR, each with three seeds.</p>
+<p><b>Means:</b> PBT is better than standard ParT for every seed (0.67%, 0.85%, 0.91%; 95% interval 0.34 to 1.34%).
+Small, but real.</p>
+<img src="overview_figs/stage3.png" alt="Mistag of standard ParT, constant LR and PBT for three seeds">
+<div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td class="n">18</td><td class="d">Nov 10–13</td><td>Standard ParT, constant LR and PBT; 3 seeds</td><td class="r good">PBT 0.81% better than standard ParT</td></tr><tr><td class="n">19</td><td class="d">Nov 12</td><td>PBT with a final LR decay; 2 seeds</td><td class="r none">same result as #18</td></tr><tr><td class="n">20</td><td class="d">Nov 12</td><td>Standard ParT from random weights (no pretraining)</td><td class="r bad">far worse</td></tr><tr><td class="n">21</td><td class="d">Nov 12</td><td>Averaging the weights of several checkpoints</td><td class="r none">no gain</td></tr></tbody></table></div>
 
-<section class="stage">
-  <div class="rail"><span class="num">3</span><span class="when">Nov 10 – Nov 13</span><br>800k jets<br>3 seeds</div>
-  <div>
-    <h3>With 800k training jets, PBT is 0.8% better</h3>
-    <dl class="dm">
-      <dt>Did</dt><dd>PBT, standard ParT and constant LR, each with three seeds.</dd>
-      <dt>Means</dt><dd>PBT is better than standard ParT for every seed (0.67%, 0.85%, 0.91%; 95% interval 0.34 to
-      1.34%). Small, but real.</dd>
-    </dl>
-    <div class="figure"><svg viewBox="0 0 720 154" role="img">
-<line x1="214.2" x2="214.2" y1="6" y2="118" class="s-grid"/>
-<text x="214.2" y="132" text-anchor="middle" class="t-axis">0.299</text>
-<line x1="302.5" x2="302.5" y1="6" y2="118" class="s-grid"/>
-<text x="302.5" y="132" text-anchor="middle" class="t-axis">0.300</text>
-<line x1="390.8" x2="390.8" y1="6" y2="118" class="s-grid"/>
-<text x="390.8" y="132" text-anchor="middle" class="t-axis">0.301</text>
-<line x1="479.2" x2="479.2" y1="6" y2="118" class="s-grid"/>
-<text x="479.2" y="132" text-anchor="middle" class="t-axis">0.302</text>
-<line x1="567.5" x2="567.5" y1="6" y2="118" class="s-grid"/>
-<text x="567.5" y="132" text-anchor="middle" class="t-axis">0.303</text>
-<line x1="655.8" x2="655.8" y1="6" y2="118" class="s-grid"/>
-<text x="655.8" y="132" text-anchor="middle" class="t-axis">0.304</text>
-<text x="435.0" y="150" text-anchor="middle" class="t-axis">Test mistag (%) of the selected model; one point per seed, lower is better</text>
-<text x="158" y="28.0" text-anchor="end" class="t-label">standard ParT</text>
-<circle cx="558.7" cy="24.0" r="6" class="f-std"/>
-<circle cx="638.2" cy="24.0" r="6" class="f-std"/>
-<circle cx="514.5" cy="24.0" r="6" class="f-std"/>
-<text x="158" y="64.0" text-anchor="end" class="t-label">constant LR grid</text>
-<circle cx="549.8" cy="60.0" r="5.5" class="f-bg s-const" stroke-width="2"/>
-<circle cx="417.3" cy="60.0" r="5.5" class="f-bg s-const" stroke-width="2"/>
-<circle cx="514.5" cy="60.0" r="5.5" class="f-bg s-const" stroke-width="2"/>
-<text x="158" y="100.0" text-anchor="end" class="t-label">PBT</text>
-<rect x="367.2" y="90.0" width="12" height="12" class="f-pbt"/>
-<rect x="402.5" y="90.0" width="12" height="12" class="f-pbt"/>
-<rect x="261.2" y="90.0" width="12" height="12" class="f-pbt"/>
-</svg>
-      <div class="key"><span><i class="dot" style="background:var(--std)"></i>standard ParT</span>
-      <span><i class="dot" style="border:2px solid var(--const)"></i>constant LR</span>
-      <span><i class="dot" style="background:var(--pbt);border-radius:1px"></i>PBT</span></div></div>
-    <div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td class="n">18</td><td class="d">Nov 10–13</td><td>Standard ParT, constant LR and PBT; 3 seeds</td><td class="r good">PBT 0.81% better than standard ParT</td></tr><tr><td class="n">19</td><td class="d">Nov 12</td><td>PBT with a final LR decay; 2 seeds</td><td class="r none">same result as #18</td></tr><tr><td class="n">20</td><td class="d">Nov 12</td><td>Standard ParT from random weights (no pretraining)</td><td class="r bad">far worse</td></tr><tr><td class="n">21</td><td class="d">Nov 12</td><td>Averaging the weights of several checkpoints</td><td class="r none">no gain</td></tr></tbody></table></div>
-  </div>
-</section>
+<h2><small>Stage 4 · Nov 14 – Nov 23 · 8M jets · 1 seed</small>With 8M training jets, PBT is worse</h2>
+<p><b>Did:</b> the same comparison with ten times more training data; then two fixes to PBT.</p>
+<p><b>Means:</b> PBT is 12.4% worse than standard ParT; with both fixes still 2.7% worse.</p>
+<img src="overview_figs/stage4.png" alt="PBT against standard ParT on 8M jets, with and without the fixes">
+<div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td class="n">22</td><td class="d">Nov 14–15</td><td>Standard ParT, start LR 10<sup>−5</sup> to 10<sup>−3</sup></td><td class="r ">0.1635; best is the highest</td></tr><tr><td class="n">23</td><td class="d">Nov 15–17</td><td>PBT, LR at most 10<sup>−3</sup></td><td class="r bad">0.1812: 12.4% worse than #24</td></tr><tr><td class="n">24</td><td class="d">Nov 19–20</td><td>Standard ParT, start LR 3×10<sup>−3</sup></td><td class="r ">0.1611: the reference</td></tr><tr><td class="n">25</td><td class="d">Nov 19–21</td><td>PBT with fix 1: judge each LR after a short cool-down</td><td class="r bad">0.1699: 5.4% worse than #24</td></tr><tr><td class="n">26</td><td class="d">Nov 20–23</td><td>PBT with fixes 1 and 2: plus the final LR decay</td><td class="r bad">0.1655: 2.7% worse than #24</td></tr></tbody></table></div>
+<p style="margin-top:20px"><b>Why:</b> with 800k jets the model starts to memorise its training data after about 20
+epochs (a), so lowering the LR early helps, and PBT does that. With 8M jets it does not memorise (b); then a high LR
+for 35 epochs and a decay at the end is best. PBT judges each LR change after two epochs, where a lower LR almost
+always looks better, so it lowers the LR early (c) and loses in the final decay (d, grey).</p>
+<img src="overview_figs/why.png" alt="Loss, learning rate and mistag per epoch, 800k and 8M jets">
 
-<section class="stage">
-  <div class="rail"><span class="num">4</span><span class="when">Nov 14 – Nov 23</span><br>8M jets<br>1 seed</div>
-  <div>
-    <h3>With 8M training jets, PBT is worse</h3>
-    <dl class="dm">
-      <dt>Did</dt><dd>The same comparison with ten times more training data; then two fixes to PBT.</dd>
-      <dt>Means</dt><dd>PBT is 12.4% worse than standard ParT; with both fixes still 2.7% worse.</dd>
-    </dl>
-    <div class="figure"><svg viewBox="0 0 720 144" role="img">
-<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" class="f-bg"/><line x1="0" y1="0" x2="0" y2="6" class="s-ink2" stroke-width="2"/></pattern></defs>
-<line x1="270.0" x2="270.0" y1="8" y2="114" class="s-grid"/>
-<text x="270.0" y="128" text-anchor="middle" class="t-axis">2%</text>
-<line x1="312.2" x2="312.2" y1="8" y2="114" class="s-grid"/>
-<text x="312.2" y="128" text-anchor="middle" class="t-axis">0%</text>
-<line x1="354.4" x2="354.4" y1="8" y2="114" class="s-grid"/>
-<text x="354.4" y="128" text-anchor="middle" class="t-axis">2%</text>
-<line x1="396.7" x2="396.7" y1="8" y2="114" class="s-grid"/>
-<text x="396.7" y="128" text-anchor="middle" class="t-axis">4%</text>
-<line x1="438.9" x2="438.9" y1="8" y2="114" class="s-grid"/>
-<text x="438.9" y="128" text-anchor="middle" class="t-axis">6%</text>
-<line x1="481.1" x2="481.1" y1="8" y2="114" class="s-grid"/>
-<text x="481.1" y="128" text-anchor="middle" class="t-axis">8%</text>
-<line x1="523.3" x2="523.3" y1="8" y2="114" class="s-grid"/>
-<text x="523.3" y="128" text-anchor="middle" class="t-axis">10%</text>
-<line x1="565.6" x2="565.6" y1="8" y2="114" class="s-grid"/>
-<text x="565.6" y="128" text-anchor="middle" class="t-axis">12%</text>
-<line x1="607.8" x2="607.8" y1="8" y2="114" class="s-grid"/>
-<text x="607.8" y="128" text-anchor="middle" class="t-axis">14%</text>
-<line x1="650.0" x2="650.0" y1="8" y2="114" class="s-grid"/>
-<text x="650.0" y="128" text-anchor="middle" class="t-axis">16%</text>
-<line x1="312.2" x2="312.2" y1="4" y2="114" class="s-ink" stroke-width="1.2"/>
-<text x="304.2" y="143" text-anchor="end" class="t-axis">← better</text>
-<text x="320.2" y="143" class="t-axis">worse →</text>
-<text x="258" y="29.0" text-anchor="end" class="t-label">PBT vs standard ParT</text>
-<rect x="312.2" y="16" width="261.8" height="18" rx="2" class="f-bad"/>
-<text x="582.0" y="29.0" text-anchor="start" class="t-value">12.4% worse</text>
-<text x="258" y="63.0" text-anchor="end" class="t-label">with fix 1 (cool-down probes)</text>
-<rect x="312.2" y="50" width="114.0" height="18" rx="2" class="f-bad"/>
-<text x="434.2" y="63.0" text-anchor="start" class="t-value">5.4% worse</text>
-<text x="258" y="97.0" text-anchor="end" class="t-label">with fixes 1 and 2 (final LR decay)</text>
-<rect x="312.2" y="84" width="57.0" height="18" rx="2" class="f-bad"/>
-<text x="377.2" y="97.0" text-anchor="start" class="t-value">2.7% worse</text>
-</svg></div>
-    <div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td class="n">22</td><td class="d">Nov 14–15</td><td>Standard ParT, start LR 10<sup>−5</sup> to 10<sup>−3</sup></td><td class="r ">0.1635; best is the highest</td></tr><tr><td class="n">23</td><td class="d">Nov 15–17</td><td>PBT, LR at most 10<sup>−3</sup></td><td class="r bad">0.1812: 12.4% worse than #24</td></tr><tr><td class="n">24</td><td class="d">Nov 19–20</td><td>Standard ParT, start LR 3×10<sup>−3</sup></td><td class="r ">0.1611: the reference</td></tr><tr><td class="n">25</td><td class="d">Nov 19–21</td><td>PBT with fix 1: judge each LR after a short cool-down</td><td class="r bad">0.1699: 5.4% worse than #24</td></tr><tr><td class="n">26</td><td class="d">Nov 20–23</td><td>PBT with fixes 1 and 2: plus the final LR decay</td><td class="r bad">0.1655: 2.7% worse than #24</td></tr></tbody></table></div>
-    <dl class="dm why">
-      <dt>Why</dt><dd>With 800k jets the model starts to memorise its training data after about 20 epochs (top left),
-      so lowering the LR early helps, and PBT does that. With 8M jets it does not memorise (top right); then a high LR
-      for 35 epochs and a decay at the end is best. PBT judges each LR change after two epochs, where a lower LR almost
-      always looks better, so it lowers the LR early (bottom left) and loses in the final decay (bottom right, grey).</dd>
-    </dl>
-    <div class="minis">
-      <div class="mini"><div class="mini-y">800k jets: loss per epoch</div><svg viewBox="0 0 350 250" role="img">
-<line x1="64" x2="336" y1="195.9" y2="195.9" class="s-grid"/>
-<text x="58" y="199.9" text-anchor="end" class="t-axis">0.27</text>
-<line x1="64" x2="336" y1="125.1" y2="125.1" class="s-grid"/>
-<text x="58" y="129.1" text-anchor="end" class="t-axis">0.28</text>
-<line x1="64" x2="336" y1="54.4" y2="54.4" class="s-grid"/>
-<text x="58" y="58.4" text-anchor="end" class="t-axis">0.29</text>
-<text x="64.0" y="226" text-anchor="middle" class="t-axis">1</text>
-<text x="114.0" y="226" text-anchor="middle" class="t-axis">10</text>
-<text x="169.5" y="226" text-anchor="middle" class="t-axis">20</text>
-<text x="225.0" y="226" text-anchor="middle" class="t-axis">30</text>
-<text x="280.5" y="226" text-anchor="middle" class="t-axis">40</text>
-<text x="336.0" y="226" text-anchor="middle" class="t-axis">50</text>
-<text x="200.0" y="244" text-anchor="middle" class="t-axis">epoch</text>
-<polyline points="64.0,20.2 69.6,49.1 75.1,64.9 80.7,76.0 86.2,83.2 91.8,91.1 97.3,93.7 102.9,100.7 108.4,106.3 114.0,111.0 119.5,112.0 125.1,117.6 130.6,120.5 136.2,125.1 141.7,127.4 147.3,130.6 152.8,134.5 158.4,137.3 163.9,141.5 169.5,143.7 175.0,145.9 180.6,149.5 186.1,149.3 191.7,156.8 197.2,158.4 202.8,159.8 208.3,158.3 213.9,163.1 219.4,166.3 225.0,168.1 230.5,170.0 236.1,171.6 241.6,175.7 247.2,176.8 252.7,180.2 258.3,183.7 263.8,183.7 269.4,188.2 274.9,188.1 280.5,190.8 286.0,191.0 291.6,192.3 297.1,195.3 302.7,193.4 308.2,193.5 313.8,193.7 319.3,193.7 324.9,193.5 330.4,193.3 336.0,195.9" fill="none" class="s-ink" stroke-width="2.2"/>
-<polyline points="64.0,88.9 69.6,102.3 75.1,111.8 80.7,116.0 86.2,120.5 91.8,122.7 97.3,127.3 102.9,129.2 108.4,131.9 114.0,134.4 119.5,135.3 125.1,137.4 130.6,139.8 136.2,141.3 141.7,140.8 147.3,143.5 152.8,143.7 158.4,145.0 163.9,145.6 169.5,147.6 175.0,146.4 180.6,148.3 186.1,149.1 191.7,149.8 197.2,151.3 202.8,150.7 208.3,151.5 213.9,151.5 219.4,152.4 225.0,151.9 230.5,154.3 236.1,154.0 241.6,154.3 247.2,155.9 252.7,156.1 258.3,156.1 263.8,157.3 269.4,157.0 274.9,156.2 280.5,157.2 286.0,155.6 291.6,156.3 297.1,156.0 302.7,155.2 308.2,155.3 313.8,156.0 319.3,156.0 324.9,156.0 330.4,156.0 336.0,155.8" fill="none" class="s-std" stroke-width="2.2"/>
-</svg><div class="legend"><span><i class="k-ink"></i>training data</span><span><i class="k-std"></i>Validation</span></div></div>
-      <div class="mini"><div class="mini-y">8M jets: loss per epoch</div><svg viewBox="0 0 350 250" role="img">
-<line x1="64" x2="336" y1="178.3" y2="178.3" class="s-grid"/>
-<text x="58" y="182.3" text-anchor="end" class="t-axis">0.25</text>
-<line x1="64" x2="336" y1="138.7" y2="138.7" class="s-grid"/>
-<text x="58" y="142.7" text-anchor="end" class="t-axis">0.26</text>
-<line x1="64" x2="336" y1="99.1" y2="99.1" class="s-grid"/>
-<text x="58" y="103.1" text-anchor="end" class="t-axis">0.27</text>
-<line x1="64" x2="336" y1="59.5" y2="59.5" class="s-grid"/>
-<text x="58" y="63.5" text-anchor="end" class="t-axis">0.28</text>
-<line x1="64" x2="336" y1="19.9" y2="19.9" class="s-grid"/>
-<text x="58" y="23.9" text-anchor="end" class="t-axis">0.29</text>
-<text x="64.0" y="226" text-anchor="middle" class="t-axis">1</text>
-<text x="114.0" y="226" text-anchor="middle" class="t-axis">10</text>
-<text x="169.5" y="226" text-anchor="middle" class="t-axis">20</text>
-<text x="225.0" y="226" text-anchor="middle" class="t-axis">30</text>
-<text x="280.5" y="226" text-anchor="middle" class="t-axis">40</text>
-<text x="336.0" y="226" text-anchor="middle" class="t-axis">50</text>
-<text x="200.0" y="244" text-anchor="middle" class="t-axis">epoch</text>
-<polyline points="64.0,17.3 69.6,56.1 75.1,74.9 80.7,87.2 86.2,95.2 91.8,102.6 97.3,109.1 102.9,115.7 108.4,121.4 114.0,125.3 119.5,128.8 125.1,132.3 130.6,135.2 136.2,137.1 141.7,139.4 147.3,141.3 152.8,143.3 158.4,144.9 163.9,146.5 169.5,147.9 175.0,149.1 180.6,150.7 186.1,151.7 191.7,153.4 197.2,154.8 202.8,154.9 208.3,156.5 213.9,157.7 219.4,159.1 225.0,159.5 230.5,160.6 236.1,161.5 241.6,162.5 247.2,162.8 252.7,163.4 258.3,171.4 263.8,178.4 269.4,183.6 274.9,188.0 280.5,191.0 286.0,193.5 291.6,195.5 297.1,196.7 302.7,197.9 308.2,198.8 313.8,199.3 319.3,200.0 324.9,200.3 330.4,200.2 336.0,200.7" fill="none" class="s-ink" stroke-width="2.2"/>
-<polyline points="64.0,75.6 69.6,95.6 75.1,112.6 80.7,117.5 86.2,125.0 91.8,121.5 97.3,132.5 102.9,145.3 108.4,134.0 114.0,139.3 119.5,149.3 125.1,153.5 130.6,153.3 136.2,152.1 141.7,153.8 147.3,157.1 152.8,158.4 158.4,158.0 163.9,162.4 169.5,154.7 175.0,167.7 180.6,152.8 186.1,169.1 191.7,169.3 197.2,156.5 202.8,169.6 208.3,171.1 213.9,169.7 219.4,170.8 225.0,170.8 230.5,175.0 236.1,173.8 241.6,175.5 247.2,170.8 252.7,173.4 258.3,182.6 263.8,186.2 269.4,189.8 274.9,190.9 280.5,194.3 286.0,196.5 291.6,193.9 297.1,197.7 302.7,197.8 308.2,198.4 313.8,198.4 319.3,199.0 324.9,198.6 330.4,198.9 336.0,198.9" fill="none" class="s-std" stroke-width="2.2"/>
-</svg><div class="legend"><span><i class="k-ink"></i>training data</span><span><i class="k-std"></i>Validation</span></div></div>
-      <div class="mini"><div class="mini-y">8M jets: learning rate</div><svg viewBox="0 0 350 250" role="img">
-<rect x="258.3" y="12" width="77.7" height="198" class="f-band"/>
-<line x1="64" x2="336" y1="210.0" y2="210.0" class="s-grid"/>
-<text x="58" y="214.0" text-anchor="end" class="t-axis">10<tspan dy="-5" font-size="9">−5</tspan></text>
-<line x1="64" x2="336" y1="138.7" y2="138.7" class="s-grid"/>
-<text x="58" y="142.7" text-anchor="end" class="t-axis">10<tspan dy="-5" font-size="9">−4</tspan></text>
-<line x1="64" x2="336" y1="67.5" y2="67.5" class="s-grid"/>
-<text x="58" y="71.5" text-anchor="end" class="t-axis">10<tspan dy="-5" font-size="9">−3</tspan></text>
-<text x="64.0" y="226" text-anchor="middle" class="t-axis">1</text>
-<text x="114.0" y="226" text-anchor="middle" class="t-axis">10</text>
-<text x="169.5" y="226" text-anchor="middle" class="t-axis">20</text>
-<text x="225.0" y="226" text-anchor="middle" class="t-axis">30</text>
-<text x="280.5" y="226" text-anchor="middle" class="t-axis">40</text>
-<text x="336.0" y="226" text-anchor="middle" class="t-axis">50</text>
-<text x="200.0" y="244" text-anchor="middle" class="t-axis">epoch</text>
-<polygon points="64.0,67.5 69.6,67.5 75.1,67.5 80.7,67.5 86.2,67.5 91.8,67.5 97.3,67.5 102.9,67.5 108.4,88.9 114.0,88.9 119.5,110.4 125.1,110.4 130.6,121.4 136.2,121.4 141.7,131.8 147.3,131.8 152.8,131.8 158.4,131.8 163.9,131.8 169.5,131.8 175.0,131.8 180.6,131.8 186.1,131.8 191.7,131.8 197.2,131.8 202.8,131.8 208.3,110.4 213.9,110.4 219.4,110.4 225.0,110.4 230.5,110.4 236.1,110.4 241.6,110.4 247.2,110.4 252.7,121.4 258.3,121.4 263.8,121.4 269.4,121.4 274.9,153.3 280.5,153.3 286.0,153.3 291.6,153.3 297.1,153.3 302.7,153.3 308.2,153.3 313.8,153.3 319.3,153.3 324.9,153.3 330.4,153.3 336.0,153.3 336.0,207.2 330.4,207.2 324.9,207.2 319.3,207.2 313.8,207.2 308.2,207.2 302.7,207.2 297.1,207.2 291.6,207.2 286.0,207.2 280.5,207.2 274.9,207.2 269.4,196.2 263.8,196.2 258.3,174.7 252.7,174.7 247.2,153.3 241.6,153.3 236.1,153.3 230.5,153.3 225.0,153.3 219.4,153.3 213.9,174.7 208.3,174.7 202.8,196.2 197.2,196.2 191.7,196.2 186.1,196.2 180.6,196.2 175.0,196.2 169.5,196.2 163.9,196.2 158.4,196.2 152.8,196.2 147.3,196.2 141.7,196.2 136.2,174.7 130.6,174.7 125.1,153.3 119.5,153.3 114.0,131.8 108.4,131.8 102.9,110.4 97.3,110.4 91.8,138.7 86.2,138.7 80.7,210.0 75.1,210.0 69.6,210.0 64.0,210.0" class="f-pbt" opacity="0.28"/>
-<polyline points="64.0,33.5 69.6,33.5 75.1,33.5 80.7,33.5 86.2,33.5 91.8,33.5 97.3,33.5 102.9,33.5 108.4,33.5 114.0,33.5 119.5,33.5 125.1,33.5 130.6,33.5 136.2,33.5 141.7,33.5 147.3,33.5 152.8,33.5 158.4,33.5 163.9,33.5 169.5,33.5 175.0,33.5 180.6,33.5 186.1,33.5 191.7,33.5 197.2,33.5 202.8,33.5 208.3,33.5 213.9,33.5 219.4,33.5 225.0,33.5 230.5,33.5 236.1,33.5 241.6,33.5 247.2,33.5 252.7,33.5 258.3,43.0 263.8,52.5 269.4,62.0 274.9,71.5 280.5,81.0 286.0,90.5 291.6,100.0 297.1,109.5 302.7,119.0 308.2,128.5 313.8,138.0 319.3,147.5 324.9,157.0 330.4,166.5 336.0,176.0" fill="none" class="s-std" stroke-width="2.2"/>
-</svg><div class="legend"><span><i class="k-std"></i>standard ParT</span><span><i class="k-pbt-band"></i>PBT, range of 5 models</span></div></div>
-      <div class="mini"><div class="mini-y">8M jets: best mistag so far (Validation)</div><svg viewBox="0 0 350 250" role="img">
-<rect x="258.3" y="12" width="77.7" height="198" class="f-band"/>
-<line x1="64" x2="336" y1="193.5" y2="193.5" class="s-grid"/>
-<text x="58" y="197.5" text-anchor="end" class="t-axis">0.16</text>
-<line x1="64" x2="336" y1="127.5" y2="127.5" class="s-grid"/>
-<text x="58" y="131.5" text-anchor="end" class="t-axis">0.18</text>
-<line x1="64" x2="336" y1="61.5" y2="61.5" class="s-grid"/>
-<text x="58" y="65.5" text-anchor="end" class="t-axis">0.20</text>
-<text x="64.0" y="226" text-anchor="middle" class="t-axis">1</text>
-<text x="114.0" y="226" text-anchor="middle" class="t-axis">10</text>
-<text x="169.5" y="226" text-anchor="middle" class="t-axis">20</text>
-<text x="225.0" y="226" text-anchor="middle" class="t-axis">30</text>
-<text x="280.5" y="226" text-anchor="middle" class="t-axis">40</text>
-<text x="336.0" y="226" text-anchor="middle" class="t-axis">50</text>
-<text x="200.0" y="244" text-anchor="middle" class="t-axis">epoch</text>
-<polyline points="64.0,12.0 69.6,12.0 75.1,12.0 80.7,12.0 86.2,12.0 91.8,12.0 97.3,12.0 102.9,12.0 108.4,12.0 114.0,12.0 119.5,20.5 125.1,21.8 130.6,47.8 136.2,47.8 141.7,58.7 147.3,58.7 152.8,58.8 158.4,70.8 163.9,70.8 169.5,70.8 175.0,82.7 180.6,82.7 186.1,82.7 191.7,82.7 197.2,82.7 202.8,96.3 208.3,96.3 213.9,96.3 219.4,96.3 225.0,99.8 230.5,103.5 236.1,103.5 241.6,105.7 247.2,105.7 252.7,125.8 258.3,136.1 263.8,159.9 269.4,159.9 274.9,169.1 280.5,186.6 286.0,186.6 291.6,187.9 297.1,191.4 302.7,195.2 308.2,198.6 313.8,198.6 319.3,198.6 324.9,198.6 330.4,198.6 336.0,198.6" fill="none" class="s-std" stroke-width="2.2"/>
-<polyline points="64.0,12.0 69.6,12.0 75.1,12.0 80.7,12.0 86.2,12.0 91.8,12.0 97.3,15.3 102.9,34.5 108.4,45.2 114.0,56.4 119.5,60.5 125.1,65.7 130.6,66.1 136.2,66.1 141.7,73.2 147.3,73.2 152.8,75.2 158.4,77.9 163.9,77.9 169.5,77.9 175.0,77.9 180.6,77.9 186.1,78.0 191.7,81.8 197.2,82.2 202.8,86.0 208.3,86.0 213.9,89.1 219.4,89.1 225.0,89.1 230.5,89.1 236.1,97.0 241.6,97.0 247.2,97.5 252.7,107.1 258.3,107.1 263.8,107.8 269.4,108.0 274.9,109.5 280.5,109.5 286.0,109.5 291.6,111.9 297.1,112.0 302.7,112.0 308.2,112.0 313.8,112.0 319.3,112.0 324.9,112.0 330.4,113.0 336.0,113.0" fill="none" class="s-pbt" stroke-width="2.2"/>
-<polyline points="64.0,12.0 69.6,12.0 75.1,12.0 80.7,12.0 86.2,12.0 91.8,12.0 97.3,43.9 102.9,65.4 108.4,65.4 114.0,80.0 119.5,80.0 125.1,82.0 130.6,82.0 136.2,96.8 141.7,96.8 147.3,109.1 152.8,109.1 158.4,109.1 163.9,119.6 169.5,119.6 175.0,119.6 180.6,119.6 186.1,119.6 191.7,119.6 197.2,119.6 202.8,120.5 208.3,126.9 213.9,129.2 219.4,139.7 225.0,146.9 230.5,146.9 236.1,146.9 241.6,163.5 247.2,167.5 252.7,169.0 258.3,172.3 263.8,177.7 269.4,178.4 274.9,180.2 280.5,180.2 286.0,183.0 291.6,183.1 297.1,185.3 302.7,191.0 308.2,191.0 313.8,191.0 319.3,192.1 324.9,192.1 330.4,192.1 336.0,192.1" fill="none" class="s-pbt" stroke-width="2.2" stroke-dasharray="5 4"/>
-</svg><div class="legend"><span><i class="k-std"></i>standard ParT</span><span><i class="k-pbt"></i>PBT</span><span><i class="k-pbt-dash"></i>PBT + both fixes</span></div></div>
-    </div>
-  </div>
-</section>
+<h2><small>Stage 5 · Nov 23 – Nov 25 · 8M jets · 3 seeds</small>With 8M training jets, an ensemble of two models is 5% better</h2>
+<p><b>Did:</b> averaged the outputs of the two standard ParT models of one seed (start LRs 3×10<sup>−3</sup> and
+10<sup>−3</sup>). Fixed this test in advance, then repeated it with two new seeds.</p>
+<p><b>Means:</b> 5.0% better than the better model alone, on every seed (95% interval 4.2 to 5.8%). Standard ParT
+trains both models anyway; the cost is running two models. PBT models do not help here, because PBT copies weights
+between them.</p>
+<img src="overview_figs/stage5.png" alt="Mistag of the standard ParT models, their ensemble and PBT on 8M jets">
+<div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td class="n">27</td><td class="d">Nov 23</td><td>Ensemble: average of the outputs of #22 and #24</td><td class="r good">0.1530: 5.1% better than #24</td></tr><tr><td class="n">28</td><td class="d">Nov 23–25</td><td>The same ensemble with two new seeds</td><td class="r good">4.9% and 5.1% better; mean 5.0%</td></tr><tr><td class="n">29</td><td class="d">Nov 23</td><td>Ensembles of the 800k models</td><td class="r none">no gain</td></tr><tr><td class="n">31</td><td class="d">Nov 23–24</td><td>Final LR decay of #24 without dropout</td><td class="r bad">worse</td></tr><tr><td class="n">32</td><td class="d">Nov 24</td><td>Distillation: train one model on the ensemble output</td><td class="r none">no gain</td></tr><tr><td class="n">33</td><td class="d">Nov 24–25</td><td>Standard ParT, start LR 10<sup>−2</sup></td><td class="r none">0.1599: same as #24</td></tr></tbody></table></div>
 
-<section class="stage">
-  <div class="rail"><span class="num">5</span><span class="when">Nov 23 – Nov 25</span><br>8M jets<br>3 seeds</div>
-  <div>
-    <h3>With 8M training jets, an ensemble of two models is 5% better</h3>
-    <dl class="dm">
-      <dt>Did</dt><dd>Averaged the outputs of the two standard ParT models of one seed (start LRs 3×10<sup>−3</sup> and
-      10<sup>−3</sup>). Fixed this test in advance, then repeated it with two new seeds.</dd>
-      <dt>Means</dt><dd>5.0% better than the better model alone, on every seed (95% interval 4.2 to 5.8%). Standard
-      ParT trains both models anyway; the cost is running two models. PBT models do not help here, because PBT copies
-      weights between them.</dd>
-    </dl>
-    <div class="figure"><svg viewBox="0 0 720 238" role="img">
-<line x1="254.7" x2="254.7" y1="6" y2="202" class="s-grid"/>
-<text x="254.7" y="216" text-anchor="middle" class="t-axis">0.150</text>
-<line x1="378.4" x2="378.4" y1="6" y2="202" class="s-grid"/>
-<text x="378.4" y="216" text-anchor="middle" class="t-axis">0.160</text>
-<line x1="502.1" x2="502.1" y1="6" y2="202" class="s-grid"/>
-<text x="502.1" y="216" text-anchor="middle" class="t-axis">0.170</text>
-<line x1="625.8" x2="625.8" y1="6" y2="202" class="s-grid"/>
-<text x="625.8" y="216" text-anchor="middle" class="t-axis">0.180</text>
-<text x="465.0" y="234" text-anchor="middle" class="t-axis">Test mistag (%); one point per seed, lower is better</text>
-<text x="218" y="26.0" text-anchor="end" class="t-label">standard ParT, start 10⁻³</text>
-<circle cx="421.7" cy="22.0" r="5.5" class="f-bg s-std" stroke-width="2"/>
-<circle cx="406.9" cy="22.0" r="5.5" class="f-bg s-std" stroke-width="2"/>
-<circle cx="420.5" cy="22.0" r="5.5" class="f-bg s-std" stroke-width="2"/>
-<text x="218" y="58.0" text-anchor="end" class="t-label">standard ParT, start 3×10⁻³</text>
-<circle cx="392.0" cy="54.0" r="6" class="f-std"/>
-<circle cx="374.7" cy="54.0" r="6" class="f-std"/>
-<circle cx="406.9" cy="54.0" r="6" class="f-std"/>
-<text x="218" y="90.0" text-anchor="end" class="t-label">ensemble of the two</text>
-<path d="M291.8,79.0 L298.8,86.0 L291.8,93.0 L284.8,86.0 Z" class="f-ens"/>
-<path d="M278.2,79.0 L285.2,86.0 L278.2,93.0 L271.2,86.0 Z" class="f-ens"/>
-<path d="M304.2,79.0 L311.2,86.0 L304.2,93.0 L297.2,86.0 Z" class="f-ens"/>
-<line x1="12" x2="700" y1="118.0" y2="118.0" class="s-rule"/>
-<text x="218" y="154.0" text-anchor="end" class="t-label">PBT (seed 12345)</text>
-<rect x="634.6" y="144.0" width="12" height="12" class="f-pbt"/>
-<text x="218" y="186.0" text-anchor="end" class="t-label">PBT + probes + decay</text>
-<rect x="440.4" y="176.0" width="12" height="12" class="f-pbt"/>
-</svg>
-      <div class="key"><span><i class="dot" style="background:var(--std)"></i>standard ParT</span>
-      <span><i class="dot" style="background:var(--ens);border-radius:1px;transform:rotate(45deg)"></i>ensemble</span>
-      <span><i class="dot" style="background:var(--pbt);border-radius:1px"></i>PBT</span></div></div>
-    <div class="tw"><table><thead><tr><th>#</th><th>Dates</th><th>Configuration</th><th>Result</th></tr></thead><tbody><tr><td class="n">27</td><td class="d">Nov 23</td><td>Ensemble: average of the outputs of #22 and #24</td><td class="r good">0.1530: 5.1% better than #24</td></tr><tr><td class="n">28</td><td class="d">Nov 23–25</td><td>The same ensemble with two new seeds</td><td class="r good">4.9% and 5.1% better; mean 5.0%</td></tr><tr><td class="n">29</td><td class="d">Nov 23</td><td>Ensembles of the 800k models</td><td class="r none">no gain</td></tr><tr><td class="n">31</td><td class="d">Nov 23–24</td><td>Final LR decay of #24 without dropout</td><td class="r bad">worse</td></tr><tr><td class="n">32</td><td class="d">Nov 24</td><td>Distillation: train one model on the ensemble output</td><td class="r none">no gain</td></tr><tr><td class="n">33</td><td class="d">Nov 24–25</td><td>Standard ParT, start LR 10<sup>−2</sup></td><td class="r none">0.1599: same as #24</td></tr></tbody></table></div>
-  </div>
-</section>
+<p class="end"><b>Limits:</b> the 8M PBT runs have one seed; all runs start from one pretrained model; the Test data
+was also looked at in checks before November. <b>Not shown:</b> July–August set-up with an older training method,
+and technical checks (trials 5, 7, 8, 9, 11, 30); see the <a href="report.html#report-trials">full trial list</a>.</p>
 
-<div class="notes">
-  <div><h4>Limits</h4>
-  <p>The 8M PBT runs have one seed. All runs start from one pretrained model. The Test data was also looked at in
-  checks before November.</p></div>
-  <div><h4>Not shown</h4>
-  <p>July–August: set-up with an older training method. Trials 5, 7, 8, 9, 11 and 30 are technical checks; they are
-  in the <a href="report.html#report-trials">full trial list</a>.</p></div>
-</div>
-
-</div>
+</main>
 </body>
 </html>
