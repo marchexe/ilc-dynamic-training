@@ -84,7 +84,7 @@ td.nowrap { white-space: nowrap; }
 .log h2 { margin-top: 56px; }
 .log .sub { font: 15px/1.5 var(--sans); color: var(--muted); margin: -6px 0 14px; }
 details.trial { border-bottom: 1px solid var(--rule); font: 15px/1.45 var(--sans); }
-details.trial > summary { display: grid; grid-template-columns: 2.4em 11.5em minmax(0, 1fr) minmax(0, 15em); gap: 12px; padding: 10px 0; cursor: pointer; list-style: none; }
+details.trial > summary { display: grid; grid-template-columns: 2.4em 11.5em minmax(0, 1fr) minmax(0, 24em); gap: 12px; padding: 10px 0; cursor: pointer; list-style: none; }
 details.trial > summary::-webkit-details-marker { display: none; }
 details.trial > summary:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 details.trial .no { color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -158,3 +158,7 @@ tr:target > td, details:target, section.phase:target > h3, figure:target, h2:tar
   details.trial .body { padding-left: 0 !important; }
   details.trial .body table { font-size: 7.6pt !important; }
 }
+
+/* experiment log: compact index rows */
+details.trial .smp { font: 700 10.5px/1 var(--sans); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+details.trial .body p { margin: 6px 0 0; color: var(--body); }

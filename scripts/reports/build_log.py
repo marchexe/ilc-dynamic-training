@@ -14,6 +14,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import export_report_trials as T  # noqa: E402
 import build_report as R  # noqa: E402  (trial descriptions shared with the report)
+from report_cards import CARD  # noqa: E402,F401
 
 # trial number -> (configuration, result, interpretation), exactly as in the research report
 REPORT = {n: (d, c, r, i) for _, _, rows in R.PHASES for n, d, c, r, i in rows if n != '–'}
@@ -70,10 +71,14 @@ def main():
             when = T.span(recs) if recs else report_date  # trials without runs: the date of the report
             meta = ' · '.join(x for x in ((f'{gpu:.0f} GPU-h' if gpu >= 1 else '&lt;1 GPU-h') if recs else '',
                                           f'records: {extra}' if extra else '') if x)
+            name, change, value, sample, versus = CARD[str(number)]
+            smp = f' <span class="smp">{sample}</span>' if sample else ''
             parts.append(f'<details class="trial" id="t{number}"><summary><span class="no" data-anchor="t{number}">{number}</span>'
-                         f'<span class="when">{when}</span><span class="what">{what_html}</span>'
-                         f'<span class="res">{result_html}</span></summary>'
-                         f'<div class="body"><p class="interp"><b>Interpretation:</b> {interp_html}</p>{table}<p>{meta} · <a href="overview.html#t{number}">trial {number} in the report</a>'
+                         f'<span class="when">{when}</span><span class="what"><b>{name}</b></span>'
+                         f'<span class="res"><b>{value}</b>{smp} {versus}</span></summary>'
+                         f'<div class="body"><p><b>Change.</b> {change}</p><p><b>Configuration.</b> {what_html}</p>'
+                         f'<p><b>Result.</b> {result_html}</p><p class="interp"><b>Interpretation.</b> {interp_html}</p>'
+                         f'{table}<p>{meta} · <a href="overview.html#t{number}">trial {number} in the report</a>'
                          '</p></div></details>')
     page = TEMPLATE.replace('<!--TRIALS-->', '\n'.join(parts))
     import hashlib

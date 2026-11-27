@@ -9,6 +9,10 @@ numbers are those of the experiment log (docs/_extra/log.html, scripts/reports/b
 """
 from pathlib import Path
 import re
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from report_cards import BASE, CARD, KEY, PHASE_SUMMARY  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -216,11 +220,21 @@ def xref(html):
 
 
 def trial_row(n, d, c, r, i):
+    """Name, key change and headline result first; the full configuration and result under 'Details'."""
+    name, change, value, sample, versus = CARD[n]
+    cls = ' class="key"' if n in KEY else ' class="base"' if n in BASE else ''
+    smp = f' <span class="smp">{sample}</span>' if sample else ''
+    cfg = (f'<div class="nm">{name}</div><div class="chg">{xref(change)}</div>'
+           f'<details class="more"><summary>Details</summary><p><b>Configuration.</b> {xref(c)}</p>'
+           f'<p><b>Result.</b> {xref(r)}</p></details>')
+    res = f'<div class="val"><b>{value}</b>{smp}</div><div class="vs">{xref(versus)}</div>'
     if n == '–':  # the initial implementation period has no trial number
-        return f'<tr id="setup"><td class="n"></td><td class="d">{d}</td><td>{c}</td><td>{r}</td><td class="i">{i}</td></tr>'
-    return (f'<tr id="t{n}"><td class="n" data-anchor="t{n}"><a href="log.html#t{n}" '
+        return f'<tr id="setup"{cls}><td class="n"></td><td class="d">{d}</td><td>{cfg}</td><td>{res}</td><td class="i">{i}</td></tr>'
+    return (f'<tr id="t{n}"{cls}><td class="n" data-anchor="t{n}"><a href="log.html#t{n}" '
             f'title="Runs and configuration files of trial {n} in the experiment log">{n}</a></td>'
-            f'<td class="d">{d}</td><td>{xref(c)}</td><td>{xref(r)}</td><td class="i">{xref(i)}</td></tr>')
+            f'<td class="d">{d}</td><td>{cfg}</td><td>{res}</td><td class="i">{xref(i)}</td></tr>')
+
+
 SUP = lambda m, e: lr(m, e)
 
 # per phase: (dates, objective, learned-and-next paragraphs (HTML), figures)
@@ -314,9 +328,12 @@ def timeline():
             extra = (f'<details class="supporting"><summary><span class="sup-label">Supporting experiments '
                      f'({len(support)})</span> {SUPPORT_TITLE[k]}</summary><div class="table-wrap"><table class="hist">'
                      f'{THEAD}<tbody>{"".join(trial_row(*row) for row in support)}</tbody></table></div></details>')
+        why, changed, found, nxt = PHASE_SUMMARY[k]
+        learned = re.sub(r'\s*<b>Next:</b>.*$', '', learned, flags=re.S)  # the reason to move on is in the summary
         out.append(f'<section class="phase" id="phase-{k}"><div class="when">Phase {k} · {dates} · {cond}</div>'
-                   f'<h3 data-anchor="phase-{k}">{title}</h3><p class="obj"><b>Objective:</b> {objective} '
-                   f'<b>Outcome:</b> {outcome}</p>'
+                   f'<h3 data-anchor="phase-{k}">{title}</h3><dl class="psum"><dt>Why</dt><dd>{why}</dd>'
+                   f'<dt>Changed</dt><dd>{changed}</dd><dt>Found</dt><dd class="found">{found}</dd>'
+                   f'<dt>Next</dt><dd>{nxt}</dd></dl>'
                    f'<div class="table-wrap"><table class="hist">{THEAD}<tbody>{main}</tbody></table></div>'
                    f'{extra}<p class="learned">{xref(learned)}</p>' + ''.join(figs_html) + '</section>')
     return '\n'.join(out)
