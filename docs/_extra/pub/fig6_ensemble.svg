@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="788.6175pt" height="343.517964pt" viewBox="0 0 788.6175 343.517964" xmlns="http://www.w3.org/2000/svg" version="1.1">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="932.201719pt" height="343.517964pt" viewBox="0 0 932.201719 343.517964" xmlns="http://www.w3.org/2000/svg" version="1.1">
  <metadata>
   <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
    <cc:Work>
@@ -21,8 +21,8 @@
  <g id="figure_1">
   <g id="patch_1">
    <path d="M 0 343.517964 
-L 788.6175 343.517964 
-L 788.6175 0 
+L 932.201719 343.517964 
+L 932.201719 0 
 L 0 0 
 z
 " style="fill: #ffffff"/>
@@ -2623,7 +2623,7 @@ z
      </g>
     </g>
     <g id="text_15">
-     <!-- Training (8M): a PBT model + a model of another run (#30) · 27 pairs -->
+     <!-- Training (8M): a PBT model + a model trained apart from it (#30) · 27 pairs -->
      <g transform="translate(97.817813 331.641714) scale(0.105 -0.105)">
       <defs>
        <path id="Lato-Regular-4d" d="M 5357 4586 
@@ -2739,28 +2739,6 @@ L 3392 2365
 L 3392 1933 
 z
 " transform="scale(0.015625)"/>
-       <path id="Lato-Regular-75" d="M 3117 3242 
-L 3117 0 
-L 2778 0 
-Q 2656 0 2624 118 
-L 2579 467 
-Q 2368 234 2105 91 
-Q 1843 -51 1504 -51 
-Q 1238 -51 1035 37 
-Q 832 125 694 285 
-Q 557 445 488 672 
-Q 419 899 419 1174 
-L 419 3242 
-L 989 3242 
-L 989 1174 
-Q 989 806 1157 604 
-Q 1325 403 1670 403 
-Q 1923 403 2142 523 
-Q 2362 643 2547 854 
-L 2547 3242 
-L 3117 3242 
-z
-" transform="scale(0.015625)"/>
        <path id="Lato-Regular-33" d="M 416 3344 
 Q 461 3658 589 3899 
 Q 717 4141 913 4304 
@@ -2873,129 +2851,55 @@ z
       <use xlink:href="#Lato-Regular-65" transform="translate(1572.650192 0)"/>
       <use xlink:href="#Lato-Regular-6c" transform="translate(1625.450195 0)"/>
       <use xlink:href="#Lato-Regular-20" transform="translate(1649.050201 0)"/>
-      <use xlink:href="#Lato-Regular-6f" transform="translate(1674.650208 0)"/>
-      <use xlink:href="#Lato-Regular-66" transform="translate(1731.35022 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(1766.400223 0)"/>
-      <use xlink:href="#Lato-Regular-61" transform="translate(1792.000229 0)"/>
-      <use xlink:href="#Lato-Regular-6e" transform="translate(1841.700241 0)"/>
-      <use xlink:href="#Lato-Regular-6f" transform="translate(1897.500244 0)"/>
-      <use xlink:href="#Lato-Regular-74" transform="translate(1954.200256 0)"/>
-      <use xlink:href="#Lato-Regular-68" transform="translate(1990.050262 0)"/>
-      <use xlink:href="#Lato-Regular-65" transform="translate(2045.850266 0)"/>
-      <use xlink:href="#Lato-Regular-72" transform="translate(2098.650269 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2135.050278 0)"/>
-      <use xlink:href="#Lato-Regular-72" transform="translate(2160.650284 0)"/>
-      <use xlink:href="#Lato-Regular-75" transform="translate(2197.050293 0)"/>
-      <use xlink:href="#Lato-Regular-6e" transform="translate(2252.800293 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2308.600296 0)"/>
-      <use xlink:href="#Lato-Regular-28" transform="translate(2334.200302 0)"/>
-      <use xlink:href="#Lato-Regular-23" transform="translate(2360.900299 0)"/>
-      <use xlink:href="#Lato-Regular-33" transform="translate(2418.900299 0)"/>
-      <use xlink:href="#Lato-Regular-30" transform="translate(2476.900299 0)"/>
-      <use xlink:href="#Lato-Regular-29" transform="translate(2534.900299 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2561.600296 0)"/>
-      <use xlink:href="#Lato-Regular-b7" transform="translate(2587.200302 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2613.200302 0)"/>
-      <use xlink:href="#Lato-Regular-32" transform="translate(2638.800308 0)"/>
-      <use xlink:href="#Lato-Regular-37" transform="translate(2696.800308 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2754.800308 0)"/>
-      <use xlink:href="#Lato-Regular-70" transform="translate(2780.400314 0)"/>
-      <use xlink:href="#Lato-Regular-61" transform="translate(2836.450317 0)"/>
-      <use xlink:href="#Lato-Regular-69" transform="translate(2886.15033 0)"/>
-      <use xlink:href="#Lato-Regular-72" transform="translate(2910.15033 0)"/>
-      <use xlink:href="#Lato-Regular-73" transform="translate(2946.550339 0)"/>
+      <use xlink:href="#Lato-Regular-74" transform="translate(1674.650208 0)"/>
+      <use xlink:href="#Lato-Regular-72" transform="translate(1710.500214 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(1746.900223 0)"/>
+      <use xlink:href="#Lato-Regular-69" transform="translate(1796.600235 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(1820.600235 0)"/>
+      <use xlink:href="#Lato-Regular-65" transform="translate(1876.400238 0)"/>
+      <use xlink:href="#Lato-Regular-64" transform="translate(1929.200241 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(1985.200241 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(2010.800247 0)"/>
+      <use xlink:href="#Lato-Regular-70" transform="translate(2060.500259 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(2116.550262 0)"/>
+      <use xlink:href="#Lato-Regular-72" transform="translate(2166.250275 0)"/>
+      <use xlink:href="#Lato-Regular-74" transform="translate(2202.650284 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2238.50029 0)"/>
+      <use xlink:href="#Lato-Regular-66" transform="translate(2264.100296 0)"/>
+      <use xlink:href="#Lato-Regular-72" transform="translate(2299.150299 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(2335.550308 0)"/>
+      <use xlink:href="#Lato-Regular-6d" transform="translate(2392.25032 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2474.500336 0)"/>
+      <use xlink:href="#Lato-Regular-69" transform="translate(2500.100342 0)"/>
+      <use xlink:href="#Lato-Regular-74" transform="translate(2524.100342 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2559.950348 0)"/>
+      <use xlink:href="#Lato-Regular-28" transform="translate(2585.550354 0)"/>
+      <use xlink:href="#Lato-Regular-23" transform="translate(2612.250351 0)"/>
+      <use xlink:href="#Lato-Regular-33" transform="translate(2670.250351 0)"/>
+      <use xlink:href="#Lato-Regular-30" transform="translate(2728.250351 0)"/>
+      <use xlink:href="#Lato-Regular-29" transform="translate(2786.250351 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2812.950348 0)"/>
+      <use xlink:href="#Lato-Regular-b7" transform="translate(2838.550354 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2864.550354 0)"/>
+      <use xlink:href="#Lato-Regular-32" transform="translate(2890.15036 0)"/>
+      <use xlink:href="#Lato-Regular-37" transform="translate(2948.15036 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(3006.15036 0)"/>
+      <use xlink:href="#Lato-Regular-70" transform="translate(3031.750366 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(3087.800369 0)"/>
+      <use xlink:href="#Lato-Regular-69" transform="translate(3137.500381 0)"/>
+      <use xlink:href="#Lato-Regular-72" transform="translate(3161.500381 0)"/>
+      <use xlink:href="#Lato-Regular-73" transform="translate(3197.900391 0)"/>
      </g>
     </g>
     <g id="line2d_34">
      <g>
-      <use xlink:href="#m3d034d113e" x="432.743203" y="312.658042" style="fill: #ffffff; stroke: #1d1d1f; stroke-width: 1.4; stroke-linejoin: miter"/>
+      <use xlink:href="#m3d034d113e" x="459.134297" y="312.658042" style="fill: #ffffff; stroke: #1d1d1f; stroke-width: 1.4; stroke-linejoin: miter"/>
      </g>
     </g>
     <g id="text_16">
-     <!-- Training (8M): two models of one run (#30) · 4 pairs -->
-     <g transform="translate(446.393203 316.333042) scale(0.105 -0.105)">
-      <use xlink:href="#Lato-Regular-54"/>
-      <use xlink:href="#Lato-Regular-72" transform="translate(59.050003 0)"/>
-      <use xlink:href="#Lato-Regular-61" transform="translate(95.450012 0)"/>
-      <use xlink:href="#Lato-Regular-69" transform="translate(145.150024 0)"/>
-      <use xlink:href="#Lato-Regular-6e" transform="translate(169.150024 0)"/>
-      <use xlink:href="#Lato-Regular-69" transform="translate(224.950027 0)"/>
-      <use xlink:href="#Lato-Regular-6e" transform="translate(248.950027 0)"/>
-      <use xlink:href="#Lato-Regular-67" transform="translate(304.750031 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(356.750031 0)"/>
-      <use xlink:href="#Lato-Regular-28" transform="translate(382.350037 0)"/>
-      <use xlink:href="#Lato-Regular-38" transform="translate(409.050034 0)"/>
-      <use xlink:href="#Lato-Regular-4d" transform="translate(467.050034 0)"/>
-      <use xlink:href="#Lato-Regular-29" transform="translate(559.900055 0)"/>
-      <use xlink:href="#Lato-Regular-3a" transform="translate(586.600052 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(611.600052 0)"/>
-      <use xlink:href="#Lato-Regular-74" transform="translate(637.200058 0)"/>
-      <use xlink:href="#Lato-Regular-77" transform="translate(673.050064 0)"/>
-      <use xlink:href="#Lato-Regular-6f" transform="translate(751.600082 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(808.300095 0)"/>
-      <use xlink:href="#Lato-Regular-6d" transform="translate(833.900101 0)"/>
-      <use xlink:href="#Lato-Regular-6f" transform="translate(916.150116 0)"/>
-      <use xlink:href="#Lato-Regular-64" transform="translate(972.850128 0)"/>
-      <use xlink:href="#Lato-Regular-65" transform="translate(1028.850128 0)"/>
-      <use xlink:href="#Lato-Regular-6c" transform="translate(1081.650131 0)"/>
-      <use xlink:href="#Lato-Regular-73" transform="translate(1105.250137 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(1148.55014 0)"/>
-      <use xlink:href="#Lato-Regular-6f" transform="translate(1174.150146 0)"/>
-      <use xlink:href="#Lato-Regular-66" transform="translate(1230.850159 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(1265.900162 0)"/>
-      <use xlink:href="#Lato-Regular-6f" transform="translate(1291.500168 0)"/>
-      <use xlink:href="#Lato-Regular-6e" transform="translate(1348.20018 0)"/>
-      <use xlink:href="#Lato-Regular-65" transform="translate(1404.000183 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(1456.800186 0)"/>
-      <use xlink:href="#Lato-Regular-72" transform="translate(1482.400192 0)"/>
-      <use xlink:href="#Lato-Regular-75" transform="translate(1518.800201 0)"/>
-      <use xlink:href="#Lato-Regular-6e" transform="translate(1574.550201 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(1630.350204 0)"/>
-      <use xlink:href="#Lato-Regular-28" transform="translate(1655.950211 0)"/>
-      <use xlink:href="#Lato-Regular-23" transform="translate(1682.650208 0)"/>
-      <use xlink:href="#Lato-Regular-33" transform="translate(1740.650208 0)"/>
-      <use xlink:href="#Lato-Regular-30" transform="translate(1798.650208 0)"/>
-      <use xlink:href="#Lato-Regular-29" transform="translate(1856.650208 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(1883.350204 0)"/>
-      <use xlink:href="#Lato-Regular-b7" transform="translate(1908.950211 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(1934.950211 0)"/>
-      <use xlink:href="#Lato-Regular-34" transform="translate(1960.550217 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2018.550217 0)"/>
-      <use xlink:href="#Lato-Regular-70" transform="translate(2044.150223 0)"/>
-      <use xlink:href="#Lato-Regular-61" transform="translate(2100.200226 0)"/>
-      <use xlink:href="#Lato-Regular-69" transform="translate(2149.900238 0)"/>
-      <use xlink:href="#Lato-Regular-72" transform="translate(2173.900238 0)"/>
-      <use xlink:href="#Lato-Regular-73" transform="translate(2210.300247 0)"/>
-     </g>
-    </g>
-    <g id="line2d_35">
-     <g>
-      <use xlink:href="#mab86b78d56" x="432.743203" y="327.966714" style="fill: #2a7d64"/>
-     </g>
-    </g>
-    <g id="text_17">
-     <!-- Training (8M): two separately trained standard ParT (#28, #30) · 19 pairs -->
-     <g transform="translate(446.393203 331.641714) scale(0.105 -0.105)">
+     <!-- Training (8M): two checkpoints of one model, or two models of one PBT population (#30) · 4 pairs -->
+     <g transform="translate(472.784297 316.333042) scale(0.105 -0.105)">
       <defs>
-       <path id="Lato-Regular-79" d="M 3248 3242 
-L 1440 -957 
-Q 1411 -1021 1368 -1059 
-Q 1325 -1098 1235 -1098 
-L 813 -1098 
-L 1405 189 
-L 67 3242 
-L 560 3242 
-Q 634 3242 677 3205 
-Q 720 3168 736 3123 
-L 1603 1082 
-Q 1654 947 1690 800 
-Q 1734 950 1786 1085 
-L 2627 3123 
-Q 2646 3174 2692 3208 
-Q 2739 3242 2797 3242 
-L 3248 3242 
-z
-" transform="scale(0.015625)"/>
        <path id="Lato-Regular-2c" d="M 416 -774 
 Q 390 -752 380 -733 
 Q 371 -714 371 -685 
@@ -3022,6 +2926,28 @@ Q 656 -746 512 -867
 L 416 -774 
 z
 " transform="scale(0.015625)"/>
+       <path id="Lato-Regular-75" d="M 3117 3242 
+L 3117 0 
+L 2778 0 
+Q 2656 0 2624 118 
+L 2579 467 
+Q 2368 234 2105 91 
+Q 1843 -51 1504 -51 
+Q 1238 -51 1035 37 
+Q 832 125 694 285 
+Q 557 445 488 672 
+Q 419 899 419 1174 
+L 419 3242 
+L 989 3242 
+L 989 1174 
+Q 989 806 1157 604 
+Q 1325 403 1670 403 
+Q 1923 403 2142 523 
+Q 2362 643 2547 854 
+L 2547 3242 
+L 3117 3242 
+z
+" transform="scale(0.015625)"/>
       </defs>
       <use xlink:href="#Lato-Regular-54"/>
       <use xlink:href="#Lato-Regular-72" transform="translate(59.050003 0)"/>
@@ -3042,60 +2968,197 @@ z
       <use xlink:href="#Lato-Regular-77" transform="translate(673.050064 0)"/>
       <use xlink:href="#Lato-Regular-6f" transform="translate(751.600082 0)"/>
       <use xlink:href="#Lato-Regular-20" transform="translate(808.300095 0)"/>
-      <use xlink:href="#Lato-Regular-73" transform="translate(833.900101 0)"/>
-      <use xlink:href="#Lato-Regular-65" transform="translate(877.200104 0)"/>
-      <use xlink:href="#Lato-Regular-70" transform="translate(930.000107 0)"/>
-      <use xlink:href="#Lato-Regular-61" transform="translate(986.05011 0)"/>
-      <use xlink:href="#Lato-Regular-72" transform="translate(1035.750122 0)"/>
-      <use xlink:href="#Lato-Regular-61" transform="translate(1072.150131 0)"/>
-      <use xlink:href="#Lato-Regular-74" transform="translate(1121.850143 0)"/>
-      <use xlink:href="#Lato-Regular-65" transform="translate(1157.70015 0)"/>
-      <use xlink:href="#Lato-Regular-6c" transform="translate(1210.500153 0)"/>
-      <use xlink:href="#Lato-Regular-79" transform="translate(1234.100159 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(1285.650162 0)"/>
-      <use xlink:href="#Lato-Regular-74" transform="translate(1311.250168 0)"/>
-      <use xlink:href="#Lato-Regular-72" transform="translate(1347.100174 0)"/>
-      <use xlink:href="#Lato-Regular-61" transform="translate(1383.500183 0)"/>
-      <use xlink:href="#Lato-Regular-69" transform="translate(1433.200195 0)"/>
-      <use xlink:href="#Lato-Regular-6e" transform="translate(1457.200195 0)"/>
-      <use xlink:href="#Lato-Regular-65" transform="translate(1513.000198 0)"/>
-      <use xlink:href="#Lato-Regular-64" transform="translate(1565.800201 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(1621.800201 0)"/>
-      <use xlink:href="#Lato-Regular-73" transform="translate(1647.400208 0)"/>
-      <use xlink:href="#Lato-Regular-74" transform="translate(1690.700211 0)"/>
-      <use xlink:href="#Lato-Regular-61" transform="translate(1726.550217 0)"/>
-      <use xlink:href="#Lato-Regular-6e" transform="translate(1776.250229 0)"/>
-      <use xlink:href="#Lato-Regular-64" transform="translate(1832.050232 0)"/>
-      <use xlink:href="#Lato-Regular-61" transform="translate(1888.050232 0)"/>
-      <use xlink:href="#Lato-Regular-72" transform="translate(1937.750244 0)"/>
-      <use xlink:href="#Lato-Regular-64" transform="translate(1974.150253 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2030.150253 0)"/>
-      <use xlink:href="#Lato-Regular-50" transform="translate(2055.750259 0)"/>
-      <use xlink:href="#Lato-Regular-61" transform="translate(2115.800262 0)"/>
-      <use xlink:href="#Lato-Regular-72" transform="translate(2165.500275 0)"/>
-      <use xlink:href="#Lato-Regular-54" transform="translate(2201.900284 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2260.950287 0)"/>
-      <use xlink:href="#Lato-Regular-28" transform="translate(2286.550293 0)"/>
-      <use xlink:href="#Lato-Regular-23" transform="translate(2313.25029 0)"/>
-      <use xlink:href="#Lato-Regular-32" transform="translate(2371.25029 0)"/>
-      <use xlink:href="#Lato-Regular-38" transform="translate(2429.25029 0)"/>
-      <use xlink:href="#Lato-Regular-2c" transform="translate(2487.25029 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2509.950287 0)"/>
-      <use xlink:href="#Lato-Regular-23" transform="translate(2535.550293 0)"/>
-      <use xlink:href="#Lato-Regular-33" transform="translate(2593.550293 0)"/>
-      <use xlink:href="#Lato-Regular-30" transform="translate(2651.550293 0)"/>
-      <use xlink:href="#Lato-Regular-29" transform="translate(2709.550293 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2736.25029 0)"/>
-      <use xlink:href="#Lato-Regular-b7" transform="translate(2761.850296 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2787.850296 0)"/>
-      <use xlink:href="#Lato-Regular-31" transform="translate(2813.450302 0)"/>
-      <use xlink:href="#Lato-Regular-39" transform="translate(2871.450302 0)"/>
-      <use xlink:href="#Lato-Regular-20" transform="translate(2929.450302 0)"/>
-      <use xlink:href="#Lato-Regular-70" transform="translate(2955.050308 0)"/>
-      <use xlink:href="#Lato-Regular-61" transform="translate(3011.100311 0)"/>
-      <use xlink:href="#Lato-Regular-69" transform="translate(3060.800323 0)"/>
-      <use xlink:href="#Lato-Regular-72" transform="translate(3084.800323 0)"/>
-      <use xlink:href="#Lato-Regular-73" transform="translate(3121.200333 0)"/>
+      <use xlink:href="#Lato-Regular-63" transform="translate(833.900101 0)"/>
+      <use xlink:href="#Lato-Regular-68" transform="translate(881.650101 0)"/>
+      <use xlink:href="#Lato-Regular-65" transform="translate(937.450104 0)"/>
+      <use xlink:href="#Lato-Regular-63" transform="translate(990.250107 0)"/>
+      <use xlink:href="#Lato-Regular-6b" transform="translate(1038.000107 0)"/>
+      <use xlink:href="#Lato-Regular-70" transform="translate(1088.80011 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(1144.850113 0)"/>
+      <use xlink:href="#Lato-Regular-69" transform="translate(1201.550125 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(1225.550125 0)"/>
+      <use xlink:href="#Lato-Regular-74" transform="translate(1281.350128 0)"/>
+      <use xlink:href="#Lato-Regular-73" transform="translate(1317.200134 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(1360.500137 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(1386.100143 0)"/>
+      <use xlink:href="#Lato-Regular-66" transform="translate(1442.800156 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(1477.850159 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(1503.450165 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(1560.150177 0)"/>
+      <use xlink:href="#Lato-Regular-65" transform="translate(1615.95018 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(1668.750183 0)"/>
+      <use xlink:href="#Lato-Regular-6d" transform="translate(1694.350189 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(1776.600204 0)"/>
+      <use xlink:href="#Lato-Regular-64" transform="translate(1833.300217 0)"/>
+      <use xlink:href="#Lato-Regular-65" transform="translate(1889.300217 0)"/>
+      <use xlink:href="#Lato-Regular-6c" transform="translate(1942.10022 0)"/>
+      <use xlink:href="#Lato-Regular-2c" transform="translate(1965.700226 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(1988.400223 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(2014.000229 0)"/>
+      <use xlink:href="#Lato-Regular-72" transform="translate(2070.700241 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2107.10025 0)"/>
+      <use xlink:href="#Lato-Regular-74" transform="translate(2132.700256 0)"/>
+      <use xlink:href="#Lato-Regular-77" transform="translate(2168.550262 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(2247.100281 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2303.800293 0)"/>
+      <use xlink:href="#Lato-Regular-6d" transform="translate(2329.400299 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(2411.650314 0)"/>
+      <use xlink:href="#Lato-Regular-64" transform="translate(2468.350327 0)"/>
+      <use xlink:href="#Lato-Regular-65" transform="translate(2524.350327 0)"/>
+      <use xlink:href="#Lato-Regular-6c" transform="translate(2577.15033 0)"/>
+      <use xlink:href="#Lato-Regular-73" transform="translate(2600.750336 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2644.050339 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(2669.650345 0)"/>
+      <use xlink:href="#Lato-Regular-66" transform="translate(2726.350357 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2761.40036 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(2787.000366 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(2843.700378 0)"/>
+      <use xlink:href="#Lato-Regular-65" transform="translate(2899.500381 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2952.300385 0)"/>
+      <use xlink:href="#Lato-Regular-50" transform="translate(2977.900391 0)"/>
+      <use xlink:href="#Lato-Regular-42" transform="translate(3037.950394 0)"/>
+      <use xlink:href="#Lato-Regular-54" transform="translate(3102.600403 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(3161.650406 0)"/>
+      <use xlink:href="#Lato-Regular-70" transform="translate(3187.250412 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(3243.300415 0)"/>
+      <use xlink:href="#Lato-Regular-70" transform="translate(3300.000427 0)"/>
+      <use xlink:href="#Lato-Regular-75" transform="translate(3356.05043 0)"/>
+      <use xlink:href="#Lato-Regular-6c" transform="translate(3411.80043 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(3435.400436 0)"/>
+      <use xlink:href="#Lato-Regular-74" transform="translate(3485.100449 0)"/>
+      <use xlink:href="#Lato-Regular-69" transform="translate(3520.950455 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(3544.950455 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(3601.650467 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(3657.45047 0)"/>
+      <use xlink:href="#Lato-Regular-28" transform="translate(3683.050476 0)"/>
+      <use xlink:href="#Lato-Regular-23" transform="translate(3709.750473 0)"/>
+      <use xlink:href="#Lato-Regular-33" transform="translate(3767.750473 0)"/>
+      <use xlink:href="#Lato-Regular-30" transform="translate(3825.750473 0)"/>
+      <use xlink:href="#Lato-Regular-29" transform="translate(3883.750473 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(3910.45047 0)"/>
+      <use xlink:href="#Lato-Regular-b7" transform="translate(3936.050476 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(3962.050476 0)"/>
+      <use xlink:href="#Lato-Regular-34" transform="translate(3987.650482 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(4045.650482 0)"/>
+      <use xlink:href="#Lato-Regular-70" transform="translate(4071.250488 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(4127.300491 0)"/>
+      <use xlink:href="#Lato-Regular-69" transform="translate(4177.000504 0)"/>
+      <use xlink:href="#Lato-Regular-72" transform="translate(4201.000504 0)"/>
+      <use xlink:href="#Lato-Regular-73" transform="translate(4237.400513 0)"/>
+     </g>
+    </g>
+    <g id="line2d_35">
+     <g>
+      <use xlink:href="#mab86b78d56" x="459.134297" y="327.966714" style="fill: #2a7d64"/>
+     </g>
+    </g>
+    <g id="text_17">
+     <!-- Training (8M): two independently trained standard ParT models (#28, #30) · 19 pairs -->
+     <g transform="translate(472.784297 331.641714) scale(0.105 -0.105)">
+      <defs>
+       <path id="Lato-Regular-79" d="M 3248 3242 
+L 1440 -957 
+Q 1411 -1021 1368 -1059 
+Q 1325 -1098 1235 -1098 
+L 813 -1098 
+L 1405 189 
+L 67 3242 
+L 560 3242 
+Q 634 3242 677 3205 
+Q 720 3168 736 3123 
+L 1603 1082 
+Q 1654 947 1690 800 
+Q 1734 950 1786 1085 
+L 2627 3123 
+Q 2646 3174 2692 3208 
+Q 2739 3242 2797 3242 
+L 3248 3242 
+z
+" transform="scale(0.015625)"/>
+      </defs>
+      <use xlink:href="#Lato-Regular-54"/>
+      <use xlink:href="#Lato-Regular-72" transform="translate(59.050003 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(95.450012 0)"/>
+      <use xlink:href="#Lato-Regular-69" transform="translate(145.150024 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(169.150024 0)"/>
+      <use xlink:href="#Lato-Regular-69" transform="translate(224.950027 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(248.950027 0)"/>
+      <use xlink:href="#Lato-Regular-67" transform="translate(304.750031 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(356.750031 0)"/>
+      <use xlink:href="#Lato-Regular-28" transform="translate(382.350037 0)"/>
+      <use xlink:href="#Lato-Regular-38" transform="translate(409.050034 0)"/>
+      <use xlink:href="#Lato-Regular-4d" transform="translate(467.050034 0)"/>
+      <use xlink:href="#Lato-Regular-29" transform="translate(559.900055 0)"/>
+      <use xlink:href="#Lato-Regular-3a" transform="translate(586.600052 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(611.600052 0)"/>
+      <use xlink:href="#Lato-Regular-74" transform="translate(637.200058 0)"/>
+      <use xlink:href="#Lato-Regular-77" transform="translate(673.050064 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(751.600082 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(808.300095 0)"/>
+      <use xlink:href="#Lato-Regular-69" transform="translate(833.900101 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(857.900101 0)"/>
+      <use xlink:href="#Lato-Regular-64" transform="translate(913.700104 0)"/>
+      <use xlink:href="#Lato-Regular-65" transform="translate(969.700104 0)"/>
+      <use xlink:href="#Lato-Regular-70" transform="translate(1022.500107 0)"/>
+      <use xlink:href="#Lato-Regular-65" transform="translate(1078.55011 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(1131.350113 0)"/>
+      <use xlink:href="#Lato-Regular-64" transform="translate(1187.150116 0)"/>
+      <use xlink:href="#Lato-Regular-65" transform="translate(1243.150116 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(1295.950119 0)"/>
+      <use xlink:href="#Lato-Regular-74" transform="translate(1351.750122 0)"/>
+      <use xlink:href="#Lato-Regular-6c" transform="translate(1387.600128 0)"/>
+      <use xlink:href="#Lato-Regular-79" transform="translate(1411.200134 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(1462.750137 0)"/>
+      <use xlink:href="#Lato-Regular-74" transform="translate(1488.350143 0)"/>
+      <use xlink:href="#Lato-Regular-72" transform="translate(1524.20015 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(1560.600159 0)"/>
+      <use xlink:href="#Lato-Regular-69" transform="translate(1610.300171 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(1634.300171 0)"/>
+      <use xlink:href="#Lato-Regular-65" transform="translate(1690.100174 0)"/>
+      <use xlink:href="#Lato-Regular-64" transform="translate(1742.900177 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(1798.900177 0)"/>
+      <use xlink:href="#Lato-Regular-73" transform="translate(1824.500183 0)"/>
+      <use xlink:href="#Lato-Regular-74" transform="translate(1867.800186 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(1903.650192 0)"/>
+      <use xlink:href="#Lato-Regular-6e" transform="translate(1953.350204 0)"/>
+      <use xlink:href="#Lato-Regular-64" transform="translate(2009.150208 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(2065.150208 0)"/>
+      <use xlink:href="#Lato-Regular-72" transform="translate(2114.85022 0)"/>
+      <use xlink:href="#Lato-Regular-64" transform="translate(2151.250229 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2207.250229 0)"/>
+      <use xlink:href="#Lato-Regular-50" transform="translate(2232.850235 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(2292.900238 0)"/>
+      <use xlink:href="#Lato-Regular-72" transform="translate(2342.60025 0)"/>
+      <use xlink:href="#Lato-Regular-54" transform="translate(2379.000259 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2438.050262 0)"/>
+      <use xlink:href="#Lato-Regular-6d" transform="translate(2463.650269 0)"/>
+      <use xlink:href="#Lato-Regular-6f" transform="translate(2545.900284 0)"/>
+      <use xlink:href="#Lato-Regular-64" transform="translate(2602.600296 0)"/>
+      <use xlink:href="#Lato-Regular-65" transform="translate(2658.600296 0)"/>
+      <use xlink:href="#Lato-Regular-6c" transform="translate(2711.400299 0)"/>
+      <use xlink:href="#Lato-Regular-73" transform="translate(2735.000305 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(2778.300308 0)"/>
+      <use xlink:href="#Lato-Regular-28" transform="translate(2803.900314 0)"/>
+      <use xlink:href="#Lato-Regular-23" transform="translate(2830.600311 0)"/>
+      <use xlink:href="#Lato-Regular-32" transform="translate(2888.600311 0)"/>
+      <use xlink:href="#Lato-Regular-38" transform="translate(2946.600311 0)"/>
+      <use xlink:href="#Lato-Regular-2c" transform="translate(3004.600311 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(3027.300308 0)"/>
+      <use xlink:href="#Lato-Regular-23" transform="translate(3052.900314 0)"/>
+      <use xlink:href="#Lato-Regular-33" transform="translate(3110.900314 0)"/>
+      <use xlink:href="#Lato-Regular-30" transform="translate(3168.900314 0)"/>
+      <use xlink:href="#Lato-Regular-29" transform="translate(3226.900314 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(3253.600311 0)"/>
+      <use xlink:href="#Lato-Regular-b7" transform="translate(3279.200317 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(3305.200317 0)"/>
+      <use xlink:href="#Lato-Regular-31" transform="translate(3330.800323 0)"/>
+      <use xlink:href="#Lato-Regular-39" transform="translate(3388.800323 0)"/>
+      <use xlink:href="#Lato-Regular-20" transform="translate(3446.800323 0)"/>
+      <use xlink:href="#Lato-Regular-70" transform="translate(3472.40033 0)"/>
+      <use xlink:href="#Lato-Regular-61" transform="translate(3528.450333 0)"/>
+      <use xlink:href="#Lato-Regular-69" transform="translate(3578.150345 0)"/>
+      <use xlink:href="#Lato-Regular-72" transform="translate(3602.150345 0)"/>
+      <use xlink:href="#Lato-Regular-73" transform="translate(3638.550354 0)"/>
      </g>
     </g>
    </g>

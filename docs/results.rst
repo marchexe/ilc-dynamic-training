@@ -346,7 +346,7 @@ gain comes from training the models separately, and a different learning rate ad
 point. Across all 51 scored pairs of 8M models, disagreement alone does not predict the gain:
 every pair that gains more than 1% has two models of similar quality (the weaker at most 6% worse),
 and no pair whose weaker model is more than 9% worse gains more than 1%, with or without a PBT
-model (exploratory, scored after the fact; Figure 4 of the
+model (exploratory, scored after the fact; model-pair figure of the
 `research report <overview.html#fig-4>`_).
 
 .. _distillation:

@@ -15,7 +15,7 @@ from pathlib import Path
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.ticker import AutoMinorLocator, FixedLocator  # noqa: E402
+from matplotlib.ticker import AutoMinorLocator  # noqa: E402
 from matplotlib import font_manager  # noqa: E402
 
 for _f in Path('/usr/share/fonts/truetype/lato').glob('Lato-*.ttf'):  # system Lato; DejaVu Sans is the fallback
@@ -50,29 +50,6 @@ def save(fig, name):
 def grid(ax, axis='x'):
     ax.grid(axis=axis, color=GRID, lw=0.8)
     ax.set_axisbelow(True)
-
-
-def rows_panel(ax, rows, xlim, ticks, title):
-    """rows: (label, values per seed, colour, marker, filled, note). One row per method, one point per seed."""
-    n = len(rows)
-    for i, (label, vals, c, m, filled, note) in enumerate(rows):
-        y = n - 1 - i
-        ax.plot(vals, [y] * len(vals), m, ms=8, mew=1.6, color=c, mfc=c if filled else 'white', ls='none', zorder=3)
-        if len(vals) > 1:
-            mean = sum(vals) / len(vals)
-            ax.plot([mean, mean], [y - 0.28, y + 0.28], color=c, lw=2, zorder=2)
-        ax.text(xlim[0], y + 0.36, label, ha='left', va='bottom', fontsize=11, color=INK, fontweight='bold')
-        if note:
-            ax.text(max(vals) + (xlim[1] - xlim[0]) * 0.025, y, note, va='center', fontsize=10.5, color=c)
-    ax.set_ylim(-0.6, n - 0.1)
-    ax.set_yticks([])
-    ax.spines['left'].set_visible(False)
-    ax.set_xlim(*xlim)
-    ax.xaxis.set_major_locator(FixedLocator(ticks))
-    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-    ax.set_xlabel('mistag on Test (%)  —  lower is better')
-    ax.set_title(title, loc='left', fontweight='bold', pad=14)
-    grid(ax)
 
 
 def trajectory(run, members=None):
@@ -115,37 +92,6 @@ def fig_regimes():
     tx[0].set_y(tx[0].get_position()[1] - 0.0018)
     tx[1].set_y(tx[1].get_position()[1] + 0.0018)
     save(fig, 'fig4_regimes.svg')
-
-
-def fig_mechanism():
-    """8M, seed 12345: LR schedule and best Validation mistag so far, standard ParT against PBT."""
-    t = data()['trajectories_8m_seed12345']
-    std, pbt, fix = t['standard_part_3e-3 (#24)'], t['pbt (#23)'], t['pbt_probe_decay (#26)']
-    fig, (a, b) = plt.subplots(1, 2, figsize=(10.4, 3.9), gridspec_kw=dict(wspace=0.25))
-    for ax in (a, b):
-        ax.axvspan(36, 50, color='#f4f4f6', zorder=0)
-        ax.set_xlim(1, 50)
-        ax.set_xlabel('epoch')
-    a.plot([p[0] for p in std], [p[1] for p in std], color=STD, lw=2)
-    a.fill_between([p[0] for p in pbt], [p[1] for p in pbt], [p[2] for p in pbt], color=PBT, alpha=0.28, lw=0)
-    a.text(3, 3.9e-3, 'standard ParT #24', color=STD, fontsize=10.5)
-    a.text(12, 1.6e-4 * 0.5, 'PBT #23: range\nof its five models', color=PBT, fontsize=10.5, va='top')
-    a.text(37, 4.5e-3, 'final decay', color=MUTED, fontsize=10)
-    a.set_yscale('log')
-    a.set_ylim(5e-6, 8e-3)
-    a.set_ylabel('learning rate')
-    a.set_title('Learning rate', loc='left', fontweight='bold')
-    b.plot([p[0] for p in std], [p[3] for p in std], color=STD, lw=2)
-    b.plot([p[0] for p in pbt], [p[3] for p in pbt], color=PBT, lw=2)
-    b.plot([p[0] for p in fix], [p[3] for p in fix], color=PBT, lw=1.5, ls='--')
-    b.text(50.8, std[-1][3], 'standard ParT #24', va='center', color=STD, fontsize=10.5)
-    b.text(50.8, pbt[-1][3], 'PBT #23', va='center', color=PBT, fontsize=10.5)
-    b.text(50.8, fix[-1][3] + 0.0016, 'PBT #26: probes,\nfinal decay,\nhigher LRs', va='bottom', color=PBT, fontsize=10)
-    b.set_ylim(0.155, 0.225)
-    b.set_ylabel('best Validation (1M) mistag so far (%)')
-    b.set_title('Validation mistag', loc='left', fontweight='bold')
-    grid(b, 'y')
-    save(fig, 'fig5_mechanism.svg')
 
 
 def extract_pairs():
@@ -240,6 +186,8 @@ def extract_overview():
                      const_8m=sealed['fixed_lr__selected_best'], pbt_8m=sealed['windowed_pbt_v2__selected_best'],
                      grid=[3e-6, 1.4e-5], const_lr=_selected_lr('foundation_fixed_lr_50epochs_20260916'),
                      pbt_lr_800k=_selected_lr('windowed_pbt_v2'), pbt_lr_8m=_selected_lr('stage3_train8m_windowed_pbt_v2_v1')),
+        grid_test={'1': hi['fixed50_s12345'], '12': hi['fixed_high50_s12345'], '13': ce['fixed_ceiling50_s12345'],
+                   '14': fa['fixed_top50_s12345']},
         scan={'1': _scan('foundation_fixed_lr_50epochs_20260916'), '12': _scan('fixed_lr_high_grid_50epochs'),
               '13': _scan('fixed_lr_ceiling_grid_50epochs'), '14': _scan('fixed_lr_top_grid_50epochs'),
               '16': _scan('fixed_lr_best_grid_50epochs_seed22345')},
@@ -301,6 +249,9 @@ def extract():
             'standard_part_3e-3 (#24)': trajectory('sel1m_train8m_standard_part_3e-3'),
             'pbt (#23)': trajectory('sel1m_train8m_fast_pbt'),
             'pbt_probe_decay (#26)': trajectory('sel1m_train8m_fast_pbt_probe_decay')},
+        trajectories_800k_seed12345={
+            'standard_part_1e-4 (#18)': trajectory('sel1m_standard_part', ['flat_decay_100e-6']),
+            'pbt (#18)': trajectory('sel1m_fast_pbt')},
         ensemble_pairs=[dict(label=lab, disagreement_percent=dis, improvement_percent=imp, gain=gain)
                         for lab, (dis, imp), gain in extract_pairs()],
         overview=extract_overview(),
@@ -326,11 +277,11 @@ def fig_ensemble():
     groups = [  # (group, label, style); drawn in this order
         ('800k', 'Training (800k): two of the 15 models of #18 (#29)',
          dict(marker='o', ms=4.5, color='#b9b9bf', mfc='#b9b9bf', mew=0)),
-        ('with_pbt', 'Training (8M): a PBT model + a model of another run (#30)',
+        ('with_pbt', 'Training (8M): a PBT model + a model trained apart from it (#30)',
          dict(marker='s', ms=6.5, color=PBT, mfc='white', mew=1.4)),
-        ('one_run', 'Training (8M): two models of one run (#30)',
+        ('one_run', 'Training (8M): two checkpoints of one model, or two models of one PBT population (#30)',
          dict(marker='^', ms=7.5, color=INK, mfc='white', mew=1.4)),
-        ('separate_standard', 'Training (8M): two separately trained standard ParT (#28, #30)',
+        ('separate_standard', 'Training (8M): two independently trained standard ParT models (#28, #30)',
          dict(marker='o', ms=7, color=ENS, mfc=ENS, mew=0)),
     ]
     chosen = [{'s1_3e-3', 's1_1e-3'}, {'s2_3e-3', 's2_1e-3'}, {'s3_3e-3', 's3_1e-3'}]  # the #27/#28 ensembles
@@ -370,333 +321,258 @@ def fig_ensemble():
 
 
 # ---------------------------------------------------------------------------------------------------------------
-# Figure 1: the research trajectory. One band per stage, top to bottom in time. Within a band the left axes hold
-# absolute Test mistag values and the right axes relative changes (in A and B: learning rates). No line connects
-# values of different bands, because their training samples, Test samples, seeds and comparators differ.
+# Main-text figures: one idea each, drawn at a larger type size for the 780 px figure column of the report.
+# Encoding (MARK): standard ParT blue filled circle, constant LR grey open circle, PBT orange square, ensemble green
+# diamond. Values of different seeds, samples or comparators are never joined by a line.
 # ---------------------------------------------------------------------------------------------------------------
-from matplotlib.patches import Ellipse  # noqa: E402
+from functools import wraps  # noqa: E402
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch  # noqa: E402
 
-MARK = dict(std=dict(marker='o', color=STD, mfc=STD), std2=dict(marker='o', color=STD, mfc='white'),
-            const=dict(marker='o', color=CONST, mfc='white'), pbt=dict(marker='s', color=PBT, mfc=PBT),
-            ens=dict(marker='D', color=ENS, mfc=ENS))  # one encoding for every figure of the report
-
-
-def _mk(ax, x, y, kind, size=9, zorder=3):
-    ax.plot([x], [y], ls='none', ms=size - (1 if kind == 'ens' else 0), mew=1.7, zorder=zorder, **MARK[kind])
+MARK = dict(std=dict(marker='o', color=STD, mfc=STD), const=dict(marker='o', color=CONST, mfc='white'),
+            pbt=dict(marker='s', color=PBT, mfc=PBT), ens=dict(marker='D', color=ENS, mfc=ENS))
+LARGE = {'font.size': 13, 'axes.labelsize': 13, 'xtick.labelsize': 12.5, 'ytick.labelsize': 12.5,
+         'axes.titlesize': 13.5}
 
 
-def _legend(ax, items, **kw):
-    for kind, lab in items:
-        ax.plot([], [], ls='none', ms=8, mew=1.7, label=lab, **MARK[kind])
-    ax.legend(loc='lower left', bbox_to_anchor=(-0.01, 1.0), ncol=len(items), fontsize=10, handletextpad=0.35,
-              columnspacing=1.2, borderaxespad=0.25, **kw)
-
-
-def _row_labels(ax, rows, x=-0.025, size=10.5, sub_size=9.5):
-    """Labels left of the axes: (y, bold label, muted detail)."""
-    for y, lab, sub in rows:
-        ax.text(x, y + (0.15 if sub else 0), lab, transform=ax.get_yaxis_transform(), ha='right', va='center',
-                fontsize=size, color=INK, fontweight='bold' if sub else 'normal')
-        if sub:
-            ax.text(x, y - 0.2, sub, transform=ax.get_yaxis_transform(), ha='right', va='center', fontsize=sub_size,
-                    color=MUTED)
-
-
-def _rows_axes(ax, n):
-    ax.set_ylim(-0.6, n - 0.4)
-    ax.set_yticks([])
-    ax.spines['left'].set_visible(False)
-    grid(ax)
-
-
-def _rel_axis(ax, lo, hi, step, label):
-    """x axis of relative mistag changes, read as 'better' left of 0 and 'worse' right of 0."""
-    ticks = [round(t * step, 6) for t in range(int(-(-lo // step)), int(hi // step) + 1)]
-    ax.set_xlim(lo, hi)
-    ax.set_xticks(ticks, [f'{abs(t):g}%' if t else '0' for t in ticks])
-    ax.axvline(0, color=INK, lw=0.9, zorder=1)
-    ax.set_xlabel(label)
-    tr, d = ax.get_xaxis_transform(), (hi - lo) * 0.015
-    if lo < 0:
-        ax.text(-d, 1.0, '← better', transform=tr, ha='right', va='bottom', fontsize=10, color=MUTED)
-    if hi > 0:
-        ax.text(d, 1.0, 'worse →', transform=tr, ha='left', va='bottom', fontsize=10, color=MUTED)
+def large(f):
+    @wraps(f)
+    def run(*a, **k):
+        with plt.rc_context(LARGE):
+            return f(*a, **k)
+    return run
 
 
 def _word(c, digits=1):
     return f'{abs(c):.{digits}f}% {"better" if c < 0 else "worse"}'
 
 
-def _intervals(ax, rows, value_x):
-    """rows: (y, label, change %, (lo, hi) or None, colour, kind, emphasised). Value text in a column at value_x."""
-    for y, lab, c, iv, col, kind, strong in rows:
-        if iv:
-            ax.plot(iv, [y, y], color=col, lw=2 if strong else 1.5, alpha=1 if strong else 0.55, zorder=2)
-        ax.plot(c, y, ls='none', ms=9 if strong else 7, mew=1.6, zorder=3, **dict(MARK[kind], color=col))
-        ax.text(value_x, y, _word(c, 2), transform=ax.get_yaxis_transform(), va='center', fontsize=10.5,
-                color=INK, fontweight='bold' if strong else 'normal')
-        ax.text(-0.025, y, lab, transform=ax.get_yaxis_transform(), ha='right', va='center', fontsize=10,
-                color=INK if strong else MUTED, fontweight='bold' if strong else 'normal')
+def _rel(a, b):
+    """Relative change of a against b, in %."""
+    return 100 * (a / b - 1)
 
 
-def fig_overview():
+@large
+def fig_timeline():
+    """The results that changed the direction of the study, in time order (equal spacing; dates are labels).
+    Colour: which method was ahead at that point. Second date line: when the Test values were measured, where that
+    was well after the runs."""
     o = data()['overview']
-    W = 11.0
-    plan = [('A', 2.35), ('t', 0.6), ('B', 3.0), ('t', 0.6), ('C', 2.85), ('t', 0.6), ('D', 2.85), ('t', 0.6),
-            ('E', 2.45)]
-    HEAD = 0.62
-    H = 0.12 + sum(h + (HEAD if k != 't' else 0) for k, h in plan) + 0.05
-    fig = plt.figure(figsize=(W, H))
-    L, LW = 2.55, 3.5          # left axes (absolute values); row labels sit in 0.55-2.5 in
-    R0, RW, VX = 7.25, 2.6, 1.03  # right axes; labels in 6.25-7.2 in; values right of the axes (axes fraction VX)
-    TL = 0.2                   # x of the timeline rule
-
-    def axes(x, top, w, h):
-        return fig.add_axes([x / W, 1 - (top + h) / H, w / W, h / H])
-
-    def ftext(x, top, s, **kw):
-        fig.text(x / W, 1 - top / H, s, **kw)
-
-    tops, y = {}, 0.12
-    for k, h in plan:
-        tops.setdefault(k, []).append(y)
-        y += h + (HEAD if k != 't' else 0)
-    st = {k: tops[k][0] for k in 'ABCDE'}
-    fig.add_artist(plt.Line2D([TL / W] * 2, [1 - (st['A'] + 0.16) / H, 1 - (st['E'] + 0.16) / H], color='#c9c9cf',
-                              lw=2, zorder=0))
-    heads = {
-        'A': ('Sep 16 – Oct 21', 'PBT is better than the constant-LR grid',
-              'Training (800k) and (8M) · Validation (150k) · seed 12345 · one run per method · #1, #3, #10'),
-        'B': ('Nov 3 – Nov 9', 'After tuning the constant-LR baseline, the PBT advantage is smaller and not consistent',
-              'Training (800k) · Validation (150k) · Test (2.8M) · seed 12345, except #16 (seed 22345) · #12–#16'),
-        'C': ('Nov 10 – Nov 13', 'Controlled comparison: PBT slightly better than standard ParT on every seed',
-              'Training (800k) · Validation (1M) · Test (2.8M) · three seeds · each method 5 models × 50 epochs · #18'),
-        'D': ('Nov 14 – Nov 23', 'With ten times more training data PBT is worse; changes reduce the deficit',
-              'Training (8M) · Validation (1M) · Test (2.8M) · seed 12345 only · PBT 5 models, standard ParT best of 6 · '
-              '#22–#26'),
-        'E': ('Nov 23 – Nov 25', 'Averaging two separately trained standard ParT models is 5% better',
-              'Training (8M) · Validation (1M) · Test (2.8M) · three seeds · two models per seed · #27, #28'),
-    }
-    for k, (when, title, meta) in heads.items():
-        t = st[k] + 0.16
-        fig.add_artist(Ellipse((TL / W, 1 - t / H), 0.16 / W, 0.16 / H, transform=fig.transFigure, facecolor='white',
-                               edgecolor=INK, lw=1.6, zorder=2))
-        ftext(0.45, t, k, fontsize=16, fontweight='bold', color=INK, va='center')
-        ftext(0.8, t, when, fontsize=11, color=MUTED, va='center', fontweight='bold')
-        ftext(2.3, t, title, fontsize=14, fontweight='bold', color=INK, va='center')
-        ftext(2.3, t + 0.27, meta, fontsize=10.5, color=MUTED, va='center')
-    trans = [
-        ('The best constant LR was the highest LR of its grid, and PBT had moved above it.',
-         'Was the gain only a higher LR? Extend the grid upwards.'),
-        ('A 0.5% difference changed sign with seed and grid; Validation (150k) and Test disagreed.',
-         'Select on Validation (1M); compare with standard ParT on three seeds.'),
-        ('A gain below 1% on every seed with Training (800k).', 'Does it hold with ten times more training data?'),
-        ('No change of the PBT schedule reached standard ParT with Training (8M).',
-         'Look for a gain outside the LR schedule: average two models.'),
+    i, b, t, e = o['initial'], o['baseline'], o['train8m'], o['ensemble']
+    lead = sorted(-_rel(r[3], r[2]) for r in b[1:3])
+    pts = [  # (dates, trials, Test date or '', text, colour or None for no result)
+        ('Jul–Aug', 'set-up', '', 'First implementation:\ntwo defects, not used', None),
+        ('Sep 16–19', '#1–#4', 'Test: Oct 12', f'PBT {_word(_rel(i["pbt_800k"], i["const_800k"]))}\nthan constant LR', PBT),
+        ('Oct 14–21', '#10', 'Test: Nov 2', f'Training (8M):\nPBT {_word(_rel(i["pbt_8m"], i["const_8m"]))}', PBT),
+        ('Nov 3–4', '#12–#15', '', f'Constant LR tuned:\nPBT ahead by {lead[0]:.1f}–{lead[1]:.1f}%', CONST),
+        ('Nov 9', '#16', '', f'New seed and grid:\nPBT {_word(_rel(b[3][3], b[3][2]), 2)}', CONST),
+        ('Nov 10–13', '#18', '', f'Three seeds: PBT {abs(o["sel800k"]["mean_change"]):.2f}%\nbetter than standard ParT', PBT),
+        ('Nov 14–20', '#22–#24', '', f'Training (8M):\nPBT {_word(_rel(t["pbt"], t["std_3e3"]))}', STD),
+        ('Nov 19–23', '#25, #26', '', f'Two changes to PBT:\nstill {_word(_rel(t["probe_decay"], t["std_3e3"]))}', STD),
+        ('Nov 23–25', '#27, #28', '', f'Two models averaged:\n{abs(e["mean_change"]):.1f}% better', ENS),
     ]
-    for t, (a, b) in zip(tops['t'], trans):
-        mid = t + 0.3
-        fig.add_artist(plt.Polygon([[(TL - 0.075) / W, 1 - (mid - 0.07) / H], [(TL + 0.075) / W, 1 - (mid - 0.07) / H],
-                                    [TL / W, 1 - (mid + 0.08) / H]], closed=True, color='#9a9aa0', zorder=1))
-        first = fig.text(0.45 / W, 1 - mid / H, a, fontsize=11, color=MUTED, va='center')
-        end = first.get_window_extent(fig.canvas.get_renderer()).x1 / fig.dpi  # measured, in inches
-        ftext(end + 0.12, mid, '→  ' + b, fontsize=11, color=INK, va='center', fontweight='bold')
+    fig, ax = plt.subplots(figsize=(11.6, 3.55))
+    n = len(pts)
+    ax.plot([-0.35, n - 0.65], [0, 0], color='#c8c8cd', lw=2, zorder=1)
+    for k, (date, tr, test, text, col) in enumerate(pts):
+        ax.plot(k, 0, 'o', ms=11, color=col or '#b4b4ba', mfc=col or 'white', mec=col or '#b4b4ba' if col is None else 'white',
+                mew=2, zorder=3)
+        ax.text(k, -0.22, date, ha='center', va='top', fontsize=12, color=INK, fontweight='bold')
+        ax.text(k, -0.52, tr, ha='center', va='top', fontsize=11, color=MUTED)
+        if test:
+            ax.text(k, -0.80, test, ha='center', va='top', fontsize=10.5, color=MUTED, style='italic')
+        h = 0.45 if k % 2 == 0 else 1.45
+        ax.plot([k, k], [0.12, h - 0.08], color='#c8c8cd', lw=1, zorder=1)
+        ax.text(k, h, text, ha='center', va='bottom', fontsize=11.5, color=INK if col else MUTED, linespacing=1.3)
+    for x0, x1, lab in ((0, 0, 'set-up'), (1, 2, 'PBT against constant LR'), (3, 4, 'tuning the baseline'),
+                        (5, 5, 'Training (800k)'), (6, 7, 'Training (8M)'), (8, 8, 'ensembles')):
+        ax.plot([x0 - 0.38, x1 + 0.38], [-1.22, -1.22], color=MUTED, lw=1)
+        ax.text((x0 + x1) / 2, -1.33, lab, ha='center', va='top', fontsize=11, color=MUTED, style='italic')
+    ax.set_xlim(-0.65, n - 0.35)
+    ax.set_ylim(-1.7, 2.35)
+    ax.axis('off')
+    save(fig, 'fig_timeline.svg')
 
-    # --- A ---------------------------------------------------------------------------------------------------
-    i = o['initial']
-    top = st['A'] + HEAD
-    for n, (key, title, xl, ticks) in enumerate([
-            ('800k', 'Training (800k) · Test (2.8M)', (0.3205, 0.3290), [0.322, 0.324, 0.326, 0.328]),
-            ('8m', 'Training (8M) · Test (9.0M)', (0.232, 0.262), [0.235, 0.245, 0.255])]):
-        ax = axes(0.75 + n * 3.05, top + 0.72, 2.65, 1.05)
-        c, p = i[f'const_{key}'], i[f'pbt_{key}']
-        ax.plot([p, c], [0, 0], color='#d0d0d4', lw=3, zorder=1)
-        _mk(ax, c, 0, 'const')
-        _mk(ax, p, 0, 'pbt')
-        ax.text(c, 0.3, f'{c:.4f}', ha='center', fontsize=10, color=MUTED)
-        ax.text(p, 0.3, f'{p:.4f}', ha='center', fontsize=10, color=PBT)
-        ax.text((c + p) / 2, -0.45, f'PBT {_word(100 * (p / c - 1))}', ha='center', fontsize=11.5, color=INK,
-                fontweight='bold')
-        ax.set_ylim(-0.75, 0.7)
-        ax.set_yticks([])
-        ax.spines['left'].set_visible(False)
-        ax.set_xlim(*xl)
-        ax.set_xticks(ticks)
-        ax.set_title(title, loc='left', fontsize=11, fontweight='bold', pad=5)
-        ax.set_xlabel('Test mistag (%)')
-        grid(ax)
-        if n == 0:
-            _legend(ax, [('const', 'best constant-LR model'), ('pbt', 'PBT')], bbox_transform=ax.transAxes)
-            ax.get_legend().set_bbox_to_anchor((-0.01, 1.28))
-    ax = axes(R0 - 0.35, top + 0.6, RW + 0.35 + 0.9, 1.17)
-    lo_g, hi_g = i['grid']
-    ax.axvspan(hi_g, 6e-4, color='#f3f3f5', zorder=0)
-    ax.text(5.4e-4, -0.3, 'LRs not tested\nin September', ha='right', va='bottom', fontsize=10, color=MUTED)
-    ax.plot([lo_g, hi_g], [1, 1], color=CONST, lw=2)
-    for v in (3e-6, 5.75e-6, 8.5e-6, 1.125e-5, 1.4e-5):
-        ax.plot([v, v], [0.86, 1.14], color=CONST, lw=1.5)
-    _mk(ax, i['const_lr'], 1, 'const', size=10)
-    ax.text(lo_g, 1.32, 'constant-LR grid (#1, #10); circle: best model', fontsize=10, color=INK, va='bottom')
-    _mk(ax, i['pbt_lr_800k'], 0, 'pbt')
-    _mk(ax, i['pbt_lr_8m'], 0, 'pbt')
-    ax.text(i['pbt_lr_800k'] / 1.2, 0, '800k', ha='right', va='center', fontsize=10, color=PBT)
-    ax.text(i['pbt_lr_8m'] * 1.2, 0, '8M', ha='left', va='center', fontsize=10, color=PBT)
-    ax.text(lo_g, 0.32, 'LR of the selected PBT model', fontsize=10, color=INK, va='bottom')
-    ax.set_xscale('log')
-    ax.set_xlim(2e-6, 6e-4)
-    ax.set_ylim(-0.45, 1.75)
-    ax.set_yticks([])
-    ax.spines['left'].set_visible(False)
-    ax.set_xlabel('learning rate')
-    ax.set_title('The best constant LR was the highest LR tried', loc='left', fontsize=11, fontweight='bold', pad=5)
-    lr_box = ax.get_position()
 
-    # --- B ---------------------------------------------------------------------------------------------------
-    top = st['B'] + HEAD
-    ax = fig.add_axes([lr_box.x0, 1 - (top + 0.3 + 2.25) / H, lr_box.width, 2.25 / H])
-    sc = o['scan']
-    lab_at = {'1': (4.2e-6, 0.3635, '#1 (Sep)'), '12': (1.55e-5, 0.3335, '#12'), '13': (3.0e-5, 0.3170, '#13'),
-              '14': (2.1e-4, 0.3245, '#14'), '16': (2.6e-5, 0.3045, '#16 (seed 22345)')}
-    for tr, (lx, ly, lab) in lab_at.items():
-        lrs, vals = zip(*sc[tr])
-        dashed = tr == '16'
-        ax.plot(lrs, vals, color=CONST, lw=1.3, ls=(0, (3, 2)) if dashed else '-', zorder=2)
-        ax.plot(lrs, vals, 'o', ms=5.5, color=CONST, mfc='white' if dashed else CONST, mew=1.3, zorder=3)
-        bl, bv = min(zip(lrs, vals), key=lambda t: t[1])
-        ax.plot(bl, bv, 'o', ms=10, color=INK, mfc='none', mew=1.5, zorder=4)
-        ax.text(lx, ly, lab, ha='left' if tr not in ('14',) else 'center', fontsize=10, color=INK)
-    ax.set_xscale('log')
-    ax.set_xlim(2e-6, 6e-4)
-    ax.set_ylim(0.301, 0.372)
-    ax.set_ylabel('Validation (150k)\nmistag (%)', fontsize=10.5)
-    ax.set_xlabel('constant learning rate')
-    ax.set_title('Every constant-LR model; ring: best of its grid', loc='left', fontsize=11, fontweight='bold', pad=5)
-    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-    grid(ax, 'y')
-    ax.text(5.6e-4, 0.371, 'the best LR of each grid was its highest,\nuntil #14 found 1.2×10$^{-4}$ inside its grid',
-            fontsize=10, color=MUTED, va='top', ha='right')
-    ax = axes(L, top + 0.3, LW, 2.25)
-    rows = o['baseline']
-    n = len(rows)
-    for k, (lab, sub, c, p, seed) in enumerate(rows):
-        y = n - 1 - k
-        ax.plot([min(c, p), max(c, p)], [y, y], color='#d0d0d4', lw=3, zorder=1)
-        _mk(ax, c, y, 'const')
-        _mk(ax, p, y, 'pbt')
-        right = max(c, p) < 0.318  # label right of the pair, or left of it when the pair is near the right edge
-        ax.text(max(c, p) + 0.0012 if right else min(c, p) - 0.0012, y, 'PBT ' + _word(100 * (p / c - 1)),
-                va='center', ha='left' if right else 'right', fontsize=10.5, color=INK, fontweight='bold')
-    _row_labels(ax, [(n - 1 - k, r[0], r[1]) for k, r in enumerate(rows)])
-    ax.axhline(0.5, color=MUTED, lw=0.8, ls=(0, (4, 3)))
-    ax.text(0.99, 0.56, 'seed 12345', transform=ax.get_yaxis_transform(), ha='right', va='bottom', fontsize=9.5,
+@large
+def fig_pbt():
+    """How one PBT decision works (windowed PBT, scripts/training/pbt/reference/windowed_v2.py): five models train
+    at their own LR; at a decision the models are ranked on Validation; a model that lost two decisions in a row
+    copies the weights and optimizer state of the best model and continues at the best model's LR times a factor."""
+    fig, ax = plt.subplots(figsize=(9.6, 3.4))
+    ranks = [2, 1, 4, 5, 3]
+    x0, xd, x1 = 0.0, 3.2, 6.0
+    for k, rank in enumerate(ranks):
+        y = 4 - k
+        ax.text(x0 - 0.15, y, f'model {k + 1}', ha='right', va='center', fontsize=12, color=INK)
+        ax.plot([x0, xd - 0.35], [y, y], color=PBT, lw=3, alpha=0.5, solid_capstyle='butt')
+        ax.plot([xd + 0.55, x1], [y, y], color=PBT, lw=3, alpha=1 if rank == 5 else 0.5, solid_capstyle='butt')
+        ax.text(xd + 0.1, y, str(rank), ha='center', va='center', fontsize=11.5, color='white' if rank == 1 else INK,
+                fontweight='bold', zorder=4,
+                bbox=dict(boxstyle='circle,pad=0.28', fc=INK if rank == 1 else 'white', ec=INK, lw=1.2))
+    ax.add_patch(FancyBboxPatch((xd - 0.22, -0.42), 0.64, 4.84, boxstyle='round,pad=0.02,rounding_size=0.25',
+                                fc='#f3f3f5', ec='none', zorder=0))
+    ax.text(xd + 0.1, -0.62, 'rank on\nValidation', ha='center', va='top', fontsize=11.5, color=INK,
+            fontweight='bold', linespacing=1.15)
+    ax.text((x0 + xd - 0.35) / 2, 4.55, 'train, each at its own LR', ha='center', va='bottom', fontsize=11.5,
             color=MUTED)
-    ax.text(0.99, 0.44, 'seed and grid both changed', transform=ax.get_yaxis_transform(), ha='right', va='top',
-            fontsize=9.5, color=MUTED)
-    _rows_axes(ax, n)
-    ax.set_xlim(0.2985, 0.3345)
-    ax.set_xticks([0.300, 0.310, 0.320, 0.330])
-    ax.set_xlabel('Test (2.8M) mistag (%)')
-    ax.set_title('PBT against the best constant-LR model', loc='left', fontsize=11, fontweight='bold', pad=5)
+    ax.text((xd + 0.55 + x1) / 2, 4.55, 'next window', ha='center', va='bottom', fontsize=11.5, color=MUTED)
+    ax.add_patch(FancyArrowPatch((xd + 0.42, 2.92), (xd + 0.95, 1.12), connectionstyle='arc3,rad=-0.3',
+                                 arrowstyle='-|>', mutation_scale=16, lw=1.6, color=INK, zorder=5))
+    ax.text(x1 + 0.3, 1.0, 'model 4 lost twice in a row: it copies\nthe weights and optimizer state of model 2',
+            fontsize=11.5, color=INK, va='bottom', linespacing=1.2)
+    ax.text(x1 + 0.3, 0.88, 'and continues at the LR of model 2 × 0.8 or × 1.2', fontsize=11.5, color=PBT,
+            va='top', fontweight='bold')
+    ax.text(x1 + 0.3, 3.0, 'the others continue unchanged', fontsize=11.5, color=MUTED, va='center')
+    ax.set_xlim(-1.25, x1 + 4.6)
+    ax.set_ylim(-1.35, 4.95)
+    ax.axis('off')
+    save(fig, 'fig_pbt.svg')
 
-    # --- C ---------------------------------------------------------------------------------------------------
-    top = st['C'] + HEAD
-    s8 = o['sel800k']
-    seeds = s8['seeds']
-    ax = axes(L, top + 0.42, LW, 1.95)
-    for k, s in enumerate(seeds):
-        for kind in ('std', 'const', 'pbt'):
-            _mk(ax, s[{'std': 'standard', 'const': 'constant', 'pbt': 'pbt'}[kind]], 2 - k, kind)
-    _row_labels(ax, [(2 - k, f'seed {s["seed"]}', '') for k, s in enumerate(seeds)])
-    _rows_axes(ax, 3)
-    ax.set_xlim(0.2990, 0.3045)
-    ax.set_xticks([0.300, 0.301, 0.302, 0.303, 0.304], ['0.300', '', '0.302', '', '0.304'])
-    ax.set_xlabel('Test (2.8M) mistag (%)')
-    _legend(ax, [('std', 'standard ParT'), ('const', 'tuned constant LR'), ('pbt', 'PBT')])
-    ax = axes(R0, top + 0.42, RW, 1.95)
-    ys = [7.8, 7.0, 6.2, 5.2, 3.0, 2.2, 1.4]
-    rows = [(y, f'seed {s["seed"]}', s['pbt_vs_standard']['change'], s['pbt_vs_standard']['interval'], PBT, 'pbt',
-             False) for y, s in zip(ys, seeds)]
-    rows.append((ys[3], 'mean', s8['mean_change'], s8['mean_interval'], PBT, 'pbt', True))
-    rows += [(y, f'seed {s["seed"]}', s['pbt_vs_constant']['change'], s['pbt_vs_constant']['interval'], CONST,
-              'const', False) for y, s in zip(ys[4:], seeds)]
-    _intervals(ax, rows, VX)
-    ax.text(-0.025, 8.75, 'PBT vs standard ParT', transform=ax.get_yaxis_transform(), fontsize=10.5, ha='right',
-            fontweight='bold', color=PBT, va='center')
-    ax.text(-0.025, 4.0, 'PBT vs tuned\nconstant LR', transform=ax.get_yaxis_transform(), fontsize=10.5, ha='right',
-            fontweight='bold', color=INK, va='center')
-    ax.set_ylim(0.8, 9.1)
-    ax.set_yticks([])
-    ax.spines['left'].set_visible(False)
-    _rel_axis(ax, -2.0, 0.8, 0.5, 'relative change; bar: 95% Test-sample interval')
-    grid(ax)
 
-    # --- D ---------------------------------------------------------------------------------------------------
-    top = st['D'] + HEAD
-    t = o['train8m']
+@large
+def fig_baseline():
+    """Best constant-LR model of each grid (seed 12345) against the PBT results of September and November; inset: the
+    #16 comparison with seed 22345 and a re-centred grid (both changed together)."""
+    o = data()['overview']
+    g, b = o['grid_test'], o['baseline']
+    test = [('#1', 'Sep 16', '≤ 1.4×10⁻⁵', g['1']), ('#12', 'Nov 3', '≤ 3×10⁻⁵', g['12']),
+            ('#13', 'Nov 3–4', '≤ 8×10⁻⁵', g['13']), ('#14', 'Nov 4', '≤ 3.2×10⁻⁴', g['14'])]
+    fig, (ax, ins) = plt.subplots(1, 2, figsize=(10.0, 4.3), sharey=True,
+                                  gridspec_kw=dict(width_ratios=[4.4, 1.25], wspace=0.12))
+    xs = range(len(test))
+    ax.plot(xs, [q[3] for q in test], color=CONST, lw=1.6, zorder=2)
+    for x, (tr, date, grid_, v) in zip(xs, test):
+        ax.plot(x, v, ls='none', ms=10, mew=2, zorder=3, **MARK['const'])
+        ax.text(x + 0.09, v + 0.0007, f'{v:.4f}', fontsize=11.5, color=MUTED)
+    ax.set_xticks(list(xs), [f'{q[0]}  {q[1]}\nLRs {q[2]}' for q in test])
+    for v, lab, ls, x, ha in ((b[0][3], f'PBT in September (#3)  {b[0][3]:.4f}', (0, (5, 3)), 3.45, 'right'),
+                              (b[1][3], f'fast PBT in November (#15)  {b[1][3]:.4f}', '-', -0.3, 'left')):
+        ax.axhline(v, color=PBT, lw=1.8, ls=ls, zorder=1)
+        ax.text(x, v + 0.0006, lab, ha=ha, va='bottom', fontsize=11.5, color=PBT)
+    ax.set_xlim(-0.35, 3.5)
+    ax.set_ylim(0.2985, 0.3295)
+    ax.set_ylabel('Test mistag (%), lower is better')
+    ax.set_title('Best constant-LR model of each grid · seed 12345', loc='left', fontsize=12.5, color=MUTED, pad=10)
+    grid(ax, 'y')
+    ax.spines['bottom'].set_visible(False)
+    ax.tick_params(axis='x', length=0, pad=8)
+    _, _, c16, p16, _ = b[3]
+    ins.set_facecolor('#f6f6f8')
+    ins.plot(0, c16, ls='none', ms=10, mew=2, zorder=3, **MARK['const'])
+    ins.plot(1, p16, ls='none', ms=10, mew=2, zorder=3, **MARK['pbt'])
+    ins.text(0, c16 - 0.0011, f'{c16:.4f}', ha='center', va='top', fontsize=11, color=MUTED)
+    ins.text(1, p16 + 0.0008, f'{p16:.4f}', ha='center', va='bottom', fontsize=11, color=PBT)
+    ins.text(0.5, 0.3105, f'PBT\n{_word(_rel(p16, c16), 2)}', ha='center', va='bottom', fontsize=12.5, color=INK,
+             fontweight='bold', linespacing=1.25)
+    ins.set_xticks([0, 1], ['constant\nLR', 'fast\nPBT'])
+    ins.set_xlim(-0.6, 1.6)
+    ins.set_title('#16  Nov 9', loc='left', fontsize=12.5, color=INK, fontweight='bold', pad=40)
+    ins.text(0, 1.02, 'seed 22345 and a\nnew grid, changed together', transform=ins.transAxes, fontsize=10.5,
+             color=MUTED, va='bottom', linespacing=1.15)
+    ins.tick_params(axis='x', length=0, pad=8)
+    ins.tick_params(axis='y', length=0)
+    for s in ('left', 'bottom'):
+        ins.spines[s].set_visible(False)
+    save(fig, 'fig_baseline.svg')
+
+
+@large
+def fig_lr():
+    """LR per epoch of the best standard ParT model and the range of the five PBT models, seed 12345, with Training
+    (800k) (#18) and Training (8M) (#23 against #24)."""
+    d, o = data(), data()['overview']
+    t8, t1 = d['trajectories_8m_seed12345'], d['trajectories_800k_seed12345']
+    s12 = o['sel800k']['seeds'][0]
+    panels = ((t1['standard_part_1e-4 (#18)'], t1['pbt (#18)'], 'Training (800k)',
+               f'PBT {_word(s12["pbt_vs_standard"]["change"], 2)} than standard ParT (#18)'),
+              (t8['standard_part_3e-3 (#24)'], t8['pbt (#23)'], 'Training (8M)',
+               f'PBT (#23) {_word(_rel(o["train8m"]["pbt"], o["train8m"]["std_3e3"]))} than standard ParT (#24)'))
+    fig, axes = plt.subplots(1, 2, figsize=(10.2, 3.9), sharey=True, gridspec_kw=dict(wspace=0.08))
+    for ax, (s, p, title, res) in zip(axes, panels):
+        ax.axvspan(35.5, 50, color='#f3f3f5', zorder=0)
+        ax.fill_between([q[0] for q in p], [q[1] for q in p], [q[2] for q in p], color=PBT, alpha=0.25, lw=0, step='mid')
+        ax.plot([q[0] for q in s], [q[1] for q in s], color=STD, lw=2.4)
+        ax.axhline(s[0][1], color=STD, lw=1, ls=(0, (2, 2)), xmin=0.7, zorder=1)
+        ax.set_yscale('log')
+        ax.set_ylim(8e-7, 8e-3)
+        ax.set_xlim(1, 50)
+        ax.set_xlabel('epoch')
+        ax.set_title(f'{title}\n', loc='left', fontweight='bold')
+        ax.text(0, 1.03, res, transform=ax.transAxes, fontsize=12, color=MUTED, va='bottom')
+        ax.text(36.5, 1.2e-6, 'final\ndecay', fontsize=11, color=MUTED, va='bottom')
+        grid(ax, 'y')
+    axes[0].set_ylabel('learning rate')
+    axes[0].text(3, 1.35e-4, 'standard ParT: start LR 10⁻⁴ (best)', color=STD, fontsize=12, va='bottom')
+    axes[0].text(3, 7e-6, 'PBT: range of its five models', color=PBT, fontsize=12, va='top')
+    axes[1].text(3, 3.6e-3, 'standard ParT: start LR 3×10⁻³ (best)', color=STD, fontsize=12, va='bottom')
+    axes[1].text(14, 8e-6, 'PBT', color=PBT, fontsize=12, va='top')
+    save(fig, 'fig_lr.svg')
+
+
+@large
+def fig_changes():
+    """How much worse each PBT run with Training (8M) is than standard ParT #24 (seed 12345, Test (2.8M))."""
+    t = data()['overview']['train8m']
     ref = t['std_3e3']
-    rows = [('Standard ParT, start LR 10$^{-3}$', '#22 · Nov 14–15 · best of 5 start LRs', t['std_1e3'], 'std2'),
-            ('PBT', '#23 · Nov 15–17', t['pbt'], 'pbt'),
-            ('Standard ParT, start LR 3×10$^{-3}$', '#24 · Nov 19–20 · the reference', ref, 'std'),
-            ('PBT + probes', '#25 · Nov 19–21 · +12% training', t['probe'], 'pbt'),
-            ('PBT + probes, decay, higher LRs', '#26 · Nov 20–23 · +9% training', t['probe_decay'], 'pbt')]
-    n = len(rows)
-    ax = axes(L, top + 0.3, LW, 2.2)
-    ax.axvline(ref, color=STD, lw=1, ls=(0, (3, 3)), zorder=1)
-    for k, (lab, sub, v, kind) in enumerate(rows):
-        _mk(ax, v, n - 1 - k, kind)
-        ax.text(v + 0.0009, n - 1 - k, f'{v:.4f}', va='center', fontsize=10, color=MUTED)
-    _row_labels(ax, [(n - 1 - k, r[0], r[1]) for k, r in enumerate(rows)])
-    _rows_axes(ax, n)
-    ax.set_xlim(0.1585, 0.1885)
-    ax.set_xticks([0.160, 0.170, 0.180])
-    ax.set_xlabel('Test (2.8M) mistag (%)')
-    ax = axes(R0, top + 0.3, RW, 2.2)
-    for k, (lab, sub, v, kind) in enumerate(rows):
-        y = n - 1 - k
-        c = 100 * (v / ref - 1)
-        if kind == 'std':
-            ax.text(VX, y, 'reference', transform=ax.get_yaxis_transform(), va='center', fontsize=10.5, color=STD)
-            continue
-        ax.barh(y, c, height=0.45, color=PBT if kind == 'pbt' else STD, alpha=0.85 if kind == 'pbt' else 0.35, zorder=2)
-        ax.text(VX, y, _word(c), transform=ax.get_yaxis_transform(), va='center', fontsize=10.5, color=INK,
-                fontweight='bold' if kind == 'pbt' else 'normal')
-    ax.text(7.0, 1.0, 'deficit reduced,\nnot removed', fontsize=10, color=MUTED, va='center')
-    _rows_axes(ax, n)
-    _rel_axis(ax, -0.5, 13.5, 2, 'relative change against #24; one seed, no interval')
+    rows = [('PBT (#23)', '', t['pbt']), ('+ cool-down probes (#25)', '+12% training', t['probe']),
+            ('+ final decay and higher LRs (#26)', '+9% training', t['probe_decay'])]
+    fig, ax = plt.subplots(figsize=(8.6, 2.7))
+    for k, (lab, cost, v) in enumerate(rows):
+        y = len(rows) - 1 - k
+        c = _rel(v, ref)
+        ax.barh(y, c, height=0.52, color=PBT, alpha=1 - 0.2 * k)
+        ax.text(c + 0.25, y, _word(c), va='center', fontsize=12.5, color=INK, fontweight='bold')
+        ax.text(-0.3, y, lab, ha='right', va='center', fontsize=12.5, color=INK)
+        if cost:
+            ax.text(c + 2.6, y, cost, va='center', fontsize=11.5, color=MUTED)
+    ax.axvline(0, color=STD, lw=2)
+    ax.text(0.15, 2.55, 'standard ParT (#24) = 0', ha='left', va='bottom', fontsize=11.5, color=STD)
+    ax.set_xlim(0, 15)
+    ax.set_ylim(-0.5, 2.9)
+    ax.set_yticks([])
+    ax.set_xticks([0, 5, 10, 15], ['0', '5%', '10%', '15%'])
+    ax.set_xlabel('PBT mistag above standard ParT · Training (8M), Test, one seed')
+    ax.spines['left'].set_visible(False)
+    grid(ax)
+    save(fig, 'fig_changes.svg')
 
-    # --- E ---------------------------------------------------------------------------------------------------
-    top = st['E'] + HEAD
-    en = o['ensemble']
-    ax = axes(L, top + 0.42, LW, 1.6)
-    for k, s in enumerate(en['seeds']):
+
+@large
+def fig_ensemble_gain():
+    """Per seed: the better of the two standard ParT models and the average of the two; best PBT run for comparison."""
+    o = data()['overview']
+    en, pbt = o['ensemble']['seeds'], o['train8m']['probe_decay']
+    fig, ax = plt.subplots(figsize=(8.6, 3.0))
+    for k, s in enumerate(en):
         y = 2 - k
-        ax.plot([s['ensemble'], s['better']], [y, y], color='#d0d0d4', lw=3, zorder=1)
-        _mk(ax, s['other'], y, 'std2', size=8)
-        _mk(ax, s['better'], y, 'std')
-        _mk(ax, s['ensemble'], y, 'ens')
-    _row_labels(ax, [(2 - k, f'seed {s["seed"]}', f'#{s["trial"]}') for k, s in enumerate(en['seeds'])])
-    _rows_axes(ax, 3)
-    ax.set_xlim(0.1505, 0.1650)
-    ax.set_xticks([0.152, 0.156, 0.160, 0.164])
-    ax.set_xlabel('Test (2.8M) mistag (%)')
-    _legend(ax, [('std', 'start LR 3×10$^{-3}$ (better)'), ('std2', '10$^{-3}$'), ('ens', 'average of the two')])
-    ax = axes(R0, top + 0.42, RW, 1.6)
-    rows = [(3 - k, f'seed {s["seed"]}', s['change'], s['interval'], ENS, 'ens', False)
-            for k, s in enumerate(en['seeds'])]
-    rows.append((0, 'mean', en['mean_change'], en['mean_interval'], ENS, 'ens', True))
-    _intervals(ax, rows, VX)
-    ax.set_ylim(-0.6, 3.6)
+        ax.plot([s['ensemble'], s['better']], [y, y], color='#d4d4d8', lw=3, zorder=1)
+        ax.plot(s['better'], y, ls='none', ms=11, zorder=3, **MARK['std'])
+        ax.plot(s['ensemble'], y, ls='none', ms=10, zorder=3, **MARK['ens'])
+        ax.text(1.02, y, _word(s['change'], 2), transform=ax.get_yaxis_transform(), ha='left', va='center',
+                fontsize=12.5, color=ENS, fontweight='bold')
+        ax.text(-0.02, y, f'seed {s["seed"]}', transform=ax.get_yaxis_transform(), ha='right', va='center',
+                fontsize=12.5, color=INK)
+    ax.plot(pbt, 2, ls='none', ms=10, zorder=3, **MARK['pbt'])
+    ax.text(pbt, 2.33, 'best PBT (#26)', ha='center', va='bottom', fontsize=11, color=PBT)
+    ax.text(en[0]['better'], 2.33, 'better of the two', ha='center', va='bottom', fontsize=11, color=STD)
+    ax.text(en[0]['ensemble'], 2.33, 'average of the two', ha='center', va='bottom', fontsize=11, color=ENS)
+    ax.set_xlim(0.1500, 0.1675)
+    ax.set_ylim(-0.5, 2.85)
     ax.set_yticks([])
     ax.spines['left'].set_visible(False)
-    _rel_axis(ax, -7.0, 0.6, 1, 'against the better single model; bar: 95% Test-sample interval')
+    ax.set_xticks([0.152, 0.156, 0.160, 0.164])
+    ax.set_xlabel('Test mistag (%) · Training (8M)')
     grid(ax)
-    save(fig, 'fig1_overview.svg')
+    save(fig, 'fig_ensemble_gain.svg')
+
+
+FIGURES = (fig_timeline, fig_pbt, fig_baseline, fig_lr, fig_changes, fig_ensemble_gain, fig_regimes, fig_ensemble)
 
 if __name__ == '__main__':
     import sys
     if '--refresh' in sys.argv:
         extract()
     OUT.mkdir(parents=True, exist_ok=True)
-    for f in (fig_overview, fig_regimes, fig_mechanism, fig_ensemble):
+    for f in FIGURES:
         f()
-    print(sorted(p.name for p in OUT.iterdir()))
+    print(sorted(p.name for p in OUT.glob('*.svg')))

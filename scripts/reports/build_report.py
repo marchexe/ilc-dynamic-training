@@ -12,7 +12,8 @@ import re
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from report_cards import BASE, CARD, KEY, PHASE_SUMMARY  # noqa: E402
+from report_cards import CARD, PHASE_SUMMARY  # noqa: E402
+import report_text as X  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -28,8 +29,8 @@ WIN = (f'Windowed PBT: every 5 epochs the members are ranked by their mean Valid
        f'and continues at its LR ×0.8 or ×1.2 (at most two copies per decision; LR bounds {E("2", 6)}–{E("3", 5)})')
 FAST = (f'Fast PBT: as windowed PBT, but decisions every 2 epochs on the mean of the last 2 epochs, LR ×0.5 or ×2, bounds '
         f'{E("5", 6)}–{E("5", 4)}; start LRs {E("1", 5)}, {E("2.5", 5)}, {E("6", 5)}, {E("1.5", 4)}, {E("3.5", 4)}')
-REF = 'Reference: '
 V = ' <i>(Validation)</i>'
+SUP = lambda m, e: lr(m, e)  # noqa: E731
 
 # (phase title, conditions, rows); row: (trial, date, configuration, result, interpretation)
 # Results are mistag (%) of the selected model on Test (2.8M) unless marked (Validation); "x% better/worse than #n" is
@@ -185,10 +186,11 @@ PHASES = [
         ('30', 'Nov 23–25', 'Disagreement (share of jets with a different predicted class) and ensemble change for pairs '
          'of 8M models, on Validation: all pairs of nine seed-12345 models (#22–#26), and the 15 pairs of the '
          f'{E("3", 3)} and {E("1", 3)} standard ParT models of the three seeds (#22, #24, #28)',
-         'Two models of one run (two checkpoints, or two PBT models): disagreement 0.22–0.40%, ensemble 0.04–0.81% worse '
-         'than the better model. Separately trained standard ParT models (19 pairs): 1.49–2.14%, from 0.14% worse to 6.7% '
+         'Two models with a shared training history (two checkpoints of one model, or two models of one PBT population): '
+         'disagreement 0.22–0.40%, ensemble 0.04–0.81% worse than the better model. Independently trained standard ParT '
+         'models (19 pairs): 1.49–2.14%, from 0.14% worse to 6.7% '
          'better; the 15 three-seed pairs gain 3.6% on average with the same start LR and 4.7% with different start LRs. '
-         f'A PBT model with a model of another run (27 pairs): 1.02–2.32%, from 2.0% worse to 4.7% better{V}',
+         f'A PBT model with a model trained apart from it (27 pairs): 1.02–2.32%, from 2.0% worse to 4.7% better{V}',
          'Disagreement alone does not predict the gain. Every pair that gains more than 1% has two models of similar '
          'quality (the weaker at most 6% worse); no pair whose weaker model is more than 9% worse gains more than 1%, '
          'with or without PBT. Exploratory, scored after the fact (Figure 4)'),
@@ -216,115 +218,9 @@ def asset(name):
     return f'pub/{name}?v={hashlib.sha256((PUB / name).read_bytes()).hexdigest()[:12]}'
 
 
-FIG = ('<figure id="fig-{n}"><div class="fig-scroll"><img src="{src}" alt="{alt}"></div>'
-       '<figcaption data-anchor="fig-{n}"><b>Figure {n}.</b> {cap}</figcaption></figure>')
-
-
-def caption(cap):
-    """A caption is either text, or (main caption, details note): the note opens under 'Details'."""
-    if isinstance(cap, tuple):
-        main, note = cap
-        return f'{xref(main)}<details class="capnote"><summary>Details</summary>{xref(note)}</details>'
-    return xref(cap)
-
-
 def xref(html):
     """Link trial references such as #18 to their row on this page."""
     return re.sub(r'(?<![&\w])#(\d+)', r'<a class="tref" href="#t\1">#\1</a>', html)
-
-
-def trial_row(n, d, c, r, i):
-    """Name, key change and headline result first; the full configuration and result under 'Details'."""
-    name, change, value, sample, versus = CARD[n]
-    cls = ' class="key"' if n in KEY else ' class="base"' if n in BASE else ''
-    smp = f' <span class="smp">{sample}</span>' if sample else ''
-    cfg = (f'<div class="nm">{name}</div><div class="chg">{xref(change)}</div>'
-           f'<details class="more"><summary>Details</summary><p><b>Configuration.</b> {xref(c)}</p>'
-           f'<p><b>Result.</b> {xref(r)}</p></details>')
-    res = f'<div class="val"><b>{value}</b>{smp}</div><div class="vs">{xref(versus)}</div>'
-    if n == '–':  # the initial implementation period has no trial number
-        return f'<tr id="setup"{cls}><td class="n"></td><td class="d">{d}</td><td>{cfg}</td><td>{res}</td><td class="i">{i}</td></tr>'
-    return (f'<tr id="t{n}"{cls}><td class="n" data-anchor="t{n}"><a href="log.html#t{n}" '
-            f'title="Runs and configuration files of trial {n} in the experiment log">{n}</a></td>'
-            f'<td class="d">{d}</td><td>{cfg}</td><td>{res}</td><td class="i">{xref(i)}</td></tr>')
-
-
-SUP = lambda m, e: lr(m, e)
-
-# per phase: (dates, objective, learned-and-next paragraphs (HTML), figures)
-PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the next phase, figures)
-    ('Jul 22 – Aug 31', 'Build the training and PBT tooling.', 'No usable comparison.',
-     '<b>Interpretation.</b> The defects and the set-up made these runs neither reliable nor comparable. '
-     '<b>Next:</b> rebuild training as deterministic full epochs, so that runs are reproducible and comparable.',
-     []),
-    ('Sep 16 – Nov 3', 'Compare PBT with constant LRs, on Training (800k) and in a preregistered test on Training (8M).',
-     'PBT ahead of the constant LRs on both training samples.',
-     '<b>Interpretation.</b> In every comparison the best constant LR was at the top of its grid and PBT ended above it, so '
-     'the gain could come from the LR level rather than from adapting the LR; Validation (150k) did not resolve differences '
-     'of about 0.5%. <b>Next:</b> extend the constant-LR grid upwards to separate the two.',
-     []),
-    ('Nov 3 – Nov 9', 'Test whether a higher constant LR explains the PBT gain.',
-     f'A constant LR near {SUP("1", 4)} comes within 0.5–1.0% of PBT.',
-     '<b>Interpretation</b> <span class="ev s">single seed per grid</span>. The initial PBT advantage was reduced after '
-     'tuning the constant-LR baseline: from 1.4% in September to 0.5–1.0% (Figure 1, B). With seed 22345 and a re-centred '
-     'grid PBT was 0.47% worse; the seed and the grid changed together, so the reversal is not assigned to either. '
-     'Subsequent experiments did not establish a consistent advantage over tuned constant-LR training (#18: PBT numerically '
-     'lower than the constant-LR grid on all three seeds, by 0.65%, 0.03% and 0.94%; the 0.03% is negligible). Both '
-     'methods reached about 0.02 lower absolute mistag in November than in September. At this precision the comparison '
-     'needs a larger Validation sample and several seeds. <b>Next:</b> Validation (1M), standard ParT as comparator (the '
-     'usual recipe: constant LR for 35 epochs, then ×0.01 over 15; five start LRs), three seeds.',
-     []),
-    ('Nov 10 – Nov 13', 'Compare PBT with standard ParT under the new selection, Training (800k).',
-     'PBT better on all three seeds, by less than 1%.',
-     '<b>Interpretation</b> <span class="ev r">replicated, 3 seeds</span>. With Training (800k), the model selected from '
-     'PBT has a slightly lower mistag than the one selected from standard ParT on every seed. The interval (0.34–1.34%) is '
-     'the Test-sample uncertainty of the mean; the seed-to-seed spread is 0.67–0.91%. Against the tuned constant-LR grid '
-     'PBT is also numerically better on every seed, but by 0.03% on seed 22345: not an established, practically '
-     'meaningful advantage. <b>Next:</b> repeat with ten times more training data, to see whether the gain holds.',
-     []),
-    ('Nov 14 – Nov 23', 'Repeat the comparison on Training (8M) and try to correct PBT.',
-     'PBT worse than standard ParT; the corrections reduce but do not remove the deficit.',
-     '<b>Observations</b> <span class="ev s">single seed</span>. PBT lowered all LRs early; standard ParT passed it at epoch '
-     '21 and pulled far ahead during its final decay (Figure 2). With Training (800k) the training loss falls below the Validation loss after about '
-     '20 epochs; with Training (8M) it does not (Figure 3). <b>Hypothesis</b> <span class="ev h">not tested</span>. Deciding '
-     'two epochs after each change favours lower LRs, which costs little when the model overfits and much when it does not. '
-     '#26 changed the LR range and added the final decay at once, so its improvement over #25 is not assigned to either. '
-     'The probe runs used 9–12% more training than standard ParT, and the reference #24 is a sixth standard ParT model. '
-     '<b>Next:</b> no LR-schedule change beat standard ParT, so test a gain that does not depend on the schedule: '
-     'combining separately trained models.',
-     [('fig5_mechanism.svg', 'Learning rate and best Validation mistag per epoch, Training (8M)',
-       ('PBT lowered all its learning rates to at most 2.5×10<sup>−4</sup> by epoch 11; standard ParT kept 3×10<sup>−3</sup> '
-        'for 35 epochs, passed PBT at epoch 21 and pulled far ahead during its final decay.',
-        'Training (8M), seed 12345. Left: LR per epoch of standard ParT (#24) and the range over the five PBT models (#23). '
-        'Right: best Validation (1M) mistag reached so far; dashed: PBT with probes, final decay and higher LRs (#26). '
-        'Shaded: final LR decay of standard ParT.')),
-      ('fig4_regimes.svg', 'Training and Validation loss per epoch, Training (800k) and Training (8M)',
-       ('With Training (800k) the loss on the training data falls below the Validation loss; with Training (8M) the two '
-        'stay together. An observation; its link to the PBT result is a hypothesis.',
-        f'Best standard ParT model of seed 12345 (start LR {SUP("1", 4)} with Training (800k), {SUP("3", 3)} with Training '
-        '(8M)); loss on the training data (dashed) and on Validation (1M) (solid). The training loss is measured with '
-        'dropout active, which is why it starts above the Validation loss.'))]),
-    ('Nov 23 – Nov 25', 'Test whether combining separately trained standard ParT models helps on Training (8M).',
-     'The ensemble gain is replicated on two new seeds; no single-model alternative keeps it.',
-     '<b>Observations</b> <span class="ev r">ensemble gain replicated, 3 seeds</span>. The ensemble of #27 is better than '
-     'its better model on each of three seeds; the interval 4.17–5.84% is the Test-sample uncertainty of the mean and the '
-     'seed-to-seed spread is 4.86–5.14%. Among all scored pairs (Figure 4, exploratory, Validation (1M)), two models of one '
-     'run disagree on at most 0.4% of the jets and never gain; separately trained models disagree on 1.0–2.3% and gain '
-     'only when both are of similar quality, whether or not one is a PBT model. <b>Hypothesis</b> '
-     '<span class="ev h">not tested</span>. Averaging helps when two models of similar quality make different errors; PBT '
-     'copies weights between its own models, so they make the same errors. Cost: two forward passes per jet; the inference '
-     'time was not measured.',
-     [('fig6_ensemble.svg', 'Ensemble improvement against disagreement and against the quality gap, for every scored pair',
-       ('Disagreement alone does not separate pairs that gain from pairs that do not. Pairs gain when they disagree and '
-        'their two models are of similar quality; pairs with a much weaker model do not gain.',
-        'Each point is one pair of models, scored on Validation (1M) after the models were trained (#29, #30): 105 pairs '
-        'of the fifteen Training (800k) models of #18; 36 pairs of nine Training (8M) models of seed 12345 (#22–#26, '
-        'including two checkpoints of #24 and three models of #26); the 15 pairs of the six standard ParT models '
-        f'(start LRs {SUP("3", 3)} and {SUP("1", 3)}) of the three seeds (#22, #24, #28). The pair of #24 with the '
-        f'{SUP("1", 3)} model of #22 is in both sets and counted once. Ringed: the three ensembles of #27 and #28. '
-        'Right: how much higher the mistag of the weaker model is than that of the better one. An association, not a '
-        'causal effect.'))]),
-]
 
 
 FIGDATA = ROOT / 'published/results/report/figure_data.json'
@@ -386,71 +282,139 @@ def table_28(d):
             '<th>model, epoch</th><th class="num">Test</th><th>model, epoch</th><th class="num">Test</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div><p class="tnote">Epoch: training epoch of the checkpoint with the best '
             'Validation (1M) value of that model. The 3×10<sup>−3</sup> model was the better one on Validation (the '
-            'preregistered reference) and on Test, on every seed. For seeds 22345 and 32345 both models come from one '
-            '#28 run that trains only these two start LRs. Run names, members and checkpoint files are in the '
+            'preregistered reference) and on Test, on every seed. For seeds 22345 and 32345 the two models are '
+            'independently trained members of one #28 run, which trains only these two start LRs side by side. Run names, members and checkpoint files are in the '
             '<a href="log.html#t28">experiment log</a>.</p>')
 
 
-SUPPORTING = {  # trial -> supporting role; all other trials are primary (they carry the main line of the study)
-    '5', '6', '7', '8', '9', '11', '17', '19', '20', '21', '29', '30', '31', '32', '33'}
-SUPPORT_TITLE = {  # phase -> what its supporting trials investigated
-    1: 'Diagnostics and preparation: LR controller in observe mode (#5), decision frequency of PBT (#6), restart within '
-       'an epoch (#7, #11), first Test evaluation (#8), preparation of Training (8M) (#9)',
-    2: 'PBT modification: fallback copies when no new LR is free (#17), used in all later PBT runs',
-    3: 'Side checks with Training (800k): final LR decay in PBT (#19), training without pretraining (#20), weight averaging (#21)',
-    5: 'Further checks: ensembles with Training (800k) (#29), source of the ensemble gain (#30), dropout (#31), distillation '
-       '(#32), start LR 10<sup>−2</sup> (#33)',
-}
-THEAD = ('<colgroup><col class="c-n"><col class="c-d"><col class="c-c"><col class="c-r"><col class="c-i"></colgroup>'
-         '<thead><tr><th>#</th><th>Date</th><th>Configuration</th><th>Result</th><th>Interpretation</th></tr></thead>')
+# ---------------------------------------------------------------------------------------------------------------
+# Rendering (layout approved 2026-11-28, "P4"): a wide grid with a 780 px figure/table column and the explanation
+# beside it; prose in a 720 px column. Text: report_text.py. Anchors kept from earlier versions: summary, timeline,
+# setup, setup-definitions, conclusions, phase-0 … phase-5, t1 … t33, and fig-1 … fig-4 on the figures that carry the
+# same content as before (fig-1 research overview → timeline, fig-2 PBT learning rate, fig-3 loss curves, fig-4
+# model-pair analysis); new figures have named anchors (fig-pbt, fig-baseline, fig-changes, fig-ensemble).
+# ---------------------------------------------------------------------------------------------------------------
+import html as _html  # noqa: E402
 
 
-def timeline():
+
+def _figure_numbers():
+    """Figure numbers in reading order: the timeline, then every figure of the chapters (supporting ones included)."""
+    order = ['timeline'] + [b[1] if b[0] == 'fig' else b[2] for ch in X.CHAPTERS for b in ch['body']
+                            if b[0] in ('fig', 'analysis')]
+    return {k: n for n, k in enumerate(order, 1)}
+
+
+FIGNO = _figure_numbers()
+
+
+def text(s):
+    """Report prose: figure numbers filled in, trial numbers linked to their rows on this page."""
+    return xref(re.sub(r'\{fig:(\w+)\}', lambda m: str(FIGNO[m.group(1)]), s))
+
+
+def figure(key, cls='fr'):
+    name, fid, title, cap, *below = X.FIGURES[key]  # below: optional HTML under the image (figure column)
+    n = FIGNO[key]
+    return (f'<figure class="{cls}" id="{fid}"><div><img src="{asset(name)}" alt="Figure {n}: {_html.escape(title)}">'
+            f'{text(below[0]) if below else ""}</div><figcaption><b data-anchor="{fid}">Figure {n}. {title}</b>{text(cap)}</figcaption></figure>')
+
+
+def side(main, note, cls=''):
+    return f'<div class="fr tr{cls}"><div class="scroll">{main}</div><div class="cap">{note}</div></div>'
+
+
+def primary_table(ch, note):
+    rows = ''.join(
+        f'<tr id="t{n}"><td class="n" data-anchor="t{n}"><a href="log.html#t{n}" title="Runs and configuration files of '
+        f'trial {n} in the experiment log">{n}</a></td><td class="d">{X.ROWS[n][0]}</td><td>{X.ROWS[n][1]}</td>'
+        f'<td class="v">{X.ROWS[n][2]}</td><td>{xref(X.ROWS[n][3])}</td></tr>' for n in ch['primary'])
+    table = ('<table class="trials"><thead><tr><th class="n">#</th><th class="d">Date</th><th>Experiment</th>'
+             f'<th class="v">Test</th><th>Result</th></tr></thead><tbody>{rows}</tbody></table>')
+    return side(table, f'<b>Primary experiments</b>{text(note)}')
+
+
+def seed_table(html, note, ids):
+    """A per-seed table of table_18/table_28 with its note beside it; trial anchors on its rows."""
+    html = re.sub(r'<p class="tnote">.*?</p>', '', html, flags=re.S).replace('<div class="table-wrap">', '').replace('</table></div>', '</table>')
+    for seed, tid in ids.items():
+        html = html.replace(f'<tr><td>{seed} ', f'<tr id="{tid}"><td>{seed} ', 1)
+    return side(html, text(note), ' seed')
+
+
+def supporting(ch):
+    if not ch['support']:
+        return ''
+    items = []
+    for n in ch['support']:
+        name, change, value, sample, versus = CARD[n]
+        items.append(f'<li id="t{n}"><a href="log.html#t{n}" data-anchor="t{n}">#{n}</a> <b>{name}.</b> {xref(change)}: '
+                     f'{value}{" (" + sample + ")" if sample else ""}{", " + xref(versus) if versus else ""}.</li>')
+    return (f'<details class="more"><summary>Supporting experiments ({len(items)})</summary><ul>{"".join(items)}</ul>'
+            '</details>')
+
+
+def chapter(k, ch, nxt, figdata):
+    p = ch['phase']
+    kick = ' <span class="dot">·</span> '.join([ch['when'], f'Trials {ch["trials"]}'] + ch['meta'].split(' · '))
+    out = [f'<section class="ch" id="phase-{p}"><p class="kick"><span class="no">{k}</span>{kick}</p>',
+           f'<h2 data-anchor="phase-{p}">{ch["q"]}</h2><p class="ans">{text(ch["a"])}</p>']
+    first = True
+    for block in ch['body']:
+        kind = block[0]
+        if kind == 'fig':
+            out.append(figure(block[1]))
+        elif kind == 'p':
+            out.append(f'<div class="prose{" first" if first else ""}"><p>{text(block[1])}</p></div>')
+        elif kind == 'note':
+            out.append(f'<p class="note" id="{block[1]}">{text(block[2])}</p>')
+        elif kind == 'table':
+            out.append(primary_table(ch, block[1]))
+        elif kind == 'seed18':
+            out.append(f'<div id="t18">{seed_table(table_18(figdata), block[1], {})}</div>')
+        elif kind == 'seed28':
+            out.append(seed_table(table_28(figdata), block[1], {'12345': 't27', '22345': 't28'}))
+        elif kind == 'analysis':
+            out.append(f'<details class="analysis"><summary>{block[1]}</summary>{figure(block[2], "wide")}'
+                       f'{block[3]}</details>')
+        first = kind not in ('p', 'note')
+    out.append(supporting(ch))
+    nx = PHASE_SUMMARY[p][3]
+    if nx:
+        out.append(f'<p class="next"><b>Next decision</b>{nx}'
+                   + (f'<a href="#phase-{nxt["phase"]}">→ {nxt["q"]}</a>' if nxt else '') + '</p>')
+    out.append('</section>')
+    return ''.join(out)
+
+
+def body():
     import json
-    d = json.loads(FIGDATA.read_text())
-    results = {3: table_18(d), 5: table_28(d)}  # compact per-seed tables of the key trials, visible by default
-    out, nfig = [], 2  # Figure 1 is the research overview in the summary
-    for k, ((title, cond, rows), (dates, objective, outcome, learned, figs)) in enumerate(zip(PHASES, PHASE_TEXT)):
-        main = ''.join(trial_row(*row) for row in rows if row[0] not in SUPPORTING)
-        support = [row for row in rows if row[0] in SUPPORTING]
-        figs_html = []
-        for src, alt, cap in figs:
-            figs_html.append(FIG.format(src=asset(src), alt=alt, n=nfig, cap=caption(cap)))
-            nfig += 1
-        extra = ''
-        if support:
-            extra = (f'<details class="supporting"><summary><span class="sup-label">Supporting experiments '
-                     f'({len(support)})</span> {SUPPORT_TITLE[k]}</summary><div class="table-wrap"><table class="hist">'
-                     f'{THEAD}<tbody>{"".join(trial_row(*row) for row in support)}</tbody></table></div></details>')
-        found_cls = ' class="found"'
-        psum = ''.join(f'<dt>{lab}</dt><dd{found_cls if lab == "Found" else ""}>{v}</dd>'
-                       for lab, v in zip(('Why', 'Changed', 'Found', 'Next'), PHASE_SUMMARY[k]) if v)
-        learned = re.sub(r'\s*<b>Next:</b>.*$', '', learned, flags=re.S)  # the reason to move on is in the summary
-        out.append(f'<section class="phase" id="phase-{k}"><div class="when">Phase {k} · {dates} · {cond}</div>'
-                   f'<h3 data-anchor="phase-{k}">{title}</h3><dl class="psum">{psum}</dl>'
-                   f'<div class="table-wrap"><table class="hist">{THEAD}<tbody>{main}</tbody></table></div>'
-                   f'{results.get(k, "")}{extra}<p class="learned">{xref(learned)}</p>' + ''.join(figs_html) + '</section>')
+    figdata = json.loads(FIGDATA.read_text())
+    meta = ''.join(f'<div><b>{k}</b>{v}</div>' for k, v in X.META)
+    findings = ''.join(f'<li><b>{c}</b> {s} <span class="ev">({e})</span></li>' for c, s, e in X.FINDINGS)
+    toc = ''.join(f'<a href="#phase-{ch["phase"]}">{k}. {ch["q"]}<span>{ch["when"]}</span></a>'
+                  for k, ch in enumerate(X.CHAPTERS, 1))
+    out = [f'<header><h1>{X.TITLE}</h1><p class="dek">{X.DEK}</p></header><div class="byline">{meta}</div>',
+           f'<div class="top" id="summary"><div><p class="lead">{X.QUESTION}</p><ol class="findings">{findings}</ol>'
+           '<p class="fnote">“Better” and “worse” are relative changes of the mistag on Test (2.8M) unless stated; lower '
+           'mistag is better. Samples, metric, budget and intervals: <a href="#setup-definitions">setup and definitions</a>.</p></div><nav class="toc" aria-label="Contents"><div class="h">The study in five questions'
+           f'</div>{toc}<a href="#conclusions">Conclusions and limits</a><a href="#setup-definitions">Setup and '
+           'definitions</a></nav></div>',
+           f'<div class="timeline" id="timeline">{figure("timeline", "wide")}</div>']
+    for k, ch in enumerate(X.CHAPTERS, 1):
+        out.append(chapter(k, ch, X.CHAPTERS[k] if k < len(X.CHAPTERS) else None, figdata))
+    limits = ''.join(f'<li>{text(x)}</li>' for x in X.LIMITS)
+    setup = ''.join(f'<div><h3>{lab}</h3><p>{text(v)}</p></div>' for lab, v in X.SETUP)
+    out.append(f'<section class="end" id="conclusions"><h2 data-anchor="conclusions">Conclusions</h2><div class="prose">'
+               f'<p>{X.CONCLUSION}</p></div><h3 class="lim">Limits</h3><ul class="limits">{limits}</ul></section>'
+               f'<section class="end" id="setup-definitions"><h2 data-anchor="setup-definitions">Setup and definitions'
+               f'</h2><div class="defs">{setup}</div></section>')
     return '\n'.join(out)
-
-OVERVIEW_CAPTION = (
-    'The research in five stages. Read top to bottom; the line between two stages says why the next one followed. Each '
-    'stage has its own axes: values of different stages are not comparable, because the training sample, Test sample, '
-    'comparator or number of seeds changes (the header of each stage names them).',
-    'Left panels: absolute mistag on Test (2.8M), or Test (9.0M) for Training (8M) in A, of the model each run selected '
-    'on Validation; lower is better. Right panels: relative change of the mistag; bars are 95% Test-sample intervals '
-    '(they do not include seed-to-seed variation; none exists for single-seed results). A and B, right: learning rates; '
-    'the Validation (150k) values in B are the best value of each constant-LR model over its 50 epochs. Encoding in all '
-    'figures: standard ParT blue circle, constant LR grey open circle, PBT orange square, ensemble green diamond. All '
-    'values are from the run records (published/results/report/figure_data.json).')
 
 
 def main():
-    overview = ('<figure id="fig-1" class="overview"><div class="fig-scroll"><img src="{src}" alt="Research trajectory '
-                'from September to November in five stages A to E, each with its Test results"></div>'
-                '<figcaption data-anchor="fig-1"><b>Figure 1.</b> {cap}</figcaption></figure>').format(
-        src=asset('fig1_overview.svg'), cap=caption(OVERVIEW_CAPTION))
-    page = (Path(__file__).with_name('report_template.html')).read_text().replace('<!--TIMELINE-->', timeline())
-    page = page.replace('<!--OVERVIEW-->', overview).replace('pub/style.css', asset('style.css')).replace('pub/anchors.js', asset('anchors.js'))
+    page = Path(__file__).with_name('report_template.html').read_text().replace('<!--BODY-->', body())
+    page = page.replace('pub/anchors.js', asset('anchors.js'))
     out = ROOT / 'docs/_extra/overview.html'
     out.write_text(page)
     print(f'{out.relative_to(ROOT)}: {len(page) // 1024} kB')

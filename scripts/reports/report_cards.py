@@ -72,14 +72,15 @@ CARD = {
            '2.7% worse than standard ParT (#24); the two changes are not separated'),
     '27': ('Ensemble of two standard ParT models', f'Average output of the {_lr("1", 3)} model (#22) and the '
            f'{_lr("3", 3)} model (#24), seed 12345', '0.1530', T,
-           '5.05% better than the better single model (#24, 0.1611)'),
+           '5.05% better than the better of the two models (#24, 0.1611)'),
     '28': ('Ensemble on two new seeds', f'The same pair ({_lr("3", 3)} and {_lr("1", 3)}) trained with seeds 22345 '
-           'and 32345, all rules fixed before training', '5.01% better', T, 'than the better single model, mean of three '
+           'and 32345, all rules fixed before training', '5.01% better', T, 'than the better of the two models, mean of three '
            'seeds (5.05%, 4.86%, 5.14%); interval 4.17–5.84%. Models and checkpoints in the table below'),
     '29': ('Ensembles, Training (800k)', 'Any two of the 15 models of #18 (105 pairs)', 'No consistent gain', V,
            'the best pairs 0.9% better than the best single model'),
     '30': ('Source of the ensemble gain', 'Disagreement and gain of 51 pairs of 8M models', 'Similar quality', V,
-           'separately trained pairs gain if both models are of similar quality; pairs from one run never gain'),
+           'independently trained pairs gain if both models are of similar quality; two checkpoints of one model, or two '
+           'models of one PBT population, never gain'),
     '31': ('No dropout in the final decay', 'Decay of #24 repeated with dropout 0', '0.1730', V,
            'against 0.1595 with dropout'),
     '32': ('Distillation', 'One model trained on the ensemble output', '0.1600', V, 'against 0.1584 without'),
@@ -87,8 +88,6 @@ CARD = {
            'worse than #24 (0.1584); 0.1599 on Test'),
 }
 
-KEY = {'10', '13', '16', '18', '23', '26', '28'}          # decisive results: emphasised
-BASE = {'1', '2', '12', '14', '22', '24'}                 # reference runs: subordinate
 
 PHASE_SUMMARY = [  # None: the entry adds nothing to the trial table below it and is not shown
     ('Build the tools.', None, 'Two defects; the results are not usable.',
