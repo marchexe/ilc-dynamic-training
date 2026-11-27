@@ -53,7 +53,7 @@ Contents
    evaluation
    reproducibility
 
-* `Research overview <overview.html>`_: the study as a short paper with figures; `experiment log <log.html>`_ with every trial and run.
+* `Report <overview.html>`_: summary, all trials by phase with interpretation, current status; `experiment log <log.html>`_ with every run.
 * :doc:`report`: every trial in time order, with dates, configuration, short results and an
   interpretation.
 * :doc:`results`: all completed comparisons, the 8M study, supporting studies and limitations.

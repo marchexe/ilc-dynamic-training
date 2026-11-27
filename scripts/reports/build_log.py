@@ -59,8 +59,8 @@ def main():
     parts = []
     for k, (title, data, validation, items) in enumerate(T.PHASES, 1):
         heading, section = SECTION[k]
-        parts.append(f'<h2>{heading}</h2>\n<p class="sub">{data} · {validation} · discussed in '
-                     f'<a href="overview.html#{section}">the overview</a></p>')
+        parts.append(f'<h2>{heading}</h2>\n<p class="sub">{data} · {validation} · see '
+                     f'<a href="overview.html">the report</a></p>')
         for number, what, runs, records, dates, result, outcome in items:
             recs = [T.run_record(r) for r in runs]
             when = T.span(recs) if recs else dates
@@ -95,11 +95,11 @@ TEMPLATE = '''<!doctype html>
 </head>
 <body>
 <div class="page">
-<div class="site wide"><a href="index.html">ILC dynamic training</a> &nbsp;/&nbsp; <a href="overview.html">Research overview</a> &nbsp;/&nbsp; Experiment log</div>
+<div class="site wide"><a href="index.html">ILC dynamic training</a> &nbsp;/&nbsp; <a href="overview.html">Report</a> &nbsp;/&nbsp; Experiment log</div>
 <header class="title wide" style="padding-block:48px 8px">
   <h1 style="font-size:38px">Experiment log</h1>
   <p class="dek">Every trial from September to November 2026, with its runs, dates, GPU time, selected model and
-  configuration files. The story and its interpretation are in the <a href="overview.html">research overview</a>.</p>
+  configuration files. The summary and interpretation are in the <a href="overview.html">report</a>.</p>
 </header>
 <main class="log wide">
 <p style="font:15px/1.55 var(--sans);color:var(--muted);max-width:780px">Click a trial to show its runs. Dates are

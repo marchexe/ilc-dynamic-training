@@ -3,291 +3,206 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Adaptive Training for Jet Tagging</title>
-<meta name="description" content="When does Population Based Training improve a Particle Transformer jet tagger? A study on simulated ILC jets, July–November 2026.">
+<title>PBT Study Report</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <link rel="stylesheet" href="pub/style.css">
+<style>
+/* Internal report: compact headings, wide history tables, status tags in the interpretation. */
+body { font-size: 17.5px; line-height: 1.6; }
+.report { max-width: 1040px; margin: 0 auto; }
+.report > .text, .report .text { max-width: 720px; margin-left: 0; }
+h1.rt { font: 700 30px/1.2 var(--sans); color: var(--ink); margin: 36px 0 6px; }
+.meta { font: 14.5px/1.5 var(--sans); color: var(--muted); margin: 0 0 28px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+.report h2 { font: 700 22px/1.3 var(--sans); margin: 52px 0 12px; }
+.report h3 { font: 700 17px/1.35 var(--sans); margin: 34px 0 4px; }
+.report p { margin: 0 0 14px; }
+dl.summary { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 10px 20px; margin: 0 0 8px; max-width: 900px; }
+dl.summary dt { font: 700 14px/1.6 var(--sans); color: var(--muted); padding-top: 2px; }
+dl.summary dd { margin: 0; }
+dl.summary ul { margin: 0; padding-left: 1.1em; }
+dl.summary li { margin-bottom: 6px; }
+.tag { font: 700 11px/1 var(--sans); letter-spacing: .06em; text-transform: uppercase; padding: 2px 0; margin-right: 6px; white-space: nowrap; }
+.tag.c { color: var(--ens); } .tag.p { color: var(--pbt); } .tag.h { color: var(--muted); }
+.defs { font: 14.5px/1.55 var(--sans); color: var(--muted); max-width: 900px; margin: 18px 0 0; }
+.changed { font: 15px/1.5 var(--sans); color: var(--muted); margin: 0 0 8px; max-width: 900px; }
+table.hist { font-size: 14px; line-height: 1.45; table-layout: fixed; min-width: 860px; }
+table.hist col.c-d { width: 9.5em; } table.hist col.c-c { width: 31%; } table.hist col.c-r { width: 27%; }
+table.hist td { padding: 7px 12px 7px 0; }
+table.hist td.d { white-space: normal; color: var(--ink); font-variant-numeric: tabular-nums; }
+table.hist .tn { display: block; color: var(--muted); font-size: 12.5px; }
+table.hist td.i { color: var(--body); }
+table.hist tr:target td { background: #fff8e6; }
+figure { margin: 28px 0 34px; max-width: 1040px; }
+figcaption { margin: 10px 0 0; max-width: 900px; }
+.status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 40px; max-width: 1000px; }
+.status-grid h3 { margin-top: 8px; }
+.status-grid ul { padding-left: 1.1em; margin: 0; }
+@media (max-width: 760px) {
+  body { font-size: 16.5px; }
+  h1.rt { font-size: 24px; }
+  dl.summary { grid-template-columns: 1fr; gap: 2px; }
+  dl.summary dd { margin-bottom: 12px; }
+  .status-grid { grid-template-columns: 1fr; }
+}
+</style>
 </head>
 <body>
 <div class="page">
+<div class="report">
 
-<div class="site wide"><a href="index.html">ILC dynamic training</a> &nbsp;/&nbsp; Research overview</div>
+<div class="site"><a href="index.html">ILC dynamic training</a> &nbsp;/&nbsp; Report</div>
+<h1 class="rt">PBT for ParT jet-flavour tagging: report on all trials, July–November 2026</h1>
+<p class="meta">Status 26 November 2026, no run in progress · run-level records: <a href="log.html">experiment log</a> ·
+detailed results: <a href="results.html">results</a> · <a href="https://github.com/marchexe/ilc-dynamic-training">repository</a></p>
 
-<header class="title wide">
-  <h1>When does adaptive training improve jet tagging?</h1>
-  <p class="dek">Population Based Training against standard training of a pretrained Particle Transformer, on
-  simulated ILC jets with 800k and 8M training jets.</p>
-</header>
+<h2>1&ensp;Research summary</h2>
+<dl class="summary">
+  <dt>Objective</dt>
+  <dd>Find out whether Population Based Training (PBT), which adapts the learning rate (LR) during fine-tuning,
+  gives a better b / c / light-jet tagger than the standard training of the pretrained Particle Transformer (ParT),
+  at the same compute (five models, 50 epochs).</dd>
+  <dt>Main findings</dt>
+  <dd><ul>
+    <li><span class="tag c">Confirmed</span>The early PBT gains (1.4% with 800k training jets, 7.7% with 8M on Test
+    9.0M) were measured against constant LRs that were too low; a tuned constant LR is as good as PBT.</li>
+    <li><span class="tag c">Confirmed</span>800k training jets: PBT is 0.81% better than standard ParT (3 seeds,
+    95% interval 0.34–1.34%).</li>
+    <li><span class="tag p">Preliminary</span>8M training jets: PBT is 12.4% worse than standard ParT; 2.7% worse with
+    two modifications (1 seed).</li>
+    <li><span class="tag c">Confirmed</span>8M training jets: the ensemble of two standard ParT models is 5.0% better
+    than the better single model (3 seeds, interval 4.2–5.8%).</li>
+  </ul></dd>
+  <dt>Conclusion</dt>
+  <dd>As implemented, PBT improves the tagger only with the small training sample and by less than 1%. With 8M
+  training jets standard ParT is better than PBT, and the largest gain found is from averaging two standard ParT
+  models.</dd>
+</dl>
 
-<div class="byline wide">
-  <div><h6>Task</h6><p>b / c / light-jet tagging, ILC fast simulation (SGV)</p></div>
-  <div><h6>Model</h6><p>Particle Transformer, pretrained, fine-tuned for 50 epochs</p></div>
-  <div><h6>Period</h6><p>July – November 2026<br>No run in progress</p></div>
-  <div><h6>Evidence</h6><p><a href="log.html">Experiment log</a> · <a href="results.html">Detailed results</a> ·
-  <a href="https://github.com/marchexe/ilc-dynamic-training">Code</a></p></div>
-</div>
-
-<section class="text" style="margin-top:40px">
-<p class="abstract">We asked whether Population Based Training (PBT), which adapts the learning rate while a
-model trains, gives a better jet tagger than the standard training schedule of the Particle Transformer (ParT).
-Early experiments suggested gains of 1–8%, but they compared PBT with constant learning rates that were too low;
-against tuned comparators most of the gain disappeared. Against standard ParT training, PBT lowers the mistag by
-0.81% with 800k training jets (three seeds, 95% interval 0.34–1.34%) but raises it by 12.4% with 8M training
-jets (one seed), or 2.7% after two modifications. The two regimes differ in overfitting: the small training set
-overfits, the large one does not. With 8M training jets, the average output of two separately trained standard
-ParT models lowers the mistag by 5.0% (three seeds, 4.2–5.8%).</p>
-</section>
-
-<figure class="wide">
-  <div class="fig-scroll"><img src="pub/fig1_central.svg" alt="Mistag on the Test sample for standard ParT, constant learning rate, PBT and an ensemble, with 800k and 8M training jets"></div>
-  <figcaption><b>Figure 1. The study in one figure.</b> Mistag on the Test sample (2.8M jets) of the selected model
-  of each method; one point per training seed, the vertical bar is the mean of the seeds. Percentages are the
-  change against standard ParT of the same seeds, with the 95% interval for the Test sample where three seeds
-  exist. The two panels have different scales: with ten times more training data every model is much better.</figcaption>
+<figure>
+  <div class="fig-scroll"><img src="pub/fig1_central.svg" alt="Mistag on Test of each method with 800k and 8M training jets"></div>
+  <figcaption><b>Figure 1.</b> Mistag on Test (2.8M) of the selected model of each method; one point per seed, the
+  bar is the mean. Percentages: change against standard ParT of the same seeds, with the 95% interval for the Test
+  sample where three seeds exist. The panels have different scales.</figcaption>
 </figure>
 
-<section class="text">
-<p>The answer depends on how much training data there is, and the estimate of the PBT gain changed several times
-before we reached it. Figure 2 shows how: each point is a comparison of PBT with the best baseline available at
-the time. The large early gains came from comparators that were too weak. Once the comparator was tuned and the
-selection data enlarged, the gain at 800k jets became small but stable, and at 8M jets it became a loss.</p>
-</section>
+<p class="defs"><b>Samples.</b> Training (800k): 2,392,232 jets. Training (8M): 23,921,449 jets. Validation (150k),
+until 9 November, and Validation (1M), from 10 November: evaluated after every epoch; they drive PBT and select the
+model. Test (2.8M): 2,825,125 jets, one evaluation per selected model. Test (9.0M): 8,970,477 jets, used once (#10).
+<b>Mistag</b>: geometric mean of the background mistag rates at eight working points (b-tag 80% and 90% against c and
+light; c-tag 50% and 80% against b and light); lower is better. Intervals resample blocks of 100 adjacent Test jets
+and cover the Test sample only, not seed-to-seed variation.</p>
 
-<figure class="wide">
+<h2>2&ensp;Experiment history</h2>
+<p class="text">All trials in time order (dates in JST), grouped into phases. The number before each date is the trial
+number of the <a href="log.html">experiment log</a>, which lists the runs, GPU time and configuration files of each
+trial. Results are on Test (2.8M) unless marked Validation. Figure 2 shows how the measured PBT advantage changed across
+the phases.</p>
+<figure>
   <div class="fig-scroll"><img src="pub/fig2_trajectory.svg" alt="PBT advantage over the comparator for each comparison, by date"></div>
-  <figcaption><b>Figure 2. How the estimated advantage of PBT changed.</b> Positive values: PBT has the lower
-  mistag. Open markers: comparisons against constant learning rates that were later found to be too low. The
-  October comparison was evaluated on a separate Test sample of 9.0M jets; all others on the 2.8M-jet Test sample.
-  The 800k point of 13 November is the mean of three seeds with its 95% interval.</figcaption>
+  <figcaption><b>Figure 2.</b> PBT advantage over the comparator of each phase (positive: PBT better). Open markers:
+  comparisons against constant LRs that were too low. The October point is on Test (9.0M), the others on Test (2.8M);
+  13 November: mean of three seeds with its 95% interval.</figcaption>
 </figure>
 
-<nav class="toc text" aria-label="Contents">
-<ol>
-  <li><a href="#question"><span class="n">1</span>The question and the expectation</a></li>
-  <li><a href="#baseline"><span class="n">2</span>The early gains came from the baseline</a></li>
-  <li><a href="#small"><span class="n">3</span>Little data: PBT gains under one percent</a></li>
-  <li><a href="#large"><span class="n">4</span>Much data: PBT falls behind</a></li>
-  <li><a href="#ensemble"><span class="n">5</span>Separately trained models combine well</a></li>
-  <li><a href="#conclusions"><span class="n">6</span>What we can conclude</a></li>
-  <li><a href="#methods"><span class="n">A</span>Methods</a></li>
-  <li><a href="log.html"><span class="n">B</span>Experiment log (33 trials)</a></li>
-</ol>
-</nav>
+<h3>Set-up</h3>
+<p class="changed">First implementation.</p>
+<div class="table-wrap"><table class="hist"><colgroup><col class="c-d"><col class="c-c"><col class="c-r"><col class="c-i"></colgroup><thead><tr><th>Date</th><th>Configuration</th><th>Result</th><th>Interpretation</th></tr></thead><tbody><tr id="t–"><td class="d"><span class="tn"></span>Jul 22 – Aug 31</td><td>First PBT versions (exploit-and-mutate, anchor-copy) and LR controllers; older training set-up (samples per epoch capped, damped optimizer start)</td><td>Two defects found and fixed: BatchNorm not frozen; a controller overwrote the PBT LR</td><td class="i">Not comparable with later trials; training rebuilt as deterministic full epochs (Sep 16)</td></tr></tbody></table></div>
+<h3>2.1&ensp;PBT against constant learning rates</h3>
+<p class="changed">Training (800k), Validation (150k), seed 12345 unless noted. From here all trials start from the same pretrained checkpoint and train 50 epochs with five models.</p>
+<div class="table-wrap"><table class="hist"><colgroup><col class="c-d"><col class="c-c"><col class="c-r"><col class="c-i"></colgroup><thead><tr><th>Date</th><th>Configuration</th><th>Result</th><th>Interpretation</th></tr></thead><tbody><tr id="t1"><td class="d"><span class="tn">#1</span>Sep 16</td><td>Constant LR, 5 values 3×10<sup>−6</sup>–1.4×10<sup>−5</sup></td><td>0.3269; best at the highest LR</td><td class="i">Reference for PBT. The best model at the edge of the grid was not followed up at the time</td></tr><tr id="t2"><td class="d"><span class="tn">#2</span>Sep 17–18</td><td>The 1.4 and 0.85×10<sup>−5</sup> models of #1 continued to 100 epochs</td><td>0.3156</td><td class="i">Longer training helps</td></tr><tr id="t3"><td class="d"><span class="tn">#3</span>Sep 18</td><td>PBT: start as #1; every 5 epochs the weakest copies the best, LR ×0.8 or ×1.2, max 3×10<sup>−5</sup></td><td>0.3225; 1.4% better than #1</td><td class="i">Apparent PBT gain (later found to be an LR-level effect, #12–#14)</td></tr><tr id="t4"><td class="d"><span class="tn">#4</span>Sep 19</td><td>PBT as #3, 100 epochs</td><td>0.3111; 1.4% better than #2</td><td class="i">Same apparent gain at 100 epochs</td></tr><tr id="t5"><td class="d"><span class="tn">#5</span>Sep 20</td><td>Rule-based LR controller in observe-only mode on a 60k subset of Validation; 8 models, 96 short epochs</td><td>Subset ranks models like the full set (Spearman 0.96) but detects an improvement in only 72% of cases; the controller proposed almost no changes</td><td class="i">Not pursued</td></tr><tr id="t6"><td class="d"><span class="tn">#6</span>Sep 23–29</td><td>PBT with decisions every epoch against every 5 epochs; seeds 12345 and 22345</td><td>Every epoch 0.47% and 0.13% worse on Test; better on Validation</td><td class="i">Inconclusive: Validation and Test disagree at this level</td></tr><tr id="t7"><td class="d"><span class="tn">#7</span>Sep 28</td><td>Restart test: one epoch run as five restarted parts</td><td>Weights differ (max 7.6×10<sup>−4</sup>)</td><td class="i">Decisions within an epoch impossible: the optimizer (Lookahead) state is not saved</td></tr><tr id="t8"><td class="d"><span class="tn">#8</span>Oct 12</td><td>First Test (2.8M) evaluation of the selected models of #1–#6</td><td>Test 0.010–0.019 lower than Validation; rank correlation 0.70</td><td class="i">Differences of about 0.3% reorder: Validation (150k) resolves them poorly</td></tr><tr id="t9"><td class="d"><span class="tn">#9</span>Oct 13</td><td>Training (8M) and Test (9.0M) prepared; one-epoch GPU check</td><td>Ready</td><td class="i"></td></tr><tr id="t10"><td class="d"><span class="tn">#10</span>Oct 14–21, Test Nov 2</td><td>Preregistered on Training (8M): constant LR as #1 against PBT as #3; Test (9.0M) opened once</td><td>0.2375 against 0.2572: PBT 7.7% better; all 10 validity checks passed</td><td class="i">Best constant model again at the highest LR and PBT above the grid: cannot separate adaptation from LR level</td></tr><tr id="t11"><td class="d"><span class="tn">#11</span>Oct 17 – Nov 3</td><td>Checkpoints with the full optimizer state, for decisions within an epoch</td><td>One epoch = five restarted parts, bit for bit</td><td class="i">Implemented; not used in any PBT run</td></tr></tbody></table></div>
+<h3>2.2&ensp;Higher constant learning rates</h3>
+<p class="changed">Changed: the constant-LR grid moved upwards, then a faster PBT. Training (800k), Validation (150k).</p>
+<div class="table-wrap"><table class="hist"><colgroup><col class="c-d"><col class="c-c"><col class="c-r"><col class="c-i"></colgroup><thead><tr><th>Date</th><th>Configuration</th><th>Result</th><th>Interpretation</th></tr></thead><tbody><tr id="t12"><td class="d"><span class="tn">#12</span>Nov 3</td><td>Constant LR 1.4×10<sup>−5</sup>–3×10<sup>−5</sup></td><td>0.3146; best again at the highest LR</td><td class="i">Grid still too low</td></tr><tr id="t13"><td class="d"><span class="tn">#13</span>Nov 3–4</td><td>Constant LR 3×10<sup>−5</sup>–8×10<sup>−5</sup></td><td><b>0.3018</b>; best at 8×10<sup>−5</sup></td><td class="i">Better than every PBT run of #3–#6: the early PBT gains came from the LR level</td></tr><tr id="t14"><td class="d"><span class="tn">#14</span>Nov 4</td><td>Constant LR 8×10<sup>−5</sup>–3.2×10<sup>−4</sup></td><td>0.3033; best at 1.2×10<sup>−4</sup></td><td class="i">Optimum near 8×10<sup>−5</sup>–1.2×10<sup>−4</sup></td></tr><tr id="t15"><td class="d"><span class="tn">#15</span>Nov 4</td><td>Fast PBT: start 10<sup>−5</sup>–3.5×10<sup>−4</sup>; every 2 epochs from epoch 4, LR ×0.5 or ×2, bounds 5×10<sup>−6</sup>–5×10<sup>−4</sup></td><td>0.3003; 1.0% better than #14</td><td class="i">PBT about equal to the best constant LR</td></tr><tr id="t16"><td class="d"><span class="tn">#16</span>Nov 9</td><td>#15 and constant LR 6×10<sup>−5</sup>–1.6×10<sup>−4</sup>, seed 22345</td><td>0.3041 against 0.3027: PBT 0.5% worse, although 1.4% better on Validation</td><td class="i">Sign reverses; selection noise (~0.5%) as large as the effect</td></tr><tr id="t17"><td class="d"><span class="tn">#17</span>Nov 9</td><td>#15 with fallback copies (×0.7 or ×1.4 when ×0.5 and ×2 are both in use)</td><td>0.3026; 0.8% worse than #15</td><td class="i">No improvement. Consequence: Validation (1M), standard ParT as comparator, three seeds</td></tr></tbody></table></div>
+<h3>2.3&ensp;PBT against standard ParT, 800k</h3>
+<p class="changed">Changed: Validation (1M) instead of 150k; comparator standard ParT (constant LR for 35 epochs, then ×0.01 over 15; five start LRs); three seeds. Training (800k).</p>
+<div class="table-wrap"><table class="hist"><colgroup><col class="c-d"><col class="c-c"><col class="c-r"><col class="c-i"></colgroup><thead><tr><th>Date</th><th>Configuration</th><th>Result</th><th>Interpretation</th></tr></thead><tbody><tr id="t18"><td class="d"><span class="tn">#18</span>Nov 10–13</td><td>Standard ParT (start 10<sup>−5</sup>–10<sup>−3</sup>), constant LR 6×10<sup>−5</sup>–1.6×10<sup>−4</sup> and PBT as #17; seeds 12345, 22345, 32345</td><td>Standard 0.3029 / 0.3038 / 0.3024; constant 0.3028 / 0.3013 / 0.3024; PBT 0.3008 / 0.3012 / 0.2996. <b>PBT 0.81% better</b> (95% interval 0.34–1.34%), at 7 of 8 working points</td><td class="i">Small but consistent PBT gain; the constant-LR grid is not stable across seeds</td></tr><tr id="t19"><td class="d"><span class="tn">#19</span>Nov 12</td><td>PBT as #18 with a final LR decay (no decisions in the last 15 epochs); 2 seeds</td><td>Same selected models as #18</td><td class="i">The decay adds nothing at 800k</td></tr><tr id="t20"><td class="d"><span class="tn">#20</span>Nov 12</td><td>Standard ParT from random weights</td><td>0.378 on Validation, against about 0.30</td><td class="i">Pretraining is essential</td></tr><tr id="t21"><td class="d"><span class="tn">#21</span>Nov 12</td><td>Weight averages of nearby checkpoints and of PBT models</td><td>No gain (Validation)</td><td class="i"></td></tr></tbody></table></div>
+<h3>2.4&ensp;PBT against standard ParT, 8M</h3>
+<p class="changed">Changed: Training (8M) instead of 800k; one seed (12345). Validation (1M).</p>
+<div class="table-wrap"><table class="hist"><colgroup><col class="c-d"><col class="c-c"><col class="c-r"><col class="c-i"></colgroup><thead><tr><th>Date</th><th>Configuration</th><th>Result</th><th>Interpretation</th></tr></thead><tbody><tr id="t22"><td class="d"><span class="tn">#22</span>Nov 14–15</td><td>Standard ParT, start 10<sup>−5</sup>–10<sup>−3</sup></td><td>0.1635; best at the highest start LR (10<sup>−3</sup>)</td><td class="i">Start LR range extended (#24)</td></tr><tr id="t23"><td class="d"><span class="tn">#23</span>Nov 15–17</td><td>PBT as #18 with the LR range of standard ParT (max 10<sup>−3</sup>)</td><td>0.1812; <b>12.4% worse</b> than #24</td><td class="i">PBT lowered all LRs early (below 2.5×10<sup>−4</sup> from epoch 11); hypothesis: two-epoch decision horizon</td></tr><tr id="t24"><td class="d"><span class="tn">#24</span>Nov 19–20</td><td>Standard ParT, start 3×10<sup>−3</sup> (one model, fixed in advance)</td><td><b>0.1611</b></td><td class="i">8M reference</td></tr><tr id="t25"><td class="d"><span class="tn">#25</span>Nov 19–21</td><td>PBT with cool-down probes: each model judged on a copy trained ¼ epoch at 0.1× its LR; also on 800k</td><td>8M: 0.1699, 5.4% worse than #24. 800k: 0.3024 (no change)</td><td class="i">LRs stay higher (1.2×10<sup>−4</sup>–10<sup>−3</sup>); gap halved</td></tr><tr id="t26"><td class="d"><span class="tn">#26</span>Nov 20–23</td><td>Probes plus the final decay of standard ParT; max LR 3×10<sup>−3</sup></td><td>0.1655; 2.7% worse than #24</td><td class="i">78% of the gap closed; still worse. Extra seeds not run (rule fixed in advance)</td></tr></tbody></table></div>
+<h3>2.5&ensp;Ensembles and other ways to gain, 8M</h3>
+<p class="changed">Changed: question moved from the LR schedule to combining models. Training (8M), Validation (1M).</p>
+<div class="table-wrap"><table class="hist"><colgroup><col class="c-d"><col class="c-c"><col class="c-r"><col class="c-i"></colgroup><thead><tr><th>Date</th><th>Configuration</th><th>Result</th><th>Interpretation</th></tr></thead><tbody><tr id="t27"><td class="d"><span class="tn">#27</span>Nov 23</td><td>Ensemble: mean class probabilities of #22 and #24; chosen among 8 ensembles on Validation, Test check fixed in advance</td><td>0.1530; 5.05% better than #24 (interval 3.75–6.36%)</td><td class="i">Large gain on the development seed</td></tr><tr id="t28"><td class="d"><span class="tn">#28</span>Nov 23–25</td><td>#27 repeated: new standard ParT runs at 3×10<sup>−3</sup> and 10<sup>−3</sup>, seeds 22345 and 32345</td><td>4.86% and 5.14% better; <b>mean of 3 seeds 5.01%</b> (interval 4.17–5.84%)</td><td class="i">Confirmed on new seeds</td></tr><tr id="t29"><td class="d"><span class="tn">#29</span>Nov 23</td><td>Ensembles of any two of 15 models of #18 (800k)</td><td>No gain beyond chance (Validation)</td><td class="i">Models too similar at 800k</td></tr><tr id="t30"><td class="d"><span class="tn">#30</span>Nov 23–25</td><td>Disagreement and gain of model pairs, all 8M models</td><td>Same run or PBT pair: 0.2–0.4% disagreement, no gain; separate models: 1.5–2.3%; same LR 3.6%, different LR 4.7% gain (Validation)</td><td class="i">Gain comes mostly from separate training</td></tr><tr id="t31"><td class="d"><span class="tn">#31</span>Nov 23–24</td><td>Final decay of #24 without dropout</td><td>0.1730 against 0.1595 at epoch 44 (Validation); stopped</td><td class="i">Dropout helps at 8M although there is no visible overfitting</td></tr><tr id="t32"><td class="d"><span class="tn">#32</span>Nov 24</td><td>Distillation: final decay of #24 trained half on labels, half on the ensemble of #27</td><td>Best 0.1600 against 0.1584 (Validation)</td><td class="i">No gain; the ensemble gain is not kept in one model</td></tr><tr id="t33"><td class="d"><span class="tn">#33</span>Nov 24–25</td><td>Standard ParT, start 10<sup>−2</sup></td><td>0.1631 on Validation (worse than #24); 0.1599 on Test</td><td class="i">Start LR above 10<sup>−3</sup> hardly matters; #24 stays the reference</td></tr></tbody></table></div>
 
-<hr class="section">
+<h2>3&ensp;Interpretation of results</h2>
 
-<section class="text" id="question">
-<h2><span class="num">1</span>The question: can a learning-rate schedule be found while training?</h2>
-<p>The tagger is a Particle Transformer pretrained on simulated ILC events and then fine-tuned to separate b, c
-and light-quark jets. Fine-tuning needs a learning-rate (LR) schedule. The standard ParT recipe keeps the LR
-constant for 35 of 50 epochs and then lowers it by a factor of 100 over the last 15; it is run at five start LRs,
-and the best model on the Validation sample is kept. We call this <em>standard ParT</em>.</p>
-<p>Population Based Training<span class="note">M. Jaderberg et al., <em>Population Based Training of Neural
-Networks</em>, 2017. PBT reported gains in reinforcement learning, machine translation and GANs.</span> trains
-the same five models in parallel and adapts their LRs while they train: every few epochs the weakest model copies
-the weights of the best one and changes its LR by a factor (×0.5 or ×2 in our final version). The schedule is
-therefore found within one training budget instead of being fixed in advance. For fine-tuning, where the best LR
-is not known and may change during training, this looked like a natural way to gain at no extra compute: both
-methods train five models for 50 epochs.</p>
-<p>We measure the tagger by the <em>mistag</em>, the geometric mean of the background mistag rates at eight
-working points:</p>
-<div class="eq">$$ M = \Big(\prod_{i=1}^{8} \varepsilon_i\Big)^{1/8}, $$</div>
-<p>where $\varepsilon_i$ are the background efficiencies of b-tagging at 80% and 90% signal efficiency against c and
-light jets, and of c-tagging at 50% and 80% against b and light jets. Lower is better. A change between two
-methods is $\Delta = M_\text{A}/M_\text{B} - 1$. Each model is selected on the Validation sample and evaluated
-once on a separate Test sample of 2.8M jets; the comparisons of sections 3–5 were written into the repository
-before the Test sample was read. Details are in <a href="#methods">Methods</a>.</p>
-</section>
-
-<section class="text" id="baseline">
-<h2><span class="num">2</span>The early gains of PBT came from a baseline that was too weak</h2>
-<p><span class="kind">Observation</span>The first comparisons, in September and October, set PBT against five
-constant LRs between 3×10<sup>−6</sup> and 1.4×10<sup>−5</sup>. With 800k training jets PBT was 1.4% better, in
-50 and in 100 epochs. A preregistered comparison with 8M training jets, evaluated once on a separate Test sample
-of 9.0M jets, gave 7.7%, and all ten validity checks passed.</p>
-<p>In each of these runs the best constant-LR model was the one with the highest LR of the grid, and PBT had moved
-its LRs above the grid. We therefore extended the constant LRs upwards (Figure 3). The mistag falls steeply with
-the LR up to about 10<sup>−4</sup>: a constant LR of 8×10<sup>−5</sup> reaches 0.3018, better than every PBT run
-before.</p>
-</section>
-
-<figure class="wide">
-  <div class="fig-scroll"><img src="pub/fig3_learning_rate.svg" alt="Mistag on Test against the learning rate of the selected model, constant learning rates and two PBT runs"></div>
-  <figcaption><b>Figure 3. A higher constant learning rate does what PBT did.</b> Mistag on the Test sample against
-  the LR of the selected model, 800k training jets, seed 12345. Grey: the best model of each constant-LR grid.
-  Red: the two PBT runs, at the LR their selected model had reached. Shaded: the LR range of the September
-  comparison.</figcaption>
+<h3>3.1&ensp;Baseline correction <span class="tag c">Confirmed</span></h3>
+<p class="text">The early comparisons (#1–#10) used constant LRs of 3×10<sup>−6</sup>–1.4×10<sup>−5</sup>, and their best
+model was always at the top of the grid. With higher constant LRs the mistag falls steeply up to about
+10<sup>−4</sup>, and both PBT runs lie on this curve (Figure 3). The early gains therefore measured the LR level that
+PBT reached, not the benefit of adapting the LR. With the 150k Validation sample, differences of about 0.5% were
+within selection noise (#6, #8, #16), which is why later trials select on Validation (1M).</p>
+<figure>
+  <div class="fig-scroll"><img src="pub/fig3_learning_rate.svg" alt="Mistag on Test against the learning rate of the selected model"></div>
+  <figcaption><b>Figure 3.</b> Mistag on Test (2.8M) against the LR of the selected model; Training (800k), seed 12345.
+  Grey: best model of each constant-LR grid (#1, #12, #13, #14). Red: PBT (#3, #15).</figcaption>
 </figure>
 
-<section class="text">
-<p><span class="kind interp">Interpretation</span>Both PBT runs lie on the curve of the constant LRs. The early
-gain measured how far PBT moved the LR upwards, not a benefit of changing the LR during training.</p>
-<p>A faster PBT (decisions every two epochs, LR ×0.5 or ×2, wider range) was 1.0% better than the best constant
-LR with seed 12345, but 0.5% worse with seed 22345, and in both seeds the 150k-jet Validation sample disagreed with
-the Test sample on which method was better. Selection noise of about 0.5% was as large as the effect. From
-10 November we therefore selected models on 1M Validation jets, used standard ParT as the comparator, and ran three
-seeds.</p>
-</section>
-
-<section class="text" id="small">
-<h2><span class="num">3</span>With little data, PBT beats standard training by less than one percent</h2>
-<p><span class="kind">Observation</span>With 800k training jets and three seeds, PBT has a lower mistag than
-standard ParT for every seed: by 0.67%, 0.85% and 0.91%, on average 0.81% (95% interval 0.34–1.34% for the Test
-sample; Figure 1, left). It is better at seven of the eight working points on average; the exception is c-tagging
-at 50% against light jets, 1.1% worse. A tuned constant-LR grid equals PBT for one seed and standard ParT for the
-other two.<span class="note">The interval resamples blocks of 100 adjacent Test jets, which keeps the jets of one
-event together. It describes the Test sample, not the variation between seeds, which the three seeds show
-directly.</span></p>
-<p>Three side checks changed nothing: adding the final LR decay of standard ParT to PBT selected the same models;
-averaging the weights of nearby checkpoints or of PBT models gave no gain; and training standard ParT from random
-weights reached only 0.378 on Validation against about 0.30 from the pretrained model.</p>
-</section>
-
-<section class="text" id="large">
-<h2><span class="num">4</span>With ten times more data, PBT falls behind</h2>
-<p><span class="kind">Observation</span>With 8M training jets, standard ParT was best at its highest start LR, so
-one more model at 3×10<sup>−3</sup> was trained under a rule fixed in advance; it reaches 0.1611 and is the
-reference. PBT, given the same LR range, reaches 0.1812: 12.4% worse (one seed; Figure 1, right). A start LR of
-10<sup>−2</sup> was worse on Validation and within the spread of the seeds on Test, so 3×10<sup>−3</sup> stays the
-reference.</p>
-<p>Figure 4 shows what happens during training. Standard ParT keeps its LR at 3×10<sup>−3</sup> for 35 epochs and
-gains most of its improvement in the final decay. PBT lowers all its LRs early, below 2.5×10<sup>−4</sup> from
-epoch 11; it leads for about the first 20 epochs and is then overtaken.</p>
-</section>
-
-<figure class="wide">
-  <div class="fig-scroll"><img src="pub/fig5_mechanism.svg" alt="Learning rate and best Validation mistag per epoch for standard ParT and PBT with 8M training jets"></div>
-  <figcaption><b>Figure 4. PBT lowers the learning rate too early.</b> 8M training jets, seed 12345. Left: LR per
-  epoch of standard ParT and the range of LRs of the five PBT models. Right: best Validation mistag reached so far.
-  Shaded: the final LR decay of standard ParT.</figcaption>
-</figure>
-
-<section class="text">
-<p><span class="kind interp">Interpretation</span>PBT compares its models two epochs after each decision. Over two
-epochs a lower LR almost always looks better, so PBT keeps choosing lower LRs, although a high LR pays off only
-after the final decay. Why this costs little at 800k and much at 8M is visible in the losses (Figure 5): with 800k
-jets the training loss falls below the Validation loss after about 20 epochs, so the model starts to memorise its
-training data and an early, well-timed LR reduction helps. With 8M jets the two losses stay together to the end; the
-model does not overfit, and a long phase at a high LR followed by a decay is better.</p>
-</section>
-
-<figure class="wide">
+<h3>3.2&ensp;Dataset-size dependence <span class="tag c">Confirmed observation</span> <span class="tag h">Hypothesis for the cause</span></h3>
+<p class="text">Observation: with 800k training jets the training loss falls below the Validation loss after about 20
+epochs (0.270 against 0.276 at the end); with 8M training jets the two stay together (0.2443 and 0.2448; Figure 4).
+Hypothesis: when the model overfits, lowering the LR at the right time and keeping the best epoch is the right
+strategy, and PBT finds it (#18); without overfitting, a long phase at a high LR followed by a decay is better, which
+is standard ParT (#22–#24).</p>
+<figure>
   <div class="fig-scroll"><img src="pub/fig4_regimes.svg" alt="Training and Validation loss per epoch with 800k and 8M training jets"></div>
-  <figcaption><b>Figure 5. The small training set overfits, the large one does not.</b> Cross-entropy loss per
-  epoch of the best standard ParT model (start LR 10<sup>−4</sup> at 800k, 3×10<sup>−3</sup> at 8M) on the
-  training data and on the Validation sample.</figcaption>
+  <figcaption><b>Figure 4.</b> Cross-entropy loss per epoch of the best standard ParT model (start LR 10<sup>−4</sup>
+  at 800k, 3×10<sup>−3</sup> at 8M) on the training data and on Validation (1M).</figcaption>
 </figure>
 
-<section class="text">
-<p>Two modifications target the short horizon. <em>Cool-down probes</em> judge each model on a copy trained for a
-quarter epoch at a tenth of its LR, so a high LR is judged after a short decay; this gave 0.1699 (+5.4%). Adding
-the <em>final decay</em> of standard ParT (no decisions in the last 15 epochs) gave 0.1655 (+2.7%). Together they
-close 78% of the gap, but PBT remains worse. Late in training the probes again preferred lower LRs: a quarter epoch
-at 0.1× is a much weaker decay than the real one.<span class="note">These 8M PBT runs use one seed. A rule fixed in
-advance allowed two more seeds only if the last run was not clearly worse than standard ParT; it was, so they were
-not run.</span></p>
-</section>
-
-<section class="text" id="ensemble">
-<h2><span class="num">5</span>Separately trained models combine well where PBT models do not</h2>
-<p><span class="kind">Observation</span>Averaging the class probabilities of the two standard ParT models of one
-seed (start LRs 3×10<sup>−3</sup> and 10<sup>−3</sup>) lowers the mistag by 5.05%, 4.86% and 5.14% against the
-better model alone, on average 5.0% (95% interval 4.2–5.8%; Figure 6, left). The pair was chosen among eight
-candidate ensembles on Validation for seed 12345; its Test comparison was fixed before it was evaluated, and the
-two further seeds were trained afterwards to test it. Both models come from the LR scan that standard ParT runs
-anyway; the cost is two models at inference.</p>
-</section>
-
-<figure class="wide">
-  <div class="fig-scroll"><img src="pub/fig6_ensemble.svg" alt="Mistag of two standard ParT models and their ensemble per seed, and the disagreement between pairs of models"></div>
-  <figcaption><b>Figure 6. Ensembles gain when their models disagree.</b> Left: mistag on Test of the two standard
-  ParT models and of their ensemble, one line per seed, 8M training jets. Right: fraction of Validation jets on which
-  two models predict different classes, for four kinds of pairs, with the ensemble gain on Validation.</figcaption>
+<h3>3.3&ensp;Training dynamics at 8M <span class="tag p">Preliminary, 1 seed</span> <span class="tag h">Hypothesis for the cause</span></h3>
+<p class="text">Observation: standard ParT keeps 3×10<sup>−3</sup> for 35 epochs and gains most in its final decay;
+PBT lowers all LRs below 2.5×10<sup>−4</sup> from epoch 11, leads for about 20 epochs and is then overtaken
+(Figure 5). Hypothesis: PBT compares its models two epochs after each decision, and over two epochs a lower LR almost
+always looks better. Probes and a final decay (#25, #26) partly address this and close 78% of the gap.</p>
+<figure>
+  <div class="fig-scroll"><img src="pub/fig5_mechanism.svg" alt="Learning rate and best Validation mistag per epoch, 8M training jets"></div>
+  <figcaption><b>Figure 5.</b> Training (8M), seed 12345. Left: LR per epoch of standard ParT (#24) and the range of
+  the five PBT models (#23). Right: best Validation (1M) mistag so far; dashed: PBT with probes and final decay (#26).
+  Shaded: final LR decay of standard ParT.</figcaption>
 </figure>
 
-<section class="text">
-<p>Two models of one PBT run gain nothing (0.1605 against 0.1604 on Validation): PBT copies weights between its
-models, so they make the same errors. Two checkpoints of one run disagree on 0.2–0.4% of the jets, separately
-trained 8M models on 1.5–2.3%. Pairs with the same start LR and different seeds gain 3.6%, pairs with different
-start LRs 4.7%; most of the gain comes from training the models separately. With 800k training jets, models of
-different seeds disagree on only 0.6–0.7% of the jets and their ensembles gain nothing.</p>
-<p><span class="kind interp">Interpretation</span>The diversity of the models seems to grow with how far training
-moves them from the common pretrained start, which is far at 8M with high LRs and short at 800k with low LRs.</p>
-<p>We could not keep the gain in one model. Training one model half on the labels and half on the ensemble output
-(distillation) during the final decay gave 0.1600 against 0.1584 on Validation; removing dropout in the final decay
-made the model clearly worse; and the weights of two separately trained models cannot be averaged into one model
-(0.39 on Validation).</p>
-</section>
+<h3>3.4&ensp;Ensembles <span class="tag c">Confirmed gain</span> <span class="tag h">Hypothesis for the cause</span></h3>
+<p class="text">Observation: the ensemble of the two standard ParT models of a seed is better on all three seeds
+(#27, #28; Figure 6, left). Models of one PBT run, or checkpoints of one run, disagree on 0.2–0.4% of the jets and give
+no gain; separately trained 8M models disagree on 1.5–2.3% (#30); 800k models on 0.6–0.7%, with no gain (#29).
+Hypothesis: the ensemble needs models that make different errors; PBT copies weights between its models, and at 800k
+the low LRs keep all models close to the common pretrained start. The gain was not kept in one model (#32).</p>
+<figure>
+  <div class="fig-scroll"><img src="pub/fig6_ensemble.svg" alt="Mistag of two standard ParT models and their ensemble, and disagreement between model pairs"></div>
+  <figcaption><b>Figure 6.</b> Left: mistag on Test (2.8M) of the two standard ParT models and of their ensemble, one
+  line per seed, Training (8M). Right: share of Validation jets on which two models predict different classes, for
+  four kinds of pairs, with the ensemble gain on Validation.</figcaption>
+</figure>
 
-<section class="text" id="conclusions">
-<h2><span class="num">6</span>What we can conclude, and what remains open</h2>
-<div class="table-wrap">
-<table>
-<thead><tr><th>Finding</th><th>Evidence</th><th>Status</th></tr></thead>
-<tbody>
-<tr><td>The early gains (1.4%, 7.7%) measured a higher learning rate, not adaptation</td><td>Constant-LR grids up to 3.2×10<sup>−4</sup>, Figure 3; one seed per grid</td><td class="status est">Established</td></tr>
-<tr><td>With 800k training jets PBT is 0.81% better than standard ParT</td><td>3 seeds, comparison fixed in advance, interval 0.34–1.34%</td><td class="status est">Established</td></tr>
-<tr><td>With 8M training jets PBT is worse (12.4%; 2.7% with both modifications)</td><td>1 seed per configuration</td><td class="status pre">Preliminary</td></tr>
-<tr><td>With 8M training jets an ensemble of two standard ParT models is 5.0% better</td><td>3 seeds, fixed in advance, interval 4.2–5.8%</td><td class="status est">Established</td></tr>
-<tr><td>PBT fails at 8M because of its short decision horizon in a regime without overfitting</td><td>Learning-rate and loss curves, Figures 4–5; not tested directly</td><td class="status int">Interpretation</td></tr>
-</tbody>
-</table>
+<h2>4&ensp;Current status</h2>
+<div class="status-grid">
+  <div>
+    <h3>Established</h3>
+    <ul>
+      <li>The early gains of PBT were an LR-level effect (#12–#14).</li>
+      <li>800k: PBT 0.81% better than standard ParT; 3 seeds.</li>
+      <li>8M: ensemble of two standard ParT models 5.0% better; 3 seeds.</li>
+      <li>Pretraining is essential (#20); dropout helps at 8M (#31).</li>
+    </ul>
+  </div>
+  <div>
+    <h3>Unresolved</h3>
+    <ul>
+      <li>8M PBT result: one seed only.</li>
+      <li>Cause of the 8M result (decision horizon) and of the ensemble gain (model diversity): not tested directly.</li>
+      <li>Decision frequency (#6): inconclusive. Decisions within an epoch: implemented (#11), never run.</li>
+      <li>All runs start from one pretrained checkpoint; Test (2.8M) was also inspected in diagnostics before
+      November; no result carried into a physics analysis.</li>
+    </ul>
+  </div>
 </div>
-<p><strong>Open questions.</strong> Can PBT gain at 8M if its decisions look further ahead than two epochs? How large
-is the seed-to-seed spread of the 8M PBT result? Do ensembles of more than two models gain more? Does the 800k gain
-hold from other pretrained starting points? Adaptation within an epoch is implemented and verified, but no
-experiment uses it.</p>
-<p><strong>Limitations.</strong> All runs start from one pretrained checkpoint, which ranks fourth of twenty on
-Validation, and use one optimizer. The Test sample was also inspected in diagnostics before November. The intervals
-cover the Test sample only. No result has been carried into a physics analysis.</p>
-</section>
 
-<section class="text" id="methods">
-<h2><span class="num">A</span>Methods</h2>
-<h3>Data</h3>
-<p>All samples come from the same simulated ILC sample and are disjoint. Earlier pages called the Test sample
-"holdout" and the 9.0M-jet sample "sealed test".</p>
-<div class="table-wrap">
-<table>
-<thead><tr><th>Sample</th><th class="num">Jets</th><th>Use</th></tr></thead>
-<tbody>
-<tr><td>Training (800k)</td><td class="num">2,392,232</td><td>training until 13 November</td></tr>
-<tr><td>Training (8M)</td><td class="num">23,921,449</td><td>large-data training; from 10 November without the 999,999 Validation (1M) rows</td></tr>
-<tr><td>Validation (150k)</td><td class="num">150,000</td><td>evaluated after every epoch; drives PBT and selects the model; until 9 November</td></tr>
-<tr><td>Validation (1M)</td><td class="num">999,999</td><td>the same role from 10 November</td></tr>
-<tr><td>Test</td><td class="num">2,825,125</td><td>one evaluation of each selected model</td></tr>
-<tr><td>Test (9.0M)</td><td class="num">8,970,477</td><td>used once, for the preregistered October comparison</td></tr>
-</tbody>
-</table>
+<footer class="end">Figures: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/scripts/reports/publication_figures.py">publication_figures.py</a>;
+this page: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/scripts/reports/build_report.py">build_report.py</a>;
+all numbers as in <a href="results.html">results</a> and the run records.</footer>
 </div>
-<h3>Training</h3>
-<p>Every run starts from the same pretrained ParT checkpoint (epoch 17 of pretraining) and trains for 50 epochs with
-the Ranger optimizer, mixed precision and frozen batch-normalisation statistics. A run has five models on five GPUs.
-<em>Standard ParT</em>: constant LR for 35 epochs, then ×0.01 over 15 epochs, at five start LRs. <em>Constant-LR
-grid</em>: five constant LRs. <em>PBT</em>: at each decision the weakest model copies the weights of the best one
-and multiplies its LR by 0.5 or 2 (September: every 5 epochs, ×0.8 or ×1.2). The model with the best Validation
-mistag over all epochs and models is the selected model of a run.</p>
-<h3>Statistics and pre-specification</h3>
-<p>Intervals are 95% intervals from 500 bootstrap resamplings of blocks of 100 adjacent Test jets (jets of one event
-are adjacent), with the same resampling for both compared models; the mean over seeds uses the same blocks for all
-seeds. The results do not change for block sizes between 1 and 1000. The selection rule, the checkpoints and the
-comparison of each Test evaluation were committed to the repository before the evaluation
-(<a href="https://github.com/marchexe/ilc-dynamic-training/tree/main/configs/prepared">configs/prepared</a>).
-Every trial, its runs and configuration files are listed in the <a href="log.html">experiment log</a>.</p>
-</section>
-
-<footer class="end text">
-ILC dynamic training · research overview, status 26 November 2026. Figures are generated from the run records by
-<a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/scripts/reports/publication_figures.py">publication_figures.py</a>;
-all numbers are those of the <a href="results.html">detailed results</a>.
-</footer>
-
 </div>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"
-  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})"></script>
 </body>
 </html>
