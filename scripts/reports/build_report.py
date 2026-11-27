@@ -100,7 +100,16 @@ PHASES = [
 ]
 
 
-FIG = ('<figure id="fig-{n}"><div class="fig-scroll"><img src="pub/{src}" alt="{alt}"></div>'
+PUB = ROOT / 'docs/_extra/pub'
+
+
+def asset(name):
+    """pub/<name>?v=<content hash>: a changed file gets a new URL, so no browser serves a stale copy."""
+    import hashlib
+    return f'pub/{name}?v={hashlib.sha256((PUB / name).read_bytes()).hexdigest()[:12]}'
+
+
+FIG = ('<figure id="fig-{n}"><div class="fig-scroll"><img src="{src}" alt="{alt}"></div>'
        '<figcaption data-anchor="fig-{n}"><b>Figure {n}.</b> {cap}</figcaption></figure>')
 
 
@@ -183,7 +192,7 @@ def timeline():
         body = ''.join(trial_row(*row) for row in rows)
         figs_html = []
         for src, alt, cap in figs:
-            figs_html.append(FIG.format(src=src, alt=alt, n=nfig, cap=xref(cap)))
+            figs_html.append(FIG.format(src=asset(src), alt=alt, n=nfig, cap=xref(cap)))
             nfig += 1
         out.append(f'<section class="phase" id="phase-{k}"><div class="when">Phase {k} · {dates} · {cond}</div>'
                    f'<h3 data-anchor="phase-{k}">{title}</h3><p class="obj"><b>Objective:</b> {objective} <b>Outcome:</b> {outcome}</p>'
@@ -195,7 +204,7 @@ def timeline():
 
 
 def main():
-    page = (Path(__file__).with_name('report_template.html')).read_text().replace('<!--TIMELINE-->', timeline())
+    page = (Path(__file__).with_name('report_template.html')).read_text().replace('<!--TIMELINE-->', timeline()).replace('pub/style.css', asset('style.css')).replace('pub/anchors.js', asset('anchors.js'))
     out = ROOT / 'docs/_extra/overview.html'
     out.write_text(page)
     print(f'{out.relative_to(ROOT)}: {len(page) // 1024} kB')

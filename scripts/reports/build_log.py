@@ -78,6 +78,10 @@ def main():
                          f'<div class="body">{table}<p>{meta} · <a href="overview.html#t{number}">trial {number} in the report</a>'
                          '</p></div></details>')
     page = TEMPLATE.replace('<!--TRIALS-->', '\n'.join(parts))
+    import hashlib
+    for name in ('style.css', 'anchors.js'):  # content hash in the URL: no stale cached copies
+        h = hashlib.sha256((ROOT / 'docs/_extra/pub' / name).read_bytes()).hexdigest()[:12]
+        page = page.replace(f'pub/{name}"', f'pub/{name}?v={h}"')
     out = ROOT / 'docs/_extra/log.html'
     out.write_text(page)
     print(f'{out.relative_to(ROOT)}: {len(page) // 1024} kB')
