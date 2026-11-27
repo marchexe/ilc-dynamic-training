@@ -7,13 +7,11 @@ Test values are the published values of docs/results.rst (selected checkpoints, 
 unless stated); learning-rate and Validation trajectories come from the run manifests in runs/pbt; loss curves
 from published/results/sel1m/train8m_followups.json. Nothing here is fitted or smoothed.
 """
-from datetime import date
 import json
 from pathlib import Path
 
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.dates as mdates  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.ticker import AutoMinorLocator, FixedLocator  # noqa: E402
 from matplotlib import font_manager  # noqa: E402
