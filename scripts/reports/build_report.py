@@ -35,7 +35,7 @@ V = ' <i>(Validation)</i>'
 # Results are mistag (%) of the selected model on Test (2.8M) unless marked (Validation); "x% better/worse than #n" is
 # the relative change of that value against trial #n.
 PHASES = [
-    ('Initial implementation', 'Training (800k)', [
+    ('Initial implementation: two defects, no usable result', 'Training (800k)', [
         ('–', 'Jul 22 – Aug 31', 'First PBT implementations (exploit-and-mutate, anchor-copy) and LR controllers, with an '
          'older training set-up: a capped number of training jets per epoch and a damped optimizer start',
          'Two defects found and fixed: BatchNorm statistics were updated although they should be frozen, and an LR '
@@ -43,7 +43,7 @@ PHASES = [
          'Results not comparable with later trials and not used. Training was rebuilt as deterministic full epochs '
          '(from Sep 16), which all later trials use'),
     ]),
-    ('PBT against constant learning rates', 'Training (800k), then (8M) · Validation (150k) · seed 12345 unless noted', [
+    ('PBT beats constant learning rates, but the best constant LR is always the top of the grid', 'Training (800k), then (8M) · Validation (150k) · seed 12345 unless noted', [
         ('1', 'Sep 16', f'Constant-LR grid: five models, each at one LR for 50 epochs: {G1}',
          '0.3269; selected model: the highest LR, 1.4×10<sup>−5</sup>, epoch 44',
          'First comparator for PBT. That the best LR was the top of the grid was noted but not followed up until #12'),
@@ -92,7 +92,7 @@ PHASES = [
          'One epoch trained as five restarted parts equals one uninterrupted epoch bit for bit',
          'Implemented; not used in any PBT run'),
     ]),
-    ('Higher constant learning rates', 'Training (800k) · Validation (150k) · seed 12345 unless noted', [
+    ('A higher constant learning rate matches PBT', 'Training (800k) · Validation (150k) · seed 12345 unless noted', [
         ('12', 'Nov 3', f'Constant-LR grid {E("1.4", 5)}, {E("1.8", 5)}, {E("2.2", 5)}, {E("2.6", 5)}, {E("3", 5)}, '
          'because the best LR of #1 and #10 was the top of the grid',
          f'0.3146; selected LR {E("3", 5)}, again the top of the grid', 'The optimum lies higher still'),
@@ -109,7 +109,8 @@ PHASES = [
         ('16', 'Nov 9', f'Second seed (22345): fast PBT exactly as #15, and a new constant-LR grid {E("6", 5)}, {E("8", 5)}, '
          f'{E("1", 4)}, {E("1.2", 4)}, {E("1.6", 4)}, centred on the optimum of #13–#14 (not the grid of #14)',
          'PBT 0.3041 against constant LR 0.3027: 0.47% worse on Test, although 1.4% better on Validation',
-         'The order reverses with the seed, and Validation and Test disagree: selection noise of about 0.5% is as large '
+         'The order reverses; the seed and the constant-LR grid changed together, so the cause is not separated. Validation '
+         'and Test also disagree: selection noise of about 0.5% is as large '
          'as the effect'),
         ('17', 'Nov 9', 'Fast PBT as #15 (seed 12345) with fallback copies. In #15 a losing member was not replaced when '
          'both ×0.5 and ×2 gave an LR another member already had (about 24 times; one member stayed at 5×10<sup>−4</sup> '
@@ -119,7 +120,7 @@ PHASES = [
          'No improvement; kept in later PBT runs because it removes the stuck member. Next: Validation (1M), standard '
          'ParT as comparator, three seeds'),
     ]),
-    ('PBT against standard ParT, 800k', 'Training (800k) · Validation (1M) · 3 seeds', [
+    ('With 800k training jets, PBT beats standard ParT by 0.8% on average', 'Training (800k) · Validation (1M) · 3 seeds', [
         ('18', 'Nov 10–13', f'Three methods, each with seeds 12345, 22345, 32345: standard ParT (constant LR for 35 epochs, '
          f'then ×0.01 over 15; start LRs {E("1", 5)}, {E("3", 5)}, {E("1", 4)}, {E("3", 4)}, {E("1", 3)}); constant-LR '
          f'grid as #16 ({E("6", 5)}–{E("1.6", 4)}); PBT as #17. Comparisons fixed before training',
@@ -141,7 +142,7 @@ PHASES = [
          'average better than the selected checkpoint. The planned Test evaluation was not run',
          'At most a small change on Validation; not pursued'),
     ]),
-    ('PBT against standard ParT, 8M', 'Training (8M) · Validation (1M) · seed 12345', [
+    ('With 8M training jets, PBT is worse than standard ParT', 'Training (8M) · Validation (1M) · seed 12345', [
         ('22', 'Nov 14–15', f'Standard ParT as #18, Training (8M), start LRs {E("1", 5)}–{E("1", 3)}',
          f'0.1635; selected start LR {E("1", 3)}, the top of the range', 'The range was extended in #24'),
         ('23', 'Nov 15–17', f'PBT as #18 with the start LRs and upper LR bound of standard ParT ({E("1", 5)}–{E("1", 3)})',
@@ -163,7 +164,7 @@ PHASES = [
          'over #25 cannot be assigned to either. Two further seeds were prepared, with the rule that they run only if '
          'this run is not clearly worse than #24; they were not run'),
     ]),
-    ('Ensembles and other ways to gain, 8M', 'Training (8M) · Validation (1M)', [
+    ('With 8M training jets, two averaged standard ParT models are 5% better', 'Training (8M) · Validation (1M)', [
         ('27', 'Nov 23', 'Ensemble: average of the class probabilities of the selected models of #22 (start LR '
          f'{E("1", 3)}) and #24 ({E("3", 3)}), seed 12345; chosen as the best of eight candidate ensembles on Validation, '
          'Test comparison fixed before evaluation',
@@ -252,7 +253,7 @@ PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the 
     ('Nov 3 – Nov 9', 'Test whether a higher constant LR explains the PBT gain.',
      f'A constant LR near {SUP("1", 4)} matches PBT.',
      '<b>Interpretation</b> <span class="ev s">single seed per grid</span>. Both PBT runs lie on the curve of the constant '
-     'LRs (Figure 1), so the earlier gains were an LR-level effect. The sign reversed with a second seed: at this precision '
+     'LRs (Figure 1), so the earlier gains were an LR-level effect. With seed 22345 and a re-centred grid the sign reversed: at this precision '
      'the comparison needs a larger Validation sample and several seeds. <b>Next:</b> Validation (1M), standard ParT as '
      'comparator (the usual recipe: constant LR for 35 epochs, then ×0.01 over 15; five start LRs), three seeds.',
      [('fig3_learning_rate.svg', 'Mistag on Test against the learning rate of the selected model',
