@@ -86,7 +86,7 @@ PHASES = [
         ('27', 'Nov 23', 'Ensemble: mean class probabilities of #22 and #24; chosen among 8 ensembles on Validation, Test check fixed in advance',
          '0.1530; 5.05% better than #24 (interval 3.75–6.36%)', 'Large gain on the development seed'),
         ('28', 'Nov 23–25', f'#27 repeated: new standard ParT runs at {lr("3", 3)} and {lr("1", 3)}, seeds 22345 and 32345',
-         '4.86% and 5.14% better; <b>mean of 3 seeds 5.01%</b> (interval 4.17–5.84%)', 'Confirmed on new seeds'),
+         '0.1519 and 0.1540 against 0.1597 and 0.1623 (3×10<sup>−3</sup> models): 4.86% and 5.14% better; <b>mean of 3 seeds 5.01%</b> (interval 4.17–5.84%)', 'Confirmed on new seeds'),
         ('29', 'Nov 23', 'Ensembles of any two of 15 models of #18 (800k)', 'No gain beyond chance (Validation)', 'Models too similar at 800k'),
         ('30', 'Nov 23–25', 'Disagreement and gain of model pairs, all 8M models', 'Same run or PBT pair: 0.2–0.4% disagreement, no gain; '
          'separate models: 1.5–2.3%; same LR 3.6%, different LR 4.7% gain (Validation)', 'Gain comes mostly from separate training'),

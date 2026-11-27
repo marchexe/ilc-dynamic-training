@@ -73,20 +73,67 @@ def rows_panel(ax, rows, xlim, ticks, title):
     grid(ax)
 
 
+def central_rows():
+    """Rows of Figure 1 from the result files: (group, label, change %, interval or None, seeds, colour)."""
+    pub = ROOT / 'published/results/sel1m'
+    block = json.loads((pub / 'block100.json').read_text())['comparisons']
+    pooled = json.loads((pub / 'pooled_block100.json').read_text())
+    const = [c['change_percent'] for c in block if c['left'] == 'standard' and c['right'] == 'fixed']
+    t8 = {h['label']: h['value'] for h in json.loads((pub / 'train8m_followups.json').read_text())['holdout']}
+    ref = t8['Standard ParT, start LR 3e-3']
+    ens = json.loads((ROOT / 'runs/eval/ensemble_seed32345_v1/result.json').read_text())['question_B']
+    rel = lambda v: 100 * (v / ref - 1)
+    return [
+        ('Training (800k)', 'Constant LR, tuned grid', sum(const) / len(const), None, 3, CONST),
+        ('Training (800k)', 'PBT', pooled['mean_change_percent'], pooled['mean_interval_percent'], 3, PBT),
+        ('Training (8M)', 'PBT', rel(t8['PBT']), None, 1, PBT),
+        ('Training (8M)', 'PBT + cool-down probes', rel(t8['PBT + probes']), None, 1, PBT),
+        ('Training (8M)', 'PBT + probes + final decay', rel(t8['PBT + probes + final decay']), None, 1, PBT),
+        ('Training (8M)', 'Ensemble of two standard ParT models', ens['mean_change_percent'], ens['pooled_interval_percent'], 3, ENS),
+    ]
+
+
 def fig_central():
-    """The study in one figure: Test mistag of every method in the two data regimes."""
-    fig, (a, b) = plt.subplots(1, 2, figsize=(10.4, 4.3), gridspec_kw=dict(wspace=0.18))
-    rows_panel(a, [
-        ('Standard ParT', [0.3029, 0.3038, 0.3024], STD, 'o', True, 'reference'),
-        ('Constant learning rate, tuned', [0.3028, 0.3013, 0.3024], CONST, 'o', False, '−0.28%  (mean of seeds)'),
-        ('PBT', [0.3008, 0.3012, 0.2996], PBT, 's', True, '−0.81%  [−1.34, −0.34]'),
-    ], (0.2985, 0.3065), [0.300, 0.302, 0.304, 0.306], 'Training (800k)  ·  3 seeds')
-    rows_panel(b, [
-        ('Standard ParT', [0.1611, 0.1597, 0.1623], STD, 'o', True, 'reference'),
-        ('PBT', [0.1812], PBT, 's', True, '+12.4%  (1 seed)'),
-        ('PBT with probes and final decay', [0.1655], PBT, 's', False, '+2.7%  (1 seed)'),
-        ('Ensemble of two standard ParT models', [0.1530, 0.1519, 0.1540], ENS, 'D', True, '−5.0%  [−5.8, −4.2]'),
-    ], (0.148, 0.200), [0.150, 0.160, 0.170, 0.180, 0.190, 0.200], 'Training (8M)')
+    """Forest plot: change of the Test mistag against standard ParT of the same training sample."""
+    rows = central_rows()
+    ys, y, last = [], 0.0, None
+    for g, *_ in rows:
+        if g != last:
+            y -= 1.0 if last is None else 1.55
+            last = g
+        ys.append(y)
+        y -= 1.0
+    fig, ax = plt.subplots(figsize=(7.6, 4.0))
+    ax.axvline(0, color=INK, lw=1)
+    for (g, lab, v, ci, seeds, c), yy in zip(rows, ys):
+        if ci:
+            ax.plot(ci, [yy, yy], color=c, lw=1.6, solid_capstyle='butt', zorder=2)
+            for e in ci:
+                ax.plot([e, e], [yy - 0.16, yy + 0.16], color=c, lw=1.6, zorder=2)
+        ax.plot(v, yy, 'o', ms=7.5, mew=1.6, color=c, mfc=c if seeds == 3 else 'white', zorder=3)
+        ax.text(-0.02, yy, lab, transform=ax.get_yaxis_transform(), ha='right', va='center', fontsize=13, color=INK)
+        num = f'{v:+.2f}%'.replace('-', '−')
+        num += f'   [{ci[0]:+.2f}, {ci[1]:+.2f}]'.replace('-', '−') if ci else ''
+        ax.text(1.04, yy, num, transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=12.5, color=INK)
+        ax.text(1.50, yy, f'{seeds}', transform=ax.get_yaxis_transform(), ha='left',
+                va='center', fontsize=12.5, color=MUTED)
+    for g in dict.fromkeys(r[0] for r in rows):
+        yg = max(yy for r, yy in zip(rows, ys) if r[0] == g) + 0.85
+        ax.text(-0.02, yg, g, transform=ax.get_yaxis_transform(), ha='right', va='center', fontsize=13.5,
+                color=INK, fontweight='bold')
+    top = max(ys) + 1.3
+    ax.text(1.04, top, 'change  [95% interval]', transform=ax.get_yaxis_transform(), ha='left', va='center',
+            fontsize=12, color=MUTED)
+    ax.text(1.50, top, 'seeds', transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=12, color=MUTED)
+    ax.set_ylim(min(ys) - 0.7, top + 0.3)
+    ax.set_yticks([])
+    ax.spines['left'].set_visible(False)
+    ax.set_xlim(-8, 14)
+    ticks = list(range(-6, 15, 3))
+    ax.set_xticks(ticks, [('+' if t > 0 else '') + f'{t}%'.replace('-', '−') if t else '0' for t in ticks])
+    ax.set_xlabel('change in Test mistag against standard ParT\n← lower (better)  |  higher (worse) →', fontsize=12.5)
+    ax.tick_params(axis='x', labelsize=12.5)
+    grid(ax)
     save(fig, 'fig1_central.svg')
 
 

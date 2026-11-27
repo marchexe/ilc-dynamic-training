@@ -95,10 +95,12 @@ footer.end { margin-top: 48px; }
 </dl>
 
 <figure>
-  <div class="fig-scroll"><img src="pub/fig1_central.svg" alt="Mistag on Test of each method with 800k and 8M training samples"></div>
-  <figcaption><b>Figure 1. Results by method and training sample.</b> Mistag on Test (2.8M) of the selected model;
-  one point per seed, bar = mean. Percentages: change against standard ParT of the same seeds, with the 95% Test-sample
-  interval where three seeds exist. Different scales in the two panels.</figcaption>
+  <div class="fig-scroll"><img src="pub/fig1_central.svg" alt="Forest plot: change in Test mistag against standard ParT for each method, Training (800k) and Training (8M)"></div>
+  <figcaption><b>Figure 1. Change in Test (2.8M) mistag against standard ParT trained on the same sample</b> (for the
+  ensemble: against the better of its two models). Filled: mean over three seeds; hollow: one seed. Intervals: 95%,
+  block bootstrap of the Test sample only; they do not include seed-to-seed variation. No interval exists for single-seed
+  results or for the constant LR (mean of per-seed changes). Absolute values and individual seeds: section 2
+  (#18, #22–#28).</figcaption>
 </figure>
 
 <p class="notes"><b>Samples.</b> “800k” and “8M” name the first 800 thousand and 8 million source entries of each of
@@ -106,8 +108,7 @@ the three flavour files (b, c, light); after preselection they hold 2,392,232 an
 a subset of Training (8M); from 10 November the 999,999 Validation (1M) rows are removed from Training (8M)).
 Validation (150k), until 9 November, and Validation (1M) select the model and drive PBT. Test (2.8M), 2,825,125 jets,
 is evaluated once per selected model; Test (9.0M), 8,970,477 jets, was used only in #10. <b>Mistag</b>: geometric
-mean of the background mistag rates at b-tag 80/90% (against c, light) and c-tag 50/80% (against b, light).
-<b>Intervals</b>: block bootstrap of the Test sample; they exclude seed-to-seed variation.</p>
+mean of the background mistag rates at b-tag 80/90% (against c, light) and c-tag 50/80% (against b, light).</p>
 
 <h2 id="history">2&ensp;Experiment history</h2>
 <p class="text">All 33 trials in time order (JST); # = trial number in the <a href="log.html">experiment log</a>.
