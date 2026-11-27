@@ -9,47 +9,45 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="pub/style.css">
 <style>
-/* Technical report: text column 720px, tables and figures 1040px; evidence labels in small caps. */
+/* Report built around one timeline: a thin vertical rule on the left marks the phases in time order. */
 body { font-size: 17px; line-height: 1.58; }
 .report { max-width: 1040px; margin: 0 auto; }
-.report .text { max-width: 720px; }
-h1.rt { font: 700 27px/1.25 var(--sans); color: var(--ink); margin: 32px 0 6px; text-wrap: balance; }
-.meta { font: 14px/1.5 var(--sans); color: var(--muted); margin: 0; }
-nav.contents { font: 14px/1.5 var(--sans); margin: 14px 0 0; padding: 10px 0 12px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); display: flex; flex-wrap: wrap; gap: 4px 22px; }
-nav.contents a { color: var(--body); text-decoration: none; }
-nav.contents a:hover { color: var(--link); text-decoration: underline; }
-nav.contents .n { color: var(--muted); margin-right: 4px; }
-.report h2 { font: 700 21px/1.3 var(--sans); margin: 44px 0 12px; scroll-margin-top: 16px; }
-.report h3 { font: 700 16.5px/1.35 var(--sans); margin: 30px 0 4px; scroll-margin-top: 16px; }
+.report .text { max-width: 740px; }
+h1.rt { font: 700 26px/1.25 var(--sans); color: var(--ink); margin: 32px 0 6px; text-wrap: balance; }
+.meta { font: 14px/1.5 var(--sans); color: var(--muted); margin: 0 0 8px; }
+.report h2 { font: 700 21px/1.3 var(--sans); margin: 44px 0 12px; padding-top: 18px; border-top: 1px solid var(--rule); }
 .report p { margin: 0 0 12px; }
-dl.summary { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 8px 18px; margin: 0; max-width: 900px; }
-dl.summary dt { font: 700 13.5px/1.7 var(--sans); color: var(--muted); }
-dl.summary dd { margin: 0; }
-dl.summary ul { margin: 0; padding-left: 1.05em; }
-dl.summary li { margin-bottom: 5px; }
-.ev { font: 700 11px/1 var(--sans); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; margin-left: 6px; }
-.ev.r { color: var(--ens); } .ev.s { color: var(--pbt); } .ev.h { color: var(--muted); }
-.notes { font: 14px/1.55 var(--sans); color: var(--muted); max-width: 900px; margin: 14px 0 0; }
+.notes { font: 14px/1.55 var(--sans); color: var(--muted); max-width: 900px; margin: 12px 0 0; }
 .notes b { color: var(--ink); }
-table.hist { font-size: 13.8px; line-height: 1.42; table-layout: fixed; min-width: 880px; }
-table.hist col.c-d { width: 8.6em; } table.hist col.c-c { width: 31%; } table.hist col.c-r { width: 27%; }
-table.hist th { position: sticky; top: 0; background: #fff; }
+.ev { font: 700 11px/1 var(--sans); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; margin: 0 4px; }
+.ev.r { color: var(--ens); } .ev.s { color: var(--pbt); } .ev.h { color: var(--muted); }
+/* timeline */
+.timeline { border-left: 2px solid var(--rule); padding-left: 26px; margin-left: 6px; }
+section.phase { position: relative; padding: 4px 0 26px; }
+section.phase::before { content: ""; position: absolute; left: -33px; top: 9px; width: 10px; height: 10px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--muted); }
+section.phase .when { font: 700 12.5px/1.2 var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+section.phase h3 { font: 700 18px/1.35 var(--sans); color: var(--ink); margin: 4px 0 4px; }
+section.phase .obj { font: 15px/1.5 var(--sans); margin: 0 0 6px; color: var(--body); }
+section.phase .obj .cond { color: var(--muted); margin-left: 6px; }
+section.phase .learned { max-width: 820px; margin: 10px 0 0; }
+table.hist { font-size: 13.8px; line-height: 1.42; table-layout: fixed; min-width: 860px; }
+table.hist col.c-n { width: 2.6em; } table.hist col.c-d { width: 7.4em; } table.hist col.c-c { width: 30%; } table.hist col.c-r { width: 26%; }
 table.hist td { padding: 6px 12px 6px 0; }
+table.hist td.n { color: var(--muted); font-variant-numeric: tabular-nums; }
 table.hist td.d { color: var(--ink); font-variant-numeric: tabular-nums; }
-table.hist .tn { display: block; color: var(--muted); font-size: 12px; }
-table.hist tr.phase td { padding: 18px 0 6px; border-bottom: 1.5px solid var(--ink); font: 14px/1.45 var(--sans); color: var(--ink); }
-table.hist tr.phase .chg { color: var(--muted); margin-left: 10px; }
 table.hist tr:target td { background: #fff7e0; }
-figure { margin: 22px 0 30px; max-width: 1040px; }
-figcaption { margin: 8px 0 0; max-width: 900px; font-size: 14px; }
-ul.open { max-width: 900px; padding-left: 1.05em; margin: 0; }
-ul.open li { margin-bottom: 5px; }
-footer.end { margin-top: 48px; }
+.table-wrap { margin: 6px 0 4px; }
+figure { margin: 18px 0 8px; max-width: 900px; }
+figcaption { margin: 6px 0 0; font-size: 13.5px; }
+ul.concl { max-width: 900px; padding-left: 1.05em; margin: 0 0 12px; }
+ul.concl li { margin-bottom: 5px; }
+h4 { font: 700 15px/1.4 var(--sans); color: var(--ink); margin: 18px 0 6px; }
 @media (max-width: 760px) {
   body { font-size: 16px; }
   h1.rt { font-size: 22px; }
-  dl.summary { grid-template-columns: 1fr; gap: 0; }
-  dl.summary dd { margin-bottom: 10px; }
+  .timeline { padding-left: 16px; margin-left: 2px; }
+  section.phase::before { left: -23px; }
 }
 </style>
 </head>
@@ -59,115 +57,52 @@ footer.end { margin-top: 48px; }
 
 <div class="site"><a href="index.html">ILC dynamic training</a> &nbsp;/&nbsp; Report</div>
 <h1 class="rt">PBT for ParT jet-flavour tagging: report on all trials, July–November 2026</h1>
-<p class="meta">Status 26 November 2026, no run in progress · runs, GPU time and configuration files:
+<p class="meta">Status 26 November 2026, no run in progress · runs, GPU time and configuration files of each trial:
 <a href="log.html">experiment log</a> · <a href="results.html">detailed results</a> ·
 <a href="https://github.com/marchexe/ilc-dynamic-training">repository</a></p>
-<nav class="contents" aria-label="Contents">
-  <a href="#summary"><span class="n">1</span>Summary</a>
-  <a href="#history"><span class="n">2</span>Experiment history</a>
-  <a href="#phase-1">Ph. 1 PBT vs constant LR</a>
-  <a href="#phase-2">Ph. 2 Higher constant LR</a>
-  <a href="#phase-3">Ph. 3 800k vs standard ParT</a>
-  <a href="#phase-4">Ph. 4 8M vs standard ParT</a>
-  <a href="#phase-5">Ph. 5 Ensembles</a>
-  <a href="#interpretation"><span class="n">3</span>Interpretation</a>
-  <a href="#status"><span class="n">4</span>Open questions and scope</a>
-</nav>
 
-<h2 id="summary">1&ensp;Summary</h2>
-<dl class="summary">
-  <dt>Objective</dt>
-  <dd>Whether PBT, adapting the LR during fine-tuning of the pretrained ParT, gives a lower mistag than standard ParT
-  training at equal compute (five models, 50 epochs).</dd>
-  <dt>Findings</dt>
-  <dd><ul>
-    <li>The early PBT gains (1.4% at 800k; 7.7% at 8M on Test 9.0M) came from reaching a higher LR: a tuned constant LR
-    matches PBT (#12–#15).<span class="ev s">Single seed per configuration</span></li>
-    <li>800k: PBT 0.81% better than standard ParT, 95% interval 0.34–1.34% (#18).<span class="ev r">Replicated (3 seeds)</span></li>
-    <li>8M: PBT 12.4% worse than standard ParT; 2.7% worse with probes and final decay (#23–#26).<span class="ev s">Single seed</span></li>
-    <li>8M: averaging two standard ParT models is 5.0% better than the better one, interval 4.2–5.8%, at twice the
-    inference cost (#27–#28).<span class="ev r">Replicated (3 seeds)</span></li>
-  </ul></dd>
-  <dt>Conclusion</dt>
-  <dd>For this pretrained checkpoint, these PBT variants and 50-epoch fine-tuning: PBT helps by under 1% with
-  Training (800k) and is worse than standard ParT with Training (8M), where an ensemble of two standard ParT models
-  gives the largest gain found.</dd>
-</dl>
-
+<h2>1&ensp;Summary</h2>
+<p class="text"><b>Objective.</b> Whether Population Based Training (PBT), adapting the learning rate (LR) during
+fine-tuning of the pretrained Particle Transformer (ParT), gives a lower mistag than standard ParT training at equal
+compute (five models, 50 epochs).</p>
+<ul class="concl">
+  <li>The early PBT gains (1.4% with Training (800k), 7.7% with Training (8M) on Test (9.0M)) came from comparisons with
+  too-low constant LRs (phases 1–2). <span class="ev s">single seed per grid</span></li>
+  <li>Training (800k): PBT 0.81% better than standard ParT, 95% interval 0.34–1.34% (phase 3). <span class="ev r">replicated, 3 seeds</span></li>
+  <li>Training (8M): PBT 12.4% worse than standard ParT; 2.7% worse with probes and final decay (phase 4). <span class="ev s">single seed</span></li>
+  <li>Training (8M): ensemble of two standard ParT models 5.01% better, interval 4.17–5.84%, at twice the inference cost
+  (phase 5). <span class="ev r">replicated, 3 seeds</span></li>
+</ul>
 <figure>
   <div class="fig-scroll"><img src="pub/fig1_central.svg" alt="Bar chart: change in Test mistag against standard ParT for each method, Training (800k) and Training (8M)"></div>
-  <figcaption><b>Figure 1. Change in Test (2.8M) mistag against standard ParT trained on the same sample</b> (for the
-  ensemble: against the better of its two models); below zero is better. Bars for three seeds show the mean over seeds.
-  Error bars: 95% interval, block bootstrap of the Test sample only; they do not include seed-to-seed variation. No
-  interval exists for single-seed results or for the constant LR (mean of per-seed changes). Absolute values and
-  individual seeds: section 2 (#18, #22–#28).</figcaption>
+  <figcaption><b>Figure 1.</b> Change in Test (2.8M) mistag against standard ParT trained on the same sample (ensemble:
+  against the better of its two models); below zero is better. Three-seed bars show the mean over seeds; error bars are
+  95% intervals for the Test sample only, not seed-to-seed variation; single-seed results and the constant LR have none.</figcaption>
 </figure>
+<p class="notes"><b>Samples.</b> “800k” and “8M” name the first 800 thousand and 8 million source entries of each of the
+three flavour files (b, c, light); after preselection 2,392,232 and 23,921,449 jets (Training (800k) is a subset of
+Training (8M); from 10 November the 999,999 Validation (1M) rows are removed from it). Validation (150k), until
+9 November, and Validation (1M) select the model and drive PBT. Test (2.8M), 2,825,125 jets, is evaluated once per
+selected model; Test (9.0M), 8,970,477 jets, only in #10. <b>Mistag</b>: geometric mean of the background mistag rates
+at b-tag 80/90% (against c, light) and c-tag 50/80% (against b, light). Results in the tables are on Test (2.8M) unless
+marked Validation; # = trial number of the <a href="log.html">experiment log</a>; dates in JST.</p>
 
-<p class="notes"><b>Samples.</b> “800k” and “8M” name the first 800 thousand and 8 million source entries of each of
-the three flavour files (b, c, light); after preselection they hold 2,392,232 and 23,921,449 jets (Training (800k) is
-a subset of Training (8M); from 10 November the 999,999 Validation (1M) rows are removed from Training (8M)).
-Validation (150k), until 9 November, and Validation (1M) select the model and drive PBT. Test (2.8M), 2,825,125 jets,
-is evaluated once per selected model; Test (9.0M), 8,970,477 jets, was used only in #10. <b>Mistag</b>: geometric
-mean of the background mistag rates at b-tag 80/90% (against c, light) and c-tag 50/80% (against b, light).</p>
+<h2>2&ensp;Research timeline</h2>
+<div class="timeline">
+<!--TIMELINE-->
+</div>
 
-<h2 id="history">2&ensp;Experiment history</h2>
-<p class="text">All 33 trials in time order (JST); # = trial number in the <a href="log.html">experiment log</a>.
-Results on Test (2.8M) unless marked Validation.</p>
-<figure>
-  <div class="fig-scroll"><img src="pub/fig2_trajectory.svg" alt="PBT advantage over the comparator for each comparison, by date"></div>
-  <figcaption><b>Figure 2. Measured PBT advantage as the comparator changed.</b> Positive: PBT better. Open markers:
-  comparators later found too weak. Oct point: Test (9.0M); 13 Nov: mean of three seeds with 95% interval.</figcaption>
-</figure>
-
-<!--HISTORY-->
-
-<h2 id="interpretation">3&ensp;Interpretation</h2>
-
-<h3>3.1&ensp;The early comparators were too weak <span class="ev s">Single seed per grid</span></h3>
-<p class="text">The mistag falls steeply with the constant LR up to about 10<sup>−4</sup>, and both PBT runs lie on that
-curve (Figure 3); the 150k Validation sample did not resolve differences of about 0.5% (#6, #8, #16).</p>
-<figure>
-  <div class="fig-scroll"><img src="pub/fig3_learning_rate.svg" alt="Mistag on Test against the learning rate of the selected model"></div>
-  <figcaption><b>Figure 3. Mistag against LR.</b> Training (800k), seed 12345. Grey: best model of each constant-LR grid
-  (#1, #12–#14). Red: PBT (#3, #15) at the LR of the selected model.</figcaption>
-</figure>
-
-<h3>3.2&ensp;Training (800k) overfits, Training (8M) does not <span class="ev s">Single seed</span><span class="ev h">Hypothesis for the PBT result</span></h3>
-<p class="text">The training loss falls below the Validation loss after about 20 epochs at 800k and not at 8M (Figure 4).
-Hypothesis: an early, well-timed LR reduction helps only when the model overfits, which would explain why PBT gains at
-800k and standard ParT, with 35 epochs at a high LR, wins at 8M.</p>
-<figure>
-  <div class="fig-scroll"><img src="pub/fig4_regimes.svg" alt="Training and Validation loss per epoch with 800k and 8M training samples"></div>
-  <figcaption><b>Figure 4. Loss per epoch</b> of the best standard ParT model (start LR 10<sup>−4</sup> at 800k,
-  3×10<sup>−3</sup> at 8M) on the training data and on Validation (1M).</figcaption>
-</figure>
-
-<h3>3.3&ensp;PBT lowers the LR too early at 8M <span class="ev s">Single seed</span><span class="ev h">Hypothesis for the cause</span></h3>
-<p class="text">PBT keeps all LRs at or below 2.5×10<sup>−4</sup> from epoch 11, leads for about 20 epochs and loses during the final decay
-of standard ParT (Figure 5). Hypothesis: decisions two epochs after each change favour lower LRs; probes and a final
-decay (#25, #26) reduce but do not remove this.</p>
-<figure>
-  <div class="fig-scroll"><img src="pub/fig5_mechanism.svg" alt="Learning rate and best Validation mistag per epoch, 8M"></div>
-  <figcaption><b>Figure 5. LR and best Validation mistag per epoch,</b> Training (8M), seed 12345: standard ParT (#24),
-  PBT (#23; band = range of five models), PBT with probes and final decay (#26, dashed). Shaded: final decay.</figcaption>
-</figure>
-
-<h3>3.4&ensp;Ensembles need models that disagree <span class="ev r">Replicated (3 seeds)</span><span class="ev h">Hypothesis for the cause</span></h3>
-<p class="text">Only separately trained 8M models disagree enough to gain (Figure 6). Hypothesis: PBT models share
-weights through copying, and at 800k the low LRs keep all models close to the pretrained start. The gain costs a second
-forward pass at inference and was not kept by distillation (#32).</p>
-<figure>
-  <div class="fig-scroll"><img src="pub/fig6_ensemble.svg" alt="Disagreement between two models and the ensemble gain for four kinds of model pairs"></div>
-  <figcaption><b>Figure 6. Disagreement and ensemble gain</b> for four kinds of model pairs, on Validation (1M) (#29, #30).</figcaption>
-</figure>
-
-<h2 id="status">4&ensp;Open questions and scope</h2>
-<ul class="open">
-  <li>The 8M PBT result and its fixes rest on one seed.</li>
-  <li>The causes in 3.2–3.4 are hypotheses; none was tested directly.</li>
-  <li>Decision frequency (#6) is inconclusive; decisions within an epoch are implemented (#11) but were never run.</li>
-  <li>Scope: one pretrained checkpoint, one optimizer, 50 epochs, the PBT variants listed in section 2. Test (2.8M) was
-  also inspected in diagnostics before November. No result was carried into a physics analysis.</li>
+<h2>3&ensp;Conclusions and unresolved questions</h2>
+<p class="text">For this pretrained checkpoint, the PBT variants tested and 50-epoch fine-tuning, PBT does not replace
+standard ParT training: it helps by under 1% when the model overfits (Training (800k)) and hurts when it does not
+(Training (8M)), where combining separately trained standard ParT models is the only gain found.</p>
+<h4>Unresolved</h4>
+<ul class="concl">
+  <li>The causes proposed in phases 4 and 5 (decision horizon, model diversity) are hypotheses; none was tested directly.</li>
+  <li>The 8M PBT results rest on one seed; decision frequency (#6) is inconclusive; decisions within an epoch (#11) were
+  never run.</li>
+  <li>Scope: one pretrained checkpoint, one optimizer, 50 epochs; Test (2.8M) was also inspected in diagnostics before
+  November; no result was carried into a physics analysis.</li>
 </ul>
 
 <footer class="end">Figures: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/scripts/reports/publication_figures.py">publication_figures.py</a>;

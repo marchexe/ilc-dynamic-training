@@ -146,51 +146,6 @@ def fig_central():
     save(fig, 'fig1_central.svg')
 
 
-def fig_trajectory():
-    """How the estimated advantage of PBT changed as the comparison became stricter."""
-    pts = [  # (date, PBT advantage %, label, data size, valid comparison, interval)
-        (date(2026, 9, 18), 1.4, 'vs. constant LRs\n(too low)', '800k', False, None),
-        (date(2026, 11, 2), 7.7, 'vs. constant LRs (too low),\npreregistered, Test 9.0M', '8M', False, None),
-        (date(2026, 11, 4), 1.0, 'vs. tuned\nconstant LR', '800k', True, None),
-        (date(2026, 11, 9), -0.5, 'same,\nsecond seed', '800k', True, None),
-        (date(2026, 11, 13), 0.81, 'vs. standard ParT,\n3 seeds', '800k', True, (0.34, 1.34)),
-        (date(2026, 11, 17), -12.4, 'vs. standard ParT', '8M', True, None),
-        (date(2026, 11, 21), -5.4, '+ probes', '8M', True, None),
-        (date(2026, 11, 23), -2.7, '+ final decay', '8M', True, None),
-    ]
-    fig, ax = plt.subplots(figsize=(10.4, 4.6))
-    ax.axhline(0, color=MUTED, lw=1)
-    ax.axvspan(date(2026, 9, 12), date(2026, 11, 3), color='#f4f4f6', zorder=0)
-    ax.text(date(2026, 9, 14), 10.6, 'Comparator: constant learning rates from a grid\nthat later proved too low',
-            fontsize=10, color=MUTED, va='top')
-    ax.text(date(2026, 11, 3), 10.6, 'Comparators tuned;\nfrom Nov 10 standard ParT', fontsize=10, color=MUTED, va='top')
-    offsets = {0: (8, 10), 1: (-8, 12), 2: (8, 8), 3: (8, -26), 4: (8, 8), 5: (10, -6), 6: (10, -6), 7: (10, -4)}
-    for k, (d, v, lab, size, valid, ci) in enumerate(pts):
-        c = PBT if size == '8M' else STD
-        m = 's' if size == '8M' else 'o'
-        if ci:
-            ax.plot([d, d], ci, color=c, lw=1.6)
-        ax.plot(d, v, m, ms=9, mew=1.6, color=c, mfc=c if valid else 'white', zorder=3)
-        dx, dy = offsets[k]
-        ax.annotate(lab, (d, v), (dx, dy), textcoords='offset points', fontsize=9.5, color=INK,
-                    ha='right' if dx < 0 else 'left', va='bottom' if dy > 0 else 'top', linespacing=1.15)
-    ax.set_xlim(date(2026, 9, 12), date(2026, 12, 3))
-    ax.set_ylim(-14, 11)
-    ax.xaxis.set_major_locator(mdates.MonthLocator())
-    ax.xaxis.set_minor_locator(mdates.WeekdayLocator(byweekday=0))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%B'))
-    ax.set_ylabel('PBT advantage over comparator (%)')
-    ax.yaxis.set_major_locator(FixedLocator([-12, -8, -4, 0, 4, 8]))
-    grid(ax, 'y')
-    from matplotlib.lines import Line2D
-    ax.legend(handles=[Line2D([], [], marker='o', color=STD, ls='none', ms=8, label='Training (800k)'),
-                       Line2D([], [], marker='s', color=PBT, ls='none', ms=8, label='Training (8M)'),
-                       Line2D([], [], marker='o', color=MUTED, mfc='white', ls='none', ms=8,
-                              label='comparator later found too weak')],
-              loc='lower left', fontsize=10)
-    save(fig, 'fig2_trajectory.svg')
-
-
 def fig_lr():
     """Test mistag against learning rate: constant-LR grids and the two PBT runs (800k, seed 12345)."""
     fig, ax = plt.subplots(figsize=(10.4, 4.0))
@@ -311,6 +266,6 @@ def fig_ensemble():
 
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
-    for f in (fig_central, fig_trajectory, fig_lr, fig_regimes, fig_mechanism, fig_ensemble):
+    for f in (fig_central, fig_lr, fig_regimes, fig_mechanism, fig_ensemble):
         f()
     print(sorted(p.name for p in OUT.iterdir()))
