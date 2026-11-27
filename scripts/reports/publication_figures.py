@@ -76,24 +76,41 @@ def rows_panel(ax, rows, xlim, ticks, title):
 
 
 def fig_lr():
-    """Test mistag against learning rate: constant-LR grids and the two PBT runs (800k, seed 12345)."""
-    fig, ax = plt.subplots(figsize=(10.4, 4.0))
-    grid_pts = [(1.4e-5, 0.3269), (3e-5, 0.3146), (8e-5, 0.3018), (1.2e-4, 0.3033)]
-    ax.axvspan(3e-6, 1.4e-5, color='#f4f4f6', zorder=0)
-    ax.text(6.4e-6, 0.3285, 'range of the\nSeptember grid', ha='center', va='top', fontsize=10, color=MUTED)
-    ax.plot(*zip(*grid_pts), '-', color=CONST, lw=1.5, zorder=2)
-    ax.plot(*zip(*grid_pts), 'o', color=CONST, mfc='white', mew=1.6, ms=8, zorder=3)
-    ax.text(3.3e-5, 0.3165, 'constant learning rate\n(best model of each grid)', fontsize=10.5, color=CONST)
-    ax.plot([2.02e-5], [0.3225], 's', color=PBT, ms=9, zorder=4)
-    ax.annotate('PBT, September', (2.02e-5, 0.3225), (10, 2), textcoords='offset points', fontsize=10.5, color=PBT)
-    ax.plot([8.75e-5], [0.3003], 's', color=PBT, ms=9, zorder=4)
-    ax.annotate('PBT, November', (8.75e-5, 0.3003), (10, -14), textcoords='offset points', fontsize=10.5, color=PBT)
+    """Phase 2: as the constant-LR grid moved up (Sep -> Nov), its best model caught up with PBT (800k, seed 12345)."""
+    fig, ax = plt.subplots(figsize=(10.4, 4.1))
+    grid_pts = [  # (LR of the best model, Test mistag, label): trials #1, #12, #13, #14
+        (1.4e-5, 0.3269, '#1 · Sep 16'), (3e-5, 0.3146, '#12 · Nov 3'), (8e-5, 0.3018, '#13 · Nov 3–4'),
+        (1.2e-4, 0.3033, '#14 · Nov 4')]
+    pbt = [(2.02e-5, 0.3225, 'PBT, Sep 18 (#3)'), (8.75e-5, 0.3003, 'Fast PBT, Nov 4 (#15)')]
+    ax.plot([p[0] for p in grid_pts], [p[1] for p in grid_pts], '-', color=CONST, lw=1.6, zorder=2)
+    ax.plot([p[0] for p in grid_pts], [p[1] for p in grid_pts], 'o', color=CONST, mfc='white', mew=1.6, ms=8, zorder=3)
+    offs = {'#1 · Sep 16': (-10, 2, 'right'), '#12 · Nov 3': (10, 4, 'left'), '#13 · Nov 3–4': (-10, -15, 'right'),
+            '#14 · Nov 4': (9, -14, 'left')}
+    for x, y, lab in grid_pts:
+        dx, dy, ha = offs[lab]
+        ax.annotate(lab, (x, y), (dx, dy), textcoords='offset points', ha=ha, fontsize=10, color=MUTED)
+    for (x, y, lab), (dx, dy) in zip(pbt, [(10, 6), (10, -16)]):
+        ax.plot(x, y, 's', color=PBT, ms=9, zorder=4)
+        ax.annotate(lab, (x, y), (dx, dy), textcoords='offset points', fontsize=10.5, color=PBT, fontweight='bold')
+    ax.text(4.4e-5, 0.3135, 'best model of each\nconstant-LR grid', fontsize=10.5, color=CONST, ha='left', va='center')
+    # September grid range as a bracket on the x-axis instead of a shaded band
+    yb = 0.2988
+    ax.plot([3e-6, 1.4e-5], [yb, yb], color=MUTED, lw=1.2, solid_capstyle='butt', zorder=2)
+    for xe in (3e-6, 1.4e-5):
+        ax.plot([xe, xe], [yb - 0.0004, yb + 0.0004], color=MUTED, lw=1.2)
+    ax.text(6.5e-6, yb + 0.0007, 'September grid (#1)', ha='center', va='bottom', fontsize=10, color=MUTED)
+    # two callouts: the apparent gain and where it went
+    ax.annotate('Sep: PBT 1.4% better\nthan the grid’s best', (1.7e-5, 0.3247), (5.0e-6, 0.3205), fontsize=10,
+                color=INK, ha='left', arrowprops=dict(arrowstyle='-', color=MUTED, lw=0.8))
+    ax.annotate('Nov: higher grids catch up;\nfast PBT 0.5% (#13) to 1.0% (#14) better', (9.2e-5, 0.3007), (1.35e-4, 0.3085),
+                fontsize=10, color=INK, ha='left', arrowprops=dict(arrowstyle='-', color=MUTED, lw=0.8))
     ax.set_xscale('log')
-    ax.set_xlim(2.5e-6, 3e-4)
-    ax.set_ylim(0.298, 0.330)
+    ax.set_xlim(2.5e-6, 6e-4)
+    ax.set_ylim(0.2978, 0.3295)
     ax.set_xlabel('learning rate of the selected model')
     ax.set_ylabel('mistag on Test (%)')
-    grid(ax, 'both')
+    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+    grid(ax, 'y')
     save(fig, 'fig3_learning_rate.svg')
 
 
@@ -222,9 +239,16 @@ def data():
 def fig_ensemble():
     """Two aligned panels over the same model pairs: disagreement (left) and ensemble improvement (right)."""
     rows = [(r['label'], (r['disagreement_percent'], r['improvement_percent']), r['gain']) for r in data()['ensemble_pairs']]
+    context = [  # display label and context per row of figure_data.json (same order)
+        ('Two checkpoints of one run', '8M · standard ParT #24, epochs 45 and 50 · Nov 19–20'),
+        ('Two models of one PBT run', '8M · PBT #26 · Nov 20–23'),
+        ('Two seeds, same recipe', f'800k · standard ParT, LR 10$^{{-4}}$ · #18, Nov 10–13'),
+        ('Separate runs, same start LR', '8M · standard ParT #22, #24, #28 · Nov 14–25'),
+        ('Separate runs, different start LR', '8M · standard ParT #22, #24, #28 · Nov 14–25'),
+    ]
     good, grey = '#4f8a6a', '#9a9aa0'
-    ys = [4.2, 3.2, 2.2, 1.0, 0.35]  # the two 8M sub-rows sit together
-    fig, (a, b) = plt.subplots(1, 2, figsize=(10.4, 3.3), sharey=True,
+    ys = [4.45, 3.45, 2.45, 1.15, 0.25]  # the two separate-run rows sit together
+    fig, (a, b) = plt.subplots(1, 2, figsize=(10.4, 3.6), sharey=True,
                                gridspec_kw=dict(width_ratios=[1, 1.25], wspace=0.08))
     for (lab, (dis, imp), gain), y in zip(rows, ys):
         c = good if gain else grey
@@ -234,9 +258,10 @@ def fig_ensemble():
             a.plot(dis[0], y, '|', color=c, ms=14, mew=3)
         rng = f'{min(dis):.2f}' if n == 1 else f'{min(dis):.2f}–{max(dis):.2f}'
         a.text(max(dis) + 0.07, y, rng, va='center', fontsize=10, color=INK)
-        a.text(-0.05, y, f'{lab}', transform=a.get_yaxis_transform(), ha='right', va='center', fontsize=10.5, color=INK)
-        a.text(-0.05, y - 0.3, f'{n} pair{"s" if n > 1 else ""}', transform=a.get_yaxis_transform(), ha='right',
-               va='center', fontsize=9, color=MUTED)
+        title, sub = context[ys.index(y)]
+        a.text(-0.05, y + 0.08, title, transform=a.get_yaxis_transform(), ha='right', va='center', fontsize=10.5, color=INK)
+        a.text(-0.05, y - 0.27, f'{sub} · {n} pair{"s" if n > 1 else ""}', transform=a.get_yaxis_transform(),
+               ha='right', va='center', fontsize=8.8, color=MUTED)
         lo, hi = min(imp), max(imp)
         b.plot([lo, hi] if n > 1 else [lo - 0.03, lo + 0.03], [y, y], color=c, lw=7, solid_capstyle='butt')
         if gain:
@@ -258,7 +283,7 @@ def fig_ensemble():
     for ax in (a, b):
         ax.set_yticks([])
         ax.spines['left'].set_visible(False)
-        ax.set_ylim(-0.25, 4.75)
+        ax.set_ylim(-0.35, 4.95)
         grid(ax)
     b.spines['left'].set_visible(False)
     save(fig, 'fig6_ensemble.svg')

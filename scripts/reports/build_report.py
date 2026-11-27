@@ -215,6 +215,14 @@ FIG = ('<figure id="fig-{n}"><div class="fig-scroll"><img src="{src}" alt="{alt}
        '<figcaption data-anchor="fig-{n}"><b>Figure {n}.</b> {cap}</figcaption></figure>')
 
 
+def caption(cap):
+    """A caption is either text, or (main caption, details note): the note opens under 'Details'."""
+    if isinstance(cap, tuple):
+        main, note = cap
+        return f'{xref(main)}<details class="capnote"><summary>Details</summary>{xref(note)}</details>'
+    return xref(cap)
+
+
 def xref(html):
     """Link trial references such as #18 to their row on this page."""
     return re.sub(r'(?<![&\w])#(\d+)', r'<a class="tref" href="#t\1">#\1</a>', html)
@@ -256,9 +264,13 @@ PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the 
      'LRs (Figure 1), so the earlier gains were an LR-level effect. With seed 22345 and a re-centred grid the sign reversed: at this precision '
      'the comparison needs a larger Validation sample and several seeds. <b>Next:</b> Validation (1M), standard ParT as '
      'comparator (the usual recipe: constant LR for 35 epochs, then ×0.01 over 15; five start LRs), three seeds.',
-     [('fig3_learning_rate.svg', 'Mistag on Test against the learning rate of the selected model',
-       'Mistag on Test (2.8M) against the LR of the selected model; Training (800k), seed 12345. Grey: best model of each '
-       'constant-LR grid (#1, #12–#14). Red: PBT (#3, #15).')]),
+     [('fig3_learning_rate.svg', 'Test mistag against the learning rate of the selected model: constant-LR grids and PBT',
+       ('As the constant-LR grid was moved up from September to November, its best model reached the level of PBT: the '
+        'early PBT advantage came from the higher LR that PBT reached.',
+        'Training (800k), seed 12345, mistag on Test (2.8M). Grey: best model (selected on Validation (150k)) of the grids '
+        '#1 (Sep 16), #12 (Nov 3), #13 (Nov 3–4) and #14 (Nov 4), at its LR. Red: windowed PBT #3 and fast PBT #15, at the '
+        'LR their selected model had reached. One seed per grid; with seed 22345 and a re-centred grid the order reversed '
+        '(#16).'))]),
     ('Nov 10 – Nov 13', 'Compare PBT with standard ParT under the new selection, Training (800k).',
      'PBT better on all three seeds, by less than 1%.',
      '<b>Interpretation</b> <span class="ev r">replicated, 3 seeds</span>. With Training (800k), PBT finds a slightly better '
@@ -291,13 +303,16 @@ PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the 
      'passes per jet; its inference cost was not measured. Interval 4.17–5.84%: Test-sample uncertainty; seed-to-seed '
      'spread 4.86–5.14%.',
      [('fig6_ensemble.svg', 'Disagreement and ensemble improvement for five kinds of model pairs on Validation (1M)',
-       'Pairs of models evaluated on Validation (1M) (#29, #30). Left: share of jets on which the two models predict '
-       'different classes. Right: mistag reduction of the two-model ensemble against the better model of the pair; '
-       'grey rows show the measured range where no gain was observed. Rows: checkpoints at epochs 45 and 50 of standard ParT '
-       f'{SUP("3", 3)}; three models of the PBT run with probes and final decay (#26); standard ParT {SUP("1", 4)} of three seeds '
-       f'(800k); standard ParT models at {SUP("3", 3)} and {SUP("1", 3)} of three seeds, paired with the same or a '
-       'different start LR. Bars span the pairs; black ticks mark the mean. The panels show an association across these '
-       'pairs, not a causal effect.')]),
+       ('Of the groups shown, only separately trained 8M standard ParT models disagree on more than 1.5% of the jets, and '
+        'only they gain from averaging; pairs from one run, from one PBT population, or from 800k training do not gain.',
+        'Validation (1M) (#29, #30). Left: share of jets on which the two models predict different classes. Right: mistag '
+        'reduction of the two-model ensemble against the better model of the pair; grey rows give the measured range '
+        'where no gain was observed; bars span the pairs, black ticks mark the mean. Rows: checkpoints at epochs 45 and 50 '
+        f'of standard ParT {SUP("3", 3)} (#24); three models of the PBT run with probes, final decay and higher LRs (#26); '
+        f'standard ParT {SUP("1", 4)} of the three 800k seeds (#18); standard ParT at {SUP("3", 3)} and {SUP("1", 3)} of '
+        'three seeds (#22, #24, #28) paired with the same or a different start LR. Pairs that include PBT models of other '
+        'runs (not shown) disagree as much but change by −2.0% to +4.7% (#30). The panels show an association, not a '
+        'causal effect.'))]),
 ]
 
 
@@ -322,7 +337,7 @@ def timeline():
         support = [row for row in rows if row[0] in SUPPORTING]
         figs_html = []
         for src, alt, cap in figs:
-            figs_html.append(FIG.format(src=asset(src), alt=alt, n=nfig, cap=xref(cap)))
+            figs_html.append(FIG.format(src=asset(src), alt=alt, n=nfig, cap=caption(cap)))
             nfig += 1
         extra = ''
         if support:

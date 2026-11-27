@@ -65,6 +65,11 @@ table.hist tr.base .nm, table.hist tr.base .val b { font-weight: 400; color: var
 table.hist tr.key td { border-bottom-color: #cfcfd4; }
 table.hist tr.key .val b { font-size: 16px; }
 table.hist tr.key td.n { box-shadow: inset 2px 0 0 var(--ink); padding-left: 6px; }
+details.capnote { margin-top: 4px; font-size: 13px; }
+details.capnote > summary { cursor: pointer; color: var(--muted); list-style: none; }
+details.capnote > summary::-webkit-details-marker { display: none; }
+details.capnote > summary::before { content: "▸ "; }
+details.capnote[open] > summary::before { content: "▾ "; }
 details.more { margin-top: 3px; }
 details.more > summary { cursor: pointer; color: var(--muted); font-size: 12.5px; list-style: none; }
 details.more > summary::-webkit-details-marker { display: none; }
