@@ -166,9 +166,14 @@ PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the 
      'its models, and at 800k the low LRs keep all models close to the pretrained start. The ensemble needs two forward '
      'passes per jet; its inference cost was not measured. Interval 4.17–5.84%: Test-sample uncertainty; seed-to-seed '
      'spread 4.86–5.14%.',
-     [('fig6_ensemble.svg', 'Disagreement between two models and ensemble gain for four kinds of model pairs',
-       'Share of Validation (1M) jets on which two models predict different classes, and the ensemble gain on Validation, '
-       'for four kinds of model pairs (#29, #30).')]),
+     [('fig6_ensemble.svg', 'Disagreement and ensemble improvement for five kinds of model pairs on Validation (1M)',
+       'Pairs of models evaluated on Validation (1M) (#29, #30). Left: share of jets on which the two models predict '
+       'different classes. Right: mistag reduction of the two-model ensemble against the better model of the pair; '
+       'grey rows show the measured range where no gain was observed. Rows: checkpoints at epochs 45 and 50 of standard ParT '
+       f'{SUP("3", 3)}; three models of the PBT run with probes and final decay (#26); standard ParT {SUP("1", 4)} of three seeds '
+       f'(800k); standard ParT models at {SUP("3", 3)} and {SUP("1", 3)} of three seeds, paired with the same or a '
+       'different start LR. Bars span the pairs; black ticks mark the mean. The panels show an association across these '
+       'pairs, not a causal effect.')]),
 ]
 
 

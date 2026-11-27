@@ -167,26 +167,70 @@ def fig_mechanism():
     save(fig, 'fig5_mechanism.svg')
 
 
+def ensemble_pairs():
+    """Model pairs on Validation (1M): (label, n pairs, disagreement %, improvement % = −(ensemble/best − 1)).
+    Sources: runs/eval/diversity_8m_explore_v1, ensemble_800k_explore_v1 and ensemble_seed32345_v1 (all seeds)."""
+    ev = ROOT / 'runs/eval'
+    p8 = json.loads((ev / 'diversity_8m_explore_v1/pairs.json').read_text())['pairs']
+    p800 = json.loads((ev / 'ensemble_800k_explore_v1/pairs.json').read_text())['pairs']
+    qa = json.loads((ev / 'ensemble_seed32345_v1/result.json').read_text())['question_A']
+
+    def pick(pairs, test):
+        sel = [x for x in pairs if test(x['a'], x['b'])]
+        return [x['disagree_percent'] for x in sel], [-x['gain_vs_best_percent'] for x in sel]
+
+    ckpt = pick(p8, lambda a, b: {a, b} == {'std3e-3_e62', 'std3e-3_e67'})
+    pbt = pick(p8, lambda a, b: a.startswith('pbtdecay_') and b.startswith('pbtdecay_'))
+    k800 = pick(p800, lambda a, b: a.endswith('_std100e-6') and b.endswith('_std100e-6'))
+    same = ([x['disagree_percent'] for x in qa['same_lr']], [-x['gain_percent'] for x in qa['same_lr']])
+    diff = ([x['disagree_percent'] for x in qa['different_lr']], [-x['gain_percent'] for x in qa['different_lr']])
+    return [('Checkpoints of one run, 8M', ckpt, False), ('Models of one PBT run, 8M', pbt, False),
+            ('Separate seeds, 800k', k800, False),
+            ('Separate runs, 8M: same LR', same, True), ('Separate runs, 8M: different LR', diff, True)]
+
+
 def fig_ensemble():
-    """Disagreement between two models and the ensemble gain, for four kinds of model pairs."""
-    fig, b = plt.subplots(figsize=(10.4, 2.9))
-    groups = [  # (label, disagreement low, high, gain text, colour)
-        ('two checkpoints of one run, 8M', 0.2, 0.4, 'no gain', CONST),
-        ('two models of one PBT run, 8M', 0.2, 0.4, 'no gain', PBT),
-        ('two models of different seeds, 800k', 0.6, 0.7, 'no gain', STD),
-        ('two separately trained models, 8M', 1.5, 2.3, 'gain 3.6% (same LR) to 4.7% (different LR)', ENS),
-    ]
-    for i, (lab, lo, hi, gain, c) in enumerate(groups):
-        y = len(groups) - 1 - i
-        b.plot([lo, hi], [y, y], color=c, lw=8, solid_capstyle='butt')
-        b.text(-0.05, y, lab, fontsize=10.5, color=INK, va='center', ha='right')
-        b.text(hi + 0.06, y, gain, fontsize=10.5, color=c, va='center')
-    b.set_xlim(0, 4.2)
-    b.set_ylim(-0.6, len(groups) - 0.4)
-    b.set_yticks([])
+    """Two aligned panels over the same model pairs: disagreement (left) and ensemble improvement (right)."""
+    rows = ensemble_pairs()
+    good, grey = '#4f8a6a', '#9a9aa0'
+    ys = [4.2, 3.2, 2.2, 1.0, 0.35]  # the two 8M sub-rows sit together
+    fig, (a, b) = plt.subplots(1, 2, figsize=(10.4, 3.3), sharey=True,
+                               gridspec_kw=dict(width_ratios=[1, 1.25], wspace=0.08))
+    for (lab, (dis, imp), gain), y in zip(rows, ys):
+        c = good if gain else grey
+        n = len(dis)
+        a.plot([min(dis), max(dis)], [y, y], color=c, lw=7, solid_capstyle='butt')
+        if n == 1:
+            a.plot(dis[0], y, '|', color=c, ms=14, mew=3)
+        rng = f'{min(dis):.2f}' if n == 1 else f'{min(dis):.2f}–{max(dis):.2f}'
+        a.text(max(dis) + 0.07, y, rng, va='center', fontsize=10, color=INK)
+        a.text(-0.05, y, f'{lab}', transform=a.get_yaxis_transform(), ha='right', va='center', fontsize=10.5, color=INK)
+        a.text(-0.05, y - 0.3, f'{n} pair{"s" if n > 1 else ""}', transform=a.get_yaxis_transform(), ha='right',
+               va='center', fontsize=9, color=MUTED)
+        lo, hi = min(imp), max(imp)
+        b.plot([lo, hi] if n > 1 else [lo - 0.03, lo + 0.03], [y, y], color=c, lw=7, solid_capstyle='butt')
+        if gain:
+            mean = sum(imp) / n
+            b.plot(mean, y, '|', color=INK, ms=14, mew=2)
+            txt = f'mean {mean:.2f}%  (range {lo:.1f} to {hi:.1f})'
+        else:
+            txt = 'no observed gain  (' + (f'{lo:+.2f}%' if n == 1 else f'{lo:+.2f} to {hi:+.2f}%') + ')'
+        b.text(max(hi, 0.2) + 0.2, y, txt.replace('-', '−'), va='center', fontsize=10, color=INK if gain else MUTED)
+    a.set_xlim(0, 2.6)
+    a.set_xlabel('jets with different predicted class (%)')
+    a.set_title('Model disagreement', loc='left', fontweight='bold')
+    b.axvline(0, color=INK, lw=1)
+    b.set_xlim(-1.2, 11)
+    ticks = [0, 2, 4, 6]
+    b.set_xticks(ticks, ['0'] + [f'+{t}%' for t in ticks[1:]])
+    b.set_xlabel('mistag reduction against the better model (%)')
+    b.set_title('Ensemble improvement', loc='left', fontweight='bold')
+    for ax in (a, b):
+        ax.set_yticks([])
+        ax.spines['left'].set_visible(False)
+        ax.set_ylim(-0.25, 4.75)
+        grid(ax)
     b.spines['left'].set_visible(False)
-    b.set_xlabel('Validation jets on which the two models predict different classes (%)')
-    grid(b)
     save(fig, 'fig6_ensemble.svg')
 
 if __name__ == '__main__':
