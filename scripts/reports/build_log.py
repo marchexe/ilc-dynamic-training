@@ -13,6 +13,10 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import export_report_trials as T  # noqa: E402
+import build_report as R  # noqa: E402  (trial descriptions shared with the report)
+
+# trial number -> (configuration, result, interpretation), exactly as in the research report
+REPORT = {n: (c, r, i) for _, _, rows in R.PHASES for n, d, c, r, i in rows if n != '–'}
 
 ROOT = T.ROOT
 REPO = 'https://github.com/marchexe/ilc-dynamic-training/blob/main/'
@@ -27,7 +31,6 @@ SECTION = {  # step of export_report_trials -> (heading, section of the overview
     4: ('PBT against standard ParT, 8M training jets', 'large'),
     5: ('Ensembles and other ways to gain, 8M training jets', 'ensemble'),
 }
-OUTCOME = {'✅': 'better', '❌': 'worse', '➖': 'no clear difference', '⚠️': 'not valid', '🔧': 'set-up or check'}
 
 
 def link(markup):
@@ -38,12 +41,6 @@ def link(markup):
     if role == 'doc':
         return f'<a href="{target}.html">{label}</a>'
     return f'<a href="{REF_PAGE[target]}.html#{target}">{label}</a>'
-
-
-def text(s):
-    s = html.escape(s)
-    s = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', s)
-    return s
 
 
 def run_row(r):
@@ -70,12 +67,13 @@ def main():
                      f'<th class="num">Test</th></tr></thead><tbody>{rows}</tbody></table></div>') if rows else ''
             extra = ' · '.join(link(m) for m in records)
             gpu = sum(r['gpu_hours'] for r in recs)
-            meta = ' · '.join(x for x in (f'{OUTCOME[outcome]}', (f'{gpu:.0f} GPU-h' if gpu >= 1 else '&lt;1 GPU-h') if recs else '',
+            what_html, result_html, interp_html = REPORT[str(number)]
+            meta = ' · '.join(x for x in ((f'{gpu:.0f} GPU-h' if gpu >= 1 else '&lt;1 GPU-h') if recs else '',
                                           f'records: {extra}' if extra else '') if x)
             parts.append(f'<details class="trial" id="t{number}"><summary><span class="no" data-anchor="t{number}">{number}</span>'
-                         f'<span class="when">{when}</span><span class="what">{text(what)}</span>'
-                         f'<span class="res">{text(result)}</span></summary>'
-                         f'<div class="body">{table}<p>{meta} · <a href="overview.html#t{number}">trial {number} in the report</a>'
+                         f'<span class="when">{when}</span><span class="what">{what_html}</span>'
+                         f'<span class="res">{result_html}</span></summary>'
+                         f'<div class="body"><p class="interp"><b>Interpretation:</b> {interp_html}</p>{table}<p>{meta} · <a href="overview.html#t{number}">trial {number} in the report</a>'
                          '</p></div></details>')
     page = TEMPLATE.replace('<!--TRIALS-->', '\n'.join(parts))
     import hashlib

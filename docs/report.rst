@@ -122,7 +122,7 @@ Summary
 Limits: the 8M PBT results have one seed. All trials start from one pretrained model. Test
 (2.8M) was also used in diagnostics before step 3, so it is not fully unseen.
 
-Earlier statements that changed: the 1.4% and 7.7% of step 1 are not valid (step 2), and the
+Earlier statements that changed: the 1.4% and 7.7% of step 1 were measured against constant LRs that were too low (step 2), and the
 first 8M value, 10.8% worse, is 12.4% against the better standard ParT model.
 
 .. _report-open:
@@ -181,7 +181,7 @@ a different number.
 All trials
 ~~~~~~~~~~
 
-Outcome: ✅ better · ❌ worse · ➖ no clear difference · ⚠️ not valid (comparator LRs too low) ·
+Outcome: ✅ better · ❌ worse · ➖ no clear difference · ⚠️ comparator LRs too low (the run itself is valid) ·
 🔧 set-up or check. Values are on Test (2.8M) unless the cell says otherwise. Times are JST.
 Every run with its selected model is listed in :ref:`report-runs`.
 

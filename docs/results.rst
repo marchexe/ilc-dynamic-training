@@ -91,7 +91,8 @@ show directly (:repo:`scripts/experiments/holdout_block_bootstrap.py`,
 
 **What did not help.** Adding Weaver's final decay to PBT (no decisions in the last 15
 epochs) selected the same checkpoints as PBT without it. Weight averaging of nearby checkpoints
-or of population members did not improve on the plain selected checkpoint. Training standard
+or of population members improved the selection-set value only for standard ParT, by 0.09% and 0.30%
+(seeds 12345, 22345), and not for the constant-LR grid or PBT; it was not evaluated on Test. Training standard
 ParT from random initialization reached only 0.378 on Validation (1M), against about 0.30
 from the pretrained checkpoint.
 

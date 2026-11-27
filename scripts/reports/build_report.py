@@ -17,85 +17,176 @@ def lr(m, e):
     return (f'{m}×' if m != '1' else '') + f'10<sup>−{e}</sup>'
 
 
-# (phase title, what changed against the previous phase, rows); row: (trial, date, configuration, result, interpretation)
+E = lambda m, e: lr(m, e)
+G1 = f'{E("3", 6)}, {E("5.75", 6)}, {E("8.5", 6)}, {E("1.125", 5)}, {E("1.4", 5)}'
+WIN = (f'Windowed PBT: every 5 epochs the members are ranked by their mean Validation mistag over the last 3 epochs; a '
+       'member that loses in two windows by more than 0.002 copies the weights and optimizer state of the best member '
+       f'and continues at its LR ×0.8 or ×1.2 (at most two copies per decision; LR bounds {E("2", 6)}–{E("3", 5)})')
+FAST = (f'Fast PBT: as windowed PBT, but decisions every 2 epochs on the mean of the last 2 epochs, LR ×0.5 or ×2, bounds '
+        f'{E("5", 6)}–{E("5", 4)}; start LRs {E("1", 5)}, {E("2.5", 5)}, {E("6", 5)}, {E("1.5", 4)}, {E("3.5", 4)}')
+REF = 'Reference: '
+V = ' <i>(Validation)</i>'
+
+# (phase title, conditions, rows); row: (trial, date, configuration, result, interpretation)
+# Results are mistag (%) of the selected model on Test (2.8M) unless marked (Validation); "x% better/worse than #n" is
+# the relative change of that value against trial #n.
 PHASES = [
     ('Initial implementation', 'Training (800k)', [
-        ('–', 'Jul 22 – Aug 31', 'First PBT versions (exploit-and-mutate, anchor-copy) and LR controllers; older training '
-         'set-up (samples per epoch capped, damped optimizer start)',
-         'Two defects found and fixed: BatchNorm not frozen; a controller overwrote the PBT LR',
-         'Not comparable with later trials; training rebuilt as deterministic full epochs (Sep 16)'),
+        ('–', 'Jul 22 – Aug 31', 'First PBT implementations (exploit-and-mutate, anchor-copy) and LR controllers, with an '
+         'older training set-up: a capped number of training jets per epoch and a damped optimizer start',
+         'Two defects found and fixed: BatchNorm statistics were updated although they should be frozen, and an LR '
+         'controller overwrote the LR set by PBT',
+         'Results not comparable with later trials and not used. Training was rebuilt as deterministic full epochs '
+         '(from Sep 16), which all later trials use'),
     ]),
     ('PBT against constant learning rates', 'Training (800k), then (8M) · Validation (150k) · seed 12345 unless noted', [
-        ('1', 'Sep 16', f'Constant LR, 5 values {lr("3", 6)}–{lr("1.4", 5)}', '0.3269; best at the highest LR',
-         'Reference for PBT. The best model at the edge of the grid was not followed up at the time'),
-        ('2', 'Sep 17–18', 'The 1.4 and 0.85×10<sup>−5</sup> models of #1 continued to 100 epochs', '0.3156',
-         'Longer training helps'),
-        ('3', 'Sep 18', f'PBT: start as #1; every 5 epochs the weakest copies the best, LR ×0.8 or ×1.2, max {lr("3", 5)}',
-         '0.3225; 1.4% better than #1', 'Apparent PBT gain (later found to be an LR-level effect, #12–#14)'),
-        ('4', 'Sep 19', 'PBT as #3, 100 epochs', '0.3111; 1.4% better than #2', 'Same apparent gain at 100 epochs'),
-        ('5', 'Sep 20', 'Rule-based LR controller in observe-only mode on a 60k subset of Validation; 8 models, 96 short epochs',
-         'Subset ranks models like the full set (Spearman 0.96) but detects an improvement in only 72% of cases; '
-         'the controller proposed almost no changes', 'Not pursued'),
-        ('6', 'Sep 23–29', 'PBT with decisions every epoch against every 5 epochs; seeds 12345 and 22345',
-         'Every epoch 0.47% and 0.13% worse on Test; better on Validation', 'Inconclusive: Validation and Test disagree at this level'),
-        ('7', 'Sep 28', 'Restart test: one epoch run as five restarted parts', f'Weights differ (max {lr("7.6", 4)})',
-         'Decisions within an epoch impossible: the optimizer (Lookahead) state is not saved'),
-        ('8', 'Oct 12', 'First Test (2.8M) evaluation of the selected models of #1–#6',
-         'Test 0.010–0.019 lower than Validation; rank correlation 0.70', 'Differences of about 0.3% reorder: Validation (150k) resolves them poorly'),
-        ('9', 'Oct 13', 'Training (8M) and Test (9.0M) prepared; one-epoch GPU check', 'Ready', ''),
-        ('10', 'Oct 14–21, Test Nov 2', 'Preregistered on Training (8M): constant LR as #1 against PBT as #3; Test (9.0M) opened once',
-         '0.2375 against 0.2572: PBT 7.7% better; all 10 validity checks passed',
-         'Best constant model again at the highest LR and PBT above the grid: cannot separate adaptation from LR level'),
-        ('11', 'Oct 17 – Nov 3', 'Checkpoints with the full optimizer state, for decisions within an epoch',
-         'One epoch = five restarted parts, bit for bit', 'Implemented; not used in any PBT run'),
+        ('1', 'Sep 16', f'Constant-LR grid: five models, each at one LR for 50 epochs: {G1}',
+         '0.3269; selected model: the highest LR, 1.4×10<sup>−5</sup>, epoch 44',
+         'First comparator for PBT. That the best LR was the top of the grid was noted but not followed up until #12'),
+        ('2', 'Sep 17–18', f'The {E("1.4", 5)} and {E("8.5", 6)} models of #1 continued from epoch 50 to 100 at the same LR',
+         f'0.3156 ({E("1.4", 5)}, epoch 99)', 'Longer training at the same LR helps; comparator for #4'),
+        ('3', 'Sep 18', f'{WIN}; start LRs as #1', '0.3225; 1.4% better than #1',
+         'Apparent gain of PBT. Its selected model had reached 2.0×10<sup>−5</sup>, above the grid of #1'),
+        ('4', 'Sep 19', 'PBT as #3, 100 epochs', '0.3111; 1.4% better than #2',
+         'Same apparent gain at 100 epochs. The comparator #2 is one model, not a population'),
+        ('5', 'Sep 20', f'Rule-based LR controller in observe-only mode (it logs proposals, ×1.05 or ×0.95, but does not apply '
+         f'them), reading a 60k-jet subset of Validation; eight constant-LR models {E("3", 6)}–{E("1.4", 5)}, 96 short '
+         'epochs of 120k jets each (older set-up)',
+         'The 60k subset ranks checkpoints like the full Validation (150k) (rank correlation 0.96) but detects an '
+         'improvement between epochs in only 72% of cases. The controller proposed two LR increases, both blocked by its '
+         'LR bound, and no decrease',
+         'The controller could not be evaluated; not pursued'),
+        ('6', 'Sep 23–29', 'Cadenced PBT: after 2 warm-up epochs the best member replaces the worst (at most one per '
+         'decision), LR ×0.8 or ×1.2, bounds as #3; decisions every epoch against every 5 epochs; seeds 12345 and 22345 '
+         '(four runs). The rules differ from #3 in more than the frequency',
+         'Every-epoch PBT 0.47% (seed 12345) and 0.13% (seed 22345) worse than every-5-epochs PBT on Test, '
+         'but better on Validation in both seeds',
+         'Inconclusive: Validation (150k) and Test disagree on the order at this size of difference'),
+        ('7', 'Sep 23–28 (exact date not recorded)', 'Restart test: one epoch trained as five parts, each restarted from '
+         'the checkpoint of the previous part, against one uninterrupted epoch',
+         f'Model weights differ (largest difference {E("7.6", 4)})',
+         'PBT decisions within an epoch are not possible with these checkpoints, because the state of the Lookahead '
+         'optimizer is not saved (fixed in #11)'),
+        ('8', 'Oct 12', 'First evaluation on Test (2.8M): the pretrained start and the selected models of #1–#4 and #6 '
+         '(nine checkpoints), fixed in advance',
+         'Every checkpoint 0.010–0.019 lower on Test than on Validation; rank correlation 0.70 between the two samples',
+         'Large differences keep their order; differences of about 0.3% reorder. Validation (150k) cannot resolve them'),
+        ('9', 'Oct 13', 'Preparation of Training (8M, 23.9M jets) and of the separate Test (9.0M), kept closed until #10 had '
+         'finished; short GPU readiness test of 8M training',
+         'Data files built and checked; the readiness test passed', 'Prerequisite for #10'),
+        ('10', 'Oct 14–21; Test opened Nov 2', 'Preregistered comparison on Training (8M): constant-LR grid as #1 against PBT as '
+         '#3, seed 12345, 50 epochs; selected models evaluated once on Test (9.0M). Before the arms, a one-epoch gate run '
+         'failed on a defect in its own check (gradient norms of skipped overflow steps counted as failures) and passed '
+         'after the check was corrected; the epoch reproduced bit for bit',
+         'PBT 0.2375 against 0.2572 on Test (9.0M): 7.67% better (6.74% on Test (2.8M)). All ten preregistered validity '
+         'checks passed',
+         'The protocol was followed correctly. As a scientific comparison it is limited: the best constant LR was again the '
+         'highest of the grid and PBT ended above it (3×10<sup>−5</sup>), so adapting the LR and reaching a higher LR are '
+         'not separated'),
+        ('11', 'Oct 17 – Nov 3', 'Checkpoints that also save the Lookahead optimizer state, so that a run can be restarted '
+         'within an epoch without changing its result; GPU check on Nov 3',
+         'One epoch trained as five restarted parts equals one uninterrupted epoch bit for bit',
+         'Implemented; not used in any PBT run'),
     ]),
-    ('Higher constant learning rates', 'Training (800k) · Validation (150k)', [
-        ('12', 'Nov 3', f'Constant LR {lr("1.4", 5)}–{lr("3", 5)}', '0.3146; best again at the highest LR', 'Grid still too low'),
-        ('13', 'Nov 3–4', f'Constant LR {lr("3", 5)}–{lr("8", 5)}', '<b>0.3018</b>; best at 8×10<sup>−5</sup>',
-         'Better than every PBT run of #3–#6: the early PBT gains came from the LR level'),
-        ('14', 'Nov 4', f'Constant LR {lr("8", 5)}–{lr("3.2", 4)}', f'0.3033; best at {lr("1.2", 4)}', f'Optimum near {lr("8", 5)}–{lr("1.2", 4)}'),
-        ('15', 'Nov 4', f'Fast PBT: start {lr("1", 5)}–{lr("3.5", 4)}; every 2 epochs from epoch 4, LR ×0.5 or ×2, '
-         f'bounds {lr("5", 6)}–{lr("5", 4)}', '0.3003; 1.0% better than #14', 'PBT about equal to the best constant LR'),
-        ('16', 'Nov 9', f'#15 and constant LR {lr("6", 5)}–{lr("1.6", 4)}, seed 22345', '0.3041 against 0.3027: PBT 0.5% worse, '
-         'although 1.4% better on Validation', 'Sign reverses; selection noise (~0.5%) as large as the effect'),
-        ('17', 'Nov 9', '#15 with fallback copies (×0.7 or ×1.4 when ×0.5 and ×2 are both in use)', '0.3026; 0.8% worse than #15',
-         'No improvement'),
+    ('Higher constant learning rates', 'Training (800k) · Validation (150k) · seed 12345 unless noted', [
+        ('12', 'Nov 3', f'Constant-LR grid {E("1.4", 5)}, {E("1.8", 5)}, {E("2.2", 5)}, {E("2.6", 5)}, {E("3", 5)}, '
+         'because the best LR of #1 and #10 was the top of the grid',
+         f'0.3146; selected LR {E("3", 5)}, again the top of the grid', 'The optimum lies higher still'),
+        ('13', 'Nov 3–4', f'Constant-LR grid {E("3", 5)}, {E("4", 5)}, {E("5", 5)}, {E("6", 5)}, {E("8", 5)}',
+         f'0.3018; selected LR {E("8", 5)}, again the top of the grid (Validation 0.3166)',
+         'Better than every PBT run of #3–#6: the early PBT gains came from the LR level. Grid extended once more'),
+        ('14', 'Nov 4', f'Constant-LR grid {E("8", 5)}, {E("1.2", 4)}, {E("1.6", 4)}, {E("2.4", 4)}, {E("3.2", 4)}',
+         f'0.3033; selected LR {E("1.2", 4)}, inside the grid (Validation 0.3141, better than #13)',
+         f'Optimum near {E("8", 5)}–{E("1.2", 4)}. #14 is better than #13 on Validation but worse on Test'),
+        ('15', 'Nov 4', FAST,
+         '0.3003: 1.0% better than #14 (the preregistered comparator: of #13 and #14, the one with the better Validation '
+         'mistag) and 0.5% better than #13 (the better one on Test)',
+         'PBT about equal to the best constant LR; the order depends on which constant-LR model is the reference'),
+        ('16', 'Nov 9', f'Second seed (22345): fast PBT exactly as #15, and a new constant-LR grid {E("6", 5)}, {E("8", 5)}, '
+         f'{E("1", 4)}, {E("1.2", 4)}, {E("1.6", 4)}, centred on the optimum of #13–#14 (not the grid of #14)',
+         'PBT 0.3041 against constant LR 0.3027: 0.47% worse on Test, although 1.4% better on Validation',
+         'The order reverses with the seed, and Validation and Test disagree: selection noise of about 0.5% is as large '
+         'as the effect'),
+        ('17', 'Nov 9', 'Fast PBT as #15 (seed 12345) with fallback copies. In #15 a losing member was not replaced when '
+         'both ×0.5 and ×2 gave an LR another member already had (about 24 times; one member stayed at 5×10<sup>−4</sup> '
+         'with the worst mistag from epoch 5 to 36). With fallback copies it still copies the best member and uses ×0.7 '
+         'or ×1.4, whichever LR is farthest from the others',
+         '0.3026: 0.78% worse than #15 on Test; also worse on Validation (0.3166 against 0.3156)',
+         'No improvement; kept in later PBT runs because it removes the stuck member. Next: Validation (1M), standard '
+         'ParT as comparator, three seeds'),
     ]),
     ('PBT against standard ParT, 800k', 'Training (800k) · Validation (1M) · 3 seeds', [
-        ('18', 'Nov 10–13', f'Standard ParT (start {lr("1", 5)}–{lr("1", 3)}), constant LR {lr("6", 5)}–{lr("1.6", 4)} and PBT as #17; '
-         'seeds 12345, 22345, 32345', 'Standard 0.3029 / 0.3038 / 0.3024; constant 0.3028 / 0.3013 / 0.3024; PBT 0.3008 / 0.3012 / '
-         '0.2996. <b>PBT 0.81% better</b> (95% interval 0.34–1.34%), at 7 of 8 working points',
-         'Small but consistent PBT gain; the constant-LR grid is not stable across seeds'),
-        ('19', 'Nov 12', 'PBT as #18 with a final LR decay (no decisions in the last 15 epochs); 2 seeds',
-         'Same selected models as #18', 'The decay adds nothing at 800k'),
-        ('20', 'Nov 12', 'Standard ParT from random weights', '0.378 on Validation, against about 0.30', 'Pretraining is essential'),
-        ('21', 'Nov 12', 'Weight averages of nearby checkpoints and of PBT models', 'No gain (Validation)', ''),
+        ('18', 'Nov 10–13', f'Three methods, each with seeds 12345, 22345, 32345: standard ParT (constant LR for 35 epochs, '
+         f'then ×0.01 over 15; start LRs {E("1", 5)}, {E("3", 5)}, {E("1", 4)}, {E("3", 4)}, {E("1", 3)}); constant-LR '
+         f'grid as #16 ({E("6", 5)}–{E("1.6", 4)}); PBT as #17. Comparisons fixed before training',
+         'Standard ParT 0.3029 / 0.3038 / 0.3024 (always start LR 10<sup>−4</sup>); constant LR 0.3028 / 0.3013 / 0.3024; '
+         'PBT 0.3008 / 0.3012 / 0.2996. PBT better than standard ParT by 0.67%, 0.85%, 0.91%: <b>mean 0.81%</b>, Test '
+         'interval 0.34–1.34%; better at 7 of 8 working points',
+         'A small PBT gain on every seed. The constant-LR grid equals PBT for seed 22345 and standard ParT for the other two'),
+        ('19', 'Nov 12', 'PBT as #18 with the final decay of standard ParT: no decisions in the last 15 epochs, all LRs '
+         '×0.01 over them; seeds 12345 and 22345',
+         'The same models are selected as in #18 (epochs 31 and 33, before the decay starts), so the same Test values',
+         'The decay does not change the result with Training (800k)'),
+        ('20', 'Nov 12', f'Standard ParT from random weights instead of the pretrained model, start LRs '
+         f'{E("2.5", 4)}–{E("4", 3)}, 50 epochs',
+         f'0.378{V} (start LR {E("4", 3)}, epoch 14), against about 0.30 from the pretrained model; not evaluated on Test',
+         'Pretraining is essential at this training budget'),
+        ('21', 'Nov 12', 'Weight averages of the selected checkpoint with nearby epochs (3–10 epochs) and of population '
+         'members, for the six runs of seeds 12345 and 22345 in #18',
+         f'Standard ParT: averages 0.09% and 0.30% better than the selected checkpoint{V}; constant LR and PBT: no '
+         'average better than the selected checkpoint. The planned Test evaluation was not run',
+         'At most a small change on Validation; not pursued'),
     ]),
     ('PBT against standard ParT, 8M', 'Training (8M) · Validation (1M) · seed 12345', [
-        ('22', 'Nov 14–15', f'Standard ParT, start {lr("1", 5)}–{lr("1", 3)}', f'0.1635; best at the highest start LR ({lr("1", 3)})',
-         'Start LR range extended (#24)'),
-        ('23', 'Nov 15–17', f'PBT as #18 with the LR range of standard ParT (max {lr("1", 3)})', '0.1812; <b>12.4% worse</b> than #24',
-         f'PBT lowered all LRs early (at most {lr("2.5", 4)} from epoch 11); hypothesis: two-epoch decision horizon'),
-        ('24', 'Nov 19–20', f'Standard ParT, start {lr("3", 3)} (one model, fixed in advance)', '<b>0.1611</b>', '8M reference'),
-        ('25', 'Nov 19–21', 'PBT with cool-down probes: each model judged on a copy trained ¼ epoch at 0.1× its LR (120 probes, ≈12% more training); also on 800k',
-         '8M: 0.1699, 5.4% worse than #24. 800k: 0.3024 (no change)', f'LRs stay higher ({lr("1.2", 4)}–{lr("1", 3)}); gap halved'),
-        ('26', 'Nov 20–23', f'Probes plus the final decay of standard ParT; max LR {lr("3", 3)} (85 probes, ≈9% more training)', '0.1655; 2.7% worse than #24',
-         '78% of the gap closed; still worse. Extra seeds not run (rule fixed in advance)'),
+        ('22', 'Nov 14–15', f'Standard ParT as #18, Training (8M), start LRs {E("1", 5)}–{E("1", 3)}',
+         f'0.1635; selected start LR {E("1", 3)}, the top of the range', 'The range was extended in #24'),
+        ('23', 'Nov 15–17', f'PBT as #18 with the start LRs and upper LR bound of standard ParT ({E("1", 5)}–{E("1", 3)})',
+         '0.1812: 12.4% worse than #24 (10.8% worse than #22, the first reported value)',
+         f'PBT lowered all LRs to at most {E("2.5", 4)} from epoch 11'),
+        ('24', 'Nov 19–20', f'Standard ParT, one model at start LR {E("3", 3)}, added under a rule fixed before it started: '
+         'the 8M reference is whichever of #22 and #24 is better on Validation',
+         '0.1611 (Validation 0.1584, better than #22): the 8M reference', 'Reference for #23, #25, #26 and #27'),
+        ('25', 'Nov 19–21', 'PBT as #23 with cool-down probes: at each decision a copy of every member trains a quarter '
+         'epoch at 0.1× its LR, and the members are ranked on these copies (120 probes, about 12% more training). Also run '
+         'on Training (800k)',
+         '8M: 0.1699, 5.4% worse than #24. 800k: 0.3024, against 0.3008 for PBT (#18) and 0.3029 for standard ParT, seed 12345',
+         f'The LRs stay higher ({E("1.2", 4)}–{E("1", 3)}); the gap to standard ParT halves'),
+        ('26', 'Nov 20–23', f'PBT with probes and the final decay of #19; start LRs {E("3", 5)}, {E("1", 4)}, {E("3", 4)}, '
+         f'{E("1", 3)}, {E("3", 3)}, upper bound {E("3", 3)} (85 probes, about 9% more training)',
+         '0.1655: 2.7% worse than #24',
+         '78% of the gap to standard ParT closed; still worse. Two further seeds were prepared, with the rule that they run '
+         'only if this run is not clearly worse than #24; they were not run'),
     ]),
     ('Ensembles and other ways to gain, 8M', 'Training (8M) · Validation (1M)', [
-        ('27', 'Nov 23', 'Ensemble: mean class probabilities of #22 and #24; chosen among 8 ensembles on Validation, Test check fixed in advance',
-         '0.1530; 5.05% better than #24 (interval 3.75–6.36%)', 'Large gain on the development seed'),
-        ('28', 'Nov 23–25', f'#27 repeated: new standard ParT runs at {lr("3", 3)} and {lr("1", 3)}, seeds 22345 and 32345',
-         '0.1519 and 0.1540 against 0.1597 and 0.1623 (3×10<sup>−3</sup> models): 4.86% and 5.14% better; <b>mean of 3 seeds 5.01%</b> (interval 4.17–5.84%)', 'Confirmed on new seeds'),
-        ('29', 'Nov 23', 'Ensembles of any two of 15 models of #18 (800k)', 'No gain beyond chance (Validation)', 'Models too similar at 800k'),
-        ('30', 'Nov 23–25', 'Disagreement and gain of model pairs, all 8M models', 'Same run or PBT pair: 0.2–0.4% disagreement, no gain; '
-         'separate models: 1.5–2.3%; same LR 3.6%, different LR 4.7% gain (Validation)', 'Gain comes mostly from separate training'),
-        ('31', 'Nov 23–24', 'Final decay of #24 without dropout', '0.1730 against 0.1595 at epoch 44 (Validation); stopped',
-         'Dropout helps at 8M although there is no visible overfitting'),
-        ('32', 'Nov 24', 'Distillation: final decay of #24 trained half on labels, half on the ensemble of #27',
-         'Best 0.1600 against 0.1584 (Validation)', 'No gain; the ensemble gain is not kept in one model'),
-        ('33', 'Nov 24–25', f'Standard ParT, start {lr("1", 2)}', '0.1631 on Validation (worse than #24); 0.1599 on Test',
-         f'Start LR above {lr("1", 3)} hardly matters; #24 stays the reference'),
+        ('27', 'Nov 23', 'Ensemble: average of the class probabilities of the selected models of #22 (start LR '
+         f'{E("1", 3)}) and #24 ({E("3", 3)}), seed 12345; chosen as the best of eight candidate ensembles on Validation, '
+         'Test comparison fixed before evaluation',
+         '0.1530: 5.05% better than #24 (Test interval 3.75–6.36%)', 'Large gain on the seed on which it was chosen'),
+        ('28', 'Nov 23–25', f'Test of #27 on new seeds: standard ParT at {E("3", 3)} and {E("1", 3)} with seeds 22345 and '
+         '32345; models, ensemble and the three-seed claim fixed before training',
+         f'Ensembles 0.1519 and 0.1540 against 0.1597 and 0.1623 (the {E("3", 3)} models): 4.86% and 5.14% better. '
+         '<b>Mean of three seeds 5.01%</b>, Test interval 4.17–5.84%',
+         'Replicated on two new seeds. Cost: two model forward passes per jet'),
+        ('29', 'Nov 23', 'Ensembles of any two of the 15 selected 800k models of #18 (105 pairs), on Validation',
+         f'The best pairs about 0.9% better than the best single model{V}; two standard ParT {E("1", 4)} models of different '
+         'seeds 0.0% on average',
+         'No gain beyond what choosing among 105 pairs gives by chance'),
+        ('30', 'Nov 23–25', 'Disagreement (share of jets with a different predicted class) and ensemble gain for pairs of '
+         'all 8M models, on Validation',
+         'Checkpoints of one run or models of one PBT run: 0.2–0.4% disagreement, no gain. Separately trained models: '
+         f'1.5–2.3%; gain 3.6% with the same start LR, 4.7% with different start LRs{V}',
+         'Most of the gain comes from training the models separately (Figure 4)'),
+        ('31', 'Nov 23–24', 'The final decay of #24 (epochs 36–50) repeated from its epoch-35 checkpoint with dropout 0',
+         f'0.1730 against 0.1595 with dropout at epoch 44{V}; stopped at epoch 45 when the process was lost on the node and '
+         'not restarted', 'Dropout helps with Training (8M) although there is no visible overfitting'),
+        ('32', 'Nov 24', 'Distillation: the final decay of #24 repeated from epoch 35 with a loss of half the usual '
+         'cross-entropy and half the cross-entropy against the ensemble probabilities of #27',
+         f'Best 0.1600 against 0.1584 without distillation{V}; 0.1604 against 0.1597 at the last epoch. The full run was '
+         'not started', 'The ensemble gain was not transferred to one model'),
+        ('33', 'Nov 24–25', f'Standard ParT, one model at start LR {E("1", 2)}, added under a rule fixed before it started',
+         f'0.1631{V}, worse than #24 (0.1584), so #24 stays the reference; 0.1599 on Test',
+         f'The Test value lies within the seed spread of {E("3", 3)} (0.1597–0.1623): above {E("1", 3)} the start LR hardly '
+         'matters'),
     ]),
 ]
 
