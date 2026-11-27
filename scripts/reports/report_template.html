@@ -63,29 +63,25 @@ h4 { font: 700 15px/1.4 var(--sans); color: var(--ink); margin: 18px 0 6px; }
 
 <h2>1&ensp;Summary</h2>
 <p class="text"><b>Objective.</b> Whether Population Based Training (PBT), adapting the learning rate (LR) during
-fine-tuning of the pretrained Particle Transformer (ParT), gives a lower mistag than standard ParT training at equal
-compute (five models, 50 epochs).</p>
+fine-tuning of the pretrained Particle Transformer (ParT), gives a lower mistag than standard ParT training with the same
+budget of five models and 50 epochs (the probe variants #25–#26 used 9–12% more training).</p>
 <ul class="concl">
-  <li>The early PBT gains (1.4% with Training (800k), 7.7% with Training (8M) on Test (9.0M)) came from comparisons with
-  too-low constant LRs (phases 1–2). <span class="ev s">single seed per grid</span></li>
-  <li>Training (800k): PBT 0.81% better than standard ParT, 95% interval 0.34–1.34% (phase 3). <span class="ev r">replicated, 3 seeds</span></li>
-  <li>Training (8M): PBT 12.4% worse than standard ParT; 2.7% worse with probes and final decay (phase 4). <span class="ev s">single seed</span></li>
-  <li>Training (8M): ensemble of two standard ParT models 5.01% better, interval 4.17–5.84%, at twice the inference cost
-  (phase 5). <span class="ev r">replicated, 3 seeds</span></li>
+  <li>The early PBT gains, 1.4% with Training (800k) and 7.7% with Training (8M) on Test (9.0M), were measured against
+  constant LRs that were too low; a constant LR near 10<sup>−4</sup> matches PBT (phases 1–2). <span class="ev s">single seed per grid</span></li>
+  <li>Training (800k): PBT 0.81% better than standard ParT; seeds 0.67–0.91%; Test-sample interval 0.34–1.34% (phase 3).
+  <span class="ev r">replicated, 3 seeds</span></li>
+  <li>Training (8M): PBT 12.4% worse than standard ParT, 2.7% worse with probes and final decay (phase 4). <span class="ev s">single seed</span></li>
+  <li>Training (8M): the ensemble of two standard ParT models 5.01% better than the better one; seeds 4.86–5.14%;
+  Test-sample interval 4.17–5.84%; two forward passes per jet (phase 5). <span class="ev r">replicated, 3 seeds</span></li>
 </ul>
-<figure>
-  <div class="fig-scroll"><img src="pub/fig1_central.svg" alt="Bar chart: change in Test mistag against standard ParT for each method, Training (800k) and Training (8M)"></div>
-  <figcaption><b>Figure 1.</b> Change in Test (2.8M) mistag against standard ParT trained on the same sample (ensemble:
-  against the better of its two models); below zero is better. Three-seed bars show the mean over seeds; error bars are
-  95% intervals for the Test sample only, not seed-to-seed variation; single-seed results and the constant LR have none.</figcaption>
-</figure>
 <p class="notes"><b>Samples.</b> “800k” and “8M” name the first 800 thousand and 8 million source entries of each of the
 three flavour files (b, c, light); after preselection 2,392,232 and 23,921,449 jets (Training (800k) is a subset of
 Training (8M); from 10 November the 999,999 Validation (1M) rows are removed from it). Validation (150k), until
 9 November, and Validation (1M) select the model and drive PBT. Test (2.8M), 2,825,125 jets, is evaluated once per
 selected model; Test (9.0M), 8,970,477 jets, only in #10. <b>Mistag</b>: geometric mean of the background mistag rates
-at b-tag 80/90% (against c, light) and c-tag 50/80% (against b, light). Results in the tables are on Test (2.8M) unless
-marked Validation; # = trial number of the <a href="log.html">experiment log</a>; dates in JST.</p>
+at b-tag 80/90% (against c, light) and c-tag 50/80% (against b, light). Intervals: 95%, block bootstrap of the Test sample; they do not include seed-to-seed variation. Results in the
+tables are on Test (2.8M) unless marked Validation; # = trial number of the <a href="log.html">experiment log</a>;
+dates in JST.</p>
 
 <h2>2&ensp;Research timeline</h2>
 <div class="timeline">
@@ -93,16 +89,14 @@ marked Validation; # = trial number of the <a href="log.html">experiment log</a>
 </div>
 
 <h2>3&ensp;Conclusions and unresolved questions</h2>
-<p class="text">For this pretrained checkpoint, the PBT variants tested and 50-epoch fine-tuning, PBT does not replace
-standard ParT training: it helps by under 1% when the model overfits (Training (800k)) and hurts when it does not
-(Training (8M)), where combining separately trained standard ParT models is the only gain found.</p>
-<h4>Unresolved</h4>
+<p class="text">Within the tested configurations, PBT did not improve on standard ParT training beyond 1%, and with
+Training (8M) it was worse; the only gain found there came from combining separately trained models.</p>
 <ul class="concl">
-  <li>The causes proposed in phases 4 and 5 (decision horizon, model diversity) are hypotheses; none was tested directly.</li>
-  <li>The 8M PBT results rest on one seed; decision frequency (#6) is inconclusive; decisions within an epoch (#11) were
-  never run.</li>
-  <li>Scope: one pretrained checkpoint, one optimizer, 50 epochs; Test (2.8M) was also inspected in diagnostics before
-  November; no result was carried into a physics analysis.</li>
+  <li>The explanations in phases 4–5 (decision horizon and overfitting; model diversity) are hypotheses, not tested directly.</li>
+  <li>All Training (8M) PBT results rest on one seed; the effect of the decision frequency (#6) is inconclusive; decisions
+  within an epoch (#11) were never run.</li>
+  <li>Scope: one pretrained checkpoint, one optimizer, 50 epochs. Test (2.8M) was also inspected in diagnostics before
+  November. No result was carried into a physics analysis.</li>
 </ul>
 
 <footer class="end">Figures: <a href="https://github.com/marchexe/ilc-dynamic-training/blob/main/scripts/reports/publication_figures.py">publication_figures.py</a>;

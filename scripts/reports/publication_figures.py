@@ -71,79 +71,6 @@ def rows_panel(ax, rows, xlim, ticks, title):
     grid(ax)
 
 
-def central_rows():
-    """Rows of Figure 1 from the result files: (group, label, change %, interval or None, seeds, colour)."""
-    pub = ROOT / 'published/results/sel1m'
-    block = json.loads((pub / 'block100.json').read_text())['comparisons']
-    pooled = json.loads((pub / 'pooled_block100.json').read_text())
-    const = [c['change_percent'] for c in block if c['left'] == 'standard' and c['right'] == 'fixed']
-    t8 = {h['label']: h['value'] for h in json.loads((pub / 'train8m_followups.json').read_text())['holdout']}
-    ref = t8['Standard ParT, start LR 3e-3']
-    ens = json.loads((ROOT / 'runs/eval/ensemble_seed32345_v1/result.json').read_text())['question_B']
-    rel = lambda v: 100 * (v / ref - 1)
-    return [
-        ('Training (800k)', 'Constant LR, tuned grid', sum(const) / len(const), None, 3, CONST),
-        ('Training (800k)', 'PBT', pooled['mean_change_percent'], pooled['mean_interval_percent'], 3, PBT),
-        ('Training (8M)', 'PBT', rel(t8['PBT']), None, 1, PBT),
-        ('Training (8M)', 'PBT + cool-down probes', rel(t8['PBT + probes']), None, 1, PBT),
-        ('Training (8M)', 'PBT + probes + final decay', rel(t8['PBT + probes + final decay']), None, 1, PBT),
-        ('Training (8M)', 'Ensemble of two standard ParT models', ens['mean_change_percent'], ens['pooled_interval_percent'], 3, ENS),
-    ]
-
-
-def fig_central():
-    """Diverging bars: change of the Test mistag against standard ParT trained on the same sample."""
-    rows = central_rows()
-    short = {'Constant LR, tuned grid': 'Tuned\nconstant LR', 'PBT': 'PBT', 'PBT + cool-down probes': 'PBT\n+ probes',
-             'PBT + probes + final decay': 'PBT + probes\n+ final decay', 'Ensemble of two standard ParT models': 'Ensemble\nof two'}
-    good, bad, grey = '#4f8a6a', '#b5553f', '#9a9aa0'
-    xs, x, last = [], 0.0, None
-    for g, *_ in rows:
-        if last is not None:
-            x += 1.0 if g == last else 1.7
-        last = g
-        xs.append(x)
-    fig, ax = plt.subplots(figsize=(8.8, 4.9))
-    groups = list(dict.fromkeys(r[0] for r in rows))
-    span = {g: (min(xx for r, xx in zip(rows, xs) if r[0] == g), max(xx for r, xx in zip(rows, xs) if r[0] == g)) for g in groups}
-    lo, hi = span[groups[1]]
-    ax.axvspan(lo - 0.6, hi + 0.6, color='#f5f5f7', zorder=0, lw=0)
-    for (g, lab, v, ci, seeds, c), xx in zip(rows, xs):
-        col = grey if lab.startswith('Constant') else (good if v < 0 else bad)
-        ax.bar(xx, v, width=0.62, color=col, zorder=2)
-        if ci:
-            ax.plot([xx, xx], ci, color=INK, lw=1.2, zorder=3)
-            for e in ci:
-                ax.plot([xx - 0.09, xx + 0.09], [e, e], color=INK, lw=1.2, zorder=3)
-        end = (min(ci) if ci else v) if v < 0 else v
-        val = f'{v:+.2f}%'.replace('-', '−')
-        ax.text(xx, end + (-0.6 if v < 0 else 0.45), val, ha='center', va='top' if v < 0 else 'bottom',
-                fontsize=12.5, color=INK, fontweight='bold')
-        if ci:
-            ax.text(xx, end - 1.6, f'[{ci[0]:.2f}, {ci[1]:.2f}]'.replace('-', '−'), ha='center', va='top',
-                    fontsize=10.5, color=MUTED)
-        ax.text(xx, -9.6, short[lab], ha='center', va='top', fontsize=11.5, color=INK, linespacing=1.15)
-        ax.text(xx, -12.3, f'{seeds} seed{"s" if seeds > 1 else ""}', ha='center', va='top', fontsize=10.5, color=MUTED)
-    for g in groups:
-        a0, a1 = span[g]
-        ax.plot([a0 - 0.4, a1 + 0.4], [-13.7, -13.7], color=MUTED, lw=1, clip_on=False)
-        ax.text((a0 + a1) / 2, -14.1, g, ha='center', va='top', fontsize=12.5, color=INK, fontweight='bold')
-    ax.axhline(0, color=INK, lw=1.1, zorder=3)
-    ax.text(xs[-1] + 0.75, 0.25, 'standard ParT', ha='right', va='bottom', fontsize=10.5, color=MUTED)
-    ax.set_xlim(xs[0] - 0.75, xs[-1] + 0.75)
-    ax.set_ylim(-9, 15)
-    ax.set_xticks([])
-    ax.spines['bottom'].set_visible(False)
-    ticks = list(range(-6, 16, 3))
-    ax.set_yticks(ticks, [('+' if t > 0 else '') + f'{t}%'.replace('-', '−') if t else '0' for t in ticks])
-    ax.tick_params(axis='y', labelsize=11.5)
-    ax.set_ylabel('change in Test mistag against standard ParT', fontsize=11.5)
-    ax.text(xs[0] - 0.68, 14.6, 'worse ↑', ha='left', va='top', fontsize=10.5, color=MUTED)
-    ax.text(xs[0] - 0.68, -8.6, 'better ↓', ha='left', va='bottom', fontsize=10.5, color=MUTED)
-    grid(ax, 'y')
-    save(fig, 'fig1_central.svg')
-
-
 def fig_lr():
     """Test mistag against learning rate: constant-LR grids and the two PBT runs (800k, seed 12345)."""
     fig, ax = plt.subplots(figsize=(10.4, 4.0))
@@ -264,6 +191,6 @@ def fig_ensemble():
 
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
-    for f in (fig_central, fig_lr, fig_regimes, fig_mechanism, fig_ensemble):
+    for f in (fig_lr, fig_regimes, fig_mechanism, fig_ensemble):
         f()
     print(sorted(p.name for p in OUT.iterdir()))
