@@ -92,13 +92,14 @@ PHASES = [
          'One epoch trained as five restarted parts equals one uninterrupted epoch bit for bit',
          'Implemented; not used in any PBT run'),
     ]),
-    ('A higher constant learning rate shrinks the PBT advantage to 0.5–1.0%', 'Training (800k) · Validation (150k) · seed 12345 unless noted', [
+    ('After tuning the constant-LR baseline, the PBT advantage is smaller and not consistent', 'Training (800k) · Validation (150k) · seed 12345 unless noted', [
         ('12', 'Nov 3', f'Constant-LR grid {E("1.4", 5)}, {E("1.8", 5)}, {E("2.2", 5)}, {E("2.6", 5)}, {E("3", 5)}, '
          'because the best LR of #1 and #10 was the top of the grid',
          f'0.3146; selected LR {E("3", 5)}, again the top of the grid', 'The optimum lies higher still'),
         ('13', 'Nov 3–4', f'Constant-LR grid {E("3", 5)}, {E("4", 5)}, {E("5", 5)}, {E("6", 5)}, {E("8", 5)}',
          f'0.3018; selected LR {E("8", 5)}, again the top of the grid (Validation 0.3166)',
-         'Better than every PBT run of #3–#6: the early PBT gains came from the LR level. Grid extended once more'),
+         'Better than every PBT run of #3–#6, so those runs had been compared with a constant-LR baseline that was not tuned. '
+         'Grid extended once more'),
         ('14', 'Nov 4', f'Constant-LR grid {E("8", 5)}, {E("1.2", 4)}, {E("1.6", 4)}, {E("2.4", 4)}, {E("3.2", 4)}',
          f'0.3033; selected LR {E("1.2", 4)}, inside the grid (Validation 0.3141, better than #13)',
          f'Optimum near {E("8", 5)}–{E("1.2", 4)}. #14 is better than #13 on Validation but worse on Test'),
@@ -260,17 +261,21 @@ PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the 
      []),
     ('Nov 3 – Nov 9', 'Test whether a higher constant LR explains the PBT gain.',
      f'A constant LR near {SUP("1", 4)} comes within 0.5–1.0% of PBT.',
-     '<b>Interpretation</b> <span class="ev s">single seed per grid</span>. Moving the constant-LR grid up shrank PBT’s lead '
-     'from 1.4% to 0.5–1.0% (Figure 1): the September comparison mostly measured the higher LR that PBT had reached. With seed 22345 and a re-centred grid the sign reversed: at this precision '
-     'the comparison needs a larger Validation sample and several seeds. <b>Next:</b> Validation (1M), standard ParT as '
+     '<b>Interpretation</b> <span class="ev s">single seed per grid</span>. The initial PBT advantage was reduced after '
+     'tuning the constant-LR baseline: from 1.4% in September to 0.5–1.0% (Figure 1). With seed 22345 and a re-centred grid '
+     'PBT was 0.47% worse; the seed and the grid changed together, so the reversal is not assigned to either. Subsequent '
+     'experiments did not establish a consistent advantage over tuned constant-LR training (#18: PBT better than the '
+     'constant-LR grid by 0.65%, 0.03% and 0.94% on three seeds). At this precision the comparison needs a larger '
+     'Validation sample and several seeds. <b>Next:</b> Validation (1M), standard ParT as '
      'comparator (the usual recipe: constant LR for 35 epochs, then ×0.01 over 15; five start LRs), three seeds.',
-     [('fig3_learning_rate.svg', 'PBT against the best constant-LR model in September and November',
-       ('PBT’s advantage over the best constant-LR model shrank from 1.4% in September to 0.5–1.0% once the '
-        'constant-LR grid was moved to higher learning rates.',
-        'Training (800k), seed 12345; mistag on Test (2.8M) of the models selected on Validation (150k). Step 3 (#14) is '
-        'the preregistered comparison, because #14 was better than #13 on Validation. Both methods improved by about 0.02 '
-        'in absolute mistag, since both now trained at higher LRs. With seed 22345 and a re-centred grid, PBT was 0.47% '
-        'worse (#16); differences of about 0.5% are within the selection noise of Validation (150k).'))]),
+     [('fig3_learning_rate.svg', 'PBT against the best constant-LR model in September and November, seeds 12345 and 22345',
+       ('PBT was 1.4% better than the best constant-LR model in September and 0.5–1.0% better after the constant-LR grid '
+        'was moved to higher LRs; with a new seed and a new grid (#16), PBT was 0.47% worse.',
+        'Training (800k); mistag on Test (2.8M) of the models selected on Validation (150k). Seed 12345 except #16, which '
+        f'used seed 22345 and the constant-LR grid {SUP("6", 5)}–{SUP("1.6", 4)} instead of {SUP("8", 5)}–{SUP("3.2", 4)} '
+        '(#14): both changed together, so the reversal is not assigned to either. Step 3 (#14) is the preregistered '
+        'comparison, because #14 was better than #13 on Validation. Both methods reached about 0.02 lower absolute mistag '
+        'in November than in September. Differences of about 0.5% are within the selection noise of Validation (150k).'))]),
     ('Nov 10 – Nov 13', 'Compare PBT with standard ParT under the new selection, Training (800k).',
      'PBT better on all three seeds, by less than 1%.',
      '<b>Interpretation</b> <span class="ev r">replicated, 3 seeds</span>. With Training (800k), PBT finds a slightly better '

@@ -39,6 +39,12 @@ plt.rcParams.update({
     'svg.fonttype': 'path', 'figure.facecolor': 'white', 'axes.facecolor': 'white'})
 
 
+def E_TXT(m, e):
+    """LR as plain text with superscript digits, e.g. 6×10⁻⁵."""
+    sup = str.maketrans('0123456789', '⁰¹²³⁴⁵⁶⁷⁸⁹')
+    return f'{m}×10⁻{str(e).translate(sup)}'
+
+
 def save(fig, name):
     fig.savefig(OUT / name, bbox_inches='tight', pad_inches=0.08, metadata={'Date': None})
     preview = __import__('os').environ.get('FIG_PREVIEW')  # optional PNG copies for review
@@ -77,32 +83,43 @@ def rows_panel(ax, rows, xlim, ticks, title):
 
 def fig_lr():
     """Phase 2: PBT against the best constant-LR model before and after the grid was moved to higher LRs.
-    Training (800k), seed 12345, Test (2.8M) mistag of the selected models: docs/results.rst (#1, #3) and
-    runs/eval/holdout_fast_pbt_v1/report.md (#13-#15), as published in configs/prepared/holdout_fast_pbt_v1."""
+    Training (800k), Test (2.8M) mistag of the selected models: docs/results.rst (#1, #3),
+    runs/eval/holdout_fast_pbt_v1/report.md (#13-#15, seed 12345, as published in configs/prepared/holdout_fast_pbt_v1)
+    and runs/eval/holdout_fast_pbt_seed22345_v1/analysis.json (#16, seed 22345, full precision: the 6-decimal
+    values of its report.md round to -0.46% instead of the exact -0.465%)."""
     rows = [  # (label, date line, constant-LR value, PBT value)
         ('September', '#1 grid vs PBT #3 · Sep 16–18', 0.326934, 0.322484),
         ('November, step 2', '#13 grid vs fast PBT #15 · Nov 3–4', 0.301809, 0.300264),
         ('November, step 3', '#14 grid vs fast PBT #15 · Nov 4', 0.303295, 0.300264),
+        ('November, new seed + grid', '#16 grid vs fast PBT #16 · Nov 9', 0.30272153386718653, 0.30412930626812235),
     ]
-    fig, ax = plt.subplots(figsize=(10.4, 2.7))
+    fig, ax = plt.subplots(figsize=(10.4, 3.35))
     n = len(rows)
     for i, (lab, sub, c, p) in enumerate(rows):
         y = n - 1 - i
-        ax.plot([p, c], [y, y], color='#d0d0d4', lw=3, solid_capstyle='butt', zorder=1)
+        lo, hi = min(c, p), max(c, p)
+        ax.plot([lo, hi], [y, y], color='#d0d0d4', lw=3, solid_capstyle='butt', zorder=1)
         ax.plot(c, y, 'o', color=CONST, mfc='white', mew=1.8, ms=9, zorder=3)
         ax.plot(p, y, 's', color=PBT, ms=9, zorder=3)
-        ax.text(c + 0.0004, y, f'{c:.4f}', va='center', ha='left', fontsize=10, color=MUTED)
-        ax.text(p - 0.0004, y, f'{p:.4f}', va='center', ha='right', fontsize=10, color=PBT)
+        for v, col in ((c, MUTED), (p, PBT)):  # value labels outside the pair, whichever side PBT is on
+            ax.text(v + (0.0004 if v == hi else -0.0004), y, f'{v:.4f}', va='center', ha='left' if v == hi else 'right',
+                    fontsize=10, color=col)
         ax.text(-0.02, y + 0.13, lab, transform=ax.get_yaxis_transform(), ha='right', va='center', fontsize=11.5,
                 color=INK, fontweight='bold')
         ax.text(-0.02, y - 0.2, sub, transform=ax.get_yaxis_transform(), ha='right', va='center', fontsize=9.5, color=MUTED)
-        ax.text(1.02, y, f'{100 * (1 - p / c):.1f}%', transform=ax.get_yaxis_transform(), ha='left', va='center',
-                fontsize=14, color=INK, fontweight='bold')
-    ax.text(1.02, n - 0.35, 'PBT better by', transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=9.5,
+        ax.text(1.02, y, f'{100 * (1 - p / c):+.2f}%'.replace('-', '−'), transform=ax.get_yaxis_transform(), ha='left',
+                va='center', fontsize=14, color=INK, fontweight='bold')
+    ax.text(1.02, n - 0.35, 'PBT improvement', transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=9.5,
             color=MUTED)
+    # #16 changed the seed (12345 -> 22345) and the constant-LR grid together: separate it from the seed-12345 rows
+    ax.axhline(0.5, color=MUTED, lw=0.8, ls=(0, (4, 3)), zorder=0)
+    ax.text(0.995, 0.56, 'seed 12345', transform=ax.get_yaxis_transform(), ha='right', va='bottom', fontsize=10.5,
+            color=MUTED)
+    ax.text(0.995, 0.44, f'seed 22345 and constant-LR grid {E_TXT("6", 5)} – {E_TXT("1.6", 4)}, both changed',
+            transform=ax.get_yaxis_transform(), ha='right', va='top', fontsize=10.5, color=MUTED)
     ax.plot([], [], 'o', color=CONST, mfc='white', mew=1.8, ms=8, label='best constant-LR model')
     ax.plot([], [], 's', color=PBT, ms=8, label='PBT')
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.22), ncol=2, fontsize=10, handletextpad=0.4, columnspacing=1.6)
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.17), ncol=2, fontsize=10, handletextpad=0.4, columnspacing=1.6)
     ax.set_ylim(-0.6, n - 0.4)
     ax.set_yticks([])
     ax.spines['left'].set_visible(False)

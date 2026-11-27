@@ -11,7 +11,9 @@ standard ParT, because it lowers the learning rate too early; cool-down probes a
 decay reduce this to 2.7%. The model overfits at 800k but not at 8M, which explains the
 difference. A prediction ensemble of two separately trained 8M standard ParT models is 5.0% better than
 the better single model on each of three training seeds. Earlier gains of 1–2% and 7.7% were
-measured against fixed learning rates that were too low.
+measured against a constant-LR baseline that was not tuned; the initial PBT advantage was reduced after
+tuning it, and subsequent experiments did not establish a consistent advantage over tuned constant-LR
+training.
 
 - [Results and limitations](https://marchexe.github.io/ilc-dynamic-training/results.html)
 - [Methodology](https://marchexe.github.io/ilc-dynamic-training/method.html) ·

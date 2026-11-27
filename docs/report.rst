@@ -37,12 +37,15 @@ jets and by 7.7% on 8M training jets.
 
 .. _report-step-2:
 
-Step 2 (early November): the win was not real
----------------------------------------------
+Step 2 (early November): the advantage became smaller after tuning the baseline
+--------------------------------------------------------------------------------
 
-The fixed LRs of step 1 were too low. We trained with higher fixed LRs: the best one (8×10⁻⁵, about six
-times the highest LR of step 1) is as good as PBT. So PBT won in step 1 because it moved to a higher LR, not because
-it adapts the LR. We also found that the Validation set (150k jets) was too small to select models
+In step 1, the best fixed LR was always the highest LR of the grid, so the fixed-LR baseline was not
+tuned. We trained with higher fixed LRs: the best one (8×10⁻⁵, about six times the highest LR of step 1)
+is better than every PBT run of step 1, and a faster PBT was only 0.5–1.0% better than it. With a second
+seed and a different fixed-LR grid, PBT was 0.47% worse; the seed and the grid changed together. The
+initial PBT advantage was reduced after tuning the constant-LR baseline. Subsequent experiments did not
+establish a consistent advantage over tuned constant-LR training. We also found that the Validation set (150k jets) was too small to select models
 reliably, and changed to 1M jets.
 
 .. figure:: ../published/results/report/step2.png
@@ -127,7 +130,7 @@ Summary
 Limits: the 8M PBT results have one seed. All trials start from one pretrained model. Test
 (2.8M) was also used in diagnostics before step 3, so it is not fully unseen.
 
-Earlier statements that changed: the 1.4% and 7.7% of step 1 were measured against constant LRs that were too low (step 2), and the
+Earlier statements that changed: the 1.4% and 7.7% of step 1 were measured against a constant-LR baseline that was not tuned, and the advantage was reduced after tuning it (step 2); and the
 first 8M value, 10.8% worse, is 12.4% against the better standard ParT model.
 
 .. _report-open:

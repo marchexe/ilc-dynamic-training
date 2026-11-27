@@ -43,8 +43,10 @@ ensemble of standard ParT models helps and PBT does not (:ref:`two-regimes`).
 
    Test (2.8M) composite mistag on 8M training jets (lower is better).
 
-Corrected: earlier gains of 1–2% and 7.7% were measured against fixed learning rates that were
-too low (:ref:`correction-of-earlier-comparisons`). Inconclusive: whether adapting more often
+Corrected: earlier gains of 1–2% and 7.7% were measured against a fixed-learning-rate baseline that
+was not tuned. The initial PBT advantage was reduced after tuning the constant-LR baseline, and
+subsequent experiments did not establish a consistent advantage over tuned constant-LR training
+(:ref:`correction-of-earlier-comparisons`). Inconclusive: whether adapting more often
 helps (:ref:`adaptation-frequency`).
 
 Contents
