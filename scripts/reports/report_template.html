@@ -32,6 +32,25 @@ section.phase h3 { font: 700 18px/1.35 var(--sans); color: var(--ink); margin: 4
 section.phase .obj { font: 15px/1.5 var(--sans); margin: 0 0 6px; color: var(--body); }
 section.phase .obj .cond { color: var(--muted); margin-left: 6px; }
 section.phase .learned { max-width: 820px; margin: 10px 0 0; }
+.findings { border-top: 1px solid var(--rule); max-width: 900px; margin: 14px 0 6px; }
+a.frow { display: grid; grid-template-columns: 11em minmax(0, 1fr); gap: 18px; padding: 12px 0; border-bottom: 1px solid var(--rule);
+  color: inherit; text-decoration: none; }
+a.frow:hover .ftext b { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a.frow:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.fnum { font: 700 22px/1.1 var(--sans); color: var(--ink); font-variant-numeric: tabular-nums; }
+.fnum small { display: block; font: 400 12px/1.35 var(--sans); color: var(--muted); margin-top: 4px; }
+.ftext { font-size: 16px; line-height: 1.5; }
+.ftext b { color: var(--ink); }
+.fmeta { display: block; font: 13px/1.4 var(--sans); color: var(--muted); margin-top: 3px; }
+.fnote { font: 13px/1.4 var(--sans); color: var(--muted); margin: 6px 0 10px !important; }
+details.setup { max-width: 900px; font: 14.5px/1.55 var(--sans); border-bottom: 1px solid var(--rule); padding-bottom: 6px; }
+details.setup > summary { cursor: pointer; font-weight: 700; color: var(--ink); padding: 6px 0; list-style: none; }
+details.setup > summary::-webkit-details-marker { display: none; }
+details.setup > summary::before { content: "▸ "; color: var(--muted); }
+details.setup[open] > summary::before { content: "▾ "; }
+details.setup p { margin: 4px 0 8px; color: var(--body); }
+@media (max-width: 760px) { a.frow { grid-template-columns: 1fr; gap: 4px; } .fnum { font-size: 20px; } }
+@media print { a.frow { break-inside: avoid; } .fnum { font-size: 13pt !important; } details.setup > summary::before { content: ""; } }
 dl.psum { display: grid; grid-template-columns: 5.2em minmax(0, 1fr); gap: 1px 10px; margin: 4px 0 8px; max-width: 860px;
   font: 14.5px/1.45 var(--sans); }
 dl.psum dt { font-weight: 700; color: var(--muted); }
@@ -92,26 +111,57 @@ h4 { font: 700 15px/1.4 var(--sans); color: var(--ink); margin: 18px 0 6px; }
 <a href="https://github.com/marchexe/ilc-dynamic-training">repository</a></p>
 
 <h2 id="summary" data-anchor="summary">1&ensp;Summary</h2>
-<p class="text"><b>Objective.</b> Whether Population Based Training (PBT), adapting the learning rate (LR) during
-fine-tuning of the pretrained Particle Transformer (ParT), gives a lower mistag than standard ParT training with the same
-budget of five models and 50 epochs (the probe variants #25–#26 used 9–12% more training).</p>
-<ul class="concl">
-  <li>The early PBT gains, 1.4% with Training (800k) and 7.7% with Training (8M) on Test (9.0M), were measured against
-  constant LRs that were too low; a constant LR near 10<sup>−4</sup> matches PBT (phases 1–2). <span class="ev s">single seed per grid</span></li>
-  <li>Training (800k): PBT 0.81% better than standard ParT; seeds 0.67–0.91%; Test-sample interval 0.34–1.34% (phase 3).
-  <span class="ev r">replicated, 3 seeds</span></li>
-  <li>Training (8M): PBT 12.4% worse than standard ParT; 2.7% worse with probes, final decay and a higher LR range, changed together (phase 4). <span class="ev s">single seed</span></li>
-  <li>Training (8M): the ensemble of two standard ParT models 5.01% better than the better one; seeds 4.86–5.14%;
-  Test-sample interval 4.17–5.84%; two forward passes per jet (phase 5). <span class="ev r">replicated, 3 seeds</span></li>
-</ul>
-<p class="notes">Each phase lists its primary experiments; diagnostic checks and secondary modifications are under “Supporting experiments” in the same phase, and a link to one of them opens it. <b>Samples.</b> “800k” and “8M” name the first 800 thousand and 8 million source entries of each of the
-three flavour files (b, c, light); after preselection 2,392,232 and 23,921,449 jets (Training (800k) is a subset of
-Training (8M); from 10 November the 999,999 Validation (1M) rows are removed from it). Validation (150k), until
-9 November, and Validation (1M) select the model and drive PBT. Test (2.8M), 2,825,125 jets, is evaluated once per
-selected model; Test (9.0M), 8,970,477 jets, only in #10. <b>Mistag</b> (in %, e.g. 0.3018 means 0.3018%): geometric mean of the background mistag rates
-at b-tag 80/90% (against c, light) and c-tag 50/80% (against b, light). Changes such as “1.4% better” are relative changes of the mistag. Intervals: 95%, block bootstrap of the Test sample; they do not include seed-to-seed variation. Results in the
-tables are on Test (2.8M) unless marked Validation; # = trial number; it links to the trial's runs in the <a href="log.html">experiment log</a>;
-dates in JST.</p>
+<p class="text"><b>Objective.</b> Does Population Based Training (PBT), which adapts the learning rate (LR) while
+fine-tuning the pretrained Particle Transformer (ParT), give a lower mistag than the standard ParT training recipe
+with the same budget of five models and 50 epochs?</p>
+
+<div class="findings">
+  <a class="frow" href="#phase-2">
+    <span class="fnum">−1.0% / +0.47%<small>mistag, fast PBT vs best constant LR, seeds 12345 / 22345</small></span>
+    <span class="ftext"><b>The early PBT gains came from a higher learning rate.</b> PBT was 1.4% better (800k) and
+    7.7% better (8M, Test 9.0M) than constant LRs that were too low. A constant LR near 10<sup>−4</sup> matches PBT; the order reverses between two seeds.
+    <span class="fmeta">Phases 1–2 · one seed per grid, two seeds for the final comparison</span></span>
+  </a>
+  <a class="frow" href="#phase-3">
+    <span class="fnum">−0.81%<small>mistag, PBT vs standard ParT</small></span>
+    <span class="ftext"><b>With 800k training jets, PBT is slightly better than standard ParT.</b> Better on every
+    seed (0.67–0.91%); 95% Test-sample interval 0.34–1.34%.
+    <span class="fmeta">Phase 3 · replicated, 3 seeds</span></span>
+  </a>
+  <a class="frow" href="#phase-4">
+    <span class="fnum">+12.4%<small>mistag, PBT vs standard ParT</small></span>
+    <span class="ftext"><b>With 8M training jets, PBT is worse.</b> It lowers the LR early. Probes, a final decay and a
+    higher LR range, changed together, reduce the deficit to +2.7%.
+    <span class="fmeta">Phase 4 · preliminary, 1 seed</span></span>
+  </a>
+  <a class="frow" href="#phase-5">
+    <span class="fnum">−5.01%<small>mistag, ensemble vs better model</small></span>
+    <span class="ftext"><b>With 8M training jets, an ensemble of two standard ParT models is 5% better.</b> Seeds
+    4.86–5.14%; 95% Test-sample interval 4.17–5.84%. It needs two forward passes per jet.
+    <span class="fmeta">Phase 5 · replicated, 3 seeds</span></span>
+  </a>
+</div>
+<p class="fnote">Negative values: lower mistag (better). All values on Test (2.8M) unless stated.</p>
+
+<details class="setup" id="setup-definitions">
+<summary>Experimental setup and metric definitions</summary>
+<p><b>Training samples.</b> “800k” and “8M” name the first 800 thousand and 8 million source entries of each of the
+three flavour files (b, c, light). After preselection they hold 2,392,232 and 23,921,449 jets. Training (800k) is a
+subset of Training (8M); from 10 November the 999,999 Validation (1M) rows are removed from Training (8M).</p>
+<p><b>Validation and Test.</b> Validation (150k, until 9 November) and Validation (1M, from 10 November) select the
+model and drive PBT. Test (2.8M), 2,825,125 jets, is evaluated once per selected model. Test (9.0M), 8,970,477 jets,
+was used only in #10.</p>
+<p><b>Metric.</b> The mistag is in % (0.3018 means 0.3018%): the geometric mean of the background mistag rates at
+b-tag 80% and 90% (against c and light jets) and c-tag 50% and 80% (against b and light jets). Lower is better.
+Changes such as “1.4% better” are relative changes of the mistag.</p>
+<p><b>Compute budget.</b> Every method trains five models for 50 epochs from the same pretrained checkpoint. The
+probe variants (#25, #26) used 9–12% more training; the 8M reference #24 is a sixth standard ParT model.</p>
+<p><b>Uncertainty.</b> Intervals are 95%, from a block bootstrap of the Test sample. They do not include
+seed-to-seed variation, which the seeds show directly.</p>
+<p><b>Reading the timeline.</b> Each phase lists its primary experiments; diagnostic checks and secondary
+modifications are under “Supporting experiments” and open from any link to them. # is the trial number; it links to
+the trial's runs in the <a href="log.html">experiment log</a>. Dates are JST.</p>
+</details>
 
 <h2 id="timeline" data-anchor="timeline">2&ensp;Research timeline</h2>
 <div class="timeline">
