@@ -80,13 +80,13 @@ def fig_central():
         ('Standard ParT', [0.3029, 0.3038, 0.3024], STD, 'o', True, 'reference'),
         ('Constant learning rate, tuned', [0.3028, 0.3013, 0.3024], CONST, 'o', False, '−0.28%  (mean of seeds)'),
         ('PBT', [0.3008, 0.3012, 0.2996], PBT, 's', True, '−0.81%  [−1.34, −0.34]'),
-    ], (0.2985, 0.3065), [0.300, 0.302, 0.304, 0.306], 'Training on 800k jets  ·  3 seeds')
+    ], (0.2985, 0.3065), [0.300, 0.302, 0.304, 0.306], 'Training (800k)  ·  3 seeds')
     rows_panel(b, [
         ('Standard ParT', [0.1611, 0.1597, 0.1623], STD, 'o', True, 'reference'),
         ('PBT', [0.1812], PBT, 's', True, '+12.4%  (1 seed)'),
         ('PBT with probes and final decay', [0.1655], PBT, 's', False, '+2.7%  (1 seed)'),
         ('Ensemble of two standard ParT models', [0.1530, 0.1519, 0.1540], ENS, 'D', True, '−5.0%  [−5.8, −4.2]'),
-    ], (0.148, 0.200), [0.150, 0.160, 0.170, 0.180, 0.190, 0.200], 'Training on 8M jets')
+    ], (0.148, 0.200), [0.150, 0.160, 0.170, 0.180, 0.190, 0.200], 'Training (8M)')
     save(fig, 'fig1_central.svg')
 
 
@@ -127,8 +127,8 @@ def fig_trajectory():
     ax.yaxis.set_major_locator(FixedLocator([-12, -8, -4, 0, 4, 8]))
     grid(ax, 'y')
     from matplotlib.lines import Line2D
-    ax.legend(handles=[Line2D([], [], marker='o', color=STD, ls='none', ms=8, label='800k training jets'),
-                       Line2D([], [], marker='s', color=PBT, ls='none', ms=8, label='8M training jets'),
+    ax.legend(handles=[Line2D([], [], marker='o', color=STD, ls='none', ms=8, label='Training (800k)'),
+                       Line2D([], [], marker='s', color=PBT, ls='none', ms=8, label='Training (8M)'),
                        Line2D([], [], marker='o', color=MUTED, mfc='white', ls='none', ms=8,
                               label='comparator later found too weak')],
               loc='lower left', fontsize=10)
@@ -174,7 +174,7 @@ def fig_regimes():
     """Training and Validation loss of the best standard ParT model at 800k and 8M jets."""
     data = json.loads((ROOT / 'published/results/sel1m/train8m_followups.json').read_text())['loss_curves']
     fig, axes = plt.subplots(1, 2, figsize=(10.4, 3.7), gridspec_kw=dict(wspace=0.22))
-    for ax, key, title in zip(axes, ('800k', '8M'), ('800k training jets', '8M training jets')):
+    for ax, key, title in zip(axes, ('800k', '8M'), ('Training (800k)', 'Training (8M)')):
         pts = data[key]['epochs']
         e = [p['epoch'] - 17 for p in pts]
         tr, va = [p['train'] for p in pts], [p['selection'] for p in pts]
@@ -232,40 +232,26 @@ def fig_mechanism():
 
 
 def fig_ensemble():
-    """(a) Per seed: the two standard ParT models and their ensemble. (b) Disagreement between two models."""
-    fig, (a, b) = plt.subplots(1, 2, figsize=(10.4, 3.9), gridspec_kw=dict(width_ratios=[1, 1.25], wspace=0.35))
-    seeds = {'12345': (0.1635, 0.1611, 0.1530), '22345': (0.1623, 0.1597, 0.1519), '32345': (0.1634, 0.1623, 0.1540)}
-    xs = [0, 1, 2]
-    for s, vals in seeds.items():
-        a.plot(xs, vals, '-', color='#c9c9ce', lw=1.2, zorder=1)
-        a.plot(xs[:2], vals[:2], 'o', color=STD, ms=7, zorder=2)
-        a.plot(xs[2], vals[2], 'D', color=ENS, ms=7, zorder=2)
-        a.text(2.13, vals[2], f'seed {s}', va='center', fontsize=9.5, color=MUTED)
-    a.set_xticks(xs, ['start LR\n10⁻³', 'start LR\n3×10⁻³', 'ensemble\nof the two'])
-    a.set_xlim(-0.3, 2.75)
-    a.set_ylabel('mistag on Test (%)')
-    a.set_title('Standard ParT models, 8M jets', loc='left', fontweight='bold')
-    grid(a, 'y')
+    """Disagreement between two models and the ensemble gain, for four kinds of model pairs."""
+    fig, b = plt.subplots(figsize=(10.4, 2.9))
     groups = [  # (label, disagreement low, high, gain text, colour)
         ('two checkpoints of one run, 8M', 0.2, 0.4, 'no gain', CONST),
         ('two models of one PBT run, 8M', 0.2, 0.4, 'no gain', PBT),
-        ('two models, different seeds, 800k', 0.6, 0.7, 'no gain', STD),
-        ('two separately trained models, 8M', 1.5, 2.3, '3.6–4.7% gain', ENS),
+        ('two models of different seeds, 800k', 0.6, 0.7, 'no gain', STD),
+        ('two separately trained models, 8M', 1.5, 2.3, 'gain 3.6% (same LR) to 4.7% (different LR)', ENS),
     ]
     for i, (lab, lo, hi, gain, c) in enumerate(groups):
         y = len(groups) - 1 - i
-        b.plot([lo, hi], [y, y], color=c, lw=7, solid_capstyle='butt')
-        b.text(0, y + 0.3, lab, fontsize=10, color=INK, va='bottom')
-        b.text(hi + 0.06, y, gain, fontsize=10, color=c, va='center')
-    b.set_xlim(0, 3.1)
-    b.set_ylim(-0.6, len(groups) - 0.05)
+        b.plot([lo, hi], [y, y], color=c, lw=8, solid_capstyle='butt')
+        b.text(-0.05, y, lab, fontsize=10.5, color=INK, va='center', ha='right')
+        b.text(hi + 0.06, y, gain, fontsize=10.5, color=c, va='center')
+    b.set_xlim(0, 4.2)
+    b.set_ylim(-0.6, len(groups) - 0.4)
     b.set_yticks([])
     b.spines['left'].set_visible(False)
-    b.set_xlabel('jets on which the two models predict different classes (%)')
-    b.set_title('Ensemble gain needs models that disagree', loc='left', fontweight='bold')
+    b.set_xlabel('Validation jets on which the two models predict different classes (%)')
     grid(b)
     save(fig, 'fig6_ensemble.svg')
-
 
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)

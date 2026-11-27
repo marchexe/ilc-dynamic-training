@@ -18,14 +18,14 @@ def lr(m, e):
 
 # (phase title, what changed against the previous phase, rows); row: (trial, date, configuration, result, interpretation)
 PHASES = [
-    ('Set-up', 'First implementation.', [
+    ('Set-up', 'Training (800k).', [
         ('–', 'Jul 22 – Aug 31', 'First PBT versions (exploit-and-mutate, anchor-copy) and LR controllers; older training '
          'set-up (samples per epoch capped, damped optimizer start)',
          'Two defects found and fixed: BatchNorm not frozen; a controller overwrote the PBT LR',
          'Not comparable with later trials; training rebuilt as deterministic full epochs (Sep 16)'),
     ]),
-    ('PBT against constant learning rates', 'Training (800k), Validation (150k), seed 12345 unless noted. From here '
-     'all trials start from the same pretrained checkpoint and train 50 epochs with five models.', [
+    ('PBT against constant learning rates', 'Training (800k), Validation (150k), seed 12345 unless noted. From here: '
+     'deterministic full epochs.', [
         ('1', 'Sep 16', f'Constant LR, 5 values {lr("3", 6)}–{lr("1.4", 5)}', '0.3269; best at the highest LR',
          'Reference for PBT. The best model at the edge of the grid was not followed up at the time'),
         ('2', 'Sep 17–18', 'The 1.4 and 0.85×10<sup>−5</sup> models of #1 continued to 100 epochs', '0.3156',
@@ -49,8 +49,7 @@ PHASES = [
         ('11', 'Oct 17 – Nov 3', 'Checkpoints with the full optimizer state, for decisions within an epoch',
          'One epoch = five restarted parts, bit for bit', 'Implemented; not used in any PBT run'),
     ]),
-    ('Higher constant learning rates', 'Changed: the constant-LR grid moved upwards, then a faster PBT. Training '
-     '(800k), Validation (150k).', [
+    ('Higher constant learning rates', 'Changed: constant-LR grid moved upwards; faster PBT. Training (800k), Validation (150k).', [
         ('12', 'Nov 3', f'Constant LR {lr("1.4", 5)}–{lr("3", 5)}', '0.3146; best again at the highest LR', 'Grid still too low'),
         ('13', 'Nov 3–4', f'Constant LR {lr("3", 5)}–{lr("8", 5)}', '<b>0.3018</b>; best at 8×10<sup>−5</sup>',
          'Better than every PBT run of #3–#6: the early PBT gains came from the LR level'),
@@ -60,10 +59,9 @@ PHASES = [
         ('16', 'Nov 9', f'#15 and constant LR {lr("6", 5)}–{lr("1.6", 4)}, seed 22345', '0.3041 against 0.3027: PBT 0.5% worse, '
          'although 1.4% better on Validation', 'Sign reverses; selection noise (~0.5%) as large as the effect'),
         ('17', 'Nov 9', '#15 with fallback copies (×0.7 or ×1.4 when ×0.5 and ×2 are both in use)', '0.3026; 0.8% worse than #15',
-         'No improvement. Consequence: Validation (1M), standard ParT as comparator, three seeds'),
+         'No improvement'),
     ]),
-    ('PBT against standard ParT, 800k', 'Changed: Validation (1M) instead of 150k; comparator standard ParT '
-     '(constant LR for 35 epochs, then ×0.01 over 15; five start LRs); three seeds. Training (800k).', [
+    ('PBT against standard ParT, 800k', 'Changed: Validation (1M); comparator standard ParT; three seeds.', [
         ('18', 'Nov 10–13', f'Standard ParT (start {lr("1", 5)}–{lr("1", 3)}), constant LR {lr("6", 5)}–{lr("1.6", 4)} and PBT as #17; '
          'seeds 12345, 22345, 32345', 'Standard 0.3029 / 0.3038 / 0.3024; constant 0.3028 / 0.3013 / 0.3024; PBT 0.3008 / 0.3012 / '
          '0.2996. <b>PBT 0.81% better</b> (95% interval 0.34–1.34%), at 7 of 8 working points',
@@ -73,19 +71,18 @@ PHASES = [
         ('20', 'Nov 12', 'Standard ParT from random weights', '0.378 on Validation, against about 0.30', 'Pretraining is essential'),
         ('21', 'Nov 12', 'Weight averages of nearby checkpoints and of PBT models', 'No gain (Validation)', ''),
     ]),
-    ('PBT against standard ParT, 8M', 'Changed: Training (8M) instead of 800k; one seed (12345). Validation (1M).', [
+    ('PBT against standard ParT, 8M', 'Changed: Training (8M); one seed (12345).', [
         ('22', 'Nov 14–15', f'Standard ParT, start {lr("1", 5)}–{lr("1", 3)}', f'0.1635; best at the highest start LR ({lr("1", 3)})',
          'Start LR range extended (#24)'),
         ('23', 'Nov 15–17', f'PBT as #18 with the LR range of standard ParT (max {lr("1", 3)})', '0.1812; <b>12.4% worse</b> than #24',
-         f'PBT lowered all LRs early (below {lr("2.5", 4)} from epoch 11); hypothesis: two-epoch decision horizon'),
+         f'PBT lowered all LRs early (at most {lr("2.5", 4)} from epoch 11); hypothesis: two-epoch decision horizon'),
         ('24', 'Nov 19–20', f'Standard ParT, start {lr("3", 3)} (one model, fixed in advance)', '<b>0.1611</b>', '8M reference'),
         ('25', 'Nov 19–21', 'PBT with cool-down probes: each model judged on a copy trained ¼ epoch at 0.1× its LR; also on 800k',
          '8M: 0.1699, 5.4% worse than #24. 800k: 0.3024 (no change)', f'LRs stay higher ({lr("1.2", 4)}–{lr("1", 3)}); gap halved'),
         ('26', 'Nov 20–23', f'Probes plus the final decay of standard ParT; max LR {lr("3", 3)}', '0.1655; 2.7% worse than #24',
          '78% of the gap closed; still worse. Extra seeds not run (rule fixed in advance)'),
     ]),
-    ('Ensembles and other ways to gain, 8M', 'Changed: question moved from the LR schedule to combining models. '
-     'Training (8M), Validation (1M).', [
+    ('Ensembles and other ways to gain, 8M', 'Changed: from the LR schedule to combining models.', [
         ('27', 'Nov 23', 'Ensemble: mean class probabilities of #22 and #24; chosen among 8 ensembles on Validation, Test check fixed in advance',
          '0.1530; 5.05% better than #24 (interval 3.75–6.36%)', 'Large gain on the development seed'),
         ('28', 'Nov 23–25', f'#27 repeated: new standard ParT runs at {lr("3", 3)} and {lr("1", 3)}, seeds 22345 and 32345',
@@ -104,16 +101,16 @@ PHASES = [
 
 
 def history():
-    out = []
+    """One chronological table; each phase is a separator row with what changed against the previous phase."""
+    body = []
     for k, (title, changed, rows) in enumerate(PHASES):
-        body = ''.join(
-            f'<tr id="t{n}"><td class="d"><span class="tn">{"#" + n if n != "–" else ""}</span>{d}</td><td>{c}</td>'
-            f'<td>{r}</td><td class="i">{i}</td></tr>' for n, d, c, r, i in rows)
-        out.append(f'<h3>{"2." + str(k) + "&ensp;" if k else ""}{title}</h3>\n<p class="changed">{changed}</p>\n'
-                   '<div class="table-wrap"><table class="hist"><colgroup><col class="c-d"><col class="c-c"><col class="c-r">'
-                   '<col class="c-i"></colgroup><thead><tr><th>Date</th><th>Configuration</th><th>Result</th>'
-                   f'<th>Interpretation</th></tr></thead><tbody>{body}</tbody></table></div>')
-    return '\n'.join(out)
+        body.append(f'<tr class="phase" id="phase-{k}"><td colspan="4"><b>Phase {k} · {title}</b>'
+                    f'<span class="chg">{changed}</span></td></tr>')
+        body += [f'<tr id="t{n}"><td class="d"><span class="tn">{"#" + n if n != "–" else ""}</span>{d}</td><td>{c}</td>'
+                 f'<td>{r}</td><td class="i">{i}</td></tr>' for n, d, c, r, i in rows]
+    return ('<div class="table-wrap"><table class="hist"><colgroup><col class="c-d"><col class="c-c"><col class="c-r">'
+            '<col class="c-i"></colgroup><thead><tr><th>Date</th><th>Configuration</th><th>Result</th>'
+            f'<th>Interpretation</th></tr></thead><tbody>{"".join(body)}</tbody></table></div>')
 
 
 def main():
