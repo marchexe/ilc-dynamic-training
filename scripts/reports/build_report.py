@@ -286,20 +286,39 @@ PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the 
 ]
 
 
+SUPPORTING = {  # trial -> supporting role; all other trials are primary (they carry the main line of the study)
+    '5', '6', '7', '8', '9', '11', '17', '19', '20', '21', '29', '30', '31', '32', '33'}
+SUPPORT_TITLE = {  # phase -> what its supporting trials investigated
+    1: 'Diagnostics and preparation: LR controller in observe mode (#5), decision frequency of PBT (#6), restart within '
+       'an epoch (#7, #11), first Test evaluation (#8), preparation of Training (8M) (#9)',
+    2: 'PBT modification: fallback copies when no new LR is free (#17), used in all later PBT runs',
+    3: 'Side checks at 800k: final LR decay in PBT (#19), training without pretraining (#20), weight averaging (#21)',
+    5: 'Further checks at 8M: ensembles at 800k (#29), source of the ensemble gain (#30), dropout (#31), distillation '
+       '(#32), start LR 10<sup>−2</sup> (#33)',
+}
+THEAD = ('<colgroup><col class="c-n"><col class="c-d"><col class="c-c"><col class="c-r"><col class="c-i"></colgroup>'
+         '<thead><tr><th>#</th><th>Date</th><th>Configuration</th><th>Result</th><th>Interpretation</th></tr></thead>')
+
+
 def timeline():
     out, nfig = [], 1
     for k, ((title, cond, rows), (dates, objective, outcome, learned, figs)) in enumerate(zip(PHASES, PHASE_TEXT)):
-        body = ''.join(trial_row(*row) for row in rows)
+        main = ''.join(trial_row(*row) for row in rows if row[0] not in SUPPORTING)
+        support = [row for row in rows if row[0] in SUPPORTING]
         figs_html = []
         for src, alt, cap in figs:
             figs_html.append(FIG.format(src=asset(src), alt=alt, n=nfig, cap=xref(cap)))
             nfig += 1
+        extra = ''
+        if support:
+            extra = (f'<details class="supporting"><summary><span class="sup-label">Supporting experiments '
+                     f'({len(support)})</span> {SUPPORT_TITLE[k]}</summary><div class="table-wrap"><table class="hist">'
+                     f'{THEAD}<tbody>{"".join(trial_row(*row) for row in support)}</tbody></table></div></details>')
         out.append(f'<section class="phase" id="phase-{k}"><div class="when">Phase {k} · {dates} · {cond}</div>'
-                   f'<h3 data-anchor="phase-{k}">{title}</h3><p class="obj"><b>Objective:</b> {objective} <b>Outcome:</b> {outcome}</p>'
-                   '<div class="table-wrap"><table class="hist"><colgroup><col class="c-n"><col class="c-d"><col class="c-c">'
-                   '<col class="c-r"><col class="c-i"></colgroup><thead><tr><th>#</th><th>Date</th><th>Configuration</th>'
-                   f'<th>Result</th><th>Interpretation</th></tr></thead><tbody>{body}</tbody></table></div>'
-                   f'<p class="learned">{xref(learned)}</p>' + ''.join(figs_html) + '</section>')
+                   f'<h3 data-anchor="phase-{k}">{title}</h3><p class="obj"><b>Objective:</b> {objective} '
+                   f'<b>Outcome:</b> {outcome}</p>'
+                   f'<div class="table-wrap"><table class="hist">{THEAD}<tbody>{main}</tbody></table></div>'
+                   f'{extra}<p class="learned">{xref(learned)}</p>' + ''.join(figs_html) + '</section>')
     return '\n'.join(out)
 
 
