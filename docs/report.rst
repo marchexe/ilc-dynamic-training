@@ -3,10 +3,15 @@
 Report: All Trials and Results
 ==============================
 
-.. note::
+.. warning::
 
-   **Report:** `overview.html <overview.html>`_, the summary, all trials by phase with
-   interpretation, and the current status; every run is in the `experiment log <log.html>`_.
+   **Historical page (26 November 2026).** This is an earlier summary with abbreviated trial
+   descriptions. The audited account is the `research report <overview.html>`_, with every run in
+   the `experiment log <log.html>`_; where the two differ, those pages are correct. Corrections
+   made since: trial 13's best LR was again the top of its grid; trial 16 used a different
+   constant-LR grid from trial 14; trial 21 improved Validation slightly for standard ParT and was
+   not evaluated on Test; trial 26 changed the final decay and the LR range together; the link
+   between overfitting and the PBT result is a hypothesis.
 
 Status on 2026-11-26. No run is in progress. The project asks one question: does PBT, which
 changes the learning rate (LR) during training, give a better jet tagger than normal training?

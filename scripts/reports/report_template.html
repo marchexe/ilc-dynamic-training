@@ -70,7 +70,7 @@ budget of five models and 50 epochs (the probe variants #25–#26 used 9–12% m
   constant LRs that were too low; a constant LR near 10<sup>−4</sup> matches PBT (phases 1–2). <span class="ev s">single seed per grid</span></li>
   <li>Training (800k): PBT 0.81% better than standard ParT; seeds 0.67–0.91%; Test-sample interval 0.34–1.34% (phase 3).
   <span class="ev r">replicated, 3 seeds</span></li>
-  <li>Training (8M): PBT 12.4% worse than standard ParT, 2.7% worse with probes and final decay (phase 4). <span class="ev s">single seed</span></li>
+  <li>Training (8M): PBT 12.4% worse than standard ParT; 2.7% worse with probes, final decay and a higher LR range, changed together (phase 4). <span class="ev s">single seed</span></li>
   <li>Training (8M): the ensemble of two standard ParT models 5.01% better than the better one; seeds 4.86–5.14%;
   Test-sample interval 4.17–5.84%; two forward passes per jet (phase 5). <span class="ev r">replicated, 3 seeds</span></li>
 </ul>
@@ -78,8 +78,8 @@ budget of five models and 50 epochs (the probe variants #25–#26 used 9–12% m
 three flavour files (b, c, light); after preselection 2,392,232 and 23,921,449 jets (Training (800k) is a subset of
 Training (8M); from 10 November the 999,999 Validation (1M) rows are removed from it). Validation (150k), until
 9 November, and Validation (1M) select the model and drive PBT. Test (2.8M), 2,825,125 jets, is evaluated once per
-selected model; Test (9.0M), 8,970,477 jets, only in #10. <b>Mistag</b>: geometric mean of the background mistag rates
-at b-tag 80/90% (against c, light) and c-tag 50/80% (against b, light). Intervals: 95%, block bootstrap of the Test sample; they do not include seed-to-seed variation. Results in the
+selected model; Test (9.0M), 8,970,477 jets, only in #10. <b>Mistag</b> (in %, e.g. 0.3018 means 0.3018%): geometric mean of the background mistag rates
+at b-tag 80/90% (against c, light) and c-tag 50/80% (against b, light). Changes such as “1.4% better” are relative changes of the mistag. Intervals: 95%, block bootstrap of the Test sample; they do not include seed-to-seed variation. Results in the
 tables are on Test (2.8M) unless marked Validation; # = trial number; it links to the trial's runs in the <a href="log.html">experiment log</a>;
 dates in JST.</p>
 

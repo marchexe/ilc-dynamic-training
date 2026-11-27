@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Figures of the research publication docs/_extra/overview.html (written to docs/_extra/pub/*.svg).
 
-    .venv/bin/python scripts/reports/publication_figures.py
+    .venv/bin/python scripts/reports/publication_figures.py             # from tracked data only
+    .venv/bin/python scripts/reports/publication_figures.py --refresh   # first re-extract the data from runs/
 
-Test values are the published values of docs/results.rst (selected checkpoints, Test sample of 2.8M jets
-unless stated); learning-rate and Validation trajectories come from the run manifests in runs/pbt; loss curves
-from published/results/sel1m/train8m_followups.json. Nothing here is fitted or smoothed.
+All inputs are tracked in the repository: Test values of the selected checkpoints are those of docs/results.rst
+(written below); loss curves come from published/results/sel1m/train8m_followups.json; LR and Validation
+trajectories and the model-pair analyses come from published/results/report/figure_data.json, which --refresh
+extracts from the local run manifests (runs/pbt) and pair analyses (runs/eval). Nothing is fitted or smoothed.
 """
 import json
 from pathlib import Path
@@ -22,10 +24,12 @@ for _f in Path('/usr/share/fonts/truetype/lato').glob('Lato-*.ttf'):  # system L
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'docs/_extra/pub'
 RUNS = ROOT / 'runs/pbt'
+DATA = ROOT / 'published/results/report/figure_data.json'
 PRIMARY = 'validation_total_reference_mistag_geomean_percent'
 
 INK, MUTED, GRID = '#1d1d1f', '#6e6e73', '#e6e6e9'
 STD, PBT, ENS, CONST = '#2b5797', '#c4532f', '#2a7d64', '#8a8a8f'
+plt.rcParams['svg.hashsalt'] = 'ilc-report'  # deterministic element ids: same data, same file
 plt.rcParams.update({
     'font.family': ['Lato', 'DejaVu Sans'], 'font.size': 11, 'axes.labelsize': 11, 'axes.titlesize': 11.5,
     'axes.edgecolor': MUTED, 'axes.labelcolor': INK, 'axes.linewidth': 0.8,
@@ -36,7 +40,7 @@ plt.rcParams.update({
 
 
 def save(fig, name):
-    fig.savefig(OUT / name, bbox_inches='tight', pad_inches=0.08)
+    fig.savefig(OUT / name, bbox_inches='tight', pad_inches=0.08, metadata={'Date': None})
     preview = __import__('os').environ.get('FIG_PREVIEW')  # optional PNG copies for review
     if preview:
         fig.savefig(Path(preview) / name.replace('.svg', '.png'), bbox_inches='tight', pad_inches=0.08, dpi=110)
@@ -137,9 +141,8 @@ def fig_regimes():
 
 def fig_mechanism():
     """8M, seed 12345: LR schedule and best Validation mistag so far, standard ParT against PBT."""
-    std = trajectory('sel1m_train8m_standard_part_3e-3')
-    pbt = trajectory('sel1m_train8m_fast_pbt')
-    fix = trajectory('sel1m_train8m_fast_pbt_probe_decay')
+    t = data()['trajectories_8m_seed12345']
+    std, pbt, fix = t['standard_part_3e-3 (#24)'], t['pbt (#23)'], t['pbt_probe_decay (#26)']
     fig, (a, b) = plt.subplots(1, 2, figsize=(10.4, 3.9), gridspec_kw=dict(wspace=0.25))
     for ax in (a, b):
         ax.axvspan(36, 50, color='#f4f4f6', zorder=0)
@@ -167,7 +170,7 @@ def fig_mechanism():
     save(fig, 'fig5_mechanism.svg')
 
 
-def ensemble_pairs():
+def extract_pairs():
     """Model pairs on Validation (1M): (label, n pairs, disagreement %, improvement % = −(ensemble/best − 1)).
     Sources: runs/eval/diversity_8m_explore_v1, ensemble_800k_explore_v1 and ensemble_seed32345_v1 (all seeds)."""
     ev = ROOT / 'runs/eval'
@@ -189,9 +192,36 @@ def ensemble_pairs():
             ('Separate runs, 8M: same LR', same, True), ('Separate runs, 8M: different LR', diff, True)]
 
 
+def extract():
+    """Re-extract the figure inputs from the local run records into the tracked figure_data.json."""
+    out = dict(
+        description='Inputs of the report figures, extracted from runs/pbt manifests and runs/eval pair analyses by '
+                    'scripts/reports/publication_figures.py --refresh. Trajectories: (training epoch, lowest LR, '
+                    'highest LR, best Validation (1M) mistag so far in %). Pairs: disagreement on Validation (1M) in % '
+                    'and ensemble improvement in % (mistag reduction against the better model of the pair).',
+        trajectories_8m_seed12345={
+            'standard_part_3e-3 (#24)': trajectory('sel1m_train8m_standard_part_3e-3'),
+            'pbt (#23)': trajectory('sel1m_train8m_fast_pbt'),
+            'pbt_probe_decay (#26)': trajectory('sel1m_train8m_fast_pbt_probe_decay')},
+        ensemble_pairs=[dict(label=lab, disagreement_percent=dis, improvement_percent=imp, gain=gain)
+                        for lab, (dis, imp), gain in extract_pairs()])
+    DATA.parent.mkdir(parents=True, exist_ok=True)
+    DATA.write_text(json.dumps(out, indent=1) + '\n')
+
+
+_DATA = None
+
+
+def data():
+    global _DATA
+    if _DATA is None:
+        _DATA = json.loads(DATA.read_text())
+    return _DATA
+
+
 def fig_ensemble():
     """Two aligned panels over the same model pairs: disagreement (left) and ensemble improvement (right)."""
-    rows = ensemble_pairs()
+    rows = [(r['label'], (r['disagreement_percent'], r['improvement_percent']), r['gain']) for r in data()['ensemble_pairs']]
     good, grey = '#4f8a6a', '#9a9aa0'
     ys = [4.2, 3.2, 2.2, 1.0, 0.35]  # the two 8M sub-rows sit together
     fig, (a, b) = plt.subplots(1, 2, figsize=(10.4, 3.3), sharey=True,
@@ -234,6 +264,9 @@ def fig_ensemble():
     save(fig, 'fig6_ensemble.svg')
 
 if __name__ == '__main__':
+    import sys
+    if '--refresh' in sys.argv:
+        extract()
     OUT.mkdir(parents=True, exist_ok=True)
     for f in (fig_lr, fig_regimes, fig_mechanism, fig_ensemble):
         f()

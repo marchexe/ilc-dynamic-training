@@ -16,7 +16,7 @@ import export_report_trials as T  # noqa: E402
 import build_report as R  # noqa: E402  (trial descriptions shared with the report)
 
 # trial number -> (configuration, result, interpretation), exactly as in the research report
-REPORT = {n: (c, r, i) for _, _, rows in R.PHASES for n, d, c, r, i in rows if n != '–'}
+REPORT = {n: (d, c, r, i) for _, _, rows in R.PHASES for n, d, c, r, i in rows if n != '–'}
 
 ROOT = T.ROOT
 REPO = 'https://github.com/marchexe/ilc-dynamic-training/blob/main/'
@@ -60,14 +60,14 @@ def main():
                      f'<a href="overview.html#phase-{k}">phase {k} in the report</a></p>')
         for number, what, runs, records, dates, result, outcome in items:
             recs = [T.run_record(r) for r in runs]
-            when = T.span(recs) if recs else dates
             rows = ''.join(run_row(r) for r in recs)
             table = ('<div class="table-wrap"><table><thead><tr><th>Run (configuration file)</th><th>Start → end (JST)</th>'
                      '<th class="num">GPU-h</th><th>Selected model, LR, epoch</th><th class="num">Validation</th>'
                      f'<th class="num">Test</th></tr></thead><tbody>{rows}</tbody></table></div>') if rows else ''
             extra = ' · '.join(link(m) for m in records)
             gpu = sum(r['gpu_hours'] for r in recs)
-            what_html, result_html, interp_html = REPORT[str(number)]
+            report_date, what_html, result_html, interp_html = REPORT[str(number)]
+            when = T.span(recs) if recs else report_date  # trials without runs: the date of the report
             meta = ' · '.join(x for x in ((f'{gpu:.0f} GPU-h' if gpu >= 1 else '&lt;1 GPU-h') if recs else '',
                                           f'records: {extra}' if extra else '') if x)
             parts.append(f'<details class="trial" id="t{number}"><summary><span class="no" data-anchor="t{number}">{number}</span>'

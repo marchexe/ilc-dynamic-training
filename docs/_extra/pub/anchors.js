@@ -69,6 +69,16 @@
     openTarget();
   });
   window.addEventListener('hashchange', openTarget);
+  // print every trial of the experiment log open, then restore what the reader had open
+  var closedForPrint = [];
+  window.addEventListener('beforeprint', function () {
+    closedForPrint = Array.prototype.filter.call(document.querySelectorAll('details'), function (d) { return !d.open; });
+    closedForPrint.forEach(function (d) { d.open = true; });
+  });
+  window.addEventListener('afterprint', function () {
+    closedForPrint.forEach(function (d) { d.open = false; });
+    closedForPrint = [];
+  });
   // figures and web fonts load after DOMContentLoaded and move the target; scroll again once the page is complete
   window.addEventListener('load', openTarget);
 })();

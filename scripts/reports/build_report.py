@@ -151,11 +151,13 @@ PHASES = [
          'on Training (800k)',
          '8M: 0.1699, 5.4% worse than #24. 800k: 0.3024, against 0.3008 for PBT (#18) and 0.3029 for standard ParT, seed 12345',
          f'The LRs stay higher ({E("1.2", 4)}–{E("1", 3)}); the gap to standard ParT halves'),
-        ('26', 'Nov 20–23', f'PBT with probes and the final decay of #19; start LRs {E("3", 5)}, {E("1", 4)}, {E("3", 4)}, '
-         f'{E("1", 3)}, {E("3", 3)}, upper bound {E("3", 3)} (85 probes, about 9% more training)',
-         '0.1655: 2.7% worse than #24',
-         '78% of the gap to standard ParT closed; still worse. Two further seeds were prepared, with the rule that they run '
-         'only if this run is not clearly worse than #24; they were not run'),
+        ('26', 'Nov 20–23', f'PBT with probes as #25, changed in two ways at once: (a) the final decay of #19 and (b) a '
+         f'higher LR range, start LRs {E("3", 5)}, {E("1", 4)}, {E("3", 4)}, {E("1", 3)}, {E("3", 3)} and upper bound '
+         f'{E("3", 3)} (#25: {E("1", 5)}–{E("1", 3)}). 85 probes, about 9% more training',
+         '0.1655: 2.7% worse than #24, against 5.4% for #25',
+         '78% of the gap to standard ParT closed; still worse. The two changes were made together, so the improvement '
+         'over #25 cannot be assigned to either. Two further seeds were prepared, with the rule that they run only if '
+         'this run is not clearly worse than #24; they were not run'),
     ]),
     ('Ensembles and other ways to gain, 8M', 'Training (8M) · Validation (1M)', [
         ('27', 'Nov 23', 'Ensemble: average of the class probabilities of the selected models of #22 (start LR '
@@ -171,11 +173,15 @@ PHASES = [
          f'The best pairs about 0.9% better than the best single model{V}; two standard ParT {E("1", 4)} models of different '
          'seeds 0.0% on average',
          'No gain beyond what choosing among 105 pairs gives by chance'),
-        ('30', 'Nov 23–25', 'Disagreement (share of jets with a different predicted class) and ensemble gain for pairs of '
-         'all 8M models, on Validation',
-         'Checkpoints of one run or models of one PBT run: 0.2–0.4% disagreement, no gain. Separately trained models: '
-         f'1.5–2.3%; gain 3.6% with the same start LR, 4.7% with different start LRs{V}',
-         'Most of the gain comes from training the models separately (Figure 4)'),
+        ('30', 'Nov 23–25', 'Disagreement (share of jets with a different predicted class) and ensemble change for pairs '
+         'of 8M models, on Validation: all pairs of nine seed-12345 models (#22–#26), and the 15 pairs of the '
+         f'{E("3", 3)} and {E("1", 3)} standard ParT models of the three seeds (#22, #24, #28)',
+         'Two checkpoints of one run or two models of one PBT run: 0.22–0.40%, ensemble 0.04–0.81% worse. Separately '
+         f'trained standard ParT models: 1.49–2.14%; the 15 three-seed pairs gain 3.6% on average with the same start LR and '
+         f'4.7% with different start LRs. Pairs with a PBT model of another run: 1.02–2.32%, change from 2.0% worse to '
+         f'4.7% better{V}',
+         'Separately trained standard ParT models gain; disagreement alone does not predict the gain (pairs with PBT '
+         'models disagree as much but often do not gain). Figure 4 shows the three-seed pairs only'),
         ('31', 'Nov 23–24', 'The final decay of #24 (epochs 36–50) repeated from its epoch-35 checkpoint with dropout 0',
          f'0.1730 against 0.1595 with dropout at epoch 44{V}; stopped at epoch 45 when the process was lost on the node and '
          'not restarted', 'Dropout helps with Training (8M) although there is no visible overfitting'),
@@ -250,18 +256,21 @@ PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the 
      'decay of standard ParT (Figure 2). With Training (800k) the training loss falls below the Validation loss after about '
      '20 epochs; with Training (8M) it does not (Figure 3). <b>Hypothesis</b> <span class="ev h">not tested</span>. Deciding '
      'two epochs after each change favours lower LRs, which costs little when the model overfits and much when it does not. '
+     '#26 changed the LR range and added the final decay at once, so its improvement over #25 is not assigned to either. '
      'The probe runs used 9–12% more training than standard ParT, and the reference #24 is a sixth standard ParT model. '
      '<b>Next:</b> no LR-schedule change beat standard ParT, so test a gain that does not depend on the schedule: '
      'combining separately trained models.',
      [('fig5_mechanism.svg', 'Learning rate and best Validation mistag per epoch, Training (8M)',
        'Training (8M), seed 12345. Left: LR per epoch of standard ParT (#24) and range of the five PBT models (#23). Right: '
-       'best Validation (1M) mistag so far; dashed: PBT with probes and final decay (#26). Shaded: final LR decay.'),
+       'best Validation (1M) mistag so far; dashed: PBT with probes, final decay and higher LR range (#26). Shaded: final LR decay.'),
       ('fig4_regimes.svg', 'Training and Validation loss per epoch, Training (800k) and Training (8M)',
        f'Loss per epoch of the best standard ParT model (start LR {SUP("1", 4)} at 800k, {SUP("3", 3)} at 8M) on the '
        'training data and on Validation (1M); one seed each.')]),
     ('Nov 23 – Nov 25', 'Test whether combining separately trained standard ParT models helps on Training (8M).',
      'The ensemble gain is replicated on two new seeds; no single-model alternative keeps it.',
-     '<b>Observation.</b> Only separately trained 8M models disagree enough to gain (Figure 4). <b>Hypothesis</b> '
+     '<b>Observation.</b> Pairs from one run disagree on at most 0.4% of the jets and do not gain; separately trained '
+     'standard ParT models disagree on 1.5–2.1% and gain (Figure 4); pairs involving PBT models of other runs disagree '
+     'as much but gain between −2.0% and +4.7% (#30). <b>Hypothesis</b> '
      '<span class="ev h">not tested</span>. The gain needs models that make different errors; PBT copies weights between '
      'its models, and at 800k the low LRs keep all models close to the pretrained start. The ensemble needs two forward '
      'passes per jet; its inference cost was not measured. Interval 4.17–5.84%: Test-sample uncertainty; seed-to-seed '

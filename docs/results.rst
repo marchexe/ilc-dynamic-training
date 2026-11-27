@@ -233,8 +233,8 @@ the new seeds were not started.
 
 .. _no-overfitting-at-8m:
 
-Why 8M differs from 800k: the model does not overfit
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Why 8M may differ from 800k: overfitting (hypothesis)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The loss on the training data and on Validation (1M) (data the model never trains on) shows
 the difference between the two training sets.
@@ -248,12 +248,12 @@ the difference between the two training sets.
 
 * **800k:** from about epoch 40 the training loss keeps falling (0.270 at the end) while the
   selection-set loss almost stops (0.276). The model starts to memorise its training data
-  (overfitting), and lowering the learning rate early and keeping the best checkpoint helps.
-  This is what PBT does, and it wins.
+  (overfitting). Hypothesis: lowering the learning rate early and keeping the best checkpoint
+  then helps, which is what PBT does.
 * **8M:** the two losses stay together until the end (0.2443 and 0.2448). The model does not
-  overfit; it is still limited by how much it can learn. Then the best recipe is a long phase at
-  a high learning rate followed by a decay, which is standard ParT. PBT judges every decision
-  after two epochs and lowers the learning rate too early.
+  overfit. Hypothesis: then a long phase at a high learning rate followed by a decay, as in
+  standard ParT, is better, and PBT, which judges every decision after two epochs, lowers the
+  learning rate too early. Neither link was tested directly.
 
 This also limits what PBT can gain on 8M by tuning the learning rate: after the decay, the two
 best constant start learning rates differ by only 1.4% (0.1611 and 0.1635), about as much as the
@@ -335,7 +335,8 @@ Where the gain comes from
 
 On Validation (1M) (all models of the three seeds), two checkpoints of the same run, or two
 members of the same PBT run, disagree on 0.2–0.4% of the jets and give no ensemble gain; two
-separately trained models disagree on about 1.5–2.3%. Pairs with the same start learning rate and
+separately trained standard ParT models disagree on 1.49–2.14% (pairs that include a PBT model of
+another run: 1.02–2.32%, with ensemble changes from 2.0% worse to 4.7% better). Pairs with the same start learning rate and
 different seeds gain 3.56% on average, and pairs with different start learning rates 4.65%. The
 pre-registered rule counts a difference above 1 percentage point as a contribution of the learning
 rate; at 1.08 points this is just above it, while seed 22345 alone gave 0.41 points. So most of the
@@ -393,8 +394,8 @@ better); disagreement is the share of jets on which the two models predict diffe
 
 At 800k the best learning rates are low, and the models stay close to the common pretrained
 checkpoint: even with different seeds they disagree on only 0.6–0.7% of the jets, and their mean
-is no better than either. On 8M the learning rates are ten times higher, separately trained models
-disagree on 1.5–2.3% of the jets, and the ensemble gains about 5% (:ref:`ensemble-diversity`). The
+is no better than either. On 8M the learning rates are ten times higher, separately trained standard
+ParT models disagree on 1.5–2.1% of the jets, and the ensemble gains about 5% (:ref:`ensemble-diversity`). The
 diversity of the models therefore seems to grow with how far training moves them from the
 pretrained checkpoint. Of all 105 pairs, the best are about 0.9% better than the best single
 model, which is within what the choice among so many pairs can give by chance.

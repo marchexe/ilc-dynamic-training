@@ -22,12 +22,12 @@ Findings
    gives a lower composite mistag than standard ParT on every seed: 0.67%, 0.85% and 0.91%;
    0.81% on average, 95% interval 0.34–1.34% for the Test (2.8M) sample
    (:ref:`pbt-vs-standard-part`).
-2. **On 8M training jets PBT loses.** It is 12.4% worse than standard ParT (one seed), because
-   it lowers the learning rate too early (:ref:`pbt-vs-standard-part-8m`). Cool-down probes and
-   a final decay close 78% of the gap, to 2.7% (:ref:`probe-scored-pbt`).
-3. **The reason is overfitting.** At 800k the model starts to memorise its training data, and
-   lowering the learning rate early helps. At 8M it does not overfit, and a long phase at a high
-   learning rate followed by a decay is better (:ref:`no-overfitting-at-8m`).
+2. **On 8M training jets PBT loses.** It is 12.4% worse than standard ParT (one seed); it lowers
+   the learning rate early (:ref:`pbt-vs-standard-part-8m`). Cool-down probes, then a final
+   decay together with a higher learning-rate range, reduce the gap to 2.7% (:ref:`probe-scored-pbt`).
+3. **Hypothesis: the difference is overfitting** (not tested directly). At 800k the training loss
+   falls below the Validation loss, at 8M it does not; an early learning-rate reduction may help
+   only in the first case (:ref:`no-overfitting-at-8m`).
 4. **An ensemble of two standard ParT models is 5.0% better** on Test (2.8M) with 8M training jets than the better
    single model, on each of three training seeds (5.05%, 4.86%, 5.14%; mean interval
    4.17–5.84%). The two models are trained separately, for example two members of the

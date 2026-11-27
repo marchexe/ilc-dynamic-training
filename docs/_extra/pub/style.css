@@ -126,3 +126,35 @@ td.n > a:first-child:hover, a.tref:hover { text-decoration: underline; }
 tr:target > td, details:target, section.phase:target > h3, figure:target, h2:target, h3:target { animation: target-flash 2.4s ease-out; }
 @media (prefers-reduced-motion: reduce) { tr:target > td, details:target, figure:target { animation: none; background: #fdf6e0; } }
 @media (hover: none) { a.anchor { opacity: .6; } }
+
+/* print: A4, nothing clipped, table headers repeated, figures and rows kept whole, web controls hidden */
+@page { size: A4; margin: 16mm 14mm 16mm 14mm; }
+@media print {
+  html, body { font-size: 10.5pt !important; line-height: 1.45 !important; background: #fff !important; }
+  .page { padding: 0 !important; }
+  .report, .text, .wide, main, figure, figcaption { max-width: none !important; }
+  a.anchor, .site, .fig-scroll::after, footer.end { display: none !important; }
+  a { color: inherit !important; text-decoration: none !important; }
+  .table-wrap, .fig-scroll { overflow: visible !important; }
+  table, table.hist { min-width: 0 !important; width: 100% !important; font-size: 8.4pt !important; line-height: 1.32 !important; }
+  table.hist { table-layout: fixed !important; }
+  thead { display: table-header-group; }
+  tr, td, th { break-inside: avoid; page-break-inside: avoid; }
+  td, th { overflow-wrap: anywhere; hyphens: auto; }
+  figure { break-inside: avoid; page-break-inside: avoid; margin: 8pt 0 10pt !important; }
+  .fig-scroll img, figure img { width: 100% !important; max-width: 100% !important; }
+  figcaption { font-size: 8.8pt !important; color: #333 !important; }
+  h2, h3, .when { break-after: avoid; page-break-after: avoid; }
+  section.phase { break-before: auto; }
+  p, li { orphans: 3; widows: 3; }
+  h2 { margin-top: 18pt !important; }
+  tr:target > td, details:target, figure:target, h2:target, h3:target { animation: none !important; background: none !important; }
+  .timeline { padding-left: 0 !important; margin-left: 0 !important; border-left: 0 !important; }
+  section.phase::before { display: none !important; }
+  section.phase { border-top: 0.6pt solid #ccc; padding-top: 6pt !important; }
+  /* experiment log: every trial printed open (anchors.js opens the <details> before printing) */
+  details.trial { break-inside: avoid-page; }
+  details.trial > summary { grid-template-columns: 2.2em 10em minmax(0, 1fr) minmax(0, 13em) !important; font-size: 8.8pt; }
+  details.trial .body { padding-left: 0 !important; }
+  details.trial .body table { font-size: 7.6pt !important; }
+}
