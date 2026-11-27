@@ -94,46 +94,55 @@ def central_rows():
 
 
 def fig_central():
-    """Forest plot: change of the Test mistag against standard ParT of the same training sample."""
+    """Diverging bars: change of the Test mistag against standard ParT trained on the same sample."""
     rows = central_rows()
-    ys, y, last = [], 0.0, None
+    short = {'Constant LR, tuned grid': 'Tuned\nconstant LR', 'PBT': 'PBT', 'PBT + cool-down probes': 'PBT\n+ probes',
+             'PBT + probes + final decay': 'PBT + probes\n+ final decay', 'Ensemble of two standard ParT models': 'Ensemble\nof two'}
+    good, bad, grey = '#4f8a6a', '#b5553f', '#9a9aa0'
+    xs, x, last = [], 0.0, None
     for g, *_ in rows:
-        if g != last:
-            y -= 1.0 if last is None else 1.55
-            last = g
-        ys.append(y)
-        y -= 1.0
-    fig, ax = plt.subplots(figsize=(7.6, 4.0))
-    ax.axvline(0, color=INK, lw=1)
-    for (g, lab, v, ci, seeds, c), yy in zip(rows, ys):
+        if last is not None:
+            x += 1.0 if g == last else 1.7
+        last = g
+        xs.append(x)
+    fig, ax = plt.subplots(figsize=(8.8, 4.9))
+    groups = list(dict.fromkeys(r[0] for r in rows))
+    span = {g: (min(xx for r, xx in zip(rows, xs) if r[0] == g), max(xx for r, xx in zip(rows, xs) if r[0] == g)) for g in groups}
+    lo, hi = span[groups[1]]
+    ax.axvspan(lo - 0.6, hi + 0.6, color='#f5f5f7', zorder=0, lw=0)
+    for (g, lab, v, ci, seeds, c), xx in zip(rows, xs):
+        col = grey if lab.startswith('Constant') else (good if v < 0 else bad)
+        ax.bar(xx, v, width=0.62, color=col, zorder=2)
         if ci:
-            ax.plot(ci, [yy, yy], color=c, lw=1.6, solid_capstyle='butt', zorder=2)
+            ax.plot([xx, xx], ci, color=INK, lw=1.2, zorder=3)
             for e in ci:
-                ax.plot([e, e], [yy - 0.16, yy + 0.16], color=c, lw=1.6, zorder=2)
-        ax.plot(v, yy, 'o', ms=7.5, mew=1.6, color=c, mfc=c if seeds == 3 else 'white', zorder=3)
-        ax.text(-0.02, yy, lab, transform=ax.get_yaxis_transform(), ha='right', va='center', fontsize=13, color=INK)
-        num = f'{v:+.2f}%'.replace('-', '−')
-        num += f'   [{ci[0]:+.2f}, {ci[1]:+.2f}]'.replace('-', '−') if ci else ''
-        ax.text(1.04, yy, num, transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=12.5, color=INK)
-        ax.text(1.50, yy, f'{seeds}', transform=ax.get_yaxis_transform(), ha='left',
-                va='center', fontsize=12.5, color=MUTED)
-    for g in dict.fromkeys(r[0] for r in rows):
-        yg = max(yy for r, yy in zip(rows, ys) if r[0] == g) + 0.85
-        ax.text(-0.02, yg, g, transform=ax.get_yaxis_transform(), ha='right', va='center', fontsize=13.5,
-                color=INK, fontweight='bold')
-    top = max(ys) + 1.3
-    ax.text(1.04, top, 'change  [95% interval]', transform=ax.get_yaxis_transform(), ha='left', va='center',
-            fontsize=12, color=MUTED)
-    ax.text(1.50, top, 'seeds', transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=12, color=MUTED)
-    ax.set_ylim(min(ys) - 0.7, top + 0.3)
-    ax.set_yticks([])
-    ax.spines['left'].set_visible(False)
-    ax.set_xlim(-8, 14)
-    ticks = list(range(-6, 15, 3))
-    ax.set_xticks(ticks, [('+' if t > 0 else '') + f'{t}%'.replace('-', '−') if t else '0' for t in ticks])
-    ax.set_xlabel('change in Test mistag against standard ParT\n← lower (better)  |  higher (worse) →', fontsize=12.5)
-    ax.tick_params(axis='x', labelsize=12.5)
-    grid(ax)
+                ax.plot([xx - 0.09, xx + 0.09], [e, e], color=INK, lw=1.2, zorder=3)
+        end = (min(ci) if ci else v) if v < 0 else v
+        val = f'{v:+.2f}%'.replace('-', '−')
+        ax.text(xx, end + (-0.6 if v < 0 else 0.45), val, ha='center', va='top' if v < 0 else 'bottom',
+                fontsize=12.5, color=INK, fontweight='bold')
+        if ci:
+            ax.text(xx, end - 1.6, f'[{ci[0]:.2f}, {ci[1]:.2f}]'.replace('-', '−'), ha='center', va='top',
+                    fontsize=10.5, color=MUTED)
+        ax.text(xx, -9.6, short[lab], ha='center', va='top', fontsize=11.5, color=INK, linespacing=1.15)
+        ax.text(xx, -12.3, f'{seeds} seed{"s" if seeds > 1 else ""}', ha='center', va='top', fontsize=10.5, color=MUTED)
+    for g in groups:
+        a0, a1 = span[g]
+        ax.plot([a0 - 0.4, a1 + 0.4], [-13.7, -13.7], color=MUTED, lw=1, clip_on=False)
+        ax.text((a0 + a1) / 2, -14.1, g, ha='center', va='top', fontsize=12.5, color=INK, fontweight='bold')
+    ax.axhline(0, color=INK, lw=1.1, zorder=3)
+    ax.text(xs[-1] + 0.75, 0.25, 'standard ParT', ha='right', va='bottom', fontsize=10.5, color=MUTED)
+    ax.set_xlim(xs[0] - 0.75, xs[-1] + 0.75)
+    ax.set_ylim(-9, 15)
+    ax.set_xticks([])
+    ax.spines['bottom'].set_visible(False)
+    ticks = list(range(-6, 16, 3))
+    ax.set_yticks(ticks, [('+' if t > 0 else '') + f'{t}%'.replace('-', '−') if t else '0' for t in ticks])
+    ax.tick_params(axis='y', labelsize=11.5)
+    ax.set_ylabel('change in Test mistag against standard ParT', fontsize=11.5)
+    ax.text(xs[0] - 0.68, 14.6, 'worse ↑', ha='left', va='top', fontsize=10.5, color=MUTED)
+    ax.text(xs[0] - 0.68, -8.6, 'better ↓', ha='left', va='bottom', fontsize=10.5, color=MUTED)
+    grid(ax, 'y')
     save(fig, 'fig1_central.svg')
 
 
