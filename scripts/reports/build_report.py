@@ -128,7 +128,9 @@ PHASES = [
          'Standard ParT 0.3029 / 0.3038 / 0.3024 (always start LR 10<sup>−4</sup>); constant LR 0.3028 / 0.3013 / 0.3024; '
          'PBT 0.3008 / 0.3012 / 0.2996. PBT better than standard ParT by 0.67%, 0.85%, 0.91%: <b>mean 0.81%</b>, Test '
          'interval 0.34–1.34%; better at 7 of 8 working points',
-         'A small PBT gain on every seed. The constant-LR grid equals PBT for seed 22345 and standard ParT for the other two'),
+         'PBT has a lower mistag than standard ParT on every seed. Against the tuned constant-LR grid, PBT is numerically '
+         'lower on every seed (0.65%, 0.03%, 0.94%), but negligibly so for seed 22345 (interval −0.74% to +0.57%): not an '
+         'established, practically meaningful advantage over tuned constant-LR training'),
         ('19', 'Nov 12', 'PBT as #18 with the final decay of standard ParT: no decisions in the last 15 epochs, all LRs '
          '×0.01 over them; seeds 12345 and 22345',
          'The same models are selected as in #18 (epochs 31 and 33, before the decay starts), so the same Test values',
@@ -264,8 +266,8 @@ PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the 
      '<b>Interpretation</b> <span class="ev s">single seed per grid</span>. The initial PBT advantage was reduced after '
      'tuning the constant-LR baseline: from 1.4% in September to 0.5–1.0% (Figure 1). With seed 22345 and a re-centred grid '
      'PBT was 0.47% worse; the seed and the grid changed together, so the reversal is not assigned to either. Subsequent '
-     'experiments did not establish a consistent advantage over tuned constant-LR training (#18: PBT better than the '
-     'constant-LR grid by 0.65%, 0.03% and 0.94% on three seeds). At this precision the comparison needs a larger '
+     'experiments did not establish a consistent advantage over tuned constant-LR training (#18: PBT numerically lower '
+     'than the constant-LR grid on all three seeds, by 0.65%, 0.03% and 0.94%; the 0.03% is negligible). At this precision the comparison needs a larger '
      'Validation sample and several seeds. <b>Next:</b> Validation (1M), standard ParT as '
      'comparator (the usual recipe: constant LR for 35 epochs, then ×0.01 over 15; five start LRs), three seeds.',
      [('fig3_learning_rate.svg', 'PBT against the best constant-LR model in September and November, seeds 12345 and 22345',

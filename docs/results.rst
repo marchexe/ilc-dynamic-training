@@ -14,12 +14,14 @@ PBT versus standard ParT training (current main result)
 **Result.** With three training seeds, the fast windowed PBT is better on Test (2.8M) than
 standard ParT training on every seed: 0.67%, 0.85% and 0.91% lower composite mistag, 0.81% on
 average (95% interval 0.34–1.34%, test sampling only). It is better at seven of eight
-working points on average. A grid of constant learning rates is not stable: on one seed it is
-as good as PBT, on the other two it is the same as standard ParT. On ten times more training
+working points on average. PBT also has a lower mistag than the tuned constant-LR grid on all
+three seeds (0.65%, 0.03% and 0.94%), but on seed 22345 the difference is negligible (95%
+interval −0.74% to +0.57%). This is a numerical improvement on every seed, not an established,
+practically meaningful advantage over tuned constant-LR training. On ten times more training
 data (8M jets, one seed) the result reverses: PBT is 12.4% worse than standard ParT
 (:ref:`pbt-vs-standard-part-8m`). Fixes close most but not all of that gap
-(:ref:`probe-scored-pbt`); the reason is that the model overfits at 800k but not at 8M
-(:ref:`no-overfitting-at-8m`).
+(:ref:`probe-scored-pbt`). The model overfits at 800k but not at 8M; that this explains the
+difference is an untested hypothesis (:ref:`no-overfitting-at-8m`).
 
 **Runs.** Each seed has three runs. All start from the same pretrained checkpoint, train on the
 same 800k jets for 50 epochs with five members, and therefore use the same compute. Each run
@@ -159,13 +161,13 @@ start learning rate of standard ParT hardly matters on 8M.
 PBT was ahead until about epoch 33, then fell behind; standard ParT gained most in its final
 decay (0.180 at epoch 52, 0.162 at epoch 67). The likely cause is the short decision horizon:
 PBT compares members two epochs after each decision, and over two epochs a lower learning rate
-almost always looks better. PBT therefore lowered all learning rates early (at most 2.5×10⁻⁴ from
+almost always looks better. PBT lowered all learning rates early (at most 2.5×10⁻⁴ from
 epoch 28, 1.1×10⁻⁵–6.3×10⁻⁵ at the end), while standard ParT kept 1×10⁻³ for 35 epochs and
-decayed only at the end. At 800k this cost little; with ten times more data, the long phase
-at a high learning rate is worth more than the early gains. This is one seed and one PBT
+decayed only at the end. Hypothesis, not tested: at 800k this cost little; with ten times more
+data, the long phase at a high learning rate is worth more than the early gains. This is one seed and one PBT
 configuration. The difference is far larger than the test sampling intervals of the 800k
 comparison, so no interval was computed. The changes to PBT that address the horizon are in
-:ref:`probe-scored-pbt`, and the reason why 8M differs from 800k is in
+:ref:`probe-scored-pbt`, and a hypothesis for why 8M differs from 800k is in
 :ref:`no-overfitting-at-8m`.
 
 .. _probe-scored-pbt:

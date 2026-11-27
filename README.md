@@ -7,9 +7,10 @@ Particle Transformer b/c/light-jet tagger over standard ParT training? With thre
 seeds and the same compute, PBT lowers the composite mistag on an independent 2.8M-jet
 test sample, Test (2.8M), by 0.67%, 0.85% and 0.91% (0.81% on average; 95% interval 0.34–1.34% for the
 Test (2.8M) sample). On ten times more training data (8M jets, one seed) PBT is 12.4% worse than
-standard ParT, because it lowers the learning rate too early; cool-down probes and a final
-decay reduce this to 2.7%. The model overfits at 800k but not at 8M, which explains the
-difference. A prediction ensemble of two separately trained 8M standard ParT models is 5.0% better than
+standard ParT; PBT lowers the learning rate earlier than standard ParT, and cool-down probes, a final
+decay and a higher learning-rate range, changed together, reduce the deficit to 2.7%. The model
+overfits at 800k but not at 8M; that this explains why PBT helps only at 800k is an untested
+hypothesis. A prediction ensemble of two separately trained 8M standard ParT models is 5.0% better than
 the better single model on each of three training seeds. Earlier gains of 1–2% and 7.7% were
 measured against a constant-LR baseline that was not tuned; the initial PBT advantage was reduced after
 tuning it, and subsequent experiments did not establish a consistent advantage over tuned constant-LR

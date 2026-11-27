@@ -72,12 +72,14 @@ Step 4 (mid – late November): on 8M jets PBT loses
 With ten times more training data, PBT is 12.4% worse than standard ParT. Two fixes reduce this
 to 2.7%, but PBT stays worse.
 
-The reason: on 8M jets the model does not overfit, so the best plan is a high LR for a long time
-and a decay at the end. PBT judges each change after only two epochs. Over two epochs a lower LR
-almost always looks better, so PBT lowers the LR too early. On 800k jets the model overfits, and an early
-low LR is correct; this is why PBT wins there. The figure below shows this: on 800k jets the
-loss on the training data falls below the loss on Validation (the model memorises its training
-data); on 8M jets the two stay together.
+Observation: on 800k jets the model overfits, and on 8M jets it does not. The figure below shows
+this: on 800k jets the loss on the training data falls below the loss on Validation (the model
+memorises its training data); on 8M jets the two stay together. PBT judges each change after only
+two epochs, and it lowered the LR earlier than standard ParT.
+
+Hypothesis, not tested: over two epochs a lower LR almost always looks better, so PBT lowers the LR
+too early. Without overfitting (8M), a high LR for a long time and a decay at the end is better;
+with overfitting (800k), an early low LR is correct, which would explain why PBT helps only there.
 
 .. figure:: ../published/results/sel1m/figures/overfitting.png
    :alt: Training and Validation loss per epoch of the best standard ParT model, 800k and 8M
