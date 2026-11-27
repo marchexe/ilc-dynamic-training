@@ -114,3 +114,15 @@ footer.end { font: 14px/1.6 var(--sans); color: var(--muted); border-top: 1px so
   details.trial .body { padding-left: 0; }
 }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+/* anchor links (pub/anchors.js) and highlighting of the linked target */
+a.anchor { font: 400 13px/1 var(--sans); color: var(--muted); text-decoration: none; margin-left: 6px; opacity: .35; }
+a.anchor:hover, a.anchor:focus-visible, [data-anchor]:hover > a.anchor { opacity: 1; }
+td.n a.anchor { margin-left: 3px; }
+td.n > a:first-child, a.tref { color: var(--link); text-decoration: none; }
+td.n > a:first-child:hover, a.tref:hover { text-decoration: underline; }
+[id] { scroll-margin-top: 16px; }
+@keyframes target-flash { from { background: #fdf0c8; } to { background: transparent; } }
+tr:target > td, details:target, section.phase:target > h3, figure:target, h2:target, h3:target { animation: target-flash 2.4s ease-out; }
+@media (prefers-reduced-motion: reduce) { tr:target > td, details:target, figure:target { animation: none; background: #fdf6e0; } }
+@media (hover: none) { a.anchor { opacity: .6; } }

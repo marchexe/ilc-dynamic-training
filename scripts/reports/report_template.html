@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="pub/style.css">
+<script defer src="pub/anchors.js"></script>
 <style>
 /* Report built around one timeline: a thin vertical rule on the left marks the phases in time order. */
 body { font-size: 17px; line-height: 1.58; }
@@ -36,7 +37,6 @@ table.hist col.c-n { width: 2.6em; } table.hist col.c-d { width: 7.4em; } table.
 table.hist td { padding: 6px 12px 6px 0; }
 table.hist td.n { color: var(--muted); font-variant-numeric: tabular-nums; }
 table.hist td.d { color: var(--ink); font-variant-numeric: tabular-nums; }
-table.hist tr:target td { background: #fff7e0; }
 .table-wrap { margin: 6px 0 4px; }
 figure { margin: 18px 0 8px; max-width: 900px; }
 figcaption { margin: 6px 0 0; font-size: 13.5px; }
@@ -55,13 +55,13 @@ h4 { font: 700 15px/1.4 var(--sans); color: var(--ink); margin: 18px 0 6px; }
 <div class="page">
 <div class="report">
 
-<div class="site"><a href="index.html">ILC dynamic training</a> &nbsp;/&nbsp; Report</div>
+<div class="site"><a href="index.html">ILC dynamic training</a> &nbsp;/&nbsp; Research report &nbsp;·&nbsp; <a href="log.html">Experiment log</a></div>
 <h1 class="rt">PBT for ParT jet-flavour tagging: report on all trials, July–November 2026</h1>
 <p class="meta">Status 26 November 2026, no run in progress · runs, GPU time and configuration files of each trial:
 <a href="log.html">experiment log</a> · <a href="results.html">detailed results</a> ·
 <a href="https://github.com/marchexe/ilc-dynamic-training">repository</a></p>
 
-<h2>1&ensp;Summary</h2>
+<h2 id="summary" data-anchor="summary">1&ensp;Summary</h2>
 <p class="text"><b>Objective.</b> Whether Population Based Training (PBT), adapting the learning rate (LR) during
 fine-tuning of the pretrained Particle Transformer (ParT), gives a lower mistag than standard ParT training with the same
 budget of five models and 50 epochs (the probe variants #25–#26 used 9–12% more training).</p>
@@ -80,15 +80,15 @@ Training (8M); from 10 November the 999,999 Validation (1M) rows are removed fro
 9 November, and Validation (1M) select the model and drive PBT. Test (2.8M), 2,825,125 jets, is evaluated once per
 selected model; Test (9.0M), 8,970,477 jets, only in #10. <b>Mistag</b>: geometric mean of the background mistag rates
 at b-tag 80/90% (against c, light) and c-tag 50/80% (against b, light). Intervals: 95%, block bootstrap of the Test sample; they do not include seed-to-seed variation. Results in the
-tables are on Test (2.8M) unless marked Validation; # = trial number of the <a href="log.html">experiment log</a>;
+tables are on Test (2.8M) unless marked Validation; # = trial number; it links to the trial's runs in the <a href="log.html">experiment log</a>;
 dates in JST.</p>
 
-<h2>2&ensp;Research timeline</h2>
+<h2 id="timeline" data-anchor="timeline">2&ensp;Research timeline</h2>
 <div class="timeline">
 <!--TIMELINE-->
 </div>
 
-<h2>3&ensp;Conclusions and unresolved questions</h2>
+<h2 id="conclusions" data-anchor="conclusions">3&ensp;Conclusions and unresolved questions</h2>
 <p class="text">Within the tested configurations, PBT did not improve on standard ParT training beyond 1%, and with
 Training (8M) it was worse; the only gain found there came from combining separately trained models.</p>
 <ul class="concl">

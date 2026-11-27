@@ -8,6 +8,7 @@ Every number is taken from docs/results.rst, docs/ongoing.rst or the run manifes
 numbers are those of the experiment log (docs/_extra/log.html, scripts/reports/build_log.py).
 """
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -99,7 +100,21 @@ PHASES = [
 ]
 
 
-FIG = '<figure><div class="fig-scroll"><img src="pub/{src}" alt="{alt}"></div><figcaption><b>Figure {n}.</b> {cap}</figcaption></figure>'
+FIG = ('<figure id="fig-{n}"><div class="fig-scroll"><img src="pub/{src}" alt="{alt}"></div>'
+       '<figcaption data-anchor="fig-{n}"><b>Figure {n}.</b> {cap}</figcaption></figure>')
+
+
+def xref(html):
+    """Link trial references such as #18 to their row on this page."""
+    return re.sub(r'(?<![&\w])#(\d+)', r'<a class="tref" href="#t\1">#\1</a>', html)
+
+
+def trial_row(n, d, c, r, i):
+    if n == '–':  # the initial implementation period has no trial number
+        return f'<tr id="setup"><td class="n"></td><td class="d">{d}</td><td>{c}</td><td>{r}</td><td class="i">{i}</td></tr>'
+    return (f'<tr id="t{n}"><td class="n" data-anchor="t{n}"><a href="log.html#t{n}" '
+            f'title="Runs and configuration files of trial {n} in the experiment log">{n}</a></td>'
+            f'<td class="d">{d}</td><td>{xref(c)}</td><td>{xref(r)}</td><td class="i">{xref(i)}</td></tr>')
 SUP = lambda m, e: lr(m, e)
 
 # per phase: (dates, objective, learned-and-next paragraphs (HTML), figures)
@@ -160,18 +175,17 @@ PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the 
 def timeline():
     out, nfig = [], 1
     for k, ((title, cond, rows), (dates, objective, outcome, learned, figs)) in enumerate(zip(PHASES, PHASE_TEXT)):
-        body = ''.join(f'<tr id="t{n}"><td class="n">{n}</td><td class="d">{d}</td><td>{c}</td><td>{r}</td>'
-                       f'<td class="i">{i}</td></tr>' for n, d, c, r, i in rows)
+        body = ''.join(trial_row(*row) for row in rows)
         figs_html = []
         for src, alt, cap in figs:
-            figs_html.append(FIG.format(src=src, alt=alt, n=nfig, cap=cap))
+            figs_html.append(FIG.format(src=src, alt=alt, n=nfig, cap=xref(cap)))
             nfig += 1
         out.append(f'<section class="phase" id="phase-{k}"><div class="when">Phase {k} · {dates} · {cond}</div>'
-                   f'<h3>{title}</h3><p class="obj"><b>Objective:</b> {objective} <b>Outcome:</b> {outcome}</p>'
+                   f'<h3 data-anchor="phase-{k}">{title}</h3><p class="obj"><b>Objective:</b> {objective} <b>Outcome:</b> {outcome}</p>'
                    '<div class="table-wrap"><table class="hist"><colgroup><col class="c-n"><col class="c-d"><col class="c-c">'
                    '<col class="c-r"><col class="c-i"></colgroup><thead><tr><th>#</th><th>Date</th><th>Configuration</th>'
                    f'<th>Result</th><th>Interpretation</th></tr></thead><tbody>{body}</tbody></table></div>'
-                   f'<p class="learned">{learned}</p>' + ''.join(figs_html) + '</section>')
+                   f'<p class="learned">{xref(learned)}</p>' + ''.join(figs_html) + '</section>')
     return '\n'.join(out)
 
 

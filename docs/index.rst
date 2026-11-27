@@ -8,6 +8,13 @@ flat+decay learning-rate schedule), and whether any gain holds on data never use
 selection. All results are on Test (2.8M), 2.8M jets that are used only after the checkpoints are
 fixed.
 
+.. rubric:: Reports
+
+* `Research report <overview.html>`_ — the main document: chronological history of all 33 trials,
+  results, interpretation and conclusions.
+* `Experiment log <log.html>`_ — technical supplement: every run with its dates, configuration
+  files, GPU hours and individual measurements.
+
 Findings
 --------
 
@@ -53,7 +60,6 @@ Contents
    evaluation
    reproducibility
 
-* `Report <overview.html>`_: summary, all trials by phase with interpretation, current status; `experiment log <log.html>`_ with every run.
 * :doc:`report`: every trial in time order, with dates, configuration, short results and an
   interpretation.
 * :doc:`results`: all completed comparisons, the 8M study, supporting studies and limitations.

@@ -59,8 +59,8 @@ def main():
     parts = []
     for k, (title, data, validation, items) in enumerate(T.PHASES, 1):
         heading, section = SECTION[k]
-        parts.append(f'<h2>{heading}</h2>\n<p class="sub">{data} · {validation} · see '
-                     f'<a href="overview.html">the report</a></p>')
+        parts.append(f'<h2 id="phase-{k}" data-anchor="phase-{k}">{heading}</h2>\n<p class="sub">{data} · {validation} · '
+                     f'<a href="overview.html#phase-{k}">phase {k} in the report</a></p>')
         for number, what, runs, records, dates, result, outcome in items:
             recs = [T.run_record(r) for r in runs]
             when = T.span(recs) if recs else dates
@@ -72,10 +72,11 @@ def main():
             gpu = sum(r['gpu_hours'] for r in recs)
             meta = ' · '.join(x for x in (f'{OUTCOME[outcome]}', (f'{gpu:.0f} GPU-h' if gpu >= 1 else '&lt;1 GPU-h') if recs else '',
                                           f'records: {extra}' if extra else '') if x)
-            parts.append(f'<details class="trial" id="t{number}"><summary><span class="no">{number}</span>'
+            parts.append(f'<details class="trial" id="t{number}"><summary><span class="no" data-anchor="t{number}">{number}</span>'
                          f'<span class="when">{when}</span><span class="what">{text(what)}</span>'
                          f'<span class="res">{text(result)}</span></summary>'
-                         f'<div class="body">{table}<p>{meta}</p></div></details>')
+                         f'<div class="body">{table}<p>{meta} · <a href="overview.html#t{number}">trial {number} in the report</a>'
+                         '</p></div></details>')
     page = TEMPLATE.replace('<!--TRIALS-->', '\n'.join(parts))
     out = ROOT / 'docs/_extra/log.html'
     out.write_text(page)
@@ -92,10 +93,11 @@ TEMPLATE = '''<!doctype html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="pub/style.css">
+<script defer src="pub/anchors.js"></script>
 </head>
 <body>
 <div class="page">
-<div class="site wide"><a href="index.html">ILC dynamic training</a> &nbsp;/&nbsp; <a href="overview.html">Report</a> &nbsp;/&nbsp; Experiment log</div>
+<div class="site wide"><a href="index.html">ILC dynamic training</a> &nbsp;/&nbsp; <a href="overview.html">Research report</a> &nbsp;/&nbsp; Experiment log</div>
 <header class="title wide" style="padding-block:48px 8px">
   <h1 style="font-size:38px">Experiment log</h1>
   <p class="dek">Every trial from September to November 2026, with its runs, dates, GPU time, selected model and
