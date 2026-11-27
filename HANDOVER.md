@@ -1,7 +1,7 @@
 # Handover for new sessions
 
 Read this first. The repository and the original records (`runs/eval/*/report.md`, `analysis.json`,
-`configs/prepared/*`) are the source of truth; this file only points to them. Last updated 2026-11-28.
+`configs/prepared/*`) are the source of truth; this file only points to them. Last updated 2026-11-28 (after the hypothesis and #18 corrections).
 
 ## State
 
@@ -16,14 +16,16 @@ Read this first. The repository and the original records (`runs/eval/*/report.md
 
 | Finding | Evidence |
 |---|---|
-| The initial PBT advantage was reduced after tuning the constant-LR baseline. Subsequent experiments did not establish a consistent advantage over tuned constant-LR training. | Sep: +1.36% (#1 vs #3). Nov, seed 12345: +0.51% (#13), +1.00% (#14, preregistered) vs fast PBT #15. Nov 9, seed 22345 **and** new grid 6×10⁻⁵–1.6×10⁻⁴ (both changed together): −0.47% (#16). #18 PBT vs constant-LR grid: 0.65%, 0.03%, 0.94% better (3 seeds). |
+| The initial PBT advantage was reduced after tuning the constant-LR baseline. Subsequent experiments did not establish a consistent advantage over tuned constant-LR training. | Sep: +1.36% (#1 vs #3). Nov, seed 12345: +0.51% (#13), +1.00% (#14, preregistered) vs fast PBT #15. Nov 9, seed 22345 **and** new grid 6×10⁻⁵–1.6×10⁻⁴ (both changed together): −0.47% (#16). #18 PBT vs tuned constant-LR grid: numerically lower on all 3 seeds (0.65%, 0.03%, 0.94%), but seed 22345 is negligible (95% interval −0.74% to +0.57%; seeds 12345/32345: −1.51 to −0.07, −1.65 to −0.21; `runs/eval/holdout_block_bootstrap_v1/block100.json`). Say "numerical improvement on every seed", never an established, practically meaningful advantage. |
 | Training (800k): PBT better than standard ParT by 0.81% (0.67, 0.85, 0.91% per seed; 95% Test-sample interval 0.34–1.34%). | #18, 3 seeds |
 | Training (8M): PBT 12.4% worse than standard ParT; probes + final decay + higher LR range (changed together) reduce it to 2.7%. | #22–#26, **one seed** |
 | Training (8M): ensemble of two standard ParT models 5.01% better than the better single model (4.86–5.14% per seed; interval 4.17–5.84%). | #27 (models of #22, #24), #28 (two new seeds); 3 seeds |
 
 Rules for reader-facing text:
-- Keep observation, hypothesis and established result separate. "800k overfits, 8M does not" is an
-  observation; that this *explains* why PBT helps only at 800k is a **hypothesis, not tested**.
+- Keep observation, hypothesis and established result separate. "800k overfits, 8M does not" and "PBT lowers
+  the LR earlier than standard ParT" are observations; that the short decision horizon or overfitting *explains*
+  why PBT helps only at 800k is a **hypothesis, not tested** (README, results.rst, report.rst and the report all
+  say so since 2026-11-28).
 - Say Training (800k / 8M), Validation (150k / 1M), Test (2.8M / 9.0M). Never "holdout".
 - Plain terms for the supervisor; define every term; no internal run names in prose; no AI attribution lines.
 - Improvement percentages are relative changes of the composite mistag; compute them from full-precision values
@@ -57,11 +59,13 @@ Rebuild after any change:
   `firefox --headless --profile <dir> --no-remote --window-size=1280,14000 --screenshot <png> file://…`.
 - HTML reading experience is the priority; PDF/print layout is not.
 
+- Report header has two dates in `report_template.html`: "Research status: 26 November 2026" (last run
+  finished; change only if new results arrive) and "Report revised: <date>" (update on every content revision).
+- After deploying, check that Pages serves the new text and figures: `curl` the live `overview.html` (add a
+  `?nc=<random>` query) and compare the `fig*.svg?v=<hash>` and the SVG bytes with the local files.
+
 ## Outstanding
 
-- README and `docs/results.rst` still say the 800k/8M overfitting difference "explains" the PBT reversal
-  (`README.md`, `results.rst` "the reason is that the model overfits…"); the report correctly labels it a
-  hypothesis. Align when the user agrees.
-- Report header says "Status 26 November 2026".
+- None from the report corrections of 2026-11-28.
 - Optional, needs approval: GPU equivalence test of full Lookahead state / sub-epoch (0.2-epoch) adaptation
   (`docs/ongoing.rst`, `sub-epoch-adaptation`).
