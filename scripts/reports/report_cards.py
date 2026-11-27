@@ -95,7 +95,7 @@ PHASE_SUMMARY = [
      'training jets.', 'PBT is 1.4% better (800k) and 7.7% better (8M). But the best constant LR is always the top of '
      'its grid.', 'Check whether higher constant LRs explain the gain.'),
     ('Was the PBT gain only a higher LR?', 'The constant-LR grid moved up to 3.2×10<sup>−4</sup>; a faster PBT.',
-     'A constant LR near 10<sup>−4</sup> matches PBT. With a second seed and a re-centred grid the order reverses.',
+     'A constant LR near 10<sup>−4</sup> comes within 0.5–1.0% of PBT. With a second seed and a re-centred grid the order reverses.',
      'Select on a larger Validation sample (1M), compare with standard ParT, use three seeds.'),
     ('A fair test against the usual training recipe.', 'Validation (1M); comparator standard ParT (constant LR for 35 '
      'epochs, then ×0.01 over 15; five start LRs); three seeds.', 'PBT is better on every seed, by 0.81% on average (0.67–0.91%).',

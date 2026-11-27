@@ -76,41 +76,40 @@ def rows_panel(ax, rows, xlim, ticks, title):
 
 
 def fig_lr():
-    """Phase 2: as the constant-LR grid moved up (Sep -> Nov), its best model caught up with PBT (800k, seed 12345)."""
-    fig, ax = plt.subplots(figsize=(10.4, 4.1))
-    grid_pts = [  # (LR of the best model, Test mistag, label): trials #1, #12, #13, #14
-        (1.4e-5, 0.3269, '#1 · Sep 16'), (3e-5, 0.3146, '#12 · Nov 3'), (8e-5, 0.3018, '#13 · Nov 3–4'),
-        (1.2e-4, 0.3033, '#14 · Nov 4')]
-    pbt = [(2.02e-5, 0.3225, 'PBT, Sep 18 (#3)'), (8.75e-5, 0.3003, 'Fast PBT, Nov 4 (#15)')]
-    ax.plot([p[0] for p in grid_pts], [p[1] for p in grid_pts], '-', color=CONST, lw=1.6, zorder=2)
-    ax.plot([p[0] for p in grid_pts], [p[1] for p in grid_pts], 'o', color=CONST, mfc='white', mew=1.6, ms=8, zorder=3)
-    offs = {'#1 · Sep 16': (-10, 2, 'right'), '#12 · Nov 3': (10, 4, 'left'), '#13 · Nov 3–4': (-10, -15, 'right'),
-            '#14 · Nov 4': (9, -14, 'left')}
-    for x, y, lab in grid_pts:
-        dx, dy, ha = offs[lab]
-        ax.annotate(lab, (x, y), (dx, dy), textcoords='offset points', ha=ha, fontsize=10, color=MUTED)
-    for (x, y, lab), (dx, dy) in zip(pbt, [(10, 6), (10, -16)]):
-        ax.plot(x, y, 's', color=PBT, ms=9, zorder=4)
-        ax.annotate(lab, (x, y), (dx, dy), textcoords='offset points', fontsize=10.5, color=PBT, fontweight='bold')
-    ax.text(4.4e-5, 0.3135, 'best model of each\nconstant-LR grid', fontsize=10.5, color=CONST, ha='left', va='center')
-    # September grid range as a bracket on the x-axis instead of a shaded band
-    yb = 0.2988
-    ax.plot([3e-6, 1.4e-5], [yb, yb], color=MUTED, lw=1.2, solid_capstyle='butt', zorder=2)
-    for xe in (3e-6, 1.4e-5):
-        ax.plot([xe, xe], [yb - 0.0004, yb + 0.0004], color=MUTED, lw=1.2)
-    ax.text(6.5e-6, yb + 0.0007, 'September grid (#1)', ha='center', va='bottom', fontsize=10, color=MUTED)
-    # two callouts: the apparent gain and where it went
-    ax.annotate('Sep: PBT 1.4% better\nthan the grid’s best', (1.7e-5, 0.3247), (5.0e-6, 0.3205), fontsize=10,
-                color=INK, ha='left', arrowprops=dict(arrowstyle='-', color=MUTED, lw=0.8))
-    ax.annotate('Nov: higher grids catch up;\nfast PBT 0.5% (#13) to 1.0% (#14) better', (9.2e-5, 0.3007), (1.35e-4, 0.3085),
-                fontsize=10, color=INK, ha='left', arrowprops=dict(arrowstyle='-', color=MUTED, lw=0.8))
-    ax.set_xscale('log')
-    ax.set_xlim(2.5e-6, 6e-4)
-    ax.set_ylim(0.2978, 0.3295)
-    ax.set_xlabel('learning rate of the selected model')
-    ax.set_ylabel('mistag on Test (%)')
-    ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-    grid(ax, 'y')
+    """Phase 2: PBT against the best constant-LR model before and after the grid was moved to higher LRs.
+    Training (800k), seed 12345, Test (2.8M) mistag of the selected models: docs/results.rst (#1, #3) and
+    runs/eval/holdout_fast_pbt_v1/report.md (#13-#15), as published in configs/prepared/holdout_fast_pbt_v1."""
+    rows = [  # (label, date line, constant-LR value, PBT value)
+        ('September', '#1 grid vs PBT #3 · Sep 16–18', 0.326934, 0.322484),
+        ('November, step 2', '#13 grid vs fast PBT #15 · Nov 3–4', 0.301809, 0.300264),
+        ('November, step 3', '#14 grid vs fast PBT #15 · Nov 4', 0.303295, 0.300264),
+    ]
+    fig, ax = plt.subplots(figsize=(10.4, 2.7))
+    n = len(rows)
+    for i, (lab, sub, c, p) in enumerate(rows):
+        y = n - 1 - i
+        ax.plot([p, c], [y, y], color='#d0d0d4', lw=3, solid_capstyle='butt', zorder=1)
+        ax.plot(c, y, 'o', color=CONST, mfc='white', mew=1.8, ms=9, zorder=3)
+        ax.plot(p, y, 's', color=PBT, ms=9, zorder=3)
+        ax.text(c + 0.0004, y, f'{c:.4f}', va='center', ha='left', fontsize=10, color=MUTED)
+        ax.text(p - 0.0004, y, f'{p:.4f}', va='center', ha='right', fontsize=10, color=PBT)
+        ax.text(-0.02, y + 0.13, lab, transform=ax.get_yaxis_transform(), ha='right', va='center', fontsize=11.5,
+                color=INK, fontweight='bold')
+        ax.text(-0.02, y - 0.2, sub, transform=ax.get_yaxis_transform(), ha='right', va='center', fontsize=9.5, color=MUTED)
+        ax.text(1.02, y, f'{100 * (1 - p / c):.1f}%', transform=ax.get_yaxis_transform(), ha='left', va='center',
+                fontsize=14, color=INK, fontweight='bold')
+    ax.text(1.02, n - 0.35, 'PBT better by', transform=ax.get_yaxis_transform(), ha='left', va='center', fontsize=9.5,
+            color=MUTED)
+    ax.plot([], [], 'o', color=CONST, mfc='white', mew=1.8, ms=8, label='best constant-LR model')
+    ax.plot([], [], 's', color=PBT, ms=8, label='PBT')
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.22), ncol=2, fontsize=10, handletextpad=0.4, columnspacing=1.6)
+    ax.set_ylim(-0.6, n - 0.4)
+    ax.set_yticks([])
+    ax.spines['left'].set_visible(False)
+    ax.set_xlim(0.2985, 0.3285)
+    ax.xaxis.set_major_locator(FixedLocator([0.300, 0.305, 0.310, 0.315, 0.320, 0.325]))
+    ax.set_xlabel('mistag on Test (%)  —  lower is better')
+    grid(ax)
     save(fig, 'fig3_learning_rate.svg')
 
 

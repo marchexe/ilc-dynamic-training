@@ -123,8 +123,8 @@ with the same budget of five models and 50 epochs?</p>
 <div class="findings">
   <a class="frow" href="#phase-2">
     <span class="fnum">−1.0% / +0.47%<small>mistag, fast PBT vs best constant LR, seeds 12345 / 22345</small></span>
-    <span class="ftext"><b>The early PBT gains came from a higher learning rate.</b> PBT was 1.4% better (800k) and
-    7.7% better (8M, Test 9.0M) than constant LRs that were too low. A constant LR near 10<sup>−4</sup> matches PBT; with a second seed and a re-centred grid the order reverses.
+    <span class="ftext"><b>The early PBT gains came mostly from a higher learning rate.</b> PBT was 1.4% better (800k) and
+    7.7% better (8M, Test 9.0M) than constant LRs that were too low. With a constant LR near 10<sup>−4</sup> the gap shrinks to 0.5–1.0%, and with a second seed and a re-centred grid the order reverses.
     <span class="fmeta">Phases 1–2 · one seed per grid, two seeds for the final comparison</span></span>
   </a>
   <a class="frow" href="#phase-3">
