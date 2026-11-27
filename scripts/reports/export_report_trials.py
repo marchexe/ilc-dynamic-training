@@ -45,7 +45,7 @@ TEST = {  # Test (2.8M) value of the run's selected checkpoint (docs/results.rst
     'sel1m_fast_pbt_seed22345': 0.3012, 'sel1m_standard_part_seed32345': 0.3024,
     'sel1m_fixed_lr_grid_seed32345': 0.3024, 'sel1m_fast_pbt_seed32345': 0.2996,
     'sel1m_fast_pbt_decay': 0.3008, 'sel1m_fast_pbt_decay_seed22345': 0.3012, 'sel1m_fast_pbt_probe': 0.3024,
-    'sel1m_train8m_standard_part': 0.1635, 'sel1m_train8m_fast_pbt': 0.1812,
+    'sel1m_train8m_standard_part': 0.1635, 'sel1m_train8m_fast_pbt': 0.1811,
     'sel1m_train8m_standard_part_3e-3': 0.1611, 'sel1m_train8m_fast_pbt_probe': 0.1699,
     'sel1m_train8m_fast_pbt_probe_decay': 0.1655, 'sel1m_train8m_standard_part_seed22345': 0.1597,
     'sel1m_train8m_standard_part_seed32345': 0.1623, 'sel1m_train8m_standard_part_1e-2': 0.1599,
@@ -83,7 +83,7 @@ PHASES = [  # grouped by the five steps of the report
     ]),
     ('Step 4: much data, PBT loses', 'Training (8M)', 'Validation (1M)', [
         (22, 'Standard ParT, start LRs 1×10⁻⁵ – 1×10⁻³', ['sel1m_train8m_standard_part'], [':repo:`test spec <configs/prepared/holdout_sel1m_train8m_v1>`'], None, '0.1635', '🔧'),
-        (23, 'Fast PBT with the LR range of standard ParT', ['sel1m_train8m_fast_pbt'], [':repo:`test spec <configs/prepared/holdout_sel1m_train8m_v1>`', ':ref:`result <pbt-vs-standard-part-8m>`'], None, '0.1812, **12.4% worse** than 24', '❌'),
+        (23, 'Fast PBT with the LR range of standard ParT', ['sel1m_train8m_fast_pbt'], [':repo:`test spec <configs/prepared/holdout_sel1m_train8m_v1>`', ':ref:`result <pbt-vs-standard-part-8m>`'], None, '0.1811, **12.4% worse** than 24', '❌'),
         (24, 'Standard ParT, start LR 3×10⁻³', ['sel1m_train8m_standard_part_3e-3'], [':repo:`test spec <configs/prepared/holdout_sel1m_train8m_lr3e-3_v1>`'], None, '**0.1611**, the reference', '🔧'),
         (25, 'PBT with cool-down probes (8M and 800k)', ['sel1m_train8m_fast_pbt_probe', 'sel1m_fast_pbt_probe'], [':repo:`test spec <configs/prepared/holdout_sel1m_probe_v1>`', ':ref:`result <probe-scored-pbt>`'], None, '0.1699, 5.4% worse than 24', '❌'),
         (26, 'PBT with probes and a final decay', ['sel1m_train8m_fast_pbt_probe_decay'], [':repo:`test spec <configs/prepared/holdout_sel1m_probe_decay_v1>`'], None, '0.1655, 2.7% worse than 24', '❌'),

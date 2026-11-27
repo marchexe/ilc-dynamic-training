@@ -28,9 +28,9 @@ REF_PAGE = {'sub-epoch-restart-test': 'results', 'large-dataset-results': 'resul
 SECTION = {  # step of export_report_trials -> (heading, section of the overview)
     1: ('PBT against constant learning rates', 'baseline'),
     2: ('Higher constant learning rates', 'baseline'),
-    3: ('PBT against standard ParT, 800k training jets', 'small'),
-    4: ('PBT against standard ParT, 8M training jets', 'large'),
-    5: ('Ensembles and other ways to gain, 8M training jets', 'ensemble'),
+    3: ('PBT against standard ParT, Training (800k)', 'small'),
+    4: ('PBT against standard ParT, Training (8M)', 'large'),
+    5: ('Ensembles and other ways to gain, Training (8M)', 'ensemble'),
 }
 
 
@@ -53,7 +53,32 @@ def run_row(r):
             f'<td class="num">{r["validation"]:.4f}</td><td class="num">{test}</td></tr>')
 
 
+def ensemble_models():
+    """#27/#28: run, member, checkpoint and Test value of both models of each seed's ensemble (from figure_data.json)."""
+    import json
+    d = json.loads(R.FIGDATA.read_text())['overview']['ensemble']['seeds']
+    rows = []
+    for s in d:
+        for m, v, lr in ((s['model_3e3'], s['better'], '3×10⁻³'), (s['model_1e3'], s['other'], '10⁻³')):
+            cfg = T.CONFIG.get(m['run']) or f'configs/experiments/{m["run"]}.yaml'
+            rows.append(f'<tr><td>{s["seed"]} (#{s["trial"]})</td><td>{lr}</td><td><a href="{REPO}{cfg}">{m["run"]}</a></td>'
+                        f'<td>{m["member"]}</td><td class="num">{m["epoch"] - T.FIRST_EPOCH}</td>'
+                        f'<td><code>net_epoch-{m["epoch"]}_state.pt</code></td><td class="num">{v:.4f}</td></tr>')
+    return ('<div class="table-wrap"><table><thead><tr><th>Seed</th><th>Start LR</th><th>Run (configuration file)</th>'
+            '<th>Member</th><th class="num">Epoch</th><th>Checkpoint file</th><th class="num">Test</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table></div><p>Ensemble models: the checkpoint of each model with the best '
+            'Validation (1M) value. Epoch: training epoch (the file name counts from the pretrained start, epoch 17). '
+            'Records: <code>runs/eval/holdout_ensemble_8m_dev_v1</code>, <code>runs/eval/ensemble_seed22345_v1</code>, '
+            '<code>runs/eval/ensemble_seed32345_v1</code> (result.json, with SHA-256 of every checkpoint).</p>')
+
+
 def main():
+    import json
+    figdata = json.loads(R.FIGDATA.read_text())
+    self_ref = 'Run names, members and checkpoint files are in the <a href="log.html#t28">experiment log</a>.'
+    extra_tables = {18: R.table_18(figdata),
+                    28: R.table_28(figdata).replace(self_ref, 'Run names, members and checkpoint files: next table.')
+                    + ensemble_models()}
     parts = []
     for k, (title, data, validation, items) in enumerate(T.PHASES, 1):
         heading, section = SECTION[k]
@@ -78,7 +103,7 @@ def main():
                          f'<span class="res"><b>{value}</b>{smp} {versus}</span></summary>'
                          f'<div class="body"><p><b>Change.</b> {change}</p><p><b>Configuration.</b> {what_html}</p>'
                          f'<p><b>Result.</b> {result_html}</p><p class="interp"><b>Interpretation.</b> {interp_html}</p>'
-                         f'{table}<p>{meta} · <a href="overview.html#t{number}">trial {number} in the report</a>'
+                         f'{table}{extra_tables.get(number, "")}<p>{meta} · <a href="overview.html#t{number}">trial {number} in the report</a>'
                          '</p></div></details>')
     page = TEMPLATE.replace('<!--TRIALS-->', '\n'.join(parts))
     import hashlib
@@ -101,6 +126,20 @@ TEMPLATE = '''<!doctype html>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="pub/style.css">
 <script defer src="pub/anchors.js"></script>
+<style>
+nav.lognav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font: 14px/1.4 var(--sans);
+  padding: 10px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); margin: 8px 0 4px; }
+nav.lognav a { color: var(--link); text-decoration: none; }
+nav.lognav a:hover { text-decoration: underline; }
+nav.lognav input { margin-left: auto; font: 14px var(--sans); padding: 4px 8px; border: 1px solid var(--rule);
+  border-radius: 4px; min-width: 15em; color: var(--ink); background: #fff; }
+@media (max-width: 760px) { nav.lognav input { margin-left: 0; width: 100%; } }
+table.cmp { font: 13.8px/1.4 var(--sans); border-collapse: collapse; margin: 10px 0 2px; min-width: 760px; }
+table.cmp caption { text-align: left; font-weight: 700; color: var(--ink); padding-bottom: 6px; }
+table.cmp .iv { display: block; font-size: 12.5px; color: var(--muted); }
+table.cmp tr.mean td { border-top: 1.5px solid var(--ink); }
+p.tnote { font: 13px/1.45 var(--sans); color: var(--muted); }
+</style>
 </head>
 <body>
 <div class="page">
@@ -115,8 +154,32 @@ TEMPLATE = '''<!doctype html>
 JST. Results are the mistag on the Test sample (2.8M jets) unless marked Validation. The selected model is the one
 with the best Validation mistag over the run; for standard ParT the LR shown is the start LR, otherwise the LR at the
 selected epoch. July–August was set-up with an older training method and is not listed.</p>
+<nav class="lognav" aria-label="Phases and search">
+  <a href="#phase-1">1 Constant LRs</a><a href="#phase-2">2 Higher constant LRs</a><a href="#phase-3">3 Training (800k)</a>
+  <a href="#phase-4">4 Training (8M)</a><a href="#phase-5">5 Ensembles</a>
+  <input type="search" id="logsearch" placeholder="Filter trials…" aria-label="Filter trials">
+</nav>
 <!--TRIALS-->
+<p id="nomatch" hidden>No trial matches.</p>
 </main>
+<script>
+(function () {  // filter trials by text; open the matching ones so the matching runs are visible
+  var box = document.getElementById('logsearch'), none = document.getElementById('nomatch');
+  if (!box) return;
+  var trials = Array.prototype.slice.call(document.querySelectorAll('details.trial'));
+  var heads = Array.prototype.slice.call(document.querySelectorAll('main.log h2, main.log p.sub'));
+  box.addEventListener('input', function () {
+    var q = box.value.trim().toLowerCase(), shown = 0;
+    trials.forEach(function (t) {
+      var hit = !q || t.textContent.toLowerCase().indexOf(q) >= 0;
+      t.hidden = !hit; if (hit) shown++;
+      if (q && hit) t.open = true;
+    });
+    heads.forEach(function (h) { h.hidden = !!q; });
+    none.hidden = shown > 0;
+  });
+})();
+</script>
 <footer class="end wide">Generated by scripts/reports/build_log.py from the run manifests. Detailed results:
 <a href="results.html">results</a>; frozen test specifications:
 <a href="https://github.com/marchexe/ilc-dynamic-training/tree/main/configs/prepared">configs/prepared</a>.</footer>

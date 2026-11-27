@@ -214,7 +214,7 @@
      - Fast PBT with the LR range of standard ParT · 175 GPU-h
 
        :repo:`sel1m_train8m_fast_pbt <configs/experiments/sel1m_train8m_fast_pbt.yaml>` · :repo:`test spec <configs/prepared/holdout_sel1m_train8m_v1>` · :ref:`result <pbt-vs-standard-part-8m>`
-     - 0.1812, **12.4% worse** than 24
+     - 0.1811, **12.4% worse** than 24
      - ❌
    * - 24
      - Nov 19 08:38 → Nov 20 19:09

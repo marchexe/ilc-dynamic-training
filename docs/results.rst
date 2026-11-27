@@ -136,7 +136,7 @@ same five start learning rates (1×10⁻⁵–1×10⁻³) and an upper bound of 
      - 67 (last)
    * - Fast PBT
      - 0.1844
-     - 0.1812
+     - 0.1811
      - 66
    * - PBT − standard (3×10⁻³)
      - +16.4%
@@ -200,7 +200,7 @@ before its run started (:repo:`configs/prepared/holdout_sel1m_probe_v1`,
      - **0.1611**
      -
    * - PBT
-     - 0.1812
+     - 0.1811
      - +12.4%
    * - PBT + probes
      - 0.1699
@@ -343,7 +343,11 @@ different seeds gain 3.56% on average, and pairs with different start learning r
 pre-registered rule counts a difference above 1 percentage point as a contribution of the learning
 rate; at 1.08 points this is just above it, while seed 22345 alone gave 0.41 points. So most of the
 gain comes from training the models separately, and a different learning rate adds about one
-point.
+point. Across all 51 scored pairs of 8M models, disagreement alone does not predict the gain:
+every pair that gains more than 1% has two models of similar quality (the weaker at most 6% worse),
+and no pair whose weaker model is more than 9% worse gains more than 1%, with or without a PBT
+model (exploratory, scored after the fact; Figure 4 of the
+`research report <overview.html#fig-4>`_).
 
 .. _distillation:
 

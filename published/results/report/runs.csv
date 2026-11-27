@@ -33,7 +33,7 @@ trial,run,config,start_jst,end_jst,epochs,gpu_hours,selected_member,selected_lr,
 19,sel1m_fast_pbt_decay_seed22345,configs/experiments/sel1m_fast_pbt_decay_seed22345.yaml,2026-11-12 14:33,2026-11-12 19:08,50,21.9,lr_25e-6,3.06e-05,33,0.298870,0.3012
 20,sel1m_scratch_standard_part,configs/experiments/sel1m_scratch_standard_part.yaml,2026-11-12 09:55,2026-11-12 14:31,50,22.4,flat_decay_4000e-6,0.004,14,0.377745,
 22,sel1m_train8m_standard_part,configs/experiments/sel1m_train8m_standard_part.yaml,2026-11-14 07:51,2026-11-15 19:28,50,175.8,flat_decay_1000e-6,1e-05,50,0.161866,0.1635
-23,sel1m_train8m_fast_pbt,configs/experiments/sel1m_train8m_fast_pbt.yaml,2026-11-15 19:34,2026-11-17 07:09,50,174.8,lr_10e-6,2.19e-05,49,0.184383,0.1812
+23,sel1m_train8m_fast_pbt,configs/experiments/sel1m_train8m_fast_pbt.yaml,2026-11-15 19:34,2026-11-17 07:09,50,174.8,lr_10e-6,2.19e-05,49,0.184383,0.1811
 24,sel1m_train8m_standard_part_3e-3,configs/experiments/sel1m_train8m_standard_part_3e-3.yaml,2026-11-19 08:38,2026-11-20 19:09,50,34.4,flat_decay_3000e-6,0.000139,45,0.158445,0.1611
 25,sel1m_train8m_fast_pbt_probe,configs/experiments/sel1m_train8m_fast_pbt_probe.yaml,2026-11-19 17:43,2026-11-21 10:35,50,172.2,lr_10e-6,0.00012,50,0.168166,0.1699
 25,sel1m_fast_pbt_probe,configs/experiments/sel1m_fast_pbt_probe.yaml,2026-11-20 15:59,2026-11-20 23:25,50,28.1,lr_350e-6,4.29e-05,40,0.298942,0.3024

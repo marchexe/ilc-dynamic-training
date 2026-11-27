@@ -43,7 +43,7 @@ PHASES = [
          'Results not comparable with later trials and not used. Training was rebuilt as deterministic full epochs '
          '(from Sep 16), which all later trials use'),
     ]),
-    ('PBT beats constant learning rates, but the best constant LR is always the top of the grid', 'Training (800k), then (8M) · Validation (150k) · seed 12345 unless noted', [
+    ('PBT is better than the constant-LR grid, but the best constant LR is always the highest LR tried', 'Training (800k), then (8M) · Validation (150k) · seed 12345 unless noted', [
         ('1', 'Sep 16', f'Constant-LR grid: five models, each at one LR for 50 epochs: {G1}',
          '0.3269; selected model: the highest LR, 1.4×10<sup>−5</sup>, epoch 44',
          'First comparator for PBT. That the best LR was the top of the grid was noted but not followed up until #12'),
@@ -102,7 +102,8 @@ PHASES = [
          'Grid extended once more'),
         ('14', 'Nov 4', f'Constant-LR grid {E("8", 5)}, {E("1.2", 4)}, {E("1.6", 4)}, {E("2.4", 4)}, {E("3.2", 4)}',
          f'0.3033; selected LR {E("1.2", 4)}, inside the grid (Validation 0.3141, better than #13)',
-         f'Optimum near {E("8", 5)}–{E("1.2", 4)}. #14 is better than #13 on Validation but worse on Test'),
+         f'For this seed the best constant LR lies in {E("8", 5)}–{E("1.2", 4)}. #14 is better than #13 on Validation '
+         'but worse on Test'),
         ('15', 'Nov 4', FAST,
          '0.3003: 1.0% better than #14 (the preregistered comparator: of #13 and #14, the one with the better Validation '
          'mistag) and 0.5% better than #13 (the better one on Test)',
@@ -121,15 +122,15 @@ PHASES = [
          'No improvement; kept in later PBT runs because it removes the stuck member. Next: Validation (1M), standard '
          'ParT as comparator, three seeds'),
     ]),
-    ('With 800k training jets, PBT beats standard ParT by 0.8% on average', 'Training (800k) · Validation (1M) · 3 seeds', [
+    ('Training (800k): PBT 0.81% better than standard ParT on three seeds', 'Training (800k) · Validation (1M) · 3 seeds', [
         ('18', 'Nov 10–13', f'Three methods, each with seeds 12345, 22345, 32345: standard ParT (constant LR for 35 epochs, '
          f'then ×0.01 over 15; start LRs {E("1", 5)}, {E("3", 5)}, {E("1", 4)}, {E("3", 4)}, {E("1", 3)}); constant-LR '
          f'grid as #16 ({E("6", 5)}–{E("1.6", 4)}); PBT as #17. Comparisons fixed before training',
-         'Standard ParT 0.3029 / 0.3038 / 0.3024 (always start LR 10<sup>−4</sup>); constant LR 0.3028 / 0.3013 / 0.3024; '
-         'PBT 0.3008 / 0.3012 / 0.2996. PBT better than standard ParT by 0.67%, 0.85%, 0.91%: <b>mean 0.81%</b>, Test '
-         'interval 0.34–1.34%; better at 7 of 8 working points',
+         'Per seed in the table below. Standard ParT selected start LR 10<sup>−4</sup> on every seed. PBT better than '
+         'standard ParT by 0.67%, 0.85% and 0.91%: <b>mean 0.81%</b>, Test-sample interval 0.34–1.34%; better at 7 of 8 '
+         'working points',
          'PBT has a lower mistag than standard ParT on every seed. Against the tuned constant-LR grid, PBT is numerically '
-         'lower on every seed (0.65%, 0.03%, 0.94%), but negligibly so for seed 22345 (interval −0.74% to +0.57%): not an '
+         'lower on every seed (0.65%, 0.03%, 0.94%), but negligibly so for seed 22345 (interval 0.74% better to 0.57% worse): not an '
          'established, practically meaningful advantage over tuned constant-LR training'),
         ('19', 'Nov 12', 'PBT as #18 with the final decay of standard ParT: no decisions in the last 15 epochs, all LRs '
          '×0.01 over them; seeds 12345 and 22345',
@@ -138,18 +139,18 @@ PHASES = [
         ('20', 'Nov 12', f'Standard ParT from random weights instead of the pretrained model, start LRs '
          f'{E("2.5", 4)}–{E("4", 3)}, 50 epochs',
          f'0.378{V} (start LR {E("4", 3)}, epoch 14), against about 0.30 from the pretrained model; not evaluated on Test',
-         'Pretraining is essential at this training budget'),
+         'Without the pretrained start the model is far worse after 50 epochs'),
         ('21', 'Nov 12', 'Weight averages of the selected checkpoint with nearby epochs (3–10 epochs) and of population '
          'members, for the six runs of seeds 12345 and 22345 in #18',
          f'Standard ParT: averages 0.09% and 0.30% better than the selected checkpoint{V}; constant LR and PBT: no '
          'average better than the selected checkpoint. The planned Test evaluation was not run',
          'At most a small change on Validation; not pursued'),
     ]),
-    ('With 8M training jets, PBT is worse than standard ParT', 'Training (8M) · Validation (1M) · seed 12345', [
+    ('Training (8M): PBT is worse than standard ParT; changes reduce the deficit', 'Training (8M) · Validation (1M) · seed 12345', [
         ('22', 'Nov 14–15', f'Standard ParT as #18, Training (8M), start LRs {E("1", 5)}–{E("1", 3)}',
          f'0.1635; selected start LR {E("1", 3)}, the top of the range', 'The range was extended in #24'),
         ('23', 'Nov 15–17', f'PBT as #18 with the start LRs and upper LR bound of standard ParT ({E("1", 5)}–{E("1", 3)})',
-         '0.1812: 12.4% worse than #24 (10.8% worse than #22, the first reported value)',
+         '0.1811: 12.4% worse than #24 (10.8% worse than #22, the first reported value)',
          f'PBT lowered all LRs to at most {E("2.5", 4)} from epoch 11'),
         ('24', 'Nov 19–20', f'Standard ParT, one model at start LR {E("3", 3)}, added under a rule fixed before it started: '
          'the 8M reference is whichever of #22 and #24 is better on Validation',
@@ -167,7 +168,7 @@ PHASES = [
          'over #25 cannot be assigned to either. Two further seeds were prepared, with the rule that they run only if '
          'this run is not clearly worse than #24; they were not run'),
     ]),
-    ('With 8M training jets, two averaged standard ParT models are 5% better', 'Training (8M) · Validation (1M)', [
+    ('Training (8M): averaging two standard ParT models is 5% better', 'Training (8M) · Validation (1M) · 3 seeds for #28', [
         ('27', 'Nov 23', 'Ensemble: average of the class probabilities of the selected models of #22 (start LR '
          f'{E("1", 3)}) and #24 ({E("3", 3)}), seed 12345; chosen as the best of eight candidate ensembles on Validation, '
          'Test comparison fixed before evaluation',
@@ -180,27 +181,28 @@ PHASES = [
         ('29', 'Nov 23', 'Ensembles of any two of the 15 selected 800k models of #18 (105 pairs), on Validation',
          f'The best pairs about 0.9% better than the best single model{V}; two standard ParT {E("1", 4)} models of different '
          'seeds 0.0% on average',
-         'No gain beyond what choosing among 105 pairs gives by chance'),
+         'No consistent gain with Training (800k); the best pairs were picked after the fact (Figure 4)'),
         ('30', 'Nov 23–25', 'Disagreement (share of jets with a different predicted class) and ensemble change for pairs '
          'of 8M models, on Validation: all pairs of nine seed-12345 models (#22–#26), and the 15 pairs of the '
          f'{E("3", 3)} and {E("1", 3)} standard ParT models of the three seeds (#22, #24, #28)',
-         'Two checkpoints of one run or two models of one PBT run: 0.22–0.40%, ensemble 0.04–0.81% worse. Separately '
-         f'trained standard ParT models: 1.49–2.14%; the 15 three-seed pairs gain 3.6% on average with the same start LR and '
-         f'4.7% with different start LRs. Pairs with a PBT model of another run: 1.02–2.32%, change from 2.0% worse to '
-         f'4.7% better{V}',
-         'Separately trained standard ParT models gain; disagreement alone does not predict the gain (pairs with PBT '
-         'models disagree as much but often do not gain). Figure 4 shows the three-seed pairs only'),
+         'Two models of one run (two checkpoints, or two PBT models): disagreement 0.22–0.40%, ensemble 0.04–0.81% worse '
+         'than the better model. Separately trained standard ParT models (19 pairs): 1.49–2.14%, from 0.14% worse to 6.7% '
+         'better; the 15 three-seed pairs gain 3.6% on average with the same start LR and 4.7% with different start LRs. '
+         f'A PBT model with a model of another run (27 pairs): 1.02–2.32%, from 2.0% worse to 4.7% better{V}',
+         'Disagreement alone does not predict the gain. Every pair that gains more than 1% has two models of similar '
+         'quality (the weaker at most 6% worse); no pair whose weaker model is more than 9% worse gains more than 1%, '
+         'with or without PBT. Exploratory, scored after the fact (Figure 4)'),
         ('31', 'Nov 23–24', 'The final decay of #24 (epochs 36–50) repeated from its epoch-35 checkpoint with dropout 0',
          f'0.1730 against 0.1595 with dropout at epoch 44{V}; stopped at epoch 45 when the process was lost on the node and '
-         'not restarted', 'Dropout helps with Training (8M) although there is no visible overfitting'),
+         'not restarted', 'Without dropout this final decay was much worse; one run, not repeated'),
         ('32', 'Nov 24', 'Distillation: the final decay of #24 repeated from epoch 35 with a loss of half the usual '
          'cross-entropy and half the cross-entropy against the ensemble probabilities of #27',
          f'Best 0.1600 against 0.1584 without distillation{V}; 0.1604 against 0.1597 at the last epoch. The full run was '
          'not started', 'The ensemble gain was not transferred to one model'),
         ('33', 'Nov 24–25', f'Standard ParT, one model at start LR {E("1", 2)}, added under a rule fixed before it started',
          f'0.1631{V}, worse than #24 (0.1584), so #24 stays the reference; 0.1599 on Test',
-         f'The Test value lies within the seed spread of {E("3", 3)} (0.1597–0.1623): above {E("1", 3)} the start LR hardly '
-         'matters'),
+         f'The Test value lies within the seed spread of {E("3", 3)} (0.1597–0.1623): in this one run a higher start LR '
+         'gave no gain'),
     ]),
 ]
 
@@ -264,30 +266,26 @@ PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the 
     ('Nov 3 – Nov 9', 'Test whether a higher constant LR explains the PBT gain.',
      f'A constant LR near {SUP("1", 4)} comes within 0.5–1.0% of PBT.',
      '<b>Interpretation</b> <span class="ev s">single seed per grid</span>. The initial PBT advantage was reduced after '
-     'tuning the constant-LR baseline: from 1.4% in September to 0.5–1.0% (Figure 1). With seed 22345 and a re-centred grid '
-     'PBT was 0.47% worse; the seed and the grid changed together, so the reversal is not assigned to either. Subsequent '
-     'experiments did not establish a consistent advantage over tuned constant-LR training (#18: PBT numerically lower '
-     'than the constant-LR grid on all three seeds, by 0.65%, 0.03% and 0.94%; the 0.03% is negligible). At this precision the comparison needs a larger '
-     'Validation sample and several seeds. <b>Next:</b> Validation (1M), standard ParT as '
-     'comparator (the usual recipe: constant LR for 35 epochs, then ×0.01 over 15; five start LRs), three seeds.',
-     [('fig3_learning_rate.svg', 'PBT against the best constant-LR model in September and November, seeds 12345 and 22345',
-       ('PBT was 1.4% better than the best constant-LR model in September and 0.5–1.0% better after the constant-LR grid '
-        'was moved to higher LRs; with a new seed and a new grid (#16), PBT was 0.47% worse.',
-        'Training (800k); mistag on Test (2.8M) of the models selected on Validation (150k). Seed 12345 except #16, which '
-        f'used seed 22345 and the constant-LR grid {SUP("6", 5)}–{SUP("1.6", 4)} instead of {SUP("8", 5)}–{SUP("3.2", 4)} '
-        '(#14): both changed together, so the reversal is not assigned to either. Step 3 (#14) is the preregistered '
-        'comparison, because #14 was better than #13 on Validation. Both methods reached about 0.02 lower absolute mistag '
-        'in November than in September. Differences of about 0.5% are within the selection noise of Validation (150k).'))]),
+     'tuning the constant-LR baseline: from 1.4% in September to 0.5–1.0% (Figure 1, B). With seed 22345 and a re-centred '
+     'grid PBT was 0.47% worse; the seed and the grid changed together, so the reversal is not assigned to either. '
+     'Subsequent experiments did not establish a consistent advantage over tuned constant-LR training (#18: PBT numerically '
+     'lower than the constant-LR grid on all three seeds, by 0.65%, 0.03% and 0.94%; the 0.03% is negligible). Both '
+     'methods reached about 0.02 lower absolute mistag in November than in September. At this precision the comparison '
+     'needs a larger Validation sample and several seeds. <b>Next:</b> Validation (1M), standard ParT as comparator (the '
+     'usual recipe: constant LR for 35 epochs, then ×0.01 over 15; five start LRs), three seeds.',
+     []),
     ('Nov 10 – Nov 13', 'Compare PBT with standard ParT under the new selection, Training (800k).',
      'PBT better on all three seeds, by less than 1%.',
-     '<b>Interpretation</b> <span class="ev r">replicated, 3 seeds</span>. With Training (800k), PBT finds a slightly better '
-     'schedule than standard ParT. The interval (0.34–1.34%) is the Test-sample uncertainty; the seed-to-seed spread is '
-     '0.67–0.91%. <b>Next:</b> repeat with ten times more training data, to see whether the gain holds.',
+     '<b>Interpretation</b> <span class="ev r">replicated, 3 seeds</span>. With Training (800k), the model selected from '
+     'PBT has a slightly lower mistag than the one selected from standard ParT on every seed. The interval (0.34–1.34%) is '
+     'the Test-sample uncertainty of the mean; the seed-to-seed spread is 0.67–0.91%. Against the tuned constant-LR grid '
+     'PBT is also numerically better on every seed, but by 0.03% on seed 22345: not an established, practically '
+     'meaningful advantage. <b>Next:</b> repeat with ten times more training data, to see whether the gain holds.',
      []),
     ('Nov 14 – Nov 23', 'Repeat the comparison on Training (8M) and try to correct PBT.',
      'PBT worse than standard ParT; the corrections reduce but do not remove the deficit.',
-     '<b>Observations</b> <span class="ev s">single seed</span>. PBT lowers all LRs early and falls behind during the final '
-     'decay of standard ParT (Figure 2). With Training (800k) the training loss falls below the Validation loss after about '
+     '<b>Observations</b> <span class="ev s">single seed</span>. PBT lowered all LRs early; standard ParT passed it at epoch '
+     '21 and pulled far ahead during its final decay (Figure 2). With Training (800k) the training loss falls below the Validation loss after about '
      '20 epochs; with Training (8M) it does not (Figure 3). <b>Hypothesis</b> <span class="ev h">not tested</span>. Deciding '
      'two epochs after each change favours lower LRs, which costs little when the model overfits and much when it does not. '
      '#26 changed the LR range and added the final decay at once, so its improvement over #25 is not assigned to either. '
@@ -295,32 +293,102 @@ PHASE_TEXT = [  # (dates, objective, outcome, interpretation and reason for the 
      '<b>Next:</b> no LR-schedule change beat standard ParT, so test a gain that does not depend on the schedule: '
      'combining separately trained models.',
      [('fig5_mechanism.svg', 'Learning rate and best Validation mistag per epoch, Training (8M)',
-       'Training (8M), seed 12345. Left: LR per epoch of standard ParT (#24) and range of the five PBT models (#23). Right: '
-       'best Validation (1M) mistag so far; dashed: PBT with probes, final decay and higher LR range (#26). Shaded: final LR decay.'),
+       ('PBT lowered all its learning rates to at most 2.5×10<sup>−4</sup> by epoch 11; standard ParT kept 3×10<sup>−3</sup> '
+        'for 35 epochs, passed PBT at epoch 21 and pulled far ahead during its final decay.',
+        'Training (8M), seed 12345. Left: LR per epoch of standard ParT (#24) and the range over the five PBT models (#23). '
+        'Right: best Validation (1M) mistag reached so far; dashed: PBT with probes, final decay and higher LRs (#26). '
+        'Shaded: final LR decay of standard ParT.')),
       ('fig4_regimes.svg', 'Training and Validation loss per epoch, Training (800k) and Training (8M)',
-       f'Loss per epoch of the best standard ParT model (start LR {SUP("1", 4)} at 800k, {SUP("3", 3)} at 8M) on the '
-       'training data and on Validation (1M); one seed each.')]),
+       ('With Training (800k) the loss on the training data falls below the Validation loss; with Training (8M) the two '
+        'stay together. An observation; its link to the PBT result is a hypothesis.',
+        f'Best standard ParT model of seed 12345 (start LR {SUP("1", 4)} with Training (800k), {SUP("3", 3)} with Training '
+        '(8M)); loss on the training data (dashed) and on Validation (1M) (solid). The training loss is measured with '
+        'dropout active, which is why it starts above the Validation loss.'))]),
     ('Nov 23 – Nov 25', 'Test whether combining separately trained standard ParT models helps on Training (8M).',
      'The ensemble gain is replicated on two new seeds; no single-model alternative keeps it.',
-     '<b>Observation.</b> Pairs from one run disagree on at most 0.4% of the jets and do not gain; separately trained '
-     'standard ParT models disagree on 1.5–2.1% and gain (Figure 4); pairs involving PBT models of other runs disagree '
-     'as much but gain between −2.0% and +4.7% (#30). <b>Hypothesis</b> '
-     '<span class="ev h">not tested</span>. The gain needs models that make different errors; PBT copies weights between '
-     'its models, and at 800k the low LRs keep all models close to the pretrained start. The ensemble needs two forward '
-     'passes per jet; its inference cost was not measured. Interval 4.17–5.84%: Test-sample uncertainty; seed-to-seed '
-     'spread 4.86–5.14%.',
-     [('fig6_ensemble.svg', 'Disagreement and ensemble improvement for five kinds of model pairs on Validation (1M)',
-       ('Of the groups shown, only separately trained 8M standard ParT models disagree on more than 1.5% of the jets, and '
-        'only they gain from averaging; pairs from one run, from one PBT population, or from 800k training do not gain.',
-        'Validation (1M) (#29, #30). Left: share of jets on which the two models predict different classes. Right: mistag '
-        'reduction of the two-model ensemble against the better model of the pair; grey rows give the measured range '
-        'where no gain was observed; bars span the pairs, black ticks mark the mean. Rows: checkpoints at epochs 45 and 50 '
-        f'of standard ParT {SUP("3", 3)} (#24); three models of the PBT run with probes, final decay and higher LRs (#26); '
-        f'standard ParT {SUP("1", 4)} of the three 800k seeds (#18); standard ParT at {SUP("3", 3)} and {SUP("1", 3)} of '
-        'three seeds (#22, #24, #28) paired with the same or a different start LR. Pairs that include PBT models of other '
-        'runs (not shown) disagree as much but change by −2.0% to +4.7% (#30). The panels show an association, not a '
+     '<b>Observations</b> <span class="ev r">ensemble gain replicated, 3 seeds</span>. The ensemble of #27 is better than '
+     'its better model on each of three seeds; the interval 4.17–5.84% is the Test-sample uncertainty of the mean and the '
+     'seed-to-seed spread is 4.86–5.14%. Among all scored pairs (Figure 4, exploratory, Validation (1M)), two models of one '
+     'run disagree on at most 0.4% of the jets and never gain; separately trained models disagree on 1.0–2.3% and gain '
+     'only when both are of similar quality, whether or not one is a PBT model. <b>Hypothesis</b> '
+     '<span class="ev h">not tested</span>. Averaging helps when two models of similar quality make different errors; PBT '
+     'copies weights between its own models, so they make the same errors. Cost: two forward passes per jet; the inference '
+     'time was not measured.',
+     [('fig6_ensemble.svg', 'Ensemble improvement against disagreement and against the quality gap, for every scored pair',
+       ('Disagreement alone does not separate pairs that gain from pairs that do not. Pairs gain when they disagree and '
+        'their two models are of similar quality; pairs with a much weaker model do not gain.',
+        'Each point is one pair of models, scored on Validation (1M) after the models were trained (#29, #30): 105 pairs '
+        'of the fifteen Training (800k) models of #18; 36 pairs of nine Training (8M) models of seed 12345 (#22–#26, '
+        'including two checkpoints of #24 and three models of #26); the 15 pairs of the six standard ParT models '
+        f'(start LRs {SUP("3", 3)} and {SUP("1", 3)}) of the three seeds (#22, #24, #28). The pair of #24 with the '
+        f'{SUP("1", 3)} model of #22 is in both sets and counted once. Ringed: the three ensembles of #27 and #28. '
+        'Right: how much higher the mistag of the weaker model is than that of the better one. An association, not a '
         'causal effect.'))]),
 ]
+
+
+FIGDATA = ROOT / 'published/results/report/figure_data.json'
+
+
+def _iv(lo, hi):
+    """95% interval of a relative change (negative = lower mistag), in words."""
+    if hi < 0:
+        return f'{-hi:.2f}–{-lo:.2f}% better'
+    if lo > 0:
+        return f'{lo:.2f}–{hi:.2f}% worse'
+    return f'{-lo:.2f}% better to {hi:.2f}% worse'
+
+
+def _ch(c):
+    return f'{abs(c):.2f}% {"better" if c < 0 else "worse"}'
+
+
+def table_18(d):
+    """#18 per seed: absolute Test values of the three methods and PBT's relative change against each comparator."""
+    o = d['overview']['sel800k']
+    rows = ''.join(
+        f'<tr><td>{s["seed"]}</td><td class="num">{s["standard"]:.4f}</td><td class="num">{s["constant"]:.4f}</td>'
+        f'<td class="num"><b>{s["pbt"]:.4f}</b></td><td>{_ch(s["pbt_vs_standard"]["change"])}'
+        f'<span class="iv">{_iv(*s["pbt_vs_standard"]["interval"])}</span></td>'
+        f'<td>{_ch(s["pbt_vs_constant"]["change"])}<span class="iv">{_iv(*s["pbt_vs_constant"]["interval"])}</span></td></tr>'
+        for s in o['seeds'])
+    rows += (f'<tr class="mean"><td>mean</td><td></td><td></td><td></td><td><b>{_ch(o["mean_change"])}</b>'
+             f'<span class="iv">{_iv(*o["mean_interval"])}</span></td><td>not computed</td></tr>')
+    return ('<div class="table-wrap"><table class="cmp"><caption><a class="tref" href="#t18">#18</a> per seed: Test (2.8M) '
+            'mistag (%) of the selected model of each method, and PBT against each comparator</caption><thead><tr>'
+            '<th>Seed</th><th class="num">Standard ParT</th><th class="num">Tuned constant LR</th><th class="num">PBT</th>'
+            '<th>PBT vs standard ParT</th><th>PBT vs tuned constant LR</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table></div><p class="tnote">Below each change: 95% Test-sample interval. It does '
+            'not include seed-to-seed variation, which the three rows show. PBT is numerically better than the tuned '
+            'constant LR on every seed, but by 0.03% on seed 22345: not an established, practically meaningful '
+            'advantage.</p>')
+
+
+def table_28(d):
+    """#27/#28 per seed: provenance (trial, training epoch) and Test value of both models, the ensemble and its change."""
+    o = d['overview']['ensemble']
+    src = {'sel1m_train8m_standard_part_3e-3': '#24', 'sel1m_train8m_standard_part': '#22'}
+
+    def model(m, value):
+        where = src.get(m['run'], f'#28 run')
+        return f'<td>{where}, epoch {m["epoch"] - 17}</td><td class="num">{value:.4f}</td>'
+    rows = ''.join(
+        f'<tr><td>{s["seed"]} <a class="tref" href="#t{s["trial"]}">#{s["trial"]}</a></td>{model(s["model_3e3"], s["better"])}'
+        f'{model(s["model_1e3"], s["other"])}<td class="num"><b>{s["ensemble"]:.4f}</b></td><td>{_ch(s["change"])}'
+        f'<span class="iv">{_iv(*s["interval"])}</span></td></tr>' for s in o['seeds'])
+    rows += (f'<tr class="mean"><td>mean</td><td></td><td></td><td></td><td></td><td></td><td><b>{_ch(o["mean_change"])}'
+             f'</b><span class="iv">{_iv(*o["mean_interval"])}</span></td></tr>')
+    return ('<div class="table-wrap"><table class="cmp"><caption><a class="tref" href="#t27">#27</a> and '
+            '<a class="tref" href="#t28">#28</a> per seed: the two standard ParT models, their average and its change '
+            'against the better model; Test (2.8M) mistag (%)</caption><thead><tr><th rowspan="2">Seed</th>'
+            f'<th colspan="2">Start LR {SUP("3", 3)} (better model)</th><th colspan="2">Start LR {SUP("1", 3)}</th>'
+            '<th rowspan="2" class="num">Ensemble</th><th rowspan="2">Ensemble vs better model</th></tr><tr>'
+            '<th>model, epoch</th><th class="num">Test</th><th>model, epoch</th><th class="num">Test</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table></div><p class="tnote">Epoch: training epoch of the checkpoint with the best '
+            'Validation (1M) value of that model. The 3×10<sup>−3</sup> model was the better one on Validation (the '
+            'preregistered reference) and on Test, on every seed. For seeds 22345 and 32345 both models come from one '
+            '#28 run that trains only these two start LRs. Run names, members and checkpoint files are in the '
+            '<a href="log.html#t28">experiment log</a>.</p>')
 
 
 SUPPORTING = {  # trial -> supporting role; all other trials are primary (they carry the main line of the study)
@@ -329,8 +397,8 @@ SUPPORT_TITLE = {  # phase -> what its supporting trials investigated
     1: 'Diagnostics and preparation: LR controller in observe mode (#5), decision frequency of PBT (#6), restart within '
        'an epoch (#7, #11), first Test evaluation (#8), preparation of Training (8M) (#9)',
     2: 'PBT modification: fallback copies when no new LR is free (#17), used in all later PBT runs',
-    3: 'Side checks at 800k: final LR decay in PBT (#19), training without pretraining (#20), weight averaging (#21)',
-    5: 'Further checks at 8M: ensembles at 800k (#29), source of the ensemble gain (#30), dropout (#31), distillation '
+    3: 'Side checks with Training (800k): final LR decay in PBT (#19), training without pretraining (#20), weight averaging (#21)',
+    5: 'Further checks: ensembles with Training (800k) (#29), source of the ensemble gain (#30), dropout (#31), distillation '
        '(#32), start LR 10<sup>−2</sup> (#33)',
 }
 THEAD = ('<colgroup><col class="c-n"><col class="c-d"><col class="c-c"><col class="c-r"><col class="c-i"></colgroup>'
@@ -338,7 +406,10 @@ THEAD = ('<colgroup><col class="c-n"><col class="c-d"><col class="c-c"><col clas
 
 
 def timeline():
-    out, nfig = [], 1
+    import json
+    d = json.loads(FIGDATA.read_text())
+    results = {3: table_18(d), 5: table_28(d)}  # compact per-seed tables of the key trials, visible by default
+    out, nfig = [], 2  # Figure 1 is the research overview in the summary
     for k, ((title, cond, rows), (dates, objective, outcome, learned, figs)) in enumerate(zip(PHASES, PHASE_TEXT)):
         main = ''.join(trial_row(*row) for row in rows if row[0] not in SUPPORTING)
         support = [row for row in rows if row[0] in SUPPORTING]
@@ -351,19 +422,35 @@ def timeline():
             extra = (f'<details class="supporting"><summary><span class="sup-label">Supporting experiments '
                      f'({len(support)})</span> {SUPPORT_TITLE[k]}</summary><div class="table-wrap"><table class="hist">'
                      f'{THEAD}<tbody>{"".join(trial_row(*row) for row in support)}</tbody></table></div></details>')
-        why, changed, found, nxt = PHASE_SUMMARY[k]
+        found_cls = ' class="found"'
+        psum = ''.join(f'<dt>{lab}</dt><dd{found_cls if lab == "Found" else ""}>{v}</dd>'
+                       for lab, v in zip(('Why', 'Changed', 'Found', 'Next'), PHASE_SUMMARY[k]) if v)
         learned = re.sub(r'\s*<b>Next:</b>.*$', '', learned, flags=re.S)  # the reason to move on is in the summary
         out.append(f'<section class="phase" id="phase-{k}"><div class="when">Phase {k} · {dates} · {cond}</div>'
-                   f'<h3 data-anchor="phase-{k}">{title}</h3><dl class="psum"><dt>Why</dt><dd>{why}</dd>'
-                   f'<dt>Changed</dt><dd>{changed}</dd><dt>Found</dt><dd class="found">{found}</dd>'
-                   f'<dt>Next</dt><dd>{nxt}</dd></dl>'
+                   f'<h3 data-anchor="phase-{k}">{title}</h3><dl class="psum">{psum}</dl>'
                    f'<div class="table-wrap"><table class="hist">{THEAD}<tbody>{main}</tbody></table></div>'
-                   f'{extra}<p class="learned">{xref(learned)}</p>' + ''.join(figs_html) + '</section>')
+                   f'{results.get(k, "")}{extra}<p class="learned">{xref(learned)}</p>' + ''.join(figs_html) + '</section>')
     return '\n'.join(out)
+
+OVERVIEW_CAPTION = (
+    'The research in five stages. Read top to bottom; the line between two stages says why the next one followed. Each '
+    'stage has its own axes: values of different stages are not comparable, because the training sample, Test sample, '
+    'comparator or number of seeds changes (the header of each stage names them).',
+    'Left panels: absolute mistag on Test (2.8M), or Test (9.0M) for Training (8M) in A, of the model each run selected '
+    'on Validation; lower is better. Right panels: relative change of the mistag; bars are 95% Test-sample intervals '
+    '(they do not include seed-to-seed variation; none exists for single-seed results). A and B, right: learning rates; '
+    'the Validation (150k) values in B are the best value of each constant-LR model over its 50 epochs. Encoding in all '
+    'figures: standard ParT blue circle, constant LR grey open circle, PBT orange square, ensemble green diamond. All '
+    'values are from the run records (published/results/report/figure_data.json).')
 
 
 def main():
-    page = (Path(__file__).with_name('report_template.html')).read_text().replace('<!--TIMELINE-->', timeline()).replace('pub/style.css', asset('style.css')).replace('pub/anchors.js', asset('anchors.js'))
+    overview = ('<figure id="fig-1" class="overview"><div class="fig-scroll"><img src="{src}" alt="Research trajectory '
+                'from September to November in five stages A to E, each with its Test results"></div>'
+                '<figcaption data-anchor="fig-1"><b>Figure 1.</b> {cap}</figcaption></figure>').format(
+        src=asset('fig1_overview.svg'), cap=caption(OVERVIEW_CAPTION))
+    page = (Path(__file__).with_name('report_template.html')).read_text().replace('<!--TIMELINE-->', timeline())
+    page = page.replace('<!--OVERVIEW-->', overview).replace('pub/style.css', asset('style.css')).replace('pub/anchors.js', asset('anchors.js'))
     out = ROOT / 'docs/_extra/overview.html'
     out.write_text(page)
     print(f'{out.relative_to(ROOT)}: {len(page) // 1024} kB')

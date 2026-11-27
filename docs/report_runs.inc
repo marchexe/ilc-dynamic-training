@@ -255,7 +255,7 @@
      - 175
      - lr_10e-6, 2.19×10⁻⁵, 49
      - 0.1844
-     - 0.1812
+     - 0.1811
    * - 24
      - :repo:`sel1m_train8m_standard_part_3e-3 <configs/experiments/sel1m_train8m_standard_part_3e-3.yaml>`
      - Nov 19 08:38 → Nov 20 19:09
